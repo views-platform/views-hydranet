@@ -8,7 +8,7 @@ list plus five additions.
 meant end-2027 this register is under-scoped and the horizon line is the thing to correct, not the
 ranking.
 
-**Last updated** 2026-10-27c · **10 entries** · **2 live (RP-1 #477, RP-3 #468)** · 7 queued · 1 parked (RP-9)
+**Last updated** 2026-10-28 · **10 entries** · **1 live (RP-3 #468)** · **1 measured out (RP-1 — epic #477, all seven stories closed; awaiting merge)** · 7 queued · 1 parked (RP-9)
 
 ## How this works
 
@@ -26,7 +26,7 @@ ranking.
 
 | # | ID | challenge | status | cost | can it end in a pod run? |
 |---|---|---|---|---|---|
-| **1** | **RP-1** | The metric battery cannot see what we are trying to fix | 🟢 **LIVE** — epic **#477** | **CPU, hours** | no — it makes later ones readable |
+| **1** | **RP-1** | The metric battery cannot see what we are trying to fix | ✅ **MEASURED OUT 2026-10-28** — epic **#477**, all seven stories closed; ⛔ awaiting merge only | **CPU, hours — spent: ~7 min of compute across six scripts** | no — it makes later ones readable |
 | **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | 🔵 queued | **CPU, ~1 h** | no — same |
 | **3** | **RP-10** | ⭐ **The truth is not ground truth — we have never estimated the Bayes error floor** | 🔵 queued | **CPU, minutes** (route A) | no |
 | **4** | **RP-7** | Nothing scores spatial dependence or aggregates | 🔵 queued | CPU | no |
@@ -50,7 +50,45 @@ it is independent, already open, and needs no GPU.
 
 ## RP-1 · The metric battery cannot see what we are trying to fix
 
-**Rank 1.** 🟢 **LIVE — epic #477.** CPU, hours. Stories **#478**–**#484**.
+**Rank 1.** ✅ **MEASURED OUT 2026-10-28 — epic #477, stories #478–#484 all CLOSED.** ⛔ The only
+item left is pushing and merging the branch, which is Simon's. CPU; ~7 minutes of compute total.
+
+> ### ⭐⭐ THE ANSWER, and the thesis below was CONFIRMED, not refuted
+>
+> **The battery is partially blind and three blind spots are TOTAL.** `RESULTS_LEDGER` **M69–M73**
+> carries the measured record; five `FINDING_*.md` files carry the detail.
+>
+> - ⛔ **13 of 18 scoring columns give the worst constructible magnitude forecast the ORACLE's
+>   exact score** — and **14 of 20** including `MCR_field` and `act_freq`.
+> - ⭐⭐⭐ **14 of 20 columns are functions of the MEAN FIELD alone**, derived from the source and
+>   confirmed at exactly `0.000e+00` ⇒ the ensemble's dispersion is visible to **exactly four**
+>   columns, three of which are one CRPS split.
+> - ⭐⭐⭐ A **100% permutation of the event-cell magnitudes**, placement untouched, moves six
+>   battery columns by **exactly 0** and the new instrument by **1.03** ⇒ **#444 confirmed, as a
+>   curve.**
+> - ⛔ **`matched_pred_thresh` keeps its documented promise in 75 of 143 forecast-months (52%)**,
+>   failing in three distinct ways — **C-388**, and the delivered model is affected by one of them.
+> - ⛔ **Of FAO-02's three locked guardrails the frozen ruler computes exactly ONE as defined** —
+>   QS99 absent, MCR present only as two statistics that are not it — **C-389**.
+> - ⛔ **The plug-in CRPS charges 9 of 11 forecasts nothing and the BASELINE 3.4× the model** ⇒
+>   **18% skill inflation at m=16**, in the direction that flatters us.
+> - ⭐ **The instrument built:** `scripts/placement_rho.py`, 42 tests, two independent guard
+>   audits, swept, with two measured ways to misuse it written into its own docstring.
+>
+> ⚠️ **Three of my own published claims were corrected in place** (`W-91`, `W-92`, `W-94`), each by
+> a gate written to reject my own explanation. ⇒ The epic's real output is not the instrument; it
+> is that **four separately-published numbers of ours were wrong in the same direction** — toward
+> the conclusion already drawn.
+>
+> **Hands to the queue:** RP-4 inherits the four-column dispersion constraint · RP-6 inherits a new
+> first question (its `0.303` vs `0.367` ordering **reverses** on this population) · RP-10 gained
+> **two** measured points (`crps_events` and `placement_rho` both rank the mass-preserving blur
+> **above** the delivered model) · ⛔ **Gini is dead as a candidate instrument** (`W-89`).
+>
+> ⚠️ **Still owed, none of it in this entry's scope:** #481's count of estimator-sensitive recorded
+> comparisons (rule written, cubes mostly deleted); C-389's validation-partition guardrail pass;
+> C-388 is registered, **not fixed**; and whether C-388's worst mechanism fires on the B-1a/B-1b
+> populations is **unmeasured**.
 
 ⛔⛔ **The investigation changed what this entry is, and the change is the finding.** This is **not a design problem.** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md` is **31 KB**, catalogues failure modes A–I, and its **§5** already designs exactly this method — *"treat the metric suite itself as software under test, and unit-test it with adversarial/degenerate forecasts whose true quality is known"* — naming **seven** forecasts, the acceptance rule *"a metric that cannot separate these is blind and must not be used for selection"*, and **three stated results**. ⛔ **It was never written.** A repo-wide grep for a degenerate-forecast harness returns nothing. ⇒ **C-383's shape, third time this week** — and one of the unverified claims is *"CRPS fails on sparse (all collapse together)"*, about **FAO-02's PRIMARY metric**. The draft also says the harness *"would have flagged the #258 defect on day one, on synthetic data, before any model run."*
 
@@ -409,7 +447,7 @@ These are not queued because they are not research. They apply to every entry ab
 
 | ID | outcome |
 |---|---|
-| — | *(none yet)* |
+| **RP-1** | ✅ **MEASURED OUT 2026-10-28**, epic #477, seven stories. The thesis was **confirmed**: the battery is partially blind, three blind spots are total, and a 100% magnitude scramble leaves six columns bit-identical. Byproducts: **C-388**, **C-389**, C-303→23, `W-87`–`W-94`, `R-29`–`R-34`, `RESULTS_LEDGER` M69–M73, one new instrument, and locked `MCR`/`QS99` glossary rows. ⛔ Awaiting merge only. |
 
 ## §Dropped
 
