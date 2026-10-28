@@ -258,6 +258,43 @@ moved = [n for n in rp if rp[n] != rf[n]]
 print(f"       ⇒ {len(moved)} of {len(rows)} forecasts change rank on crps_events: "
       f"{', '.join(moved) if moved else 'none'}")
 
+print()
+print("-" * 118)
+print("  ⛔⛔ AMENDMENT 2 — WHAT IT DOES TO A SKILL SCORE, AT THE DRAW COUNT THE RECORD USED")
+print("-" * 118)
+#: ⭐ M1's `climatology` is NOT an analogy for FAO-02's baseline, it is an instance of its
+#: construction: "per-cell empirical distribution of the 36 fit-window observations, resampled to
+#: S" against FAO-02 Topic B's "resample predictive draws from each cell's 36-month local history
+#: window, lambda = 0". ⚠️ A DIFFERENT PARTITION and a T=0 read, so this is NOT an eligibility
+#: number — but the estimator's effect on the comparison is measured on the right construction.
+#: ⛔ bias = E|X-X'|/(2m), and E|X-X'| is a property of the LAW, not of m, so the measured spread
+#: gives the bias at ANY m by division. Nothing here is extrapolated from a fitted trend.
+clim = next(g for n, g, _e, _z in rows if n == "climatology")
+ref = next(g for n, g, _e, _z in rows if n == "reference (delivered)")
+print(f"       measured E|X-X'|   climatology {clim['spread']:.6f}   "
+      f"delivered {ref['spread']:.6f}   ratio {clim['spread'] / ref['spread']:.2f}x")
+print("       ⇒ the plug-in charges the BASELINE 3x what it charges the model, because the")
+print("         baseline is the more dispersed forecast. ⛔ The direction that flatters us.")
+print()
+print("       m      model plug   baseline plug   CRPSS(plug)   CRPSS(fair)   inflation   "
+      "as % of CRPSS")
+crpss_fair = 1.0 - ref["fair"] / clim["fair"]
+for m in (4, 16, 64, 256, 1024):
+    mp = ref["fair"] + ref["spread"] / (2 * m)
+    bp = clim["fair"] + clim["spread"] / (2 * m)
+    cp = 1.0 - mp / bp
+    print(f"       {m:>5d}  {mp:>11.6f}  {bp:>14.6f}  {cp:>12.6f}  {crpss_fair:>12.6f}  "
+          f"{cp - crpss_fair:>10.6f}  {100 * (cp - crpss_fair) / crpss_fair:>13.2f}%")
+print()
+print("       ⛔ FAO-02's superiority bar is a 5% CRPS reduction against the baseline.")
+_m16 = 1.0 - (ref["fair"] + ref["spread"] / 32) / (clim["fair"] + clim["spread"] / 32)
+print("       At m = 16 — the draw count the published numbers were scored at — the plug-in")
+print(f"       reports CRPSS {_m16:.6f} where the fair estimator reports {crpss_fair:.6f}:")
+print(f"       an inflation of {100 * (_m16 - crpss_fair):.2f} percentage points, "
+      f"{100 * (_m16 - crpss_fair) / crpss_fair:.1f}% of the skill score's own value.")
+print("       ⚠️ Both sides clear 5% here, so NO verdict flips on this pair. ⛔ But the error is")
+print("         one-directional and it is largest exactly where the margin is thinnest.")
+
 out = HERE / "crps_estimator_cost.npz"
 np.savez(
     out,
