@@ -1,0 +1,80 @@
+  PASS  G-S0  sorted pairwise identity == brute force, foreign input
+  PASS  G-S1  binned_cdf.py and l3a_split_sensitivity.py hold the SAME scorer (AST, docstring excluded)
+  PASS  G-S3  cube sha == d4_result.npz's sha (4acbf4d3c2b457b0…) ⇒ the sb anchor is legitimate
+
+===================================================================================================
+L3c (#471) — THE FAMILY-FREE LOOKUP ON ALL THREE TARGETS, one vehicle, one pass
+===================================================================================================
+  cube          l3b_cube3.npz  sha 4acbf4d3c2b457b0…  family nb  dropout 0.15  draws 4
+  targets       ['ged_sb_best', 'ged_ns_best', 'ged_os_best']  (axis 0 of (3, 4, 49, 64818))
+  split         fit 421-456, score 457-469 — M67's own, unchanged
+  ⛔ no cross-family caveat: three heads of ONE model on ONE pass, same dropout masks
+
+  ged_sb_best   score-window positive fraction 0.003448   index range 4.300e-13 .. 28.967
+      bins     plug-in        fair      vs B=1      n/bin     void%
+         1    0.060323    0.060323       +0.0%  2333448.0    0.000%
+        50    0.057975    0.057973       -3.9%    46669.0    0.000%
+       250    0.048389    0.048381      -19.8%     9333.8    0.000%
+      1000    0.042003    0.041979      -30.4%     2333.4    0.000%
+      2000    0.041354    0.041309      -31.4%     1166.7    0.000%
+      4000    0.040135    0.040050      -33.5%      583.4    0.000%
+      8000    0.039186    0.039026      -35.0%      291.7    0.000%  <- best
+     16000    0.039287    0.038971      -34.9%      145.8    0.000%
+     32000    0.039493    0.038856      -34.5%       72.9    0.000%
+
+  ged_ns_best   score-window positive fraction 0.001201   index range 5.646e-09 .. 13.872
+      bins     plug-in        fair      vs B=1      n/bin     void%
+         1    0.021848    0.021847       +0.0%  2333448.0    0.000%
+        50    0.021398    0.021398       -2.1%    46669.0    0.000%
+       250    0.020108    0.020107       -8.0%     9333.8    0.000%
+      1000    0.018370    0.018364      -15.9%     2333.4    0.000%
+      2000    0.017566    0.017554      -19.6%     1166.7    0.000%
+      4000    0.016891    0.016870      -22.7%      583.4    0.000%
+      8000    0.016346    0.016310      -25.2%      291.7    0.000%
+     16000    0.016166    0.016097      -26.0%      145.8    0.000%  <- best
+     32000    0.016309    0.016174      -25.3%       72.9    0.000%
+
+  ged_os_best   score-window positive fraction 0.001291   index range 2.382e-12 .. 9.846
+      bins     plug-in        fair      vs B=1      n/bin     void%
+         1    0.007294    0.007294       +0.0%  2333448.0    0.000%
+        50    0.007091    0.007091       -2.8%    46669.0    0.000%
+       250    0.006608    0.006608       -9.4%     9333.8    0.000%
+      1000    0.006233    0.006231      -14.6%     2333.4    0.000%
+      2000    0.006208    0.006204      -14.9%     1166.7    0.000%  <- best
+      4000    0.006216    0.006209      -14.8%      583.4    0.000%
+      8000    0.006288    0.006273      -13.8%      291.7    0.000%
+     16000    0.006250    0.006223      -14.3%      145.8    0.000%
+     32000    0.006239    0.006187      -14.5%       72.9    0.000%
+
+===================================================================================================
+  THE ANSWER — the internal margin, per target
+===================================================================================================
+  target           pos rate      B*    CRPS(B*)        fair   CRPS(B=1)      margin
+  ged_sb_best      0.003448    8000    0.039186    0.039026    0.060323      -35.0%
+  ged_ns_best      0.001201   16000    0.016166    0.016097    0.021848      -26.0%
+  ged_os_best      0.001291    2000    0.006208    0.006204    0.007294      -14.9%
+
+  PASS  G-S2  the sb column at B=8,000 reproduces the committed 0.039186 / 0.039026 to 1e-6: got 0.039186 / 0.039026
+           ⚠️ NOT gated: M67's ledger value 0.039327 is reproduced by NO implementation (gap -0.000141, -0.36%) — open item of #460, W-98.
+  PASS  G-S4  NON-VACUITY: the three targets give 3 distinct CRPS values at B=8,000
+  PASS  G-S5  COVERAGE: worst void fraction over all (target, B) is 0.0000%, bar 1%
+
+===================================================================================================
+  HOW TO READ THIS — printed, not left to the reader
+===================================================================================================
+  ⛔ The three ABSOLUTE CRPS levels are NOT comparable to each other. The targets have
+     different base rates (printed above), and a rarer target scores lower for free.
+     The cross-target claim is the MARGIN column and nothing else.
+  ⛔ 0.046023 and 0.050758 are `sb` numbers on months 457-469. There is NO
+     parametric comparator for ns or os, so none is printed. The B=1 margin replaces it
+     and measures a weaker thing: conditioning value, not superiority over a
+     parametric head.
+  ⭐ What a held margin on all three DOES establish: the lookup is reading something real
+     in the trunk's ranking, not something peculiar to the sb head.
+  ⛔ ONE SPLIT, ONE CHECKPOINT, ONE SEED. L3a swept the split for sb only. Nothing here is
+     a replication, and no σ̂ exists for CRPS on this route (C-394: the vehicle is on disk,
+     but there is still no second seed in the `nb` @ 0.15 cell —
+     reproducible ≠ resolvable).
+
+  ALL GATES PASS
+  wall time 49.3 s   peak RSS 2.68 GiB

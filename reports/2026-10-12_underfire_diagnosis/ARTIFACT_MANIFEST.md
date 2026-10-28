@@ -64,3 +64,21 @@ existed.** That is the entire argument for writing it.
 **What a reader should do before trusting a number from this dossier:** check that the file is still
 present and its sha256 still matches. If it does not, the number is unverifiable and should be
 re-measured or withdrawn, not quoted.
+
+## `reports/2026-10-28_rp3_l3/l3b_cube3.npz` — the three-target cube, 2026-10-28
+
+| | |
+|---|---|
+| shape | `(3, 4, 49, 64818)` = **(targets, draws, months, land cells)**, axis 0 = `['ged_sb_best', 'ged_ns_best', 'ged_os_best']` |
+| vehicle | `calibration_model_20261012_033112.pt`, sha256 `4acbf4d3c2b457b0…`, family **`nb`**, dropout **0.15**, git `f99413e`, 300 lessons |
+| ⭐ reproduction gate | **G-2 PASS — the `sb` slice is BIT-IDENTICAL to `d4_result.npz`** (`mu`, `theta`, `gate`; `np.array_equal`, no tolerance) |
+| size / cost | 413.3 MB · 818.1 s, 3.19 GiB peak, CPU, 8 threads |
+| written by | `reports/2026-10-28_rp3_l3/l3b_three_target_cube.py` (committed `4b1c3b7` before it ran) |
+
+⛔ **NOT a `d4_result*.npz` and must never be counted as one.** It carries an extra leading target
+axis, lives outside `2026-10-12_underfire_diagnosis/`, and is named differently on purpose — the 25
+scripts that `np.load` a `d4_result` cube would mis-index it rather than raise. **#487** holds the
+deferred decision about whether the repo's cube writer should ever grow a target axis.
+
+⚠️ **One seed.** This is seed 42, the only checkpoint in the `nb` @ 0.15 cell. It is a reproduction,
+not a replicate, and carries **no σ̂** (C-394).

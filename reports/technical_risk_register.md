@@ -7447,7 +7447,7 @@ split C-391 forced on B-1b.
 
 ---
 
-### C-393: a headline absolute CRPS was quoted from the most forgiving of eight available score windows, and nothing records that the window was a choice
+### C-393: a headline was quoted from the most favourable cell of an 8 x 3 grid of available score windows and targets, and nothing records that either was a choice
 
 | Field | Value |
 |-------|-------|
@@ -7496,10 +7496,35 @@ single value selected by a reasonable rule, then quoted with the rule's existenc
 B\* sits at 8,000 or 16,000 on all eight windows. ⇒ **#469 (L1) is asking about a plateau, not a
 slope**, and should be scoped accordingly before it spends anything.
 
+⛔⛔ **EXTENDED 2026-10-28, same day — a SECOND favourable selection in the same number.**
+L3c (#471) scored the lookup on all three targets from one bit-identical cube, at the published
+split, against the same internal B=1 comparator:
+
+| target | positive rate | B\* | **internal margin** |
+|---|---|---|---|
+| ⭐ `ged_sb_best` — **the published target** | 0.003448 | 8,000 | **−35.0%** |
+| `ged_ns_best` | 0.001201 | 16,000 | −26.0% |
+| ⛔ `ged_os_best` | 0.001291 | 2,000 | **−14.9%** |
+
+⇒ The published target is the **best of the three**, and the margin **more than halves** across
+them. ⚠️ Not a base-rate artifact: `ns` is rarer than `os` and scores better. ⛔ `os` is weak
+independently of the margin — its ladder is flat from 1,000 bins up (0.9% span over 1k–32k) and its
+optimum is 4× coarser.
+
+⇒ **Two independent favourable selections, window and target, in one headline, neither recorded.**
+The headline is the most favourable cell of an **8 × 3 grid**. ⚠️ Still not a retraction: the
+comparator sat on the same window AND the same target, so both selections are common to both sides
+and largely cancel. What changes is what must travel with the number. **M78**,
+`reports/2026-10-28_rp3_l3/FINDING_L3bc.md`.
+
+⭐ **And the generalisation itself is good news, stated plainly so the caveat does not swallow it:**
+three of three targets hold, which means the lookup is reading the **shared trunk's** ranking rather
+than something peculiar to the `sb` head.
+
 **Remedy.** Two lines, no new measurement. (1) Every future quote of these numbers carries the
 window and the fact that it was the easiest of eight — M77 and `FINDING_L3a.md` now do. (2) ⛔ Do
 not compare a CRPS level across score windows at all; compare margins measured inside one window,
-or nothing. ⚠️ **Not remediable here:** the spread cannot be separated into *window effect* and
+or nothing — and the same now applies across TARGETS, which have different base rates and are not comparable in level either. ⚠️ **Not remediable here:** the spread cannot be separated into *window effect* and
 *noise*, because no σ̂ exists for CRPS on this route — RP-2 measured it for B-1a/B-1b, a different
 statistic, and C-391's rule forbids transporting one to the other.
 
