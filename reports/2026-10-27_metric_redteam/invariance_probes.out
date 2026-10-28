@@ -1,0 +1,227 @@
+G-0  the three imported FROZEN primitives reproduce their hand cases:
+       crps({0,2} vs 0) = 0.5 | brier = 0.0 / 0.25 | AP = 1.0 | AP(no positives) = nan
+       ⇒ the frozen ruler's own functions are in hand, not copies            PASS
+================================================================================================
+M1 (#478) — THE DEGENERATE-FORECAST RED-TEAM HARNESS
+================================================================================================
+  cube      d4_result.npz  sha 4acbf4d3c2b457b0  family nb  draws 4
+  score     13 months 457-469 x 64,818 cells = 842,634 cell-months
+  fit       36 months 421-456 (climatology + persistence's lag)
+  truth     ged_sb_best counts. positives 2,905 (0.003448), max 2482, total 50881
+  S         256 members per forecast, identical across all seven (epic #263's rule)
+  spiky     1/30 of active cells = 97 occupied cells per month
+
+  forecast                    field total    frac>0          max  size_ratio
+  oracle (raw truth)               50,881  0.003448      2,482.0      1.0000
+  all-zero                              0  0.000000          0.0      0.0000
+  climatology                      75,534  0.022077        373.8      0.3750
+  persistence                      51,285  0.003412      2,482.0      0.0000
+  spiky-1/30                       50,881  0.001496         52.7      0.0000
+  freq-right/mag-wrong             50,881  0.003448         17.5      2.9192
+  mag-right/freq-wrong             50,881  0.003448      2,482.0      0.0000
+  reference (delivered)            16,612  0.012225         54.5      0.2598
+  blurred-truth r=1                50,881  0.047694        281.9      0.3371
+  blurred-truth r=2                50,881  0.081489        114.4      0.2594
+  blurred-truth r=4                50,881  0.131980         40.2      0.1747
+  TRUTH                            50,881  0.003448      2,482.0      1.0000
+
+================================================================================================
+  VOID GATES
+================================================================================================
+  PASS  G-h  ORACLE: crps_all EXACTLY 0, size_ratio 1, AP 1, Brier 0
+        crps_all=0  size_ratio=1  AP=1  Brier=0
+  PASS  G-a  ALL-ZERO: crps_none, size_ratio, pos_mcr all EXACTLY 0.0
+        crps_none=0  size_ratio=0  pos_mcr=0
+  PASS  G-c  CLIMATOLOGY: per-cell gate == fit-window positive rate
+        max |delta rate| 0.000e+00; identical across months True
+  PASS  G-d  PERSISTENCE: byte-identical to the truth field lagged one month
+        array_equal True; max |delta| 0.0
+  PASS  G-b  SPIKY: per-month total exact and occupancy exactly k
+        max relative total error 4.454e-16; occupancy 97..97 (want exactly 97)
+  PASS  G-e  FREQ-RIGHT: nonzero cell SET == the truth-positive set
+        array_equal True; nonzero 2,905 vs truth positives 2,905
+  PASS  G-f  MAG-RIGHT: sorted nonzero multiset == truth's, every month
+        all 13 months exact: True
+  PASS  G-i  BLURRED r=1: per-month land total preserved exactly
+        max relative total error 2.407e-16
+  PASS  G-i  BLURRED r=2: per-month land total preserved exactly
+        max relative total error 3.544e-16
+  PASS  G-i  BLURRED r=4: per-month land total preserved exactly
+        max relative total error 4.815e-16
+  PASS  G-g  ALL 11: N == 842,634, identical ordering, identical S == 256
+        asserted per forecast above (shape and gate-shape assertions)
+  PASS  G-j  BLUR is monotone in r: max falls, frac>0 rises
+        r=1: max 281.9 frac 0.047694 sr 0.3371  r=2: max 114.4 frac 0.081489 sr 0.2594  r=4: max 40.2 frac 0.131980 sr 0.1747
+
+  wall time 29.8 s   peak RSS 8.26 GiB
+  all construction gates PASS — the seven are safe for M2 (#479) to score
+
+======================================================================================================
+G-0  the three imported FROZEN primitives reproduce their hand cases
+======================================================================================================
+       crps({0,2} vs 1) = 0.5  |  brier = 0.0 / 0.25  |  AP = 1.0
+       ⇒ the frozen ruler's own functions are in hand, not copies            PASS
+
+======================================================================================================
+G-4  VOID GATE — this file's duplicated score() against M2's COMMITTED npz
+======================================================================================================
+       oracle (raw truth)       max |delta| 0.000e+00  (all equal)   PASS
+       all-zero                 max |delta| 0.000e+00  (all equal)   PASS
+       persistence              max |delta| 0.000e+00  (all equal)   PASS
+       spiky-1/30               max |delta| 0.000e+00  (all equal)   PASS
+       freq-right/mag-wrong     max |delta| 0.000e+00  (all equal)   PASS
+       ⇒ the duplicate is byte-faithful on all five; the probes below are comparable to M2   PASS
+
+======================================================================================================
+THE BASE — the delivered cube's forecast, redrawn in this process
+======================================================================================================
+       N 842,634   S 256   event cells 2,905   count-matched months 77%
+       crps_all 0.050108   AP 0.736228   size_ratio 0.267420   FSS1 0.632800
+       ⚠️ absolute values differ from M2's row by the MC draw. Every Delta below is base-vs-perturbation IN THIS PROCESS.
+
+======================================================================================================================
+M3 (#480) — THE INVARIANCE TABLE.  'must be 0' is a DERIVATION; the number is the measurement
+======================================================================================================================
+
+  ⭐ THE PARTITION, derived from the source before any probe ran
+       p only (2)      AP, Brier
+       cs shape (4)    crps_all, crps_events, crps_none, QS99
+       ey only (14)    size_ratio, pos_mcr, MCR_field, FSS1, FSS3, FSS5, FSS9, FSS17, FSS33, FSS65, AFSS, hit_rate, act_freq, Gini
+
+  I-1a       body x 7.0                                  
+             derived: AP, Brier must be 0 (body never enters them)
+             measured: max |delta| 0.000e+00 on Brier        HOLDS
+             moved most: pos_mcr 3.678, MCR_field 1.947, size_ratio 1.605
+
+  I-1b       body -> all zero                            
+             derived: AP, Brier must be 0 (body never enters them)
+             measured: max |delta| 0.000e+00 on Brier        HOLDS
+             moved most: crps_events 3.036, AFSS 0.9983, FSS65 0.9699
+
+  I-1c       body columns shuffled                       
+             derived: AP, Brier must be 0 (body never enters them)
+             measured: max |delta| 0.000e+00 on Brier        HOLDS
+             ⛔ NOTHING MOVED — G-5 non-vacuity FAIL, probe not applied
+
+  I-2a       p -> p**2 (strictly monotone)               
+             derived: AP must be 0 (rank-based); Brier must NOT be
+             measured: max |delta| 0.000e+00 on AP           HOLDS
+             moved most: Brier 0.0004459
+
+  I-2b       p -> (p+1)/2 (affine monotone)              
+             derived: AP must be 0 (rank-based); Brier must NOT be
+             measured: max |delta| 0.000e+00 on AP           HOLDS
+             moved most: Brier 0.249
+
+  I-3a       ensemble -> point mass at its own mean      
+             derived: the 14 mean-field columns must be 0
+             measured: max |delta| 0.000e+00 on size_ratio   HOLDS
+             moved most: crps_events 0.384, QS99 0.03438, crps_none 0.004489
+
+  I-3b       ensemble -> {0, 2*ey} alternating (mean exact)
+             derived: the 14 mean-field columns must be 0
+             measured: max |delta| 0.000e+00 on size_ratio   HOLDS
+             moved most: crps_events 1.413, QS99 0.02514, crps_all 0.00273
+
+  I-5a       mean field -> ey**1.3 (monotone)            
+             derived: FSS x 7, AFSS, hit_rate must be 0 (count-matched threshold)
+             measured: max |delta| 0.000e+00 on hit_rate     HOLDS
+             moved most: crps_events 1.458, pos_mcr 0.4009, MCR_field 0.2475
+
+  I-5b       mean field -> 2*ey (monotone)               
+             derived: FSS x 7, AFSS, hit_rate must be 0 (count-matched threshold)
+             measured: max |delta| 0.000e+00 on hit_rate     HOLDS
+             moved most: crps_events 1.533, pos_mcr 0.613, MCR_field 0.3244
+
+----------------------------------------------------------------------------------------------------------------------
+  I-2 — the SIDE of I-2 that must move: AP blind to calibration, Brier not
+----------------------------------------------------------------------------------------------------------------------
+       p -> p**2 (strictly monotone)            |delta AP| 0.000e+00   |delta Brier| 0.000446
+       p -> (p+1)/2 (affine monotone)           |delta AP| 0.000e+00   |delta Brier| 0.248964
+       ⇒ AP cannot see a monotone miscalibration of the gate. Brier can.
+
+----------------------------------------------------------------------------------------------------------------------
+  I-3 — which columns see the ensemble's SHAPE at a fixed mean field
+----------------------------------------------------------------------------------------------------------------------
+       ensemble -> point mass at its own mean
+            crps_all     |delta| 0.003150
+            crps_events  |delta| 0.384038
+            crps_none    |delta| 0.004489
+            QS99         |delta| 0.034385
+            mean-field columns  max |delta| 0.000e+00
+       ensemble -> {0, 2*ey} alternating (mean exact)
+            crps_all     |delta| 0.002730
+            crps_events  |delta| 1.412975
+            crps_none    |delta| 0.002149
+            QS99         |delta| 0.025138
+            mean-field columns  max |delta| 0.000e+00
+       ⇒ 14 of 20 columns are blind to dispersion BY CONSTRUCTION, not by accident.
+
+----------------------------------------------------------------------------------------------------------------------
+  I-4 — the SWEEP (D-4): size_ratio's tail invariance is a CURVE with a predicted break
+----------------------------------------------------------------------------------------------------------------------
+       k / n_event   |delta size_ratio|   |delta pos_mcr|   derived
+            0.001             0.000000             14.290   0 (median unmoved)
+            0.010             0.000000             80.767   0 (median unmoved)
+            0.100             0.000000            312.536   0 (median unmoved)
+            0.250             0.000000            456.272   0 (median unmoved)
+            0.490             0.000000            563.412   0 (median unmoved)
+            0.510           267.152344            568.816   NONZERO (median crossed)
+            0.750           267.152344            606.560   NONZERO (median crossed)
+       ⇒ the break is at k/n_event = 0.50 exactly, as the median's definition requires.
+
+----------------------------------------------------------------------------------------------------------------------
+  I-6 — pos_mcr's weight is EXACTLY 1/truth: closed form vs measurement
+----------------------------------------------------------------------------------------------------------------------
+       100 smallest-truth cells: predicted 0.03442341  measured 0.03442341  |delta| 7.633e-17
+       100 largest-truth cells:  predicted 0.00029859  measured 0.00029859  |delta| 1.290e-17
+       ⇒ the SAME 100 units of mass move pos_mcr 115.3x more when added to the smallest truths
+       ⚠️ size_ratio moved 1.969e-02 / 3.211e-04 on the same two perturbations
+
+----------------------------------------------------------------------------------------------------------------------
+  I-7 — Gini's floor is set by act_freq, which the battery already has as a column
+----------------------------------------------------------------------------------------------------------------------
+       forecast                  act_freq        Gini   derived floor 1-f-1/n   holds
+       oracle (raw truth)        0.003448    0.998958                0.996551   yes
+       all-zero                  0.000000         nan                0.999999   yes
+       climatology               0.022077    0.997030                0.977922   yes
+       persistence               0.003412    0.998995                0.996587   yes
+       spiky-1/30                0.001496    0.998637                0.998502   yes
+       freq-right/mag-wrong      0.003448    0.996552                0.996551   yes
+       mag-right/freq-wrong      0.003448    0.998958                0.996551   yes
+       reference (delivered)     0.012173    0.997411                0.987826   yes
+       blurred-truth r=1         0.047694    0.995889                0.952304   yes
+       blurred-truth r=2         0.081489    0.992799                0.918510   yes
+       blurred-truth r=4         0.131980    0.986870                0.868019   yes
+       ⇒ on a 99.655%-zero field the achievable span is ~f wide. M2 measured Gini's relative range at 1.22%
+       ⇒ ⛔ Gini is near-REDUNDANT with act_freq here, and act_freq separates 3828%.
+
+----------------------------------------------------------------------------------------------------------------------
+  I-8 — hit_rate == FSS(1) and AFSS == 1, CONDITIONAL on count-matching (C-388)
+----------------------------------------------------------------------------------------------------------------------
+       forecast                  hit_rate       FSS1   |delta|      AFSS   verdict
+       oracle (raw truth)        1.000000   1.000000   0.0e+00  1.000000   identity HOLDS
+       all-zero                  1.000000   0.001723   1.0e+00  0.001724   ⛔ identity BROKEN
+       climatology               0.453076   0.452920   1.6e-04  0.999999   ⛔ identity BROKEN
+       persistence               0.799449   0.178667   6.2e-01  0.384081   ⛔ identity BROKEN
+       spiky-1/30                1.000000   0.001723   1.0e+00  0.001724   ⛔ identity BROKEN
+       freq-right/mag-wrong      1.000000   1.000000   0.0e+00  1.000000   identity HOLDS
+       mag-right/freq-wrong      0.002701   0.002701   3.5e-18  1.000000   identity HOLDS
+       reference (delivered)     0.630111   0.629895   2.2e-04  0.999999   ⛔ identity BROKEN
+       blurred-truth r=1         0.441780   0.437297   4.5e-03  0.999668   ⛔ identity BROKEN
+       blurred-truth r=2         0.367017   0.365939   1.1e-03  0.999946   ⛔ identity BROKEN
+       blurred-truth r=4         0.282080   0.281547   5.3e-04  0.999973   ⛔ identity BROKEN
+       ⇒ the identity and AFSS==1 hold TOGETHER and break TOGETHER — one cause, C-388,
+         not two independent column defects. M2's G-2 and G-3 were ONE finding.
+       ⚠️ a row broke the identity while AFSS stayed at 1 — that would be a SECOND cause
+
+======================================================================================================================
+  GATES
+======================================================================================================================
+  PASS  G-0  the frozen primitives reproduce their hand cases
+  PASS  G-4  the duplicated score() reproduces M2's committed npz on all five deterministic forecasts
+  ⛔ FAIL  G-5  these probes moved NOTHING: I-1c
+  PASS  G-6  every derived invariance holds to 1e-12
+
+  wall time 165.7 s   peak RSS 9.93 GiB
+  wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-10-27_metric_redteam/invariance_probes.npz
