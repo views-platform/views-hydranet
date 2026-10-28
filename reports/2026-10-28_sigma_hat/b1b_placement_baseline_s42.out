@@ -1,0 +1,49 @@
+==================================================================================================
+B-1b — THE PLACEMENT HALF OF B-1.  baseline on the CONTROL artifact
+==================================================================================================
+  plan ../2026-10-26_scoreboard_update_plan.md (M-1, M-2, M-4) · decision: SPLIT in place
+  vehicle sha c77451551627f04e…  family truncated_nb  land cells 64,818  grid 360x720
+  target ged_sb_best  ·  predictors: body alone (mu) PRIMARY, gated forecast alongside
+
+  C-1 one pooled field vs PRODUCTION fss, max |diff| over n=(1, 3, 5, 9, 17, 33, 65): 0.000e+00
+
+--------------------------------------------------------------------------------------------------
+in sample  months 421-456  (36 monthly fields)
+--------------------------------------------------------------------------------------------------
+  M-2  f_o on the SCORED 360x720 domain = 0.000880   ⇒ bar 0.5 + f_o/2 = 0.500440
+       f_o on land cell-months only  = 0.003518   (bar would be 0.501759)   ⛔ NOT the scored domain; see the comment   (mean events/field 228.0)
+
+  body alone (mu)
+    M-1  pooled FSS   n1=0.3129  n3=0.4738  n5=0.5166  n9=0.5626  n17=0.6067  n33=0.6475  n65=0.7647
+    M-1  scale_min (smallest n reaching the bar) = 5
+    M-4  per-field scale_min: 36/36 fields reach the bar  min 3  median 4  max 41
+         per-field values: [41, 31, 31, 23, 5, 7, 5, 11, 15, 3, 3, 3, 5, 9, 5, 5, 3, 3, 3, 3, 3, 3, 5, 3, 3, 5, 3, 19, 3, 3, 3, 3, 3, 7, 3, 17]
+
+  gated forecast (gate x mu)
+    M-1  pooled FSS   n1=0.6123  n3=0.7866  n5=0.8185  n9=0.8443  n17=0.8677  n33=0.8910  n65=0.9291
+    M-1  scale_min (smallest n reaching the bar) = 1
+    M-4  per-field scale_min: 36/36 fields reach the bar  min 1  median 1  max 1
+         per-field values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+--------------------------------------------------------------------------------------------------
+out of sample  months 457-469  (13 monthly fields)
+--------------------------------------------------------------------------------------------------
+  M-2  f_o on the SCORED 360x720 domain = 0.000862   ⇒ bar 0.5 + f_o/2 = 0.500431
+       f_o on land cell-months only  = 0.003448   (bar would be 0.501724)   ⛔ NOT the scored domain; see the comment   (mean events/field 223.5)
+
+  body alone (mu)
+    M-1  pooled FSS   n1=0.2750  n3=0.4713  n5=0.5262  n9=0.6088  n17=0.7066  n33=0.7890  n65=0.8612
+    M-1  scale_min (smallest n reaching the bar) = 5
+    M-4  per-field scale_min: 13/13 fields reach the bar  min 3  median 5  max 47
+         per-field values: [7, 47, 15, 5, 3, 3, 3, 5, 5, 3, 3, 5, 7]
+
+  gated forecast (gate x mu)
+    M-1  pooled FSS   n1=0.6392  n3=0.8255  n5=0.8588  n9=0.8861  n17=0.9107  n33=0.9286  n65=0.9526
+    M-1  scale_min (smallest n reaching the bar) = 1
+    M-4  per-field scale_min: 13/13 fields reach the bar  min 1  median 1  max 1
+         per-field values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+==================================================================================================
+cost  56.24 s  /  3.03 GiB peak RSS
+⚠ M-3 (sigma-hat) is absent and blocked on views-models#625. Until it exists these are
+  BASELINES and B-1b carries NO decision rule.

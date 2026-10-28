@@ -33,7 +33,7 @@ mass-preserving blur **above** the delivered model, and `spiky-1/30` outranks pe
 meant end-2027 this register is under-scoped and the horizon line is the thing to correct, not the
 ranking.
 
-**Last updated** 2026-10-28 · **10 entries** · **1 live (RP-3 #468)** · **1 measured out (RP-1 — epic #477, all seven stories closed; awaiting merge)** · 7 queued · 1 parked (RP-9)
+**Last updated** 2026-10-28 · **10 entries** · **1 live (RP-3 #468)** · **2 measured out** (RP-1 — epic #477, **merged** as PR #485; RP-2 — σ̂ measured, **C-391**) · 6 queued · 1 parked (RP-9)
 
 ## How this works
 
@@ -52,7 +52,7 @@ ranking.
 | # | ID | challenge | status | cost | can it end in a pod run? |
 |---|---|---|---|---|---|
 | **1** | **RP-1** | The metric battery cannot see what we are trying to fix | ✅ **MEASURED OUT 2026-10-28** — epic **#477**, all seven stories closed; ⛔ awaiting merge only | **CPU, hours — spent: ~7 min of compute across six scripts** | no — it makes later ones readable |
-| **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | 🔵 queued | **CPU, ~1 h** | no — same |
+| **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | ✅ **MEASURED OUT 2026-10-28** — σ̂ exists for B-1a and B-1b; ⛔ **one readout's noise exceeds its signal** | **CPU — spent: 37 min compute** | no — it makes later ones readable |
 | **3** | **RP-10** | ⭐ **The truth is not ground truth — we have never estimated the Bayes error floor** | 🔵 queued | **CPU, minutes** (route A) | no |
 | **4** | **RP-7** | Nothing scores spatial dependence or aggregates | 🔵 queued | CPU | no |
 | **5** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | 🔵 queued | **CPU, an afternoon** | no |
@@ -154,7 +154,29 @@ reports it. Changing the framework is Simon's call, separately.
 
 **Rank 2.** 🔵 queued. CPU ~37 min + gates. Issues **#462**, **#463** already filed.
 
-## ⛔ AMENDED 2026-10-28 — part of this entry was WRONG, and it is corrected before the work continues
+## ✅ MEASURED OUT 2026-10-28 — the answer, and it changes which instrument arms are judged on
+
+**σ̂ now exists for B-1a and B-1b** (`reports/2026-10-28_sigma_hat/FINDING_RP2_SIGMA.md`, **M75**),
+from three true seed replicates, with all eight gates passing.
+
+- ⛔⛔ **B-1b body-alone: CV > 1 at 11 of 14 scales** — σ̂ exceeds the mean. At out/n=33 the honest
+  bar is **2.1312 against a value of 0.2947**, i.e. **7.2× the quantity itself** ⇒ **no single-run
+  comparison on it can ever clear its own floor.** **C-391**, **C-320** instance 6.
+- ⭐ **B-1b gated out-of-sample IS usable**: CV **0.024–0.054** ⇒ **≈0.16 clears the bar.**
+  **This is the readout RP-5 / RP-6 / RP-8 must judge their arms on.**
+- ⚠️ **B-1a is weakest at d=1**, the setting its published headline uses: σ̂ **0.5073**, bar
+  **2.5214**, on a quantity whose range is ~0.4–1.5.
+- ⭐⭐ **σ̂ is not flat in the scale parameter and moves in OPPOSITE directions** across the three
+  (falls, falls, **rises**) ⇒ a single scalar σ̂ would have been wrong both ways. Spans 7.9× / 18.9×.
+- ⭐ **The spread is purely the seed**: training *and* scoring are both bit-deterministic (M74, G-9),
+  so there is no measurement-noise term to subtract and no way to argue the floor down.
+
+⛔ **Scope, binding:** `truncated_nb` @ dropout 0.15. The published B-1a 0.391 / B-1b 0.6267 are
+`nb` @ 0.15 on a **deleted** checkpoint and the live `nb` control is @ **0.125**; family alone shifts
+B-1a **3.7×**. ⇒ discharged for `truncated_nb` @ 0.15, **provisionally** for `nb` as a transported CV.
+⚠️ **n=3, 2 df**: 95% CI **[0.52σ̂, 6.28σ̂]**. Two more seeds take the bar 4.97σ̂ → ~3.0σ̂ at ~17 min each.
+
+## ⛔ AMENDED 2026-10-28 — part of this entry was WRONG, and it is corrected rather than overwritten
 
 **σ̂ is NOT unrun.** `/home/simon/Documents/kestrel_sigma_backup_20261021/READOUT.md`, dated
 **2026-10-21**, reports σ̂ for the **gate-calibration slope `b`** over seeds 42/43/44, with M1–M4 and
