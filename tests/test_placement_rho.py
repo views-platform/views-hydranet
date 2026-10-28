@@ -313,6 +313,152 @@ def test_monthly_membership_is_not_inverted():
     assert abs(got - float(np.mean(inverted))) > 0.1, (got, inverted)
 
 
+def test_monthly_pooling_RESPECTS_the_declared_population():
+    """⛔⛔ THE WORST SURVIVOR of the second guard audit (mutation X1). Replacing the monthly
+    branch's `sel = inm & _select(...)` with `sel = inm` left 31/31 green and made the monthly
+    path compute the ALL-CELL rho inside each month, ignoring the declared population — i.e. it
+    restored the exact blindness the module exists to close, through the documented public API.
+
+    Nothing caught it because every monthly guard ran on `population="all"`, where
+    `inm & ones == inm` is an identity. This guard runs on `population="events"` against an
+    expected value computed independently over `month == m` AND `truth > 0`.
+    """
+    month = np.array([1, 1, 1, 1, 2, 2, 2, 2])
+    truth = np.array([0.0, 0.0, 1.0, 9.0, 0.0, 2.0, 4.0, 6.0])
+    pred = np.array([7.0, 7.0, 1.0, 9.0, 7.0, 6.0, 4.0, 2.0])
+    per = []
+    for m in (1, 2):
+        sel = (month == m) & (truth > 0)
+        per.append(_oracle_rho(pred[sel], truth[sel]))
+    assert per == pytest.approx([1.0, -1.0], abs=1e-12), per
+    got = pr.placement_rho(pred, truth, population="events", pooling="monthly", month=month)
+    assert got == pytest.approx(0.0, abs=1e-12)
+    #: and it must NOT equal the all-cell answer, which is what the mutant returned
+    all_cell = pr.placement_rho(pred, truth, population="all", pooling="monthly", month=month)
+    assert abs(got - all_cell) > 0.1, (got, all_cell)
+
+
+def test_monthly_on_the_constant_magnitude_defect_scores_zero():
+    """The module's reason for existing, through the monthly path. Mutation X1 returned 0.9974
+    here with the whole suite green."""
+    rng = np.random.default_rng(481)
+    month = np.repeat(np.arange(10), 300)
+    truth = np.where(rng.random(3000) < 0.1, rng.integers(1, 60, 3000), 0).astype(np.float64)
+    pred = np.where(truth > 0, 7.0, 0.0)
+    assert pr.placement_rho(pred, truth, "events", "monthly", month) == 0.0
+    assert pr.placement_rho(pred, truth, "events", "pooled") == 0.0
+
+
+def test_the_DEFAULT_population_is_events_not_the_blind_one():
+    """⛔ Mutation X2 changed the default from 'events' to 'all' and nothing failed, because every
+    test passed `population=` explicitly. The module's own docstring calls 'all' the population
+    that CANNOT FAIL on the defect this instrument detects, so the default is load-bearing."""
+    rng = np.random.default_rng(99)
+    truth = np.where(rng.random(1000) < 0.1, rng.integers(1, 50, 1000), 0).astype(np.float64)
+    pred = np.where(truth > 0, 7.0, 0.0)
+    assert pr.placement_rho(pred, truth) == pytest.approx(
+        pr.placement_rho(pred, truth, population="events"), abs=1e-12
+    )
+    assert pr.placement_rho(pred, truth) == 0.0
+    #: the default must also be 'pooled', not 'monthly'
+    month = np.repeat([1, 2], 500)
+    assert pr.placement_rho(pred, truth, "events") == pytest.approx(
+        pr.placement_rho(pred, truth, "events", "pooled", month), abs=1e-12
+    )
+
+
+def test_monthly_REFUSES_a_month_too_sparse_to_rank_and_names_it():
+    """⛔ Mutations X3 and X9. Deleting the monthly per-month refusal left the suite green, and
+    replacing it with `continue` SILENTLY DROPPED the unrankable month from the mean — so the
+    reported value would be an average over an undeclared subset of months. The pooled branch had
+    this guard; the monthly branch had none. The `match` pins the month id, which is the whole
+    reason the monthly message exists separately."""
+    month = np.array([1, 1, 1, 1, 2, 2, 2, 2])
+    truth = np.array([1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0.0, 5.0])
+    pred = np.array([1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0.0, 5.0])
+    with pytest.raises(pr.PlacementRhoError, match=r"month 2: population 'events' selected 1"):
+        pr.placement_rho(pred, truth, population="events", pooling="monthly", month=month)
+
+
+def test_the_sweep_without_months_omits_the_monthly_cells_rather_than_inventing_them():
+    """⛔ Mutation X14 made `sweep` write 0.0 for the three monthly cells when no month array is
+    given, and the suite stayed green because every sweep guard passed months. Three invented rows
+    would then appear in the D-4 table."""
+    rng = np.random.default_rng(17)
+    truth = np.where(rng.random(600) < 0.2, rng.integers(1, 20, 600), 0).astype(np.float64)
+    pred = rng.gamma(1.0, 1.0, size=600)
+    got = pr.sweep(pred, truth)
+    assert set(got) == {(pop, "pooled") for pop in ("events", "union", "all")}
+    assert len(got) == 3
+
+
+def test_a_negative_prediction_keeps_its_place_in_the_ranking():
+    """⛔ Mutation X16 silently inserted `np.clip(pred, 0, None)`, flattening negative predictions
+    into a tie block at zero, and no fixture in the suite had a negative prediction. The companion
+    hole was that the invariance test only covered positive SCALINGS, never an affine SHIFT."""
+    truth = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    pred = np.array([-4.0, -2.0, 0.0, 2.0, 4.0])
+    assert pr.placement_rho(pred, truth, population="all") == pytest.approx(1.0, abs=1e-12)
+    shifted = pred - 100.0
+    assert pr.placement_rho(shifted, truth, population="all") == pytest.approx(1.0, abs=1e-12)
+    #: clipping at zero would tie the first three cells and lose the ordering
+    clipped = np.clip(pred, 0.0, None)
+    assert pr.placement_rho(clipped, truth, population="all") < 1.0
+
+
+def test_a_monotone_affine_SHIFT_changes_nothing_either():
+    rng = np.random.default_rng(23)
+    truth = np.where(rng.random(400) < 0.15, rng.integers(1, 70, 400), 0).astype(np.float64)
+    pred = rng.gamma(1.0, 2.0, size=400)
+    base = pr.placement_rho(pred, truth, population="events")
+    assert pr.placement_rho(pred - 7.5, truth, population="events") == pytest.approx(
+        base, abs=1e-12
+    )
+
+
+def test_fractional_truth_is_not_silently_rounded():
+    """⛔ Mutation X27 inserted `np.round(truth)` and survived, because every fixture's truth was
+    integer counts. The signature accepts any float array and the module makes no integrality
+    claim, so the two facts were held together by nothing."""
+    truth = np.array([1.2, 1.4, 1.6, 1.8])
+    pred = np.array([1.0, 2.0, 3.0, 4.0])
+    assert pr.placement_rho(pred, truth, population="all") == pytest.approx(1.0, abs=1e-12)
+    #: rounding collapses truth to [1, 1, 2, 2] and the perfect ordering is gone
+    assert pr.placement_rho(pred, np.round(truth), population="all") < 1.0
+
+
+def test_it_refuses_a_month_array_of_the_right_SIZE_but_the_wrong_SHAPE():
+    """⛔ Mutation X8 weakened `month.shape != truth.shape` to `month.size != truth.size`, and the
+    existing guard only passed a length mismatch. A same-size wrong-shape array then escapes into
+    a raw numpy broadcast ValueError instead of this module's named error."""
+    month, truth, pred = _three_months_with_different_rho()
+    bad = month.reshape(2, 6)
+    with pytest.raises(pr.PlacementRhoError, match="month shape"):
+        pr.placement_rho(pred, truth, population="all", pooling="monthly", month=bad)
+
+
+def test_it_returns_a_builtin_float_as_its_signature_says():
+    """⛔ Mutation X15 dropped the `float(...)` coercion and survived: pytest.approx and `== 0.0`
+    both accept a numpy scalar, so the declared return type was unpinned."""
+    truth = np.array([1.0, 2.0, 3.0, 4.0])
+    pred = np.array([1.0, 2.0, 3.0, 4.0])
+    assert type(pr.placement_rho(pred, truth, population="all")) is float
+    assert type(pr.placement_rho(pred, truth, population="all")) is not np.float64
+    month = np.array([1, 1, 2, 2])
+    got = pr.placement_rho(pred, truth, population="all", pooling="monthly", month=month)
+    assert type(got) is float
+
+
+def test_a_plain_python_list_is_accepted_and_agrees_with_the_array():
+    """Pins the `dtype=np.float64` coercion, which mutation X7 removed unnoticed."""
+    truth = [0, 0, 1, 5, 9]
+    pred = [0, 0, 1, 5, 9]
+    assert pr.placement_rho(pred, truth, population="events") == pytest.approx(1.0, abs=1e-12)
+    assert pr.placement_rho(
+        np.asarray(pred, dtype=np.int64), np.asarray(truth, dtype=np.int64), population="events"
+    ) == pytest.approx(1.0, abs=1e-12)
+
+
 def test_monthly_refuses_a_month_array_of_the_wrong_shape():
     """Deleting this check let a mis-shaped month array through to a broadcast (M13)."""
     month, truth, pred = _three_months_with_different_rho()
