@@ -33,6 +33,21 @@ realised event count. The one check available is internal and declared:
        That is the function working as documented, and it must hold on every such month or the
        tie account is incomplete.
 
+⛔⛔ AMENDMENT 1, after the first run: **G-7 FAILED on three forecast-months**, all of them
+blurred truths — e.g. `blurred-truth r=1 t=2`, kth = 3.12472, UNIQUE, and yet 217 cells selected
+against 212 events. ⇒ There is a THIRD mechanism and the tie account is incomplete, exactly as
+G-7 was written to detect.
+
+⭐ THE DERIVED CANDIDATE FOR (c), stated before measuring: **the `- 1e-12` is ABSOLUTE.** On a
+field whose k-th largest value is of order 1 it is a relative tolerance of ~1e-12; on one of
+order 100 it is ~1e-14, i.e. a handful of ulps. A continuous field — a box mean of the same
+integer multiset evaluated at neighbouring offsets — produces values that differ only in the
+last bits, so cells strictly BELOW the kth value still clear `kth - 1e-12`. ⇒ Predicted
+signature: for each failing month, the number of distinct field values lying in the half-open
+interval `(kth - 1e-12, kth)` equals exactly the over-selection.
+⛔ If that count does not match the over-selection, (c) is also wrong and this script says so.
+  G-8  for every G-7 failure, `count of values in (kth - 1e-12, kth)` == `selected - n_events`.
+
 Run: python reports/2026-10-27_metric_redteam/count_matching_audit.py
 """
 
@@ -99,7 +114,12 @@ for name, fn in rt.FORECASTS.items():
         else:
             #: G-7: a strictly positive, UNIQUE kth must deliver exactly e
             if sel != e:
-                g7_fail.append(f"{name} t={t_i} kth={kth:g} unique but selected {sel} != {e}")
+                #: ⭐ mechanism (c), measured rather than assumed: how many values sit strictly
+                #: below the kth and still clear the ABSOLUTE `kth - 1e-12` floor?
+                near = int(((flat > kth - 1e-12) & (flat < kth)).sum())
+                g7_fail.append(
+                    (name, t_i, kth, sel, e, near, (near == sel - e))
+                )
             else:
                 n_exact += 1
     rows.append((name, n_a, n_b, n_exact, max(over), int(np.median(over))))
@@ -122,10 +142,28 @@ print(f"      exact, the function as documented           {tot_e:>4d} of "
       f"{len(rows) * rt.T_SCO} forecast-months")
 print()
 if g7_fail:
-    print("  ⛔ FAIL  G-7  a unique positive kth did NOT deliver n_events — the tie account is")
-    print("           incomplete, there is a THIRD mechanism:")
-    for f in g7_fail[:10]:
-        print(f"           {f}")
+    print("  ⛔ FAIL  G-7  a unique positive kth did NOT deliver n_events ⇒ a THIRD mechanism.")
+    print()
+    print("       ⭐ G-8 — mechanism (c): the `- 1e-12` is ABSOLUTE, so cells strictly BELOW")
+    print("          the kth value still clear it. Predicted BEFORE measuring: the count of")
+    print("          values in (kth - 1e-12, kth) equals the over-selection exactly.")
+    print()
+    print("       forecast             month      kth value   selected  n_events  over  "
+          "in (kth-1e-12, kth)  G-8")
+    g8_ok = True
+    for name_, t_, kth_, sel_, e_, near_, ok_ in g7_fail:
+        print(f"       {name_:<20s} {t_:>5d}  {kth_:>13.8f}   {sel_:>8d}  {e_:>8d}  "
+              f"{sel_ - e_:>4d}  {near_:>19d}  {'PASS' if ok_ else '⛔ FAIL'}")
+        g8_ok = g8_ok and ok_
+    print()
+    if g8_ok:
+        print("       PASS  G-8  the over-selection is EXACTLY the near-tie count ⇒ (c) is an")
+        print("             ABSOLUTE epsilon applied to a field with no absolute scale. Three")
+        print("             mechanisms, all three now named and measured.")
+    else:
+        print("       ⛔ FAIL  G-8  (c) does not account for the over-selection either — there")
+        print("             is a FOURTH mechanism and this script has not found it. Do not")
+        print("             quote a count of mechanisms.")
 else:
     print("  PASS  G-7  every month with a strictly positive, UNIQUE kth delivered EXACTLY")
     print("        n_events ⇒ the two mechanisms above are the whole of C-388.")
