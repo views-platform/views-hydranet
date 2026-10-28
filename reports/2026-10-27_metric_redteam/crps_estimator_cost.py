@@ -38,9 +38,21 @@ what makes the duplicate trustworthy, and it is a stronger pin than comparing tw
   G-C  ⭐ this file's PLUG-IN column must equal the FROZEN `crps_ensemble` from
        `lodestar_score.py` to 1e-12 on every one of the eleven real forecasts. ⇒ the duplicate is
        pinned to the instrument the record was actually scored on, not to another copy of itself.
-  G-D  ⭐ the eight `_tile`-built forecasts must show spread EXACTLY 0.0 and plug == fair
-       EXACTLY. If any does not, M1's construction is not what its docstring says and every row
-       below is void.
+  G-D  ⭐ the `_tile`-built forecasts must be CONSTANT PER CELL — `ptp(cs, axis=1) == 0` for
+       every cell, exactly — and must give plug == fair exactly. If either fails, M1's
+       construction is not what its docstring says and every row below is void.
+
+⛔⛔ AMENDMENT 1, after the first run. **G-D as first written FAILED, and the gate was wrong, not
+M1.** It asserted `spread == 0.0` exactly. Measured: `plug - fair` is **exactly 0.000e+00** for
+all nine, and `spread` comes back at **±8.2e-19 / ±6.1e-18 / ±1.1e-19** — i.e. floating-point
+cancellation in `pair_sum`, whose weights `2k - (m-1)` sum to zero, accumulated over 256 identical
+values of order 1e2. The mathematical spread of a constant ensemble IS zero; the computed one
+cannot be, and asserting the computed value to be exactly zero asserts something about IEEE754
+summation order rather than about M1.
+⇒ The gate now asserts the STRUCTURAL fact instead, which is exact and provable: every member of
+the ensemble is identical (`ptp(cs, axis=1) == 0` on all 842,634 cells), from which spread = 0
+follows by algebra. The residual is reported beside it, as noise, with its scale. ⚠️ Logged as a
+gate I wrote too tight — `W-93` — rather than relaxed quietly.
 
 Run: python reports/2026-10-27_metric_redteam/crps_estimator_cost.py
 """
@@ -129,7 +141,7 @@ print("G-B  O(m log m) sorted identity == O(m^2) brute force on 9 x 40 foreign d
 
 # ── the eleven ───────────────────────────────────────────────────────────────────────────────
 rows = []
-gc_worst, gd_fail = 0.0, []
+gc_worst, gd_fail, gd_noise = 0.0, [], []
 for name, fn in rt.FORECASTS.items():
     cs, p = fn()
     del p
@@ -140,21 +152,31 @@ for name, fn in rt.FORECASTS.items():
     frozen = crps_ensemble(TRUTH, cs)
     d = float(np.abs(frozen - got["plug_cell"]).max())
     gc_worst = max(gc_worst, d)
-    #: G-D — a `_tile` forecast must have EXACTLY zero spread
-    if name in DEGENERATE and not (got["spread"] == 0.0 and got["plug"] == got["fair"]):
-        gd_fail.append((name, got["spread"], got["plug"] - got["fair"]))
+    #: G-D — a `_tile` forecast must be CONSTANT PER CELL (exact), and the two estimators must
+    #: then agree exactly. The computed `spread` is reported as noise, never asserted to be 0.
+    if name in DEGENERATE:
+        ptp_max = float(np.ptp(cs, axis=1).max())
+        if ptp_max != 0.0 or got["plug"] != got["fair"]:
+            gd_fail.append((name, ptp_max, got["plug"] - got["fair"], got["spread"]))
+        else:
+            gd_noise.append((name, got["spread"]))
     rows.append((name, got, got_ev, got_ze))
     del cs, frozen, got["plug_cell"], got_ev["plug_cell"], got_ze["plug_cell"]
 
 print(f"G-C  this file's plug-in == the FROZEN crps_ensemble, max |delta| {gc_worst:.3e}"
       f"             {'PASS' if gc_worst <= EPS else '⛔ FAIL'}")
 if gd_fail:
-    print("G-D  ⛔ FAIL — a `_tile` forecast has non-zero spread; M1's construction is not what")
-    for n, s, dd in gd_fail:
-        print(f"     its docstring says: {n} spread {s:.3e} plug-fair {dd:.3e}")
+    print("G-D  ⛔ FAIL — a `_tile` forecast is NOT constant per cell, or the two estimators")
+    print("     disagree on one. M1's construction is not what its docstring says:")
+    for n, ptp_, dd, sp in gd_fail:
+        print(f"     {n}: max ptp over members {ptp_:.3e}  plug-fair {dd:.3e}  spread {sp:.3e}")
     sys.exit(1)
-print(f"G-D  all {len(DEGENERATE)} `_tile` forecasts have spread EXACTLY 0 and plug == fair"
-      "       PASS")
+print(f"G-D  all {len(DEGENERATE)} `_tile` forecasts are CONSTANT per cell (max ptp exactly 0)")
+print("     and give plug == fair exactly                                                 PASS")
+_noise = max(abs(s) for _n, s in gd_noise)
+print(f"     ⚠️ their COMPUTED spread is not 0 but {_noise:.1e} — IEEE754 cancellation in the")
+print(f"     weighted sum over {rt.S} identical values of order 1e2, not dispersion. The")
+print("     mathematical value is 0 by algebra, which is why the structural fact is the gate.")
 
 print()
 print("=" * 118)
