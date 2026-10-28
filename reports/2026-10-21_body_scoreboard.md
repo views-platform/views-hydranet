@@ -38,6 +38,19 @@ baseline, M-1/M-2/M-4) · `b1b_target_skill_sweep.{py,out}` · `b1b_hitrate_and_
 replicates and is blocked on **views-models#625**. ⇒ **B-1a and B-1b are baselines and neither
 carries a decision rule yet**, exactly as C-372 says of every other endpoint in the programme.
 
+> ✅ **AMENDED 2026-10-28 — σ̂ now EXISTS, and the answer splits this paragraph in two.**
+> Measured from three true seed replicates (**M75**, `reports/2026-10-28_sigma_hat/`):
+> * ⛔⛔ **B-1b body-alone CANNOT carry a decision rule, and not for want of a σ̂ — because its σ̂
+>   EXCEEDS ITS OWN MEAN** (CV > 1 at 11 of 14 scales; at out/n=33 the 4.97σ̂ bar is **2.1312**
+>   against a value of **0.2947**). ⇒ Unsatisfiable by construction, not under-specified. **C-391**,
+>   **C-320** instance 6.
+> * ⭐ **B-1b gated out-of-sample CAN**: CV **0.024–0.054** ⇒ **≈0.16 clears the bar.**
+> * ⚠️ **B-1a is weakest at `d = 1`, this scoreboard's own headline setting**: σ̂ **0.5073**, bar
+>   **2.5214**, on a quantity whose observed range is ~0.4–1.5. Usable at larger `d`, where the bar
+>   is still ~78% of the value.
+> ⛔ **Scope:** `truncated_nb` @ dropout 0.15 only — these rows are `nb`, and family alone shifts
+> B-1a **3.7×**, so the transfer is a provisional CV, not a number.
+
 ## 0. Why this exists
 
 **Our headline scoreboard is occurrence-heavy, and that is a structural pull toward the gate.** Of the
@@ -235,6 +248,11 @@ which (B-1a and B-1b) are scale-resolved — and those two are one pair, not two
    needs an instrument this file does not have.
 7. ⛔ **Neither half of B-1 carries a decision rule until σ̂ exists.** views-models#625. A single
    artifact's reading cannot be called a move without a noise floor (C-307, C-372).
+   > ✅ **AMENDED 2026-10-28 (M75): σ̂ exists, and it discharges this rule for ONE column only.**
+   > **B-1b gated out-of-sample MAY carry a rule** (CV 0.024–0.054; ≈**0.16** clears the 4.97σ̂ bar).
+   > ⛔ **B-1b body-alone MAY NOT, ever** — its σ̂ exceeds its own mean, so the rule is unsatisfiable
+   > rather than unspecified (**C-391**). ⚠️ **B-1a may, but not at `d = 1`**, where σ̂ is 0.5073 on a
+   > range of ~0.4–1.5. ⛔ Discharged for **`truncated_nb` @ 0.15**; for `nb` a provisional CV only.
 
 ## 5. Baselines
 
