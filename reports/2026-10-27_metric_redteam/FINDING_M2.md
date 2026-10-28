@@ -82,7 +82,15 @@ a threshold that selects **every** cell. **That is C-303's shape, and it should 
 *denser* (act_freq 0.012173 vs truth 0.003448), so its own FSS numbers are unaffected — but every
 FSS comparison against a sparse arm is.
 
-## ⛔⛔ Finding C — on `crps_all`, only ONE of nine non-oracle forecasts beats predicting nothing
+## ⛔⛔ Finding C — on `crps_all`, only TWO of nine non-oracle forecasts beat predicting nothing
+
+> ⛔ **COUNT CORRECTED 2026-10-28 (M4 / #481, `W-94`): TWO of nine, not one.** The count was
+> computed under the **plug-in** estimator and reported as a property of the column. Under the
+> **fair** estimator `climatology` flips — **0.060480** (loses to `all-zero`) → **0.060251**
+> (beats it) — because `all-zero` is degenerate, so its plug-in bias is **zero** and its score is
+> identical under both, while climatology pays its own spread. ⚠️ The substance below stands: 7 of
+> 9 still lose to the empty forecast and the Goodhart optimum at zero is untouched. ⛔ But a count
+> under a biased estimator is a fact about the estimator, which is C-351's estimator slot.
 
 `all-zero` scores `crps_all` = **0.060383**, which is **exactly `mean(truth)`** (50,881 / 842,634).
 

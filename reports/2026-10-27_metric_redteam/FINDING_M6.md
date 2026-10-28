@@ -132,6 +132,57 @@ discards, and vice versa.
 | **V-5** every placement column moves by exactly 0 | **PASS** | worst \|Δ\| **0.000e+00** |
 | **V-6** not a monotone relabelling of an existing column | **PASS** | highest 0.7790 |
 
+## ⛔⛔ The guard audit — two independent rounds, 54 mutations, and the second round was worse than the first
+
+#483's acceptance requires `/falsify guard` on the new tests. It ran **twice**, each time in a
+subagent with a **clean context** (the auditor may not be the author, and may not read the
+reasoning that produced the guard). ⛔ **It did not pass first time, and the second round found
+worse defects than the first.**
+
+| round | mutations | caught | **SURVIVED** | guard verdicts |
+|---|---|---|---|---|
+| 1, against 21 tests | 27 | 14 | **13** | 0 decorative, **4 WEAK** |
+| 2, against 31 tests | 27 | 15 | **12** | 0 decorative, **5 WEAK** |
+
+⭐ Round 2 closed **12 of the 13** named survivors from round 1 — the thirteenth is a backstop the
+source itself now admits is unreachable and does not claim to test. But it found **six new live
+survivors**, and two were serious:
+
+- ⛔⛔ **X1.** Replacing the monthly branch's `sel = inm & _select(pred, truth, population)` with
+  `sel = inm` left **31/31 green** and made the monthly path compute the **all-cell** rho inside
+  each month, ignoring the declared population. Measured on the module's own defect: it returns
+  **0.9974** where the correct value is **0.0** ⇒ **the mutant restores the exact blindness the
+  instrument was built to close**, through the documented public API.
+- ⛔⛔ **X2.** Changing the default from `population="events"` to `"all"` was pinned by **nothing**,
+  because every test passed `population=` explicitly. Same consequence: **0.9975 instead of 0.0**.
+
+⭐ **The auditor also named the common root, and it is the sharper finding:** the monthly branch and
+the argument defaults were **only ever exercised at `population='all'`** — the one population this
+module's own docstring says *cannot fail*. ⇒ A suite can be thorough on a function's arithmetic and
+blind on the single parameter that decides whether the arithmetic means anything.
+
+Four more survived and are now closed: the monthly per-month refusal was unguarded, so deleting it
+was invisible and replacing it with `continue` **silently dropped an unrankable month from the
+mean**; `sweep`'s `month=None` path was never exercised, so a mutant writing `0.0` for the three
+monthly cells — **three invented rows in a D-4 table** — stayed green; a silent
+`np.clip(pred, 0, None)` survived because no fixture had a negative prediction, the companion hole
+being that the invariance test covered positive **scalings** but never an affine **shift**; and a
+silent `np.round(truth)` survived because every fixture's truth was integer counts.
+
+**21 → 31 → 42 tests.** Each round's fixes are then **verified rather than trusted**:
+`verify_guard_mutations.py` re-applies the auditor's own surviving mutations and reports whether
+the strengthened suite fails. **9 of 10 now CAUGHT.**
+
+⚠️ **The one that still survives is reported as surviving, not explained away.** Dropping the
+`dtype=np.float64` coercion changes nothing observable for any input the contract accepts (int or
+float arrays, and lists), so the auditor classed it an **equivalent mutant** and I agree — it is
+unpinned because it has no consequence, which is a different thing from being unguarded.
+
+⚠️ **Independence, stated precisely.** The *mutations* are the auditors' design; `verify_guard_mutations.py`
+only executes them. So the independence that matters — who modelled the failure — holds; what the
+verification lacks is an independent *choice* of mutations, which is why it is a check on a prior
+audit and not a substitute for one.
+
 ## ⚠️ What M6 does NOT establish
 
 - ⛔ **It is not adopted into FAO-02 and nothing is re-scored against it.** FAO-02 is locked;
