@@ -1,0 +1,49 @@
+===================================================================================================
+L5b (#473) — THE EFFECTIVE RESOLUTION OF THE RECALIBRATION, swept over its bin count
+===================================================================================================
+  cube          l3b_cube3.npz  sha 4acbf4d3c2b457b0…  family nb
+  target        ged_sb_best
+  G-R3  the quantities the mechanism rests on:
+          FIT   36 months 421-456: 2,333,448 cell-months, 8,208 events, zero fraction 0.996482
+          SCORE 13 months 457-469: 842,634 cell-months, 2,905 events, zero fraction 0.996552
+
+    bins B   mean/bin bins w/ mu=0     distinct     distinct     realised    max bin
+              members   (fraction)    bin means          / B     in score       mean
+       250     9333.8       0.9080           17      0.06800           17    20.9320
+      1000     2333.4       0.9400           37      0.03700           37    62.5780
+      2000     1166.7       0.9510           51      0.02550           51    96.1482
+      4000      583.4       0.9607           78      0.01950           78   131.3271
+      8000      291.7       0.9681          115      0.01438          115   172.9384
+     16000      145.8       0.9751          170      0.01063          170   212.6027
+     32000       72.9       0.9800          232      0.00725          232   247.5342
+     64000       36.5       0.9838          349      0.00545          347   254.5556
+    128000       18.2       0.9870          416      0.00325          407   333.7778
+
+===================================================================================================
+  THE GATES
+===================================================================================================
+  PASS  G-R1  B=8,000 realises 115 distinct values, reproducing L5's G-L5d value of 115 exactly
+  PASS  G-R2  NON-VACUITY: realised distinct counts span 17..407
+
+===================================================================================================
+  THE PREDICTIONS, SCORED
+===================================================================================================
+  Q1  B grew 512x (250 -> 128,000); realised distinct values grew 23.94x (17 -> 407)
+      ⇒ HELD: the distinct-value count does NOT track B
+  Q2  fraction of occupied bins with mean exactly 0.0: 0.9080 at B=250 -> 0.9870 at B=128,000
+      ⇒ HELD: it rises with B
+  Q3  ⚠️ an EXPLANATION offered for M77's flat-topped ladder, not a demonstration that it
+      caused it. A mechanism consistent with a curve is not evidence that it produced it.
+
+===================================================================================================
+  HOW TO READ THIS
+===================================================================================================
+  ⛔ The nominal bin count B is NOT the recalibration's resolution. Quote the realised
+     distinct-value count beside any B, or the number overstates what the method can
+     express by orders of magnitude.
+  ⛔ This is a property of the DATA, not of the method: 99.66% zeros means most bins
+     contain no event and therefore all carry the identical forecast 0.0. A different
+     binning rule would not repair it; a different target base rate would.
+  ⛔ One split, one checkpoint, one seed, sb only, and no σ̂ exists for any of it.
+
+  wall time 19.5 s   peak RSS 2.33 GiB
