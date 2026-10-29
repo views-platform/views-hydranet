@@ -1,5 +1,20 @@
 # S2 (#460) — the family-free conditional CDF reproduces, and its "out-of-sample optimum" does not
 
+> ⛔⛔⛔ **RETRACTED AS A FORECAST RESULT — 2026-10-29.** Every number below is computed from the
+> frozen `nb` cube `d4_result.npz`, which is **TEACHER-FORCED**: `vehicle.py:301-307` writes the
+> three observed fatality series into the model's three input channels and `d4_mu_on_the_grid.py:143-146`
+> steps the model over that volume, so the model is handed last month's truth at every inference step
+> and never consumes its own output. The index ranks events at **AUC 0.99777**; the delivered
+> autoregressive forecast ranks them at **0.72340**, and only the delivered one decays with horizon.
+> Re-running the recalibration with **only the index changed** scores **0.067752** against
+> **0.060323** for no model at all.
+>
+> ⭐ **What still stands:** the arithmetic, the gates, and every comparison made **against the method
+> itself or against B=1 on the same cube** — those are internally consistent and were scoped that way
+> when written. Read them as **T=0 / teacher-forced** statements about emission families.
+> ⛔ **What does not:** any reading of these numbers as forecast skill, and any comparison against the
+> delivered model. See **M85**, **C-399**, **W-107**.
+
 **Date** 2026-10-27 · **Issue** #460 (epic #458) · **Script**
 `reports/2026-10-27_family_free_head/family_free_cdf.py`, committed at `ad3b007` **before it ran** ·
 **Output** `family_free_cdf.out`
