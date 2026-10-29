@@ -61,6 +61,33 @@ untrusted pattern set cannot produce a reassuring table.
   G-0c  the "deleted checkpoint" sentence is flagged ABSENCE
   G-0d  0.039327 is flagged DECLARED-ONLY  <-- the sharp one
 
+AMENDMENT 1 — 2026-10-29, after the first run. THE PATTERNS WERE TOO LOOSE.
+--------------------------------------------------------------------------
+The first run flagged 940 of 1,679 lines (56.0%) against a pre-declared stop threshold
+of 30%, so its output was not read. Three causes, each fixed structurally rather than by
+quietly widening a tolerance (W-96):
+
+  1. ⭐ THE REAL ONE: it flagged every LINE CARRYING A NUMBER, not every CLAIM. A table
+     row of raw measurements inside a FINDING is DATA, and the document's own header
+     supplies its mode and population. A claim is a line that ASSERTS -- bold text, a
+     verdict marker, or a cross-document comparison. `is_claim` now makes that cut, and
+     it is the tightening that matters.
+  2. Rounding produced false NO-ARTIFACT flags: a document writing 0.0392 for a measured
+     0.039186 is honest restatement, but the strings differ. Matching is now NUMERIC at
+     the document's own stated precision -- both sides rounded to the same number of
+     decimal places -- so a restatement matches and a different number does not.
+  3. 110 `.out` files are on disk and only 85 are tracked, so numbers from untracked runs
+     looked orphaned. Those are now their own, lesser class UNTRACKED-ARTIFACT: a real
+     problem (the evidence is not committed) but NOT the W-98 problem (the number was
+     never produced at all).
+
+MODE-UNNAMED now reads a context window -- the nearest preceding heading plus the five
+lines above -- because a FINDING that names its inference mode in its header does not
+have to repeat it on every line.
+
+⛔ The four G-0 gates are UNCHANGED and must still pass. Tightening a pattern set is only
+legitimate if it still catches everything known to be bad.
+
 LIMITS, stated before the run
 -----------------------------
 This is a TRIAGE, not a verdict. It finds candidates by pattern; a human read assigns
@@ -86,6 +113,12 @@ SINCE = "2026-10-26"
 # and population counts are not the failure class here, and including them buries the
 # signal.
 NUM = re.compile(r"\d+\.\d{3,}|\d+\.\d+\s?%")
+# Only ABSOLUTE decimals carry checkable provenance. Amendment 1: a PERCENTAGE is
+# normally derived from two measurements, so it legitimately appears in no `.out` and
+# flagging it NO-ARTIFACT is a false positive. Percentages still take part in the
+# CROSS-SOURCE and MODE-UNNAMED checks, where they are informative.
+ABS_NUM = re.compile(r"\d+\.\d{3,}")
+PRECISIONS = range(3, 7)
 
 # A line that quotes a value from elsewhere rather than producing one.
 DECLARED = re.compile(
@@ -104,9 +137,13 @@ MODE = re.compile(
     re.I,
 )
 COMPARE = re.compile(
-    r"\bvs\b|\bversus\b|\bagainst\b|\bbeats?\b|better than|worse than|->|→|\bratio\b"
-    r"|\bimprove|\boutperform", re.I
+    r"\bvs\b|\bversus\b|\bagainst\b|\bbeats?\b|better than|worse than|->|→|\boutperform",
+    re.I,
 )
+# A line that ASSERTS rather than TABULATES. Amendment 1: this is the cut that matters.
+# A raw measurement row inside a FINDING is data, and the document's header supplies its
+# mode and population; a bolded or marked sentence is a claim that must stand alone.
+VERDICT = re.compile(r"\*\*|⭐|⛔|⚠️|✅|⇒")
 ABSENCE = re.compile(
     r"\bdeleted\b|\bdoes not exist\b|\bis absent\b|cannot be regenerated|\bnowhere\b"
     r"|\bno longer\b|\bnever (?:written|existed|ran)\b|\bmissing\b|\bgone\b", re.I
@@ -128,60 +165,97 @@ def touched_docs() -> list[Path]:
     return [REPO / n for n in names if (REPO / n).is_file()]
 
 
-def out_corpus() -> tuple[dict[str, set[str]], dict[str, set[str]]]:
-    """Map each measurement number to the `.out` files that PRODUCED it, and to those
-    that merely DECLARED it. The distinction is the whole point -- see the docstring."""
-    produced: dict[str, set[str]] = defaultdict(set)
-    declared: dict[str, set[str]] = defaultdict(set)
-    tracked = [n for n in sh("git", "ls-files", "reports").splitlines() if n.endswith(".out")]
-    for name in tracked:
+def _index(names: list[str]) -> tuple[dict, dict]:
+    """Index `.out` numbers by value at each precision, split PRODUCED vs DECLARED.
+
+    Matching is numeric at the document's own stated precision -- both sides rounded to
+    the same number of decimal places -- so a document restating a measured 0.039186 as
+    0.0392 matches, while a genuinely different number does not (Amendment 1)."""
+    produced: dict = {k: defaultdict(set) for k in PRECISIONS}
+    declared: dict = {k: defaultdict(set) for k in PRECISIONS}
+
+    def add(target: dict, nums: list[str], name: str) -> None:
+        for n in nums:
+            v = float(n)
+            for k in PRECISIONS:
+                target[k][round(v, k)].add(name)
+
+    for name in names:
         try:
             text = (REPO / name).read_text(errors="replace")
         except OSError:
             continue
         for line in text.splitlines():
-            nums = NUM.findall(line)
+            nums = ABS_NUM.findall(line)
             if not nums:
                 continue
-            if DECLARED.search(line):
-                if GOT.search(line):
-                    # A gate line: what the run actually produced follows `got`.
-                    head, _, tail = line.partition("got")
-                    for n in NUM.findall(head):
-                        declared[n.strip()].add(name)
-                    for n in NUM.findall(tail):
-                        produced[n.strip()].add(name)
-                else:
-                    for n in nums:
-                        declared[n.strip()].add(name)
+            if not DECLARED.search(line):
+                add(produced, nums, name)
+            elif GOT.search(line):
+                # A gate line: what the run actually produced follows `got`.
+                head, _, tail = line.partition("got")
+                add(declared, ABS_NUM.findall(head), name)
+                add(produced, ABS_NUM.findall(tail), name)
             else:
-                for n in nums:
-                    produced[n.strip()].add(name)
+                add(declared, nums, name)
     return produced, declared
 
 
-def claim_lines(path: Path) -> list[tuple[int, str]]:
+def out_corpus():
+    """Tracked outputs are the evidence. Untracked ones are a lesser, different problem:
+    the number was produced but its evidence is not committed (Amendment 1)."""
+    on_disk = sorted(p.relative_to(REPO).as_posix() for p in (REPO / "reports").rglob("*.out"))
+    tracked = [n for n in sh("git", "ls-files", "reports").splitlines() if n.endswith(".out")]
+    untracked = [n for n in on_disk if n not in set(tracked)]
+    produced, declared = _index(tracked)
+    untracked_produced, _ = _index(untracked)
+    return produced, declared, untracked_produced, len(tracked), len(untracked)
+
+
+def is_claim(line: str) -> bool:
+    """A line that ASSERTS, not one that tabulates (Amendment 1, the main tightening)."""
+    if VERDICT.search(line):
+        return True
+    return bool(COMPARE.search(line) and len(NUM.findall(line)) >= 2)
+
+
+def claim_lines(path: Path) -> list[tuple[int, str, str]]:
+    """Every line carrying a number, with the context a MODE check may legitimately use:
+    the nearest preceding heading plus the five lines above it."""
+    lines = path.read_text(errors="replace").splitlines()
     rows = []
-    for i, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+    heading = ""
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("#"):
+            heading = line
         if NUM.search(line):
-            rows.append((i, line.strip()))
+            ctx = heading + " " + " ".join(lines[max(0, i - 5):i])
+            rows.append((i + 1, line.strip(), ctx))
     return rows
 
 
-def classify(line: str, produced, declared) -> tuple[set[str], list[str]]:
-    """Return the flags this line earns and the measurement numbers it carries."""
-    nums = [n.strip() for n in NUM.findall(line)]
+def classify(line: str, ctx: str, produced, declared, untracked) -> tuple[set[str], list[str]]:
+    """Return the flags this claim earns and the absolute numbers it carries."""
+    nums = ABS_NUM.findall(line)
     flags: set[str] = set()
+    srcs = []
 
     for n in nums:
-        if n in produced:
-            continue
-        flags.add("DECLARED-ONLY" if n in declared else "NO-ARTIFACT")
+        k = min(len(n.split(".")[1]), max(PRECISIONS))
+        k = max(k, min(PRECISIONS))
+        v = round(float(n), k)
+        if v in produced[k]:
+            srcs.append(produced[k][v])
+        elif v in declared[k]:
+            flags.add("DECLARED-ONLY")
+        elif v in untracked[k]:
+            flags.add("UNTRACKED-ARTIFACT")
+        else:
+            flags.add("NO-ARTIFACT")
 
     if COMPARE.search(line):
-        if not MODE.search(line):
+        if not MODE.search(line) and not MODE.search(ctx):
             flags.add("MODE-UNNAMED")
-        srcs = [produced[n] for n in nums if n in produced]
         if len(srcs) >= 2 and all(
             not (a & b) for i, a in enumerate(srcs) for b in srcs[i + 1:]
         ):
@@ -202,23 +276,27 @@ def slots(line: str) -> str:
 
 def main() -> int:
     docs = touched_docs()
-    produced, declared = out_corpus()
+    produced, declared, untracked, n_tracked, n_untracked = out_corpus()
     print("=" * 110)
     print("CLAIMS AUDIT — every numeric claim in the documents touched since " + SINCE)
     print("=" * 110)
-    print(f"  documents        {len(docs)}")
-    print(f"  produced numbers {len(produced):,} distinct, from committed .out files")
-    print(f"  declared-only    {len([n for n in declared if n not in produced]):,} distinct")
+    print(f"  documents          {len(docs)}")
+    print(f"  .out evidence      {n_tracked} tracked, {n_untracked} on disk but untracked")
+    print(f"  produced @6dp      {len(produced[6]):,} distinct values")
+    print(f"  declared-only @6dp {len([v for v in declared[6] if v not in produced[6]]):,}")
+    print("\n  AMENDMENT 1 applied: a CLAIM asserts (bold / verdict marker / a comparison")
+    print("  carrying two numbers); a bare measurement row is DATA and is not audited.")
 
-    rows = []
+    rows, total = [], 0
     for d in docs:
-        for ln, line in claim_lines(d):
-            f, nums = classify(line, produced, declared)
+        name = d.relative_to(REPO).as_posix()
+        for ln, line, ctx in claim_lines(d):
+            if not is_claim(line):
+                continue
+            total += 1
+            f, nums = classify(line, ctx, produced, declared, untracked)
             if f:
-                name = d.relative_to(REPO).as_posix()
                 rows.append((name, ln, sorted(f), slots(line), line, nums))
-
-    total = sum(len(claim_lines(d)) for d in docs)
 
     # ---- GATE G-0 -------------------------------------------------------------------
     print("\n" + "=" * 110)
@@ -256,7 +334,7 @@ def main() -> int:
     print("\n" + "=" * 110)
     print("TRIAGE")
     print("=" * 110)
-    print(f"  claim lines carrying a measurement number   {total:,}")
+    print(f"  asserting claims carrying a measurement     {total:,}")
     print(f"  flagged for human read                      {len(rows):,}  ({rate:.1%})")
     if rate > 0.30:
         print("  ⚠️  flag rate above 30% — the patterns are too loose. TIGHTEN BEFORE READING,")
