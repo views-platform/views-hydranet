@@ -140,12 +140,20 @@ SINCE = "2026-10-26"
 # percentage. Deliberately excludes bare integers -- years, issue numbers, line numbers
 # and population counts are not the failure class here, and including them buries the
 # signal.
-NUM = re.compile(r"\d+\.\d{3,}|\d+\.\d+\s?%")
+#   AMENDMENT 3 — a defect in this instrument, found by reading its own flags. The
+#   exponent used to be unmatched, so `9.983e-01` was read as the number `9.983` and
+#   `7.6e-17` as `7.6`, producing 8 phantom NO-ARTIFACT / DECLARED-ONLY flags. The
+#   exponent is now consumed and `float()` normalises it, so the mantissa is never
+#   compared as if it were the value. ⚠️ A false flag is not a harmless over-catch here:
+#   the register's whole purpose is to be trustworthy line by line, and a phantom row
+#   teaches distrust of a sound document exactly as a missing row hides a bad one.
+EXP = r"(?:[eE][+-]?\d+)?"
+NUM = re.compile(rf"\d+\.\d{{3,}}{EXP}|\d+\.\d+{EXP}\s?%")
 # Only ABSOLUTE decimals carry checkable provenance. Amendment 1: a PERCENTAGE is
 # normally derived from two measurements, so it legitimately appears in no `.out` and
 # flagging it NO-ARTIFACT is a false positive. Percentages still take part in the
 # CROSS-SOURCE and MODE-UNNAMED checks, where they are informative.
-ABS_NUM = re.compile(r"\d+\.\d{3,}")
+ABS_NUM = re.compile(rf"\d+\.\d{{3,}}{EXP}")
 PRECISIONS = range(3, 7)
 
 # A line that quotes a value from elsewhere rather than producing one.
@@ -216,6 +224,16 @@ def written_lines() -> set[str]:
         if ln.startswith("+") and not ln.startswith("+++")
         if (s := ln[1:].strip())
     }
+
+
+def _places(n: str) -> int:
+    """How many decimal places the document actually stated, clamped to the index range.
+    An exponent form is already normalised by `float()`, so it is compared at full
+    precision rather than by counting the characters after its dot (Amendment 3)."""
+    if "e" in n.lower():
+        return max(PRECISIONS)
+    k = len(n.split(".")[1])
+    return min(max(k, min(PRECISIONS)), max(PRECISIONS))
 
 
 def _index(names: list[str]) -> tuple[dict, dict]:
@@ -294,8 +312,7 @@ def classify(line: str, ctx: str, produced, declared, untracked) -> tuple[set[st
     srcs = []
 
     for n in nums:
-        k = min(len(n.split(".")[1]), max(PRECISIONS))
-        k = max(k, min(PRECISIONS))
+        k = _places(n)
         v = round(float(n), k)
         if v in produced[k]:
             srcs.append(produced[k][v])
