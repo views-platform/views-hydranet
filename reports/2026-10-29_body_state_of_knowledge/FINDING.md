@@ -69,10 +69,50 @@ against the smoothest truth available.
 |---|---|
 | **4-draw MC averaging** | `MEASURED`, **small**. 11.2% of field variance in-sample, 4.5% out (`d12c_draw_noise.out`). ⛔ And it is **not white** — the difference field has lag-1 ρ 0.27–0.37, so our own sampling noise is itself spatially structured |
 | **mean-vs-realisation necessity** | `MEASURED`, bounded, insufficient — above |
-| ⭐⭐ **the architecture: conv encoder + U-Net upsampling decoder** | ⛔⛔ **NOT MEASURED. Not one number exists.** A decoder that upsamples produces smooth fields *by construction*. This is the leading structural candidate and it has never been looked at |
+| ⭐⭐⭐ **the architecture: conv encoder + U-Net upsampling decoder** | ⭐⭐⭐ **MEASURED 2026-10-30 — `M92`, and it is the ANSWER.** Both upsampling stages are `ConvTranspose2d(kernel=2, stride=2)`: kernel = stride ⇒ **the windows do not overlap and NO spatial mixing occurs.** Each output cell is a fixed per-channel scalar multiple of exactly one input cell — the stage **replicates and rescales**, it does not interpolate. ⛔ **The encoder is NOT the culprit**: its full-resolution features are ROUGHER than truth (ρ(1) **+0.443** / **+0.314** vs truth **0.499**) ⇒ **the detail exists and the decoder discards it.** See §Q2a |
 | **BN recalibration fitted on 32×32 windows, applied to the 360×720 grid** | ⛔ `NOT MEASURED` for smoothness. It is a live lead for the **gate's** dispersion defect; `E6` separates it on CPU for free |
 | **`weight_decay` 0.1 global, heads not excluded** | ⛔ `NOT MEASURED` |
 | the parametric nugget/sill route | ⛔ **CLOSED.** The fits are **VOID** — P-1, P-2 and P-3 all missed, and F5 fired with a fit SE 2×10¹⁰ times its own parameter (`d12b_restricted_fit.out`). Detection floor ~2% |
+
+---
+
+## ⭐⭐⭐ Q2a · ANSWERED 2026-10-30 — `M92`, `reports/2026-10-30_smoothness_localisation/`
+
+**Forward hooks on all 11 named stages of `HydraBNUNet06_LSTM4`'s H1-reg path**, one teacher-forced
+sweep, ρ(d) over land–land neighbour pairs, lag swept {1,2,4,8,16,32}, dropout off **and** on.
+All 5 gates pass, including a **positive and negative control on the ρ estimator** (ramp +0.9996,
+checkerboard −1.0000, iid noise +0.0006) and an assertion that **every hook fired at its declared
+resolution**.
+
+| stage | res | ρ(1) | **ρ(2)** |
+|---|---|---|---|
+| `enc_conv0` | /1 | **+0.443** | +0.293 |
+| `dropout["e0s"]` ← the **skip** | /1 | **+0.314** | **+0.257** |
+| `bottleneck_conv` | /4 | +0.780 | +0.514 |
+| `upsample1_head1_reg` | /1 | ⛔ **+0.123** | ⭐ **+0.921** |
+| `dec_conv1_head1_reg` | /1 | +0.706 | **+0.939** |
+| `dec_conv4_head1_reg` | /1 | ⭐⭐ **+0.958** | +0.929 |
+
+**Three findings:**
+
+**1 · ⛔ The encoder is not the culprit** — its full-resolution features are **rougher than the
+truth field** (0.314–0.443 vs 0.499). ⇒ **The 1-cell detail exists inside the network.**
+
+**2 · ⭐⭐⭐ The upsampling stages cannot create spatial information.** `ConvTranspose2d(k=2, s=2)`
+with kernel = stride has **no overlap**, so each output cell is a fixed per-channel scalar multiple
+of one input cell. It **phase-stripes** rather than blurs — ρ(1) **+0.123** against ρ(2) **+0.921**,
+channel-wise ρ(1) from **−0.725** to **+0.719**. ⭐ Odena et al. 2016's checkerboard in its purest
+form, and `kernel = stride` is the worst case because there is nothing to average.
+
+**3 · ⭐⭐ At lag 2 the skip is swamped completely.** `dec1` **+0.939** tracks the upsampled branch's
+**+0.921** and bears **no resemblance** to the skip's **+0.257** ⇒ the post-concat 3×3 convolution
+does not use the full-resolution detail it is handed. Then the final 3×3 conv averages the 2×2
+phase pattern away: ρ(1) **0.706 → 0.958**, which is the delivered smoothness.
+
+⚠️ **This LOCALISES; it does not adjudicate.** A smooth internal representation may be correct.
+⛔ ρ on activations is **not** comparable to d12b's 0.926 (`W-51`) and no copy gate is claimed.
+⛔ **All four of my pre-registered predictions were refuted** (`W-114`–`W-117`): every one assumed
+the upsampling would *blur*, and it phase-stripes instead. Right suspect, wrong mechanism.
 
 ---
 
@@ -102,11 +142,33 @@ because a conditional-mean field *should* be smoother than a realisation.
 extrapolated an exponential from a single lag, and it was not like-for-like (`W-51`). Model-free and
 threshold-swept the honest range is 1.9–7.0×, sign always right, **and no scalar is quotable.**
 
+**4 · ⛔ A bigger receptive field / more context. MEASURED NON-SOLUTION, 2026-10-30 (`M92`).**
+The encoder's full-resolution features are already **rougher than the truth field**, and prior art
+puts the *effective* receptive field far below the theoretical one — interior `rel_abs_diff`
+**0.0006** against **0.10** pooled, a **142×** gap (`2026-08-23_state_range_dossier`). ⇒ **The
+model is not over-integrating context. It is failing to use detail it already has.**
+
+**5 · ⛔ `anti_aliased_pool.py`. It EXISTS in the repo and it is on the WRONG SIDE.** It addresses
+aliasing on the **downsampling** path; `M92` locates the defect on the **upsampling** path. ⛔ Do
+not reach for it as the fix.
+
+**6 · ⚠️ A structure penalty on the OUTPUT is doubly dead.** Beyond (1)'s measured failure, the
+output stage is now known to be **the smoothest thing in the network** (ρ(1) 0.958 after `dec1`'s
+0.706) ⇒ penalising it asks the final 3×3 conv to undo the phase pattern it exists to remove.
+
+## ⭐⭐ THE ONE INDICATED LEVER, added 2026-10-30 by `M92`
+
+**Replace `ConvTranspose2d(kernel=2, stride=2)` on the upsample path** with either
+`Upsample(scale_factor=2) → Conv2d(3×3)` or a transposed kernel of **4** with stride 2 and
+padding 1, so the overlap is even. This is the standard fix from the paper that named the defect.
+
+⚠️ **An ARCHITECTURE change, not an emitting family** — so `D-3`'s scope lock does not cover it.
+⛔ But it is a **retrain**, so it has a cost and it needs Simon's word. **Not proposed as work.**
+
 ## 🔵 Untested candidates, cheapest first
 
-1. ⭐⭐ **The architecture.** Zero numbers exist, and it is the leading candidate. The cheapest first
-   move is a **read, not a run**: measure the spatial roughness of the decoder's output at each
-   upsampling stage on the frozen cube. CPU, no training.
+1. ⭐⭐⭐ **The architecture — now MEASURED and ANSWERED.** See §Q2a and the lever above. ⛔ This
+   entry is retired as a *candidate*; what remains is the retrain decision, which is Simon's.
 2. **`E6`** — separates the BN-window and weight-decay leads. Free, CPU.
 3. **Score aggregates** (`RP-7`). ⚠️ If the fine scale is partly measurement artifact (`RP-10`),
    aggregates may be the only well-posed target — and then "too smooth at 1 cell" matters less than
