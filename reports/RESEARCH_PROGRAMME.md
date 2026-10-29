@@ -301,9 +301,21 @@ alone**. ⇒ σ̂ discharges the noise-floor requirement for `truncated_nb` @ 0.
 
 ---
 
-## RP-3 · The family-free recalibration beats our emission by 15%
+## RP-3 · The family-free recalibration beats our emission by 15% — ⛔ AT T=0, ON A TEACHER-FORCED CUBE
 
-**Unranked — runs in parallel.** 🟢 **LIVE — epic #468.** CPU, minutes. Runs in parallel with RP-1/RP-2.
+**Unranked.** ⛔⛔⛔ **CLOSED 2026-10-29 — the forecast claim is RETRACTED (M85, C-399).** The
+cube every number below is computed from is **teacher-forced**: `vehicle.py:301-307` writes the three
+observed fatality series into the model's three input channels, so the model is handed last month's
+truth at every inference step. Teacher-forced index **AUC 0.99777** against the delivered
+autoregressive forecast's **0.72340**, and only the delivered one decays with horizon. Re-running the
+method with **only the index changed** scores **0.067752** against **0.060323** for no model at all
+⇒ **on the deliverable forecast it is worse than not ranking.** ⭐ The comparators sit on the
+**same** cube, so the margin survives as an **emission-family** comparison at T=0 and dies as a
+forecast claim — **the arithmetic was never wrong; a label was.** ⭐ The method's name is
+**EasyUQ** / isotonic distributional regression (Walz, Henzi, Ziegel & Gneiting 2024, *SIAM Review*
+66(1) 91–122), whose proper estimator has **no bin count**. ⛔⛔ **Nothing in this programme
+ever scored the delivered autoregressive forecast — #489.** Everything below is kept as the record
+of what was measured, readable only as T=0.
 
 **The claim.** Keep the model's `gate × mu` **ranking**, throw its predicted **amounts** away, look
 up what history did at each rank. Fit 421–456, score 457–469, 842,634 held-out cell-months:
