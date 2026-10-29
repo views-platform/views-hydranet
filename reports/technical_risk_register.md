@@ -7834,7 +7834,9 @@ AUC **does not decay with horizon** (0.99730 → 0.99783 over 13 steps) while th
 recalibration with **only the index changed** gives **0.067752** on the deliverable forecast against
 **0.060323** for no model at all: worse than not ranking.
 
-**⛔ The instrument is not at fault.** `d4_mu_on_the_grid.py` was built to inspect the head at step
+**⛔⛔ **ESCALATED 2026-10-29 (M89) — the concern STANDS and its founding evidence was itself confounded.** The AUC pair above is a **two-variable contrast**: the two indices differ in inference mode **and** in emission (an expectation over MC draws vs the mean of 16 composed samples, which `threshold_gate` at τ=0.20 zeroes on 99.6567% of the population). Split on one population, holding each fixed in turn: **emission −0.1197** (0.99777 → 0.87807, both teacher-forced), **inference mode at h=1 −0.0752**, **horizon −0.0795**. ⇒ the trigger below is unchanged and the mechanism is unchanged, but the **magnitude** this entry now carries is measured rather than inferred: teacher-forcing on this cube is worth **+6.1% of CRPS at h=1** (0.049103 → 0.052109) and the delivered product scores **+13.6%** worse than the teacher-forced pass (0.055790 vs 0.049103) — the same order as the −14.9% margin the carry produced, which is why the carry was fatal rather than cosmetic. ⭐ And the delivered forecast itself, scored for the first time, **beats the no-model climatology by 7.5%** (0.055790 vs 0.060323) ⇒ nothing here says the model is worthless; it says the margin was read in the wrong regime. `W-108`, `M89`.
+
+⛔ The instrument is not at fault.** `d4_mu_on_the_grid.py` was built to inspect the head at step
 zero, and feeding observed truth is correct for that. The defect is the **carry** — its output
 crossed into comparisons, a ledger headline, a proposed ADR, an epic and a ship recommendation
 without the mode ever being named. ⚠️ The comparators turned out to sit on the **same** cube
