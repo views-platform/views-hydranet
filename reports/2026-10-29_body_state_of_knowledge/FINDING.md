@@ -128,8 +128,10 @@ threshold-swept the honest range is 1.9–7.0×, sign always right, **and no sca
 >   and under-dispersed only in the extreme top bin. The pooled 0.59 is a **Simpson artifact**.
 > - ⇒ **"Under-dispersed" is true of the extreme tail and of event coverage (central 90% covers
 >   67.5% on events), and FALSE of the body as a whole.**
-> - ⭐⭐ **The spread is highly informative** — Spearman(sd, |error|) **+0.73** / **+0.93**. The model
->   knows where it is uncertain.
+> - ⚠️ **The spread is WEAKLY informative beyond the mean** — Spearman(sd, |error|) **+0.73** /
+>   **+0.93** pooled, but **+0.18** conditional on the mean, events only. ⛔ **This line originally
+>   read "highly informative … the model knows where it is uncertain" — CORRECTED 2026-10-30 by
+>   `spread_partial.out` (`W-113`, `M91`).**
 >
 > ⛔ **Three of my own predictions failed getting here** — `W-110`, `W-111` (refuted *in sign*),
 > `W-112`. The reasons the section below gives for why it was unanswerable all still stand; they
@@ -231,16 +233,34 @@ delivered 16-member ensemble is **38% narrower than the model it is drawn from**
 the per-draw firing rate is flat to 4.02e-03 across the whole sweep and sits at **0.42×** the
 observed positive rate. Draws are iid, so the firing rate *cannot* depend on the draw count.
 
-## ⭐⭐ The one lever this OPENED, and it is new
+## ⛔⛔ The lever I said this OPENED — WITHDRAWN AS STATED, 2026-10-30
 
-**A spread recalibration.** Because Spearman(predicted sd, |error|) is **+0.73** (`threshold_gate`)
-and **+0.93** (`soft_gate`), the ensemble's spread carries real information about error magnitude —
-so deflating the over-dispersed middle and inflating the extreme tail, **fitted out of sample**, has
-genuine signal to work on.
+**I wrote that a spread recalibration had "genuine signal to work on" because
+Spearman(predicted sd, |error|) is +0.73 / +0.93. I reported that to Simon before checking it, and
+it was confounded twice.** `spread_partial.py` / `spread_partial.out`:
 
-⚠️ **A candidate, not a result.** ⛔ Not filed as work, and it needs its own issue. ⚠️ It also needs
-a decision that is not mine: a spread diagnostic used for *selection* rather than *diagnosis* needs
-Simon's amendment to FAO-02, which rejects PIT and is silent on spread–skill.
+1. `sd` is a monotone function of the mean — NB `var = mu + mu²/theta`. `Spearman(sd, mean)` =
+   **+0.892462** / **+0.982479**.
+2. ⛔⛔ On a **true-zero** cell, `|error| = |mean − 0| = mean` **exactly**, so the statistic
+   degenerates into (1). True zeros are **51.7%** / **81.7%** of the spread-bearing cells.
+
+| | pooled | ⭐⭐ conditional on the mean, **events only** |
+|---|---|---|
+| `threshold_gate` | +0.728114 | **+0.172 … +0.195** |
+| `soft_gate` | +0.932179 | **+0.181 … +0.230** |
+
+⇒ ⚠️ **What is actually true: the MEAN knows where the error is big** — `Spearman(mean, |error|)` =
+**+0.762318** / **+0.952648** — **and the spread adds ~+0.18 beyond it.** Stable across
+B = 5, 10, 20, 50 (D-4). ⭐ The 96% collapse of the two compositions' +0.204 gap to +0.008 confirms
+the mechanism directly.
+
+⚠️ **+0.18 is small, stable and correctly signed, so this is a deflation, not a refutation** — the
+spread is weakly informative, not uninformative. ⛔ **But a recalibration keyed on the mean alone
+would capture most of what is there, so it is no longer the lever I claimed.** `W-113`, `R-53`,
+`R-54`, `M91`.
+
+⚠️ Unchanged: a spread diagnostic used for *selection* rather than *diagnosis* still needs Simon's
+amendment to FAO-02, which rejects PIT and is silent on spread–skill.
 
 ## ⭐⭐⭐ But the biggest thing `M90` found is not about dispersion at all
 

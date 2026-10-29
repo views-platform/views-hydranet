@@ -16,8 +16,10 @@ distribution, *no distribution at all*. Among the cells it does give spread to i
 **2 · The draw count is not the lever.** 256× more draws widens the ensemble **62%** and makes the
 fair CRPS **0.46% worse**. RP-4 closes.
 
-**3 · ⭐ The spread is highly INFORMATIVE** — Spearman(predicted sd, |error|) = **+0.73** / **+0.93**.
-The model knows where it is uncertain. That is the one result here that opens a lever.
+**3 · ⚠️ The spread is WEAKLY informative beyond the mean** — Spearman(predicted sd, |error|) =
+**+0.73** / **+0.93** pooled, but **+0.18** once the ensemble mean is held fixed and true zeros are
+removed. ⛔ **This line originally read "highly INFORMATIVE … the model knows where it is
+uncertain" and was CORRECTED 2026-10-30 by `spread_partial.out` — §3c.**
 
 ---
 
@@ -116,15 +118,32 @@ RMSE is outlier-dominated, so treat it as directional, not as a ratio.
 
 ### 3c · ⭐ The spread carries real information — the one lever this opens
 
-| composition | Spearman(predicted sd, \|error\|) |
-|---|---|
-| `threshold_gate` | **+0.728114** |
-| `soft_gate` | **+0.932179** |
+| composition | pooled | ⭐⭐ **conditional on the mean, events only** |
+|---|---|---|
+| `threshold_gate` | +0.728114 | **+0.172 … +0.195** |
+| `soft_gate` | +0.932179 | **+0.181 … +0.230** |
 
-**The model knows where it is uncertain.** ⇒ A **spread recalibration** — deflating the
-over-dispersed middle, inflating the extreme tail, fitted out of sample — has genuine signal to work
-on. ⚠️ **A candidate, not a result. Not proposed as work here** (⛔ and it needs its own issue,
-which this document does not file).
+⛔⛔ **CORRECTED 2026-10-30 by `spread_partial.py` / `spread_partial.out` — and the error was mine,
+reported to Simon in chat before it was checked.** The pooled statistic is confounded twice:
+
+1. **`sd` is a monotone function of the mean.** For the NB, `var = mu + mu²/theta`, so a large `mu`
+   forces a large predicted sd. Measured: `Spearman(sd, mean)` = **+0.892462** / **+0.982479**.
+2. ⛔⛔ **On a true-zero cell, `|error| = |mean − 0| = mean` EXACTLY**, so the statistic *degenerates*
+   into (1). True zeros are **51.7%** of `threshold_gate`'s spread-bearing cells and **81.7%** of
+   `soft_gate`'s.
+
+⇒ ⚠️ **The honest statement: the MEAN knows where the error is big** — `Spearman(mean, |error|)` =
+**+0.762318** / **+0.952648** — **and the spread adds about +0.18 of rank information beyond it.**
+Stable across B = 5, 10, 20, 50 (D-4). ⭐ **The instrument was gated before it was read:** G-10's
+negative control collapses **+0.9686** pooled to **+0.0021** conditional on synthetic data where the
+answer is known by construction, and its positive control returns **+1.0000**.
+
+⭐ **And the two compositions carry the SAME conditional information** — the +0.204 pooled gap
+collapses to **+0.008** (a 96% collapse). `soft_gate`'s apparent advantage was its true-zero share.
+
+⇒ **The "spread recalibration" lever is withdrawn as I stated it.** ⚠️ It is not zero: +0.18 is
+small, stable, and signed correctly, so the spread is *weakly* informative rather than
+uninformative. **A recalibration keyed on the mean alone would capture most of what is there.**
 
 ### 3d · Coverage, on the cells that matter
 
