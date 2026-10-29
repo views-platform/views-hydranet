@@ -85,8 +85,36 @@ MODE-UNNAMED now reads a context window -- the nearest preceding heading plus th
 lines above -- because a FINDING that names its inference mode in its header does not
 have to repeat it on every line.
 
-⛔ The four G-0 gates are UNCHANGED and must still pass. Tightening a pattern set is only
-legitimate if it still catches everything known to be bad.
+AMENDMENT 2 — 2026-10-29. TWO SCOPE ERRORS OF MINE, found by SAMPLING the flags.
+--------------------------------------------------------------------------------
+Amendment 1 got the rate to 39.5%, still over the 30% stop threshold, so I read a sample
+of the flags instead of tightening by guess. Both remaining causes were scope errors:
+
+  1. ⭐ `→` IS NOT A COMPARISON IN THIS CORPUS, IT IS A TRANSITION. "MDE 0.0541 → 0.0086
+     from pairing alone" and "the model left to feed on itself goes 0.474 → 0.257 →
+     0.137" are before/after statements about ONE setup, and an inference-mode label is
+     irrelevant to them. The claims where the mode is load-bearing name a RIVAL: a
+     baseline, climatology, persistence, what ships, another method. MODE-UNNAMED now
+     requires a rival reference, and arrows are dropped from it entirely. They remain
+     available to CROSS-SOURCE, where the numbers' provenance does the work rather than
+     the punctuation.
+  2. ⛔ IT AUDITED WHOLE FILES RATHER THAN WHAT WE WROTE. `2026-09-30_evaluation_learning_
+     report.md` is 2,600+ lines and contributed 56 flags because ONE line in it was
+     touched this week. The scope is now the lines this window ADDED OR CHANGED, taken
+     from `git log -p`, which is both what Simon asked for ("everything touched by us the
+     last couple of days") and far tighter.
+
+     ⚠️ ITS LIMIT, STATED PLAINLY: a pre-existing claim in a file we touched but did not
+     change is NOT audited here. That is a deliberate boundary, not an oversight -- the
+     alternative is auditing the repository's whole history. The one case that matters,
+     pre-existing claims INVALIDATED by this week's retraction, was checked separately:
+     every document quoting the withdrawn cross-regime numbers carries a banner, and
+     ADR-073 §0 carries a correction block.
+
+⛔ The four G-0 gates are UNCHANGED through both amendments and must still pass.
+Tightening a pattern set is only legitimate if it still catches everything known to be
+bad -- and G-0b's "22.5% against what ships" is itself a rival comparison, so Amendment
+2's narrower MODE check is tested by the gate rather than assumed safe by me.
 
 LIMITS, stated before the run
 -----------------------------
@@ -140,6 +168,15 @@ COMPARE = re.compile(
     r"\bvs\b|\bversus\b|\bagainst\b|\bbeats?\b|better than|worse than|->|→|\boutperform",
     re.I,
 )
+# Amendment 2: the claims where the inference mode is LOAD-BEARING are the ones naming a
+# RIVAL. An arrow is a before/after transition within one setup and needs no mode label;
+# "against what ships" does.
+RIVAL = re.compile(
+    r"\bvs\b|\bversus\b|\bagainst\b|\bbeats?\b|better than|worse than|\boutperform"
+    r"|\bbaseline\b|climatolog|persistence|what ships|\bno model\b|\bdelivered\b"
+    r"|conflictolog|white_ranger",
+    re.I,
+)
 # A line that ASSERTS rather than TABULATES. Amendment 1: this is the cut that matters.
 # A raw measurement row inside a FINDING is data, and the document's header supplies its
 # mode and population; a bolded or marked sentence is a claim that must stand alone.
@@ -163,6 +200,22 @@ def touched_docs() -> list[Path]:
     out = sh("git", "log", f"--since={SINCE}", "--name-only", "--pretty=format:", "--all")
     names = sorted({n for n in out.splitlines() if n.endswith(".md")})
     return [REPO / n for n in names if (REPO / n).is_file()]
+
+
+def written_lines() -> set[str]:
+    """The text of every line this window ADDED or CHANGED (Amendment 2).
+
+    Keyed by text rather than line number so that later edits shifting a file do not
+    lose the mapping. ⚠️ A pre-existing claim in a file we touched but did not change is
+    deliberately out of scope -- see Amendment 2 in the module docstring for why, and
+    for what was checked separately instead."""
+    out = sh("git", "log", f"--since={SINCE}", "-U0", "-p", "--pretty=format:", "--all",
+             "--", "*.md")
+    return {
+        s for ln in out.splitlines()
+        if ln.startswith("+") and not ln.startswith("+++")
+        if (s := ln[1:].strip())
+    }
 
 
 def _index(names: list[str]) -> tuple[dict, dict]:
@@ -253,9 +306,10 @@ def classify(line: str, ctx: str, produced, declared, untracked) -> tuple[set[st
         else:
             flags.add("NO-ARTIFACT")
 
+    if RIVAL.search(line) and not MODE.search(line) and not MODE.search(ctx):
+        flags.add("MODE-UNNAMED")
+
     if COMPARE.search(line):
-        if not MODE.search(line) and not MODE.search(ctx):
-            flags.add("MODE-UNNAMED")
         if len(srcs) >= 2 and all(
             not (a & b) for i, a in enumerate(srcs) for b in srcs[i + 1:]
         ):
@@ -287,11 +341,14 @@ def main() -> int:
     print("\n  AMENDMENT 1 applied: a CLAIM asserts (bold / verdict marker / a comparison")
     print("  carrying two numbers); a bare measurement row is DATA and is not audited.")
 
+    written = written_lines()
+    print(f"  scope              {len(written):,} lines ADDED or CHANGED this window")
+
     rows, total = [], 0
     for d in docs:
         name = d.relative_to(REPO).as_posix()
         for ln, line, ctx in claim_lines(d):
-            if not is_claim(line):
+            if line not in written or not is_claim(line):
                 continue
             total += 1
             f, nums = classify(line, ctx, produced, declared, untracked)
@@ -356,7 +413,7 @@ def main() -> int:
         print(f"    {n:5,}  {d}")
 
     clean = sorted({d.relative_to(REPO).as_posix() for d in docs} - set(by_doc))
-    print(f"\n  ⭐ {len(clean)} documents carry NO flag — expected verdict STANDS, no edit:")
+    print(f"\n  ⭐ {len(clean)} documents whose NEW claims carry no flag — expected STANDS:")
     for d in clean:
         print(f"           {d}")
 
