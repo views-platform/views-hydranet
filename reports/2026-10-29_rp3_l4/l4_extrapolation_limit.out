@@ -1,0 +1,83 @@
+===================================================================================================
+RP-3 L4 (#472) — THE EXTRAPOLATION LIMIT: how often truth exceeds what the bin ever saw
+===================================================================================================
+  cube  d4_result.npz  sha 4acbf4d3c2b457b0…  family nb  (NOT the delivered weights — C-317)
+  fit   2,333,448 cell-months 421-456   max 1528
+  score 842,634 cell-months 457-469   max 2482   event fraction 0.003448 (2,905 cell-months)
+
+===================================================================================================
+  G-L4a  COPY GATE — the committed implementation at B=8,000
+===================================================================================================
+    PASS  l2_scorer agrees with the frozen binned_cdf to 1e-12 (|Δ| 0.00e+00)
+    PASS  plug       committed 0.039186   got 0.039186    |Δ| 3.48e-07 vs tol 5e-07
+    PASS  fair       committed 0.039026   got 0.039026    |Δ| 1.14e-07 vs tol 5e-07
+    PASS  occ        committed 291.700000 got 291.680522  |Δ| 1.95e-02 vs tol 5e-02
+    PASS  bg_truth0  committed 0.001964   got 0.001964    |Δ| 9.97e-09 vs tol 5e-07
+    PASS  ev_truth   committed 10.799000  got 10.798800   |Δ| 2.00e-04 vs tol 5e-04
+
+===================================================================================================
+  1 · THE LADDER — exceedance over the bin count, and its two halves
+===================================================================================================
+    ⛔ 'exceed' means truth > the MAXIMUM outcome that cell's bin observed in the fit
+      window. `zero` = the bin saw only zeros (the method forecast nothing); `tail` = the
+      bin saw events and this one is bigger than all of them. Only `tail` is M67's
+      'unprecedented event'.
+
+          B   void%   exc/all   exc/evt   crps sh   n zero   n tail   tail sh
+          1  0.000%   0.0001%     0.03%     4.88%        0        1     4.88%
+         50  0.000%   0.0001%     0.03%     5.06%        0        1     5.06%
+        250  0.000%   0.0005%     0.14%     6.06%        1        3     6.06%
+       1000  0.000%   0.0015%     0.45%     7.19%        5        8     7.18%
+       2000  0.000%   0.0024%     0.69%     7.49%        5       15     7.48%
+       4000  0.000%   0.0042%     1.20%    12.85%        6       29    12.83%
+       8000  0.000%   0.0074%     2.13%    14.62%       16       46    14.57%
+      16000  0.000%   0.0146%     4.23%    17.52%       43       80    17.37%
+      32000  0.000%   0.0241%     6.99%    21.96%       76      127    21.68%
+
+    PASS  G-L4c  the B=1 rung equals mean(y_sco > max(y_fit)) with no binning: 1.187e-06 vs 1.187e-06
+    PASS  G-L4g  the event-cell rate is monotone in B (H-L4c): 0.03% at B=1 → 6.99% at B=32,000
+
+===================================================================================================
+  2 · B=8,000 — WHICH failure, and how far beyond the bin
+===================================================================================================
+    PASS  G-L4b  the independent per-bin maximum agrees with score_cells: max >= mean on all 8,000 occupied bins, and (no positives) ⟺ (max == 0)
+
+    population                              count    share/evt    mean CRPS  crps share
+    ALL valid score cell-months            842634    29006.33%       0.0392     100.00%
+    truth > 0 (events)                       2905      100.00%      10.7988      95.01%
+      exceeding, EITHER kind                   62        2.13%      77.8475      14.62%
+        `zero`: the bin saw only zeros         16        0.55%       1.0625       0.05%
+        `tail`: beyond observed events         46        1.58%     104.5553      14.57%
+      events the bin's law COVERS            2843       97.87%       9.3366      80.39%
+
+    HOW FAR BEYOND — `tail` exceedances only, where the bin HAD seen events
+      truth / bin max   median 1.50x   p90 2.00x   max 3.00x
+      truth - bin max   median 2   p90 46   max 1514
+    AND THE OTHER HALF — `zero` exceedances, where the bin had seen nothing at all
+      truth             median 1   p90 1   max 2   (the cap is 0 by definition)
+
+===================================================================================================
+  3 · THE VERDICT #472 ASKS FOR — academic, or the blocker?
+===================================================================================================
+    PASS  G-L4e  non-vacuity: 62 exceeding cell-months at B=8,000
+    PASS  G-L4h  the derived bound: CRPS share 0.1462 <= the event half's 0.9502
+    PASS  G-L4d  the subset derivation: no exceeding cell-month has truth == 0, at every B
+
+    ⛔ REFUTED  H-L4a  event-cell exceedance 2.13% > 10%
+    ⛔ REFUTED  H-L4b  the exceeding cells carry 14.62% of total CRPS > 50%
+    HELD   H-L4c  the rate rises with the bin count
+    ⛔ REFUTED  H-L4d  `zero` dominates `tail`: 16 vs 46 cells, 0.05% vs 14.57% of CRPS
+
+===================================================================================================
+  THE GATES
+===================================================================================================
+  PASS  G-L4a  copy gate, the committed implementation at B=8,000
+  PASS  G-L4b  the independent per-bin maximum agrees with score_cells
+  PASS  G-L4c  the B=1 oracle, no binning
+  PASS  G-L4d  exceedance is a subset of the events, at every B
+  PASS  G-L4e  non-vacuity at B=8,000
+  PASS  G-L4f  void coverage < 1% at every B
+  PASS  G-L4h  the derived CRPS-share bound
+  PASS  G-L4g  monotonicity in the bin count
+
+  wall time 46.3 s   peak RSS 2.04 GiB
