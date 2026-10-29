@@ -1,0 +1,598 @@
+==============================================================================================================
+CLAIMS AUDIT — every numeric claim in the documents touched since 2026-10-26
+==============================================================================================================
+  documents          38
+  .out evidence      85 tracked, 26 on disk but untracked
+  produced @6dp      4,427 distinct values
+  declared-only @6dp 115
+
+  AMENDMENT 1 applied: a CLAIM asserts (bold / verdict marker / a comparison
+  carrying two numbers); a bare measurement row is DATA and is not audited.
+  scope              5,416 lines ADDED or CHANGED this window
+
+==============================================================================================================
+GATE G-0 — the pattern set is tested against four claims ALREADY KNOWN to be bad
+==============================================================================================================
+  PASS  G-0a  M85's AUC pair 0.99777 vs 0.72340 is flagged
+  PASS  G-0b  the '22.5% against what ships' phrase is flagged
+  PASS  G-0c  a 'deleted checkpoint' sentence is flagged ABSENCE
+  PASS  G-0d  0.039327 is flagged DECLARED-ONLY (never produced by any run)
+
+==============================================================================================================
+TRIAGE
+==============================================================================================================
+  asserting claims carrying a measurement     714
+  flagged for human read                      173  (24.2%)
+
+  by class:
+       97  MODE-UNNAMED
+       43  NO-ARTIFACT
+       28  DECLARED-ONLY
+       17  ABSENCE
+        9  UNTRACKED-ARTIFACT
+        7  CROSS-SOURCE
+
+  by document (28 of 38 carry at least one flag):
+       30  reports/PREDICTION_LEDGER.md
+       17  reports/technical_risk_register.md
+       12  reports/2026-10-27_family_free_head/FINDING.md
+       12  reports/RESEARCH_PROGRAMME.md
+       10  reports/2026-10-29_rp3_l2/FINDING_L2.md
+       10  reports/RESULTS_LEDGER.md
+        9  reports/2026-10-26_structure_penalty_arm_outcome.md
+        8  reports/2026-10-29_body_state_of_knowledge/FINDING.md
+        6  reports/2026-10-26_fss_battery_outcome.md
+        5  reports/2026-10-27_metric_redteam/FINDING_M4.md
+        5  reports/2026-10-27_metric_redteam/FINDING_M6.md
+        5  reports/2026-10-28_sigma_hat/FINDING_RP2_SIGMA.md
+        5  reports/2026-10-29_rp3_l4/FINDING_L4.md
+        5  reports/GLOSSARY.md
+        4  reports/2026-10-25_sharpness_ceiling_prereg.md
+        4  reports/2026-10-27_metric_redteam/FINDING.md
+        4  reports/2026-10-27_metric_redteam/FINDING_M2.md
+        4  reports/2026-10-28_rp3_l3/FINDING_L3a.md
+        3  reports/2026-10-21_body_scoreboard.md
+        3  reports/2026-10-27_metric_redteam/FINDING_M3.md
+        3  reports/2026-10-28_sigma_hat/FINDING_RP2_S0.md
+        2  reports/2026-10-26_fss_battery_prereg.md
+        2  reports/2026-10-29_delivered_forecast/FINDING.md
+        1  docs/ADRs/proposed/073_emit_time_distribution_split.md
+        1  reports/2026-09-30_evaluation_learning_report.md
+        1  reports/2026-10-26_scoreboard_update_plan.md
+        1  reports/2026-10-28_column_noise_floors/FINDING_RP2b.md
+        1  reports/2026-10-28_rp3_l3/FINDING_L3bc.md
+
+  ⭐ 10 documents whose NEW claims carry no flag — expected STANDS:
+           reports/2026-10-12_underfire_diagnosis/ARTIFACT_MANIFEST.md
+           reports/2026-10-12_underfire_diagnosis/d4_result_CONTROL_nb_4acbf4d3.PROVENANCE.md
+           reports/2026-10-21_structure_penalty_arm_prereg.md
+           reports/2026-10-24_control_vehicle_prereg.md
+           reports/2026-10-27_hypothesis_h/FINDING.md
+           reports/2026-10-27_hypothesis_h/QUANTILE_HEAD_STRUCTURAL.md
+           reports/2026-10-27_measurement_floor/ARGUMENT.md
+           reports/2026-10-28_candidate_ranking_DRAFT.md
+           reports/2026-10-28_guardrail_coverage/FINDING_M5.md
+           reports/2026-10-28_rp3_l5/FINDING_L5.md
+
+==============================================================================================================
+THE FLAGGED CLAIMS  (slots: P=population T=transform E=estimator M=inference mode)
+==============================================================================================================
+
+  docs/ADRs/proposed/073_emit_time_distribution_split.md:14  [----]  MODE-UNNAMED
+    > The §0 claim that the family-free fit scores *"−17.6% against the best parametric cell and −22.5%
+
+  reports/2026-09-30_evaluation_learning_report.md:759  [----]  NO-ARTIFACT
+    `moran_i` perfect **0.636** / displaced-3 **0.636**; `conc1pct` **0.0277** / **0.0277** — identical to
+
+  reports/2026-10-21_body_scoreboard.md:23  [----]  MODE-UNNAMED
+    And the arm's measured defect was **placement** (body-vs-truth Spearman +0.147 → +0.098). ⇒ **The
+
+  reports/2026-10-21_body_scoreboard.md:45  [----]  MODE-UNNAMED
+    >   against a value of **0.2947**). ⇒ Unsatisfiable by construction, not under-specified. **C-391**,
+
+  reports/2026-10-21_body_scoreboard.md:143  [P---]  MODE-UNNAMED
+    ⛔ **AMENDED 2026-10-27:** these bar figures were computed from `f_o` on **land cell-months** (0.003518 / 0.003448) while FSS is scored over the full **360×720** field, ocean included. On the scored domain `f_o` is **0.000880 / 0.000862** and the bar is **0.500440 / 0.500431**. ⭐ Every conclusion is 
+
+  reports/2026-10-25_sharpness_ceiling_prereg.md:19  [----]  MODE-UNNAMED,UNTRACKED-ARTIFACT
+    | **X-1** | **§3** | ⛔⛔ **RETRACTED 2026-10-27b — see the block below this table. Its evidence is ~1.0 for any dataset including noise, and §3's rule was right.** As written: ⛔ The decision rule compares **two different estimators**. `C(1)` is a raw variogram ratio (**amplitude**); B-1's 0.391 is va
+
+  reports/2026-10-25_sharpness_ceiling_prereg.md:26  [----]  UNTRACKED-ARTIFACT
+    X-1's whole case is *"applying B-1's own estimator to the two halves gives **0.983–1.009** at every
+
+  reports/2026-10-25_sharpness_ceiling_prereg.md:33  [----]  NO-ARTIFACT
+    ratio of **1.0251 at all six lags, constant to 0.00002**:
+
+  reports/2026-10-25_sharpness_ceiling_prereg.md:51  [----]  NO-ARTIFACT
+    **cross** term: `C_half(1) = 0.4982`, which `ceiling.out` committed and which stands.
+
+  reports/2026-10-26_fss_battery_outcome.md:52  [-T--]  MODE-UNNAMED
+    | counts vs log1p | **0 / 10,368** | **0.000e+00** |
+
+  reports/2026-10-26_fss_battery_outcome.md:82  [----]  MODE-UNNAMED
+    transform (B-1 d1 = 0.7712 at STEP 2 against 0.6856 at STEP 3).
+
+  reports/2026-10-26_fss_battery_outcome.md:104  [----]  MODE-UNNAMED
+    baseline (`k=8`, `n=15`: 0.9039 vs 0.8839). Within-block permutation spreads events more evenly
+
+  reports/2026-10-26_fss_battery_outcome.md:111  [-T--]  MODE-UNNAMED
+    `n=1`, counts: `0.5204 → 0.3571 → 0.3776 → 0.3673`. **The second pass scores better than the
+
+  reports/2026-10-26_fss_battery_outcome.md:154  [----]  MODE-UNNAMED
+    (+0.1592 vs +0.1589). ⛔ **This is not a verdict and must not be quoted as one:** `n=1`, in-sample,
+
+  reports/2026-10-26_fss_battery_outcome.md:156  [----]  MODE-UNNAMED
+    body-vs-truth Spearman fall (+0.147 → +0.098)** — that is a different statistic on a different
+
+  reports/2026-10-26_fss_battery_prereg.md:104  [----]  CROSS-SOURCE
+    calibration table already hints at this: `fss_ratio` moves `1.000 → 0.897` under blur `σ=2` but
+
+  reports/2026-10-26_fss_battery_prereg.md:122  [----]  MODE-UNNAMED
+    **0.2727 → 0.3338 — the wrong way** — while Spearman-vs-truth fell 41%.
+
+  reports/2026-10-26_scoreboard_update_plan.md:45  [----]  MODE-UNNAMED
+    The arm's measured defect is **placement** (body-vs-truth Spearman +0.147 → +0.098). B-1 was the
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:25  [----]  DECLARED-ONLY
+    `0.9**13 = 0.2542` of them. ⇒ The script reported the penalty of a model **re-normalised on one
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:35  [----]  NO-ARTIFACT,UNTRACKED-ARTIFACT
+    | `_structure_penalty`, **as published** | 1.7223 | 0.3540 | ⛔ **WITHDRAWN** — *"4.87× better"* |
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:57  [----]  NO-ARTIFACT,UNTRACKED-ARTIFACT
+    | as published | **corrupted** | unlocked | 1.7223 | 0.3540 |
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:74  [----]  MODE-UNNAMED
+    returns the published figures: the arm's share comes back **46.3–62.9%, dropout off 75.4%**, against
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:75  [----]  UNTRACKED-ARTIFACT
+    `PREDICTION_LEDGER` R-14's published **47.0–61.1%, dropout off 75.5%**; and §4's 0.3540 sits inside
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:77  [----]  MODE-UNNAMED
+    The defect cost the arm **7.1×** in the penalty (2.862 → 0.402) against the control's 1.5×, and that
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:192  [----]  NO-ARTIFACT,UNTRACKED-ARTIFACT
+    | ~~**`_structure_penalty`** — the loss term, Σ over blocks (2, 8)~~ | ~~1.7223~~ | ~~**0.3540**~~ | ⛔ **WITHDRAWN, amdt 2** |
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:226  [----]  CROSS-SOURCE
+    is withdrawn: corrected, the penalty did **not** fall — 2.6155 → 2.9223. ⚠️ **That sharpens the
+
+  reports/2026-10-26_structure_penalty_arm_outcome.md:364  [----]  MODE-UNNAMED
+    that B-1's `0.391` sat against a ceiling of **~1.0** — a ~61% shortfall, i.e. a lot to win. **X-1 is
+
+  reports/2026-10-27_family_free_head/FINDING.md:38  [----]  DECLARED-ONLY
+    | headline, B=8,000 | 0.039327 | **0.039186** | 0.36% apart |
+
+  reports/2026-10-27_family_free_head/FINDING.md:39  [----]  MODE-UNNAMED
+    | ladder: loses below 250 | yes | **0.048389 vs 0.046023** | ✅ |
+
+  reports/2026-10-27_family_free_head/FINDING.md:43  [----]  DECLARED-ONLY
+    | event-cell law | 10.831 | **10.799** | 0.3% apart |
+
+  reports/2026-10-27_family_free_head/FINDING.md:48  [----]  MODE-UNNAMED
+    actual difference 1.41e-4), G-d **FAIL** (background 0.001964 vs 0.000260).
+
+  reports/2026-10-27_family_free_head/FINDING.md:53  [--E-]  MODE-UNNAMED
+    best parametric arm, here by **−14.9%** (plug-in) / **−15.3%** (fair at 8,000) against M67's −17.6%.
+
+  reports/2026-10-27_family_free_head/FINDING.md:73  [----]  NO-ARTIFACT
+    | 16,000 | 145.8 | 0.000316 | 0.0461 | **1.975** |
+
+  reports/2026-10-27_family_free_head/FINDING.md:74  [----]  NO-ARTIFACT
+    | 32,000 | 72.9 | 0.000637 | 0.0464 | **2.016** |
+
+  reports/2026-10-27_family_free_head/FINDING.md:76  [--E-]  MODE-UNNAMED,NO-ARTIFACT
+    `(plug−fair)·n` is flat to **1.3%** and the bias **doubles as `n` halves** — 1.975 and 2.016 against
+
+  reports/2026-10-27_family_free_head/FINDING.md:88  [----]  NO-ARTIFACT
+    ⚠️ The product is **not** flat below 4,000 bins (0.0933 / 0.0747 / 0.0560 / 0.0525), for two
+
+  reports/2026-10-27_family_free_head/FINDING.md:96  [----]  NO-ARTIFACT
+    background, **0.000260 vs 0.000266**. This script measures **0.001964** — **7.6× higher**. The
+
+  reports/2026-10-27_family_free_head/FINDING.md:97  [----]  DECLARED-ONLY
+    event-cell half of the same gate reproduces to 0.3% (10.799 vs 10.831).
+
+  reports/2026-10-27_family_free_head/FINDING.md:108  [----]  DECLARED-ONLY,MODE-UNNAMED
+    headline **is** larger, 0.039327 vs 0.039186, in the right direction and roughly the right size.
+
+  reports/2026-10-27_metric_redteam/FINDING.md:27  [----]  MODE-UNNAMED
+    | **G-b** spiky ⇒ per-month total exact, occupancy exactly `round(n_act/30)` | ✅ PASS | max relative total error **4.454e-16**; occupancy **97..97** against a target of 97 |
+
+  reports/2026-10-27_metric_redteam/FINDING.md:28  [----]  MODE-UNNAMED
+    | **G-c** climatology ⇒ per-cell gate == the fit window's rate | ✅ PASS | max \|Δrate\| **0.000e+00**, and identical across all 13 months |
+
+  reports/2026-10-27_metric_redteam/FINDING.md:45  [----]  MODE-UNNAMED
+    | persistence | 51,285 | 0.003412 | 2,482.0 | **0.0000** |
+
+  reports/2026-10-27_metric_redteam/FINDING.md:58  [----]  MODE-UNNAMED
+    - **persistence** has a field total **0.8%** from truth and the exact right maximum, and is the
+
+  reports/2026-10-27_metric_redteam/FINDING_M2.md:89  [--E-]  MODE-UNNAMED
+    > **fair** estimator `climatology` flips — **0.060480** (loses to `all-zero`) → **0.060251**
+
+  reports/2026-10-27_metric_redteam/FINDING_M2.md:136  [---M]  NO-ARTIFACT
+    ⇒ ⭐⭐⭐ **The truth blurred by one cell beats the delivered model by 0.540568 on the one column
+
+  reports/2026-10-27_metric_redteam/FINDING_M2.md:168  [----]  MODE-UNNAMED
+    | **C1** | *"MCR fails — all-zero and over-concentrated both ≈ climatology on MCR"* | ⚠️ **REFUTED as worded, CONFIRMED in substance.** The three-way ≈ does not hold (`MCR_field` 0.000000 / 1.000000 / 1.461138). But **`spiky-1/30` scores `MCR_field` = 1.000000, the oracle's exact value** ⇒ ⛔ the fir
+
+  reports/2026-10-27_metric_redteam/FINDING_M2.md:169  [----]  MODE-UNNAMED
+    | **C2** | *"CRPS fails on sparse (all collapse together)"* ⛔ FAO-02's **primary** | ⛔ **REFUTED.** Relative range **178.40%** — it does not collapse. ⚠️ **But the truth is worse than the claim:** see Finding C. CRPS does not collapse; it actively *prefers* the empty forecast to eight of nine inform
+
+  reports/2026-10-27_metric_redteam/FINDING_M3.md:107  [----]  DECLARED-ONLY
+    | +1.0 on the 100 **smallest**-truth event cells | 0.03442341 | 0.03442341 | **7.6e-17** |
+
+  reports/2026-10-27_metric_redteam/FINDING_M3.md:108  [----]  DECLARED-ONLY
+    | +1.0 on the 100 **largest**-truth event cells | 0.00029859 | 0.00029859 | **1.3e-17** |
+
+  reports/2026-10-27_metric_redteam/FINDING_M3.md:222  [----]  NO-ARTIFACT
+    demonstrated (`spearmanr`, `+0.4925 → −0.1605`). ⛔ **Not Gini** (Finding E, `W-89`).
+
+  reports/2026-10-27_metric_redteam/FINDING_M4.md:25  [----]  MODE-UNNAMED
+    | oracle, all-zero, persistence, spiky, freq-right, mag-right, blurred r=1/2/4 | — | — | **0.000000** | **0.000000** | **0.0000%** |
+
+  reports/2026-10-27_metric_redteam/FINDING_M4.md:26  [----]  MODE-UNNAMED
+    | **climatology** | 0.060480 | 0.060251 | **0.000229** | 0.117431 | 0.3807% |
+
+  reports/2026-10-27_metric_redteam/FINDING_M4.md:41  [----]  MODE-UNNAMED
+    | **climatology** | 0.060480 | **no** | **0.060251** | ⛔ **YES** |
+
+  reports/2026-10-27_metric_redteam/FINDING_M4.md:59  [----]  MODE-UNNAMED
+    | climatology | **0.117431** |
+
+  reports/2026-10-27_metric_redteam/FINDING_M4.md:82  [----]  MODE-UNNAMED
+    points, 18.1% of the skill score's own value.** And it inflates because the **baseline** is the
+
+  reports/2026-10-27_metric_redteam/FINDING_M6.md:29  [----]  NO-ARTIFACT
+    | **rank correlation** | ⭐ **Chosen.** M67 already used it to catch a composition defect AP scored 0.736228 on (`+0.4925 → −0.1605`); it is scale-free, so the known mass deficit cannot leak in; no new dependency. |
+
+  reports/2026-10-27_metric_redteam/FINDING_M6.md:62  [----]  MODE-UNNAMED
+    | **oracle** vs **freq-right/mag-wrong** | **14 of 20** — AP, Brier, crps_none, MCR_field, FSS×7, AFSS, hit_rate, act_freq | **1.000000** vs **0.000000** — separation **1.000000** |
+
+  reports/2026-10-27_metric_redteam/FINDING_M6.md:63  [----]  MODE-UNNAMED
+    | **spiky-1/30** vs **all-zero** | **10 of 20** — size_ratio, FSS×7, AFSS, hit_rate | **0.521009** vs **0.000000** — separation **0.521009** |
+
+  reports/2026-10-27_metric_redteam/FINDING_M6.md:157  [----]  NO-ARTIFACT
+    because every test passed `population=` explicitly. Same consequence: **0.9975 instead of 0.0**.
+
+  reports/2026-10-27_metric_redteam/FINDING_M6.md:206  [----]  MODE-UNNAMED
+    3. ⚠️ **RP-6 has a new first question:** whether the recorded 0.303-vs-0.367 ordering survives a
+
+  reports/2026-10-28_column_noise_floors/FINDING_RP2b.md:21  [----]  MODE-UNNAMED
+    | the honest 4.97σ̂ bar against one unreplicated arm | **4.177**, i.e. **418× the margin** |
+
+  reports/2026-10-28_rp3_l3/FINDING_L3a.md:42  [----]  MODE-UNNAMED
+    model's own index still buys **−28.6% to −33.7%** against its own unconditional baseline. ⇒ The
+
+  reports/2026-10-28_rp3_l3/FINDING_L3a.md:69  [----]  MODE-UNNAMED
+    ## 3 · ⛔ Why no "%-vs-0.046023" column exists here
+
+  reports/2026-10-28_rp3_l3/FINDING_L3a.md:95  [----]  DECLARED-ONLY,MODE-UNNAMED
+    G-L3a aborted at `0.039186` against a declared target of `0.039327` and refused to score any other
+
+  reports/2026-10-28_rp3_l3/FINDING_L3a.md:105  [----]  DECLARED-ONLY
+    ⚠️ **M67's 0.039327 is reproduced by neither implementation** (gap −0.000141, **−0.36%**). That is
+
+  reports/2026-10-28_rp3_l3/FINDING_L3bc.md:109  [----]  DECLARED-ONLY
+    lesson applied rather than repeated. M67's **0.039327** remains reproduced by **no**
+
+  reports/2026-10-28_sigma_hat/FINDING_RP2_S0.md:68  [----]  MODE-UNNAMED
+    > **same-version pair** `{43,44}` as the clean estimate: **0.0002 … 0.0196**, against the
+
+  reports/2026-10-28_sigma_hat/FINDING_RP2_S0.md:212  [----]  NO-ARTIFACT
+    | `mu` (the body) | 1.7811e+01 | **4.3500e+00** |
+
+  reports/2026-10-28_sigma_hat/FINDING_RP2_S0.md:214  [----]  NO-ARTIFACT
+    | `gate` | 9.0743e-01 | **7.4293e-03** |
+
+  reports/2026-10-28_sigma_hat/FINDING_RP2_SIGMA.md:38  [----]  MODE-UNNAMED
+    measured**. At out/n=33 the honest bar for believing a single-arm difference is **2.1312 against a
+
+  reports/2026-10-28_sigma_hat/FINDING_RP2_SIGMA.md:81  [----]  MODE-UNNAMED
+    0.342…0.132 against 1.703…0.624; out-of-sample 0.054…0.024 against 1.479…1.144. ⇒ **The gate is the
+
+  reports/2026-10-28_sigma_hat/FINDING_RP2_SIGMA.md:86  [----]  MODE-UNNAMED
+    scale it is the reverse: **0.105 (B-1a in/E-W/d1) against 0.342 (B-1b in/gated/n1)**.
+
+  reports/2026-10-28_sigma_hat/FINDING_RP2_SIGMA.md:112  [----]  ABSENCE
+    B-1a 0.391 / B-1b 0.6267 are **`nb` @ 0.15 on a DELETED checkpoint**; the live `nb` control is
+
+  reports/2026-10-28_sigma_hat/FINDING_RP2_SIGMA.md:113  [----]  MODE-UNNAMED
+    @ **0.125**. B-1a on `truncated_nb` reads **1.462** against `nb`'s **0.391** — a **3.7× level
+
+  reports/2026-10-29_body_state_of_knowledge/FINDING.md:55  [----]  MODE-UNNAMED
+    sharply against the smoother comparator. Out of sample, E–W, at d=1: **0.148** against the window
+
+  reports/2026-10-29_body_state_of_knowledge/FINDING.md:56  [----]  MODE-UNNAMED
+    truth, **0.205** against the 336-month truth.
+
+  reports/2026-10-29_body_state_of_knowledge/FINDING.md:86  [----]  CROSS-SOURCE
+    - **B-1 went 0.400 → 0.090 — 4.44× WORSE**, and worse at *every* scale, not just the finest.
+
+  reports/2026-10-29_body_state_of_knowledge/FINDING.md:97  [----]  MODE-UNNAMED
+    ROUGHER.** Isotropic γ(1) went **0.2924 → 1.0415** against truth's **1.4115** (`M79`). ⛔ And
+
+  reports/2026-10-29_body_state_of_knowledge/FINDING.md:145  [P---]  MODE-UNNAMED
+    | the body **under-fires** | emits a positive in **0.0009** of cell-months vs **0.0034** observed = **0.26×** | `M66`, ADR-073 §1 |
+
+  reports/2026-10-29_body_state_of_knowledge/FINDING.md:149  [--E-]  NO-ARTIFACT
+    | ⭐ **but θ where the model actually emits did NOT collapse** | gate-weighted mean θ = **0.0902** — **24,000×** the grid median | ADR-073 §0 |
+
+  reports/2026-10-29_body_state_of_knowledge/FINDING.md:174  [----]  NO-ARTIFACT
+    **b > 1 in all six fits** (1.146 control / 1.419 arm), logits compressed. **The body has no such
+
+  reports/2026-10-29_body_state_of_knowledge/FINDING.md:227  [----]  MODE-UNNAMED
+    | the confound is bounded and insufficient | same file, §5, two comparators | 0.148 vs 0.205 |
+
+  reports/2026-10-29_delivered_forecast/FINDING.md:60  [----]  MODE-UNNAMED
+    | B=1 climatology — **no model** | — | **0.060323** | 0.060323 | — | — | — |
+
+  reports/2026-10-29_delivered_forecast/FINDING.md:101  [----]  ABSENCE
+    by **< 0.0023** everywhere. The failure is absent resolution, not a binning choice.
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:46  [----]  MODE-UNNAMED
+    covers **98.7123%** of the score window and scores **0.000261** against M67's **0.000260** —
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:72  [----]  DECLARED-ONLY
+    | **M67 as published** | 0.000260 | 10.831 | **0.037599** | **0.039327** | ⛔ **−4.39%** |
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:108  [----]  MODE-UNNAMED
+    is **≈0.055 per cell** there, against **0** everywhere else in the empty set.
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:126  [----]  DECLARED-ONLY,MODE-UNNAMED
+    | 2 · equal-**width** bins | ⛔ **REFUTED** | moves the **event** half to **12.513** (linear) / **12.048** (log10) against M67's 10.831. The event half is the half that already reproduces (10.799), so any rule that moves it cannot be M67's. **The rule is pinned by the number that worked, not by the o
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:127  [----]  MODE-UNNAMED
+    | 3 · **m=16** subsampling | ⛔ **REFUTED, before it ran** | derived `0.039026 + 0.0468/16 = 0.041951`; **measured 0.041397** (−1.30%, G-L2e), i.e. **+5.3%** against M67's headline, not 0.36% from it. The **m its headline implies is 155.4** — bin occupancy near B=16,000, not 16. |
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:130  [----]  DECLARED-ONLY
+    64 → 0.039801, 256 → 0.039174, full → 0.039186. M67's 0.039327 sits between **m=128 and m=256**.
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:166  [---M]  NO-ARTIFACT
+    1. ⛔ **M67's comparator.** The delivered model (0.000266) and the best parametric arm (0.046023) are
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:170  [----]  DECLARED-ONLY
+    2. ⛔ **M67's headline 0.039327 is still reproduced by no implementation** (−0.36%). The m-ladder
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:183  [----]  MODE-UNNAMED
+    | **G-L2b** | the reconstruction identity separates the two trios (+0.00% vs −4.39%) | **PASS** |
+
+  reports/2026-10-29_rp3_l2/FINDING_L2.md:186  [----]  MODE-UNNAMED
+    | **G-L2e** | candidate 3's **derivation** against its own **measurement** (−1.30%) — this gates *me*, not M67 | **PASS** |
+
+  reports/2026-10-29_rp3_l4/FINDING_L4.md:88  [--E-]  MODE-UNNAMED
+    at a mean of **77.85** against the event half's 10.80. A failure on 2.13% of events is not rare
+
+  reports/2026-10-29_rp3_l4/FINDING_L4.md:110  [----]  DECLARED-ONLY
+    | 8,000 | 0.039186 | 0.033457 | **0.033458** |
+
+  reports/2026-10-29_rp3_l4/FINDING_L4.md:112  [----]  DECLARED-ONLY
+    | 32,000 | 0.039493 | 0.030820 | **0.030819** |
+
+  reports/2026-10-29_rp3_l4/FINDING_L4.md:171  [P---]  NO-ARTIFACT
+    carry `163.1542 × 62 / 842,634 = 0.012005` of the total **0.039186** — ⭐ **30.6% of the entire
+
+  reports/2026-10-29_rp3_l4/FINDING_L4.md:194  [----]  NO-ARTIFACT
+    parametric arm; both remain ungated (M67's 0.000266 / 0.046023). The ladder is the method against
+
+  reports/GLOSSARY.md:389  [----]  MODE-UNNAMED
+    > 0.391 is read against is ~1.0**, and the amplitude fraction 0.498 bounds something else.
+
+  reports/GLOSSARY.md:396  [----]  NO-ARTIFACT
+    variance ratio of **1.0251 at all six lags, constant to 0.00002**.
+
+  reports/GLOSSARY.md:399  [----]  MODE-UNNAMED
+    is read against is `0.498`** — the cross term, which is how well one half **predicts** the other, and
+
+  reports/GLOSSARY.md:405  [----]  MODE-UNNAMED
+    | **against 0.498 (locked)** | **78.5%** | **~21%** |
+
+  reports/GLOSSARY.md:456  [P-E-]  MODE-UNNAMED
+    | **run-to-run σ̂** | **Spread over independently SEEDED trainings of one config** — identical configs, data and git sha, differing only in `torch_seed`/`np_seed`. What a decision rule needs, what `C-372` and the scoreboard's rule 7 are about. **Estimator LOCKED: pooled sample sd, `ddof=1`** (`2026-
+
+  reports/PREDICTION_LEDGER.md:248  [-T--]  MODE-UNNAMED
+    | W-70 | ⛔ **Pre-registered as P-F2 in `2026-10-26_fss_battery_prereg.md` §3, committed `571ea76` before the script existed:** FSS under T-3 "**monotone worsening** — but WEAKLY". | ⛔ **the right direction with the wrong shape — a prediction whose qualitative half I reasoned out and whose monotonici
+
+  reports/PREDICTION_LEDGER.md:249  [----]  ABSENCE
+    | W-71 | ⛔ **Pre-registered as decision rule D-2 in the same document:** if FSS is weak on T-3, "the report must then say plainly that the body's **over-smoothness** defect has **no** diagnostic". | ⛔ **a pre-registered CONSEQUENCE contradicted by a column already in my own script — reasoned as thou
+
+  reports/PREDICTION_LEDGER.md:254  [--E-]  MODE-UNNAMED
+    | W-74 | ⛔ **The pass/fail gate I wrote into `b1b_hitrate_and_m4.py`'s C-3 check and committed before running it:** the derived identity `FSS(n=1) = hits/events` holds **iff** `worst == 0.0`. | ⛔ **a threshold specified without the resolution of the quantity it gates — FIFTH instance of the class** 
+
+  reports/PREDICTION_LEDGER.md:260  [--E-]  MODE-UNNAMED
+    | W-77 | ⛔ **Committed into `2026-10-21_body_scoreboard.md`'s reading rule 1 and Amendment 1, and told to Simon as fact:** *"B-1a is exactly displacement-blind (`0.000e+00` under translation)"*. | ⛔ **took a measured number from one transform and attached it to a claim about a different one — and th
+
+  reports/PREDICTION_LEDGER.md:262  [-T--]  MODE-UNNAMED
+    | W-78 | ⛔ **Committed into `2026-10-26_fss_battery_outcome.md` §2 and reported to Simon as "CONFIRMED EXACTLY":** *"Counts ≡ log1p, **byte for byte**. The first space-invariant statistic in this programme."* | ⛔ **over-generalised a valid test, and the over-generalisation concealed a measurement ar
+
+  reports/PREDICTION_LEDGER.md:264  [----]  MODE-UNNAMED,NO-ARTIFACT,UNTRACKED-ARTIFACT
+    | W-79 | ⛔⛔ **Committed as amendment X-1 of `2026-10-25_sharpness_ceiling_prereg.md`, locked into `GLOSSARY.md` §5d, quoted as settled in the living evaluation report, and USED TO RELEASE A POD ARM:** *"applying B-1's own estimator to the two halves gives 0.983–1.009 at every lag, so the ceiling 0.3
+
+  reports/PREDICTION_LEDGER.md:266  [--E-]  NO-ARTIFACT
+    | W-80 | ⛔ **Reported to Simon as the evidence for the BatchNorm finding, before measuring it:** the committed output's first forward (`SUM struct pen 1.860762`) lying **above** the twelve-draw max 1.837875 is *"what a drifting buffer looks like; it is not what dropout noise alone looks like."* | `b
+
+  reports/PREDICTION_LEDGER.md:268  [----]  MODE-UNNAMED,NO-ARTIFACT
+    | W-81 | ⛔⛔ **Written into the fix for the defect itself**, as a code comment asserting its own reasoning: `model.set_locked_dropout(False)` turns dropout off, and `model.eval()` must be avoided there because it *"would also unfreeze BN"*. | re-read of `set_locked_dropout` plus `tests/test_locked_dr
+
+  reports/PREDICTION_LEDGER.md:270  [----]  MODE-UNNAMED,NO-ARTIFACT
+    | W-82 | ⛔⛔ **`R-14`'s ✅, closed 2026-10-26 and quoted in this ledger's own 2026-10-26 block as the counterweight to three wrong rows:** the control's trained penalty share of 83.9–86.0% *"is an UPPER bound"*, and the arm's measured 47.0–61.1% showed the caveat *"was load-bearing and in the right di
+
+  reports/PREDICTION_LEDGER.md:274  [--E-]  MODE-UNNAMED
+    | W-85 | ⛔ **Reported the plug-in vs fair CRPS gap at m=16 to Simon as a decision he needed to make**, with a 5.5× per-arm bias spread as the supporting evidence. | ⛔ **an unswept free parameter dressed as a finding** | Simon: *"I've told you 1000 times that we can just run a new control with draws!
+
+  reports/PREDICTION_LEDGER.md:275  [----]  MODE-UNNAMED
+    | W-86 | ⭐ **Hypothesis H — the centrepiece of epic #458**: that the quantile head's 11–35× deficit *"is concentrated in the top quantile on ~100 cells, and bounding its tail … recovers most of the family-free fit's advantage — because the two differences are the same difference."* I wrote a story (
+
+  reports/PREDICTION_LEDGER.md:276  [P-E-]  MODE-UNNAMED
+    | W-87 | ⛔ **The 2026-08-13 draft §4.2, as the stated reason the battery needed building:** *"CRPS fails on sparse — all collapse together."* FAO-02's PRIMARY metric, declared blind. | ⛔ **a mechanism asserted, never measured — for 75 days** | M2 / #479, 11 forecasts × `crps_all`, 842,634 cell-month
+
+  reports/PREDICTION_LEDGER.md:277  [----]  MODE-UNNAMED
+    | W-88 | ⛔ **The 2026-08-13 draft §4.3:** *"MCR fails — all-zero and over-concentrated both score ≈ climatology on MCR."* | ⛔ **right failure, wrong mechanism** | M2 / #479, `MCR_field` and the ruler's `pos_mcr` | **REFUTED as worded, CONFIRMED in substance.** `MCR_field` is 0.000000 (all-zero) / 1.
+
+  reports/PREDICTION_LEDGER.md:287  [----]  ABSENCE,DECLARED-ONLY,MODE-UNNAMED
+    | W-98 | ⛔ **G-L3a, declared in `l3a_split_sensitivity.py`'s docstring and committed before it ran: the lifted binned-CDF scorer would reproduce `0.039327` at the published split.** The gate aborted the whole run when it did not. | ⛔ **the anchor, not the code** — a COPY gate pointed at a LEDGER val
+
+  reports/PREDICTION_LEDGER.md:288  [----]  ABSENCE
+    | W-99 | ⛔ **Stated to Simon, written into `sigma_hat_aggregate.py`'s TRANSFER block and printed in its committed `.out`, and carried into RP-2's transfer table as a row:** *"the published B-1a 0.391 / B-1b 0.6267 are `nb` @ 0.15 **on a DELETED checkpoint**."* | ⛔ **a claim about what exists in the 
+
+  reports/PREDICTION_LEDGER.md:290  [--E-]  MODE-UNNAMED
+    | W-101 | ⛔ **P2, declared in `l5_spatial_and_aggregate.py`'s docstring and committed before it ran, as the prediction the story turned on:** *"adjacent cells in the same bin differ by EXACTLY ZERO, so every such pair contributes 0 to gamma ⇒ the short-lag variogram must FALL and the field must look
+
+  reports/PREDICTION_LEDGER.md:291  [P---]  ABSENCE,MODE-UNNAMED
+    | W-102 | ⛔ **H-L2, declared in `l2_background_split.py`'s docstring and committed before it ran, as the hypothesis the story turned on:** M67's *"quiet background"* *"is the set of cell-months the lookup **forecasts nothing for** … M67's own sentence names that set's complement — 'the 1.36% of cell
+
+  reports/PREDICTION_LEDGER.md:292  [--E-]  MODE-UNNAMED
+    | W-103 | ⛔ **H-L4, declared in `l4_extrapolation_limit.py`'s docstring and committed before it ran, in four parts — THREE of them wrong.** (a) *"the event-cell exceedance rate at B=8,000 exceeds 10%"*; (b) *"the exceeding cells carry MORE THAN HALF of the total CRPS"*; (d) ⭐ *"`exceed_zero` DOMINAT
+
+  reports/PREDICTION_LEDGER.md:294  [P-E-]  MODE-UNNAMED
+    | W-105 | ⛔⛔ **D-L4b, declared in the same docstring as a derivation and HELD as a number:** *"`mass_rest` is monotone DECREASING across every rung of the ladder — **the method never stops improving on the part of the window it can represent**."* | ⛔⛔ **a right number read through a wrong mechanism*
+
+  reports/PREDICTION_LEDGER.md:317  [---M]  ABSENCE,NO-ARTIFACT
+    | R-28 | ⛔ **RENUMBERED 2026-10-27 from `R-14`, which was issued twice to two different predictions (`/code-review max` on PR #457). This row keeps the LATER id because the other `R-14` is the one cited by `W-82`, the 2026-10-26 block and two commit messages; renumbering the cited one would have bro
+
+  reports/PREDICTION_LEDGER.md:336  [--E-]  ABSENCE,MODE-UNNAMED,NO-ARTIFACT
+    | R-14 | ⛔ **WITHDRAWN 2026-10-27 — this ✅ is counted as WRONG at `W-82`; the row is kept, not deleted, because its second half survives.** Originally: ✅ **Stated in `a01c7ef`'s own commit message and in the prereg's §4b, in the same sentence as the number:** the control's trained penalty share of 8
+
+  reports/PREDICTION_LEDGER.md:338  [-T--]  MODE-UNNAMED
+    | R-27 | ⭐ **Stated in `b1b_hitrate_and_m4.py`'s docstring before it ran, and flagged there as derived rather than measured:** at `n=1` the filter is the identity and `matched_pred_thresh` forces `sum(prd) = sum(obs) = E`, so the denominator is `2E` and the numerator counts differing cells `2(E−H)` 
+
+  reports/PREDICTION_LEDGER.md:339  [----]  MODE-UNNAMED
+    | R-29 | ⭐ **P1, declared in `redteam_forecasts.py`'s docstring (committed `c6bd6e1`) BEFORE either M1 or M2 ran:** that `freq-right/mag-wrong` — a forecast firing in exactly the truth-positive cells with a constant magnitude — would score **AP = 1.0 and Brier = 0.0 exactly**, because its gate is an
+
+  reports/PREDICTION_LEDGER.md:341  [--E-]  DECLARED-ONLY
+    | R-31 | ⭐ **`pos_mcr`'s per-cell weight is exactly `1/truth`, predicted in CLOSED FORM before measuring:** adding the same total mass to k event cells must move `pos_mcr` by `Σ(1/truth)/n_event`. | M3 / #480, I-6, 100 cells each end | **0.03442341 predicted / 0.03442341 measured (\|Δ\| 7.6e-17)** o
+
+  reports/PREDICTION_LEDGER.md:346  [--E-]  MODE-UNNAMED,NO-ARTIFACT
+    | R-36 | ⭐⭐ **P3.1, declared in `FINDING_RP2_S0.md` §8 and committed BEFORE `sigma_hat_aggregate.py` ran, with its own refuting mechanism written beside it:** that `CV(B-1b gated) < CV(B-1b body alone)` at every `n`, reasoned from the raw cube deltas between seeds 42 and 43 — mean \|Δ\| **4.3500** o
+
+  reports/PREDICTION_LEDGER.md:349  [-T--]  MODE-UNNAMED
+    | R-39 | ⭐⭐ **P1, declared in `l5_spatial_and_aggregate.py`'s docstring before it ran:** FSS *"barely moves — and only through TIES at the threshold, since a step function is only weakly monotone"*, with the magnitude bounded in advance (one bin ≈ 105 score cells against ~2,905 events). | 2026-10-28
+
+  reports/PREDICTION_LEDGER.md:352  [----]  DECLARED-ONLY,NO-ARTIFACT
+    | R-42 | ⭐⭐ **Derived from M67's three published numbers alone, written into `l2_background_split.py`'s docstring before the script existed, and re-asserted as G-L2b:** that a complementary split obeys `total = bg·(1−f) + ev·f`, that the reproduction's trio satisfies it and that **M67's does not** —
+
+  reports/PREDICTION_LEDGER.md:353  [--E-]  DECLARED-ONLY
+    | R-43 | ⭐⭐ **Candidate 3 refuted by derivation BEFORE the measurement, with the number stated:** a true `m=16` subsample scores `fair + E|X−X′|/(2·16)` = **0.041943**, i.e. **+6.7% against M67's 0.039327**, not 0.36% from it; and **the m M67's headline implies is 155**, not 16. | measured **0.04139
+
+  reports/PREDICTION_LEDGER.md:354  [----]  DECLARED-ONLY
+    | R-44 | ⭐ **Declared in `l2_background_split.py`'s docstring before the run, as the column to read candidate 2 on:** *"the EVENT half already reproduces to 0.3% under equal-count, so any rule that moves it cannot be M67's. Read this table on the event column, not the background column."* | equal-wi
+
+  reports/PREDICTION_LEDGER.md:356  [----]  DECLARED-ONLY
+    | R-46 | ⭐⭐ **Derived in `l4b_the_turnover.py`'s docstring from the two committed artifacts alone — the `family_free_cdf.out` ladder and `l4_extrapolation_limit.out`'s shares — before the script that measures it existed:** `mass_rest` = **0.033457 / 0.032404 / 0.030820** at B = 8k / 16k / 32k, decla
+
+  reports/RESEARCH_PROGRAMME.md:94  [----]  MODE-UNNAMED
+    3. ⭐ **RP-6 keeps its new first question** (from RP-1): whether its recorded 0.303-vs-0.367
+
+  reports/RESEARCH_PROGRAMME.md:95  [----]  MODE-UNNAMED
+    magnitude-ranking ordering is population-dependent, since `placement_rho` gives 0.629 vs 0.428.
+
+  reports/RESEARCH_PROGRAMME.md:116  [----]  MODE-UNNAMED
+    | **7** | **RP-6** | Magnitude ranking loses to persistence (0.303 vs 0.367) | 🔵 queued | **GPU** | ⭐ **yes** |
+
+  reports/RESEARCH_PROGRAMME.md:165  [----]  MODE-UNNAMED
+    > first question (its `0.303` vs `0.367` ordering **reverses** on this population) · RP-10 gained
+
+  reports/RESEARCH_PROGRAMME.md:187  [----]  CROSS-SOURCE
+    | **AP** | ranks on the **gate**. Returned **0.736228**, identical to 6 d.p., across all four cells of a 2×2 while the forecast was destroyed. Ranked on what is actually emitted: **0.516 → 0.371**. | M67(1), `lodestar_score.py:158` |
+
+  reports/RESEARCH_PROGRAMME.md:219  [----]  MODE-UNNAMED
+    bar is **2.1312 against a value of 0.2947**, i.e. **7.2× the quantity itself** ⇒ **no single-run
+
+  reports/RESEARCH_PROGRAMME.md:231  [----]  ABSENCE
+    `nb` @ 0.15 on a checkpoint ⛔ **wrongly recorded as deleted — it is on disk, C-394/W-99** (⚠️ but with no replicate, so σ̂ there is still unmeasured) and the live `nb` control is @ **0.125**; family alone shifts
+
+  reports/RESEARCH_PROGRAMME.md:292  [----]  ABSENCE
+    | published B-1a **0.391** / B-1b **0.6267** | `nb` | 0.15 | ⛔ **said "checkpoint DELETED" — WRONG, corrected 2026-10-28: on disk at `~/Documents/views_hydranet_vehicle_20261012/`, sha `4acbf4d3…`. ⚠️ Reproducible, but still NO REPLICATE — σ̂ here needs ≥2 more seeds. C-394 / W-99.** |
+
+  reports/RESEARCH_PROGRAMME.md:296  [----]  MODE-UNNAMED
+    B-1a on `truncated_nb` returned **1.462** against `nb`'s **0.391** — a **3.7× shift from family
+
+  reports/RESEARCH_PROGRAMME.md:418  [----]  MODE-UNNAMED
+    **What is measured.** The body **under-fires**: emitted positive fraction **0.0009** against an
+
+  reports/RESEARCH_PROGRAMME.md:455  [----]  MODE-UNNAMED
+    - the **body** sits below its NLL optimum — M6's `θ̂` **0.154** against a conditionally-honest **0.432**
+
+  reports/RESEARCH_PROGRAMME.md:489  [----]  MODE-UNNAMED
+    **The claim, measured.** On **magnitude**, spearman **0.303** against persistence's **0.367**,
+
+  reports/RESULTS_LEDGER.md:425  [PTEM]  DECLARED-ONLY,NO-ARTIFACT
+    | **M67** | ⛔ **The emit-time split is STRICTLY DOMINATED, and the real defect is upstream of every emission rule.** Same frozen `nb` control cube, same 842,634 out-of-sample cell-months, same m=16 plug-in estimator, nothing retrained. **(1) Truncation inverts placement.** The emitted magnitude is `
+
+  reports/RESULTS_LEDGER.md:426  [P-EM]  DECLARED-ONLY,NO-ARTIFACT
+    | **M68** | ⭐⭐ **The family-free fit reproduces, and the "out-of-sample optimum" that argued it was not an overfit is our own scoring estimator's small-sample bias.** Independent script `reports/2026-10-27_family_free_head/family_free_cdf.py`, committed **before it ran** (`ad3b007`) against a headli
+
+  reports/RESULTS_LEDGER.md:429  [PTEM]  ABSENCE,NO-ARTIFACT
+    | **M71** | ⭐⭐ **The plug-in CRPS charges nine of eleven forecasts NOTHING, charges the BASELINE 3.4× what it charges the model, and inflates skill-vs-baseline by 18% of its own value at the draw count the record used.** Both estimators on the same eleven forecasts at **m = S = 256**, 842,634 cell-m
+
+  reports/RESULTS_LEDGER.md:433  [--E-]  ABSENCE
+    | **M75** | ⛔⛔ **A readout this programme quotes has a noise floor LARGER THAN ITS OWN SIGNAL — measured, n=3 true seed replicates.** Three checkpoints identical but for the seed (`silver_0_1_4`/42, `bronze`/43, `cobalt`/44, all git `2e73de3`, all `truncated_nb` @ 0.15), scored through the committed
+
+  reports/RESULTS_LEDGER.md:435  [P---]  ABSENCE
+    | **M77** | ⭐⭐ **The family-free lookup's advantage survives EVERY split boundary the cube allows — and the published split is the EASIEST of the eight.** L3a (#471) swept the fit/score boundary over eight positions with the score window held at 13 months, so all eight CRPS means are over the same 8
+
+  reports/RESULTS_LEDGER.md:439  [PTEM]  NO-ARTIFACT
+    | **M85** | ⛔⛔⛔ **THE FAMILY-FREE RECALIBRATION'S ENTIRE MARGIN IS MEASURED ON A TEACHER-FORCED CUBE, AND ON THE DELIVERED AUTOREGRESSIVE INDEX THE SAME METHOD IS WORSE THAN USING NO MODEL AT ALL.** **(1) THE MECHANISM, read in source and not relayed.** `reports/2026-10-12_underfire_diagnosis/vehicl
+
+  reports/RESULTS_LEDGER.md:440  [P-EM]  NO-ARTIFACT
+    | **M83** | ⭐⭐ **The family-free lookup's extrapolation limit is NEITHER academic NOR the blocker — 62 cell-months, 0.0074% of the score window, carry 14.62% of its entire CRPS — and the failure is the TOP bin, not the quiet ones.** Same frozen `nb` cube `4acbf4d3…`, fit 421–456, score 457–469 (842,
+
+  reports/RESULTS_LEDGER.md:441  [P-E-]  DECLARED-ONLY,NO-ARTIFACT
+    | **M84** | ⭐⭐⭐ **The family-free ladder's turnover — the evidence M67 cited for an out-of-sample optimum — is, at its first step, 137% the doing of 62 cell-months whose truth has left their bin behind. And a decomposition recomputed at every rung reports COMPOSITION as improvement.** **(1) THE DERI
+
+  reports/RESULTS_LEDGER.md:442  [P-EM]  ABSENCE,DECLARED-ONLY,NO-ARTIFACT
+    | **M81** | ⭐⭐⭐ **M67's "quiet background" is an INDEX set, not a truth set — it is `index < 0.03` — and its three published numbers cannot all describe one score.** Same frozen `nb` cube `4acbf4d3…`, same fit 421–456 (2,333,448 cell-months), same score 457–469 (**842,634**, exact to M67), equal-COU
+
+  reports/RESULTS_LEDGER.md:444  [P-E-]  CROSS-SOURCE
+    | **M80** | ⭐⭐⭐ **The recalibration's bin count is NOT its resolution: at the published optimum 96.81% of the 8,000 bins carry the IDENTICAL forecast 0.0, and the method expresses 115 distinct values.** L5b swept what L5's G-L5d had reported at a single point (D-4). **B grew 512× (250 → 128,000); th
+
+  reports/technical_risk_register.md:7  [P-EM]  ABSENCE
+    | Last Updated      | **2026-10-29c (RP-3 FALSIFIED — **C-399 added, Tier 1**: the frozen `nb` cube every RP-3 number is computed from is **teacher-forced** — `build_volume` writes the three observed fatality series into the model's three input channels and the sweep steps over that volume, so the m
+
+  reports/technical_risk_register.md:4333  [--E-]  MODE-UNNAMED
+    RP-2 measured the noise floor of **B-1b body-alone pooled FSS** over three true seed replicates: **CV > 1 at 11 of 14 scales**, i.e. σ̂ exceeds the mean, and at out/n=33 the honest bar is **2.1312 against a value of 0.2947 — 7.2× the quantity itself**. ⇒ **Any pre-registered single-arm rule written 
+
+  reports/technical_risk_register.md:7063  [----]  NO-ARTIFACT
+    reproduces them with a variance ratio of **1.0251 at all six lags, constant to 0.00002** — which
+
+  reports/technical_risk_register.md:7088  [----]  NO-ARTIFACT,UNTRACKED-ARTIFACT
+    appeared to find them, because `1.0090` is a substring of `0.7510090098618774`. **A substring grep is
+
+  reports/technical_risk_register.md:7108  [---M]  DECLARED-ONLY
+    measuring the row it labelled `eval`, leaving `0.9**13 = 0.2542` of the delivered statistics in
+
+  reports/technical_risk_register.md:7127  [----]  NO-ARTIFACT
+    | control penalty | 1.7223 | **2.6155** |
+
+  reports/technical_risk_register.md:7128  [----]  UNTRACKED-ARTIFACT
+    | arm penalty | **0.3540** | **2.9223** |
+
+  reports/technical_risk_register.md:7178  [--E-]  CROSS-SOURCE
+    varying only the mask mode: the control's sweep mean moves **2.5323 → 2.6155 (+3.3%)** and the arm's
+
+  reports/technical_risk_register.md:7179  [----]  CROSS-SOURCE
+    **2.8619 → 2.9223 (+2.1%)**. ⭐ **The sign reversal is unaffected** — BatchNorm is worth 1.5× on the
+
+  reports/technical_risk_register.md:7413  [----]  MODE-UNNAMED
+    **gated, out-of-sample** has CV **0.024–0.054** (σ̂ 0.023–0.033 against means 0.60–0.93), so a
+
+  reports/technical_risk_register.md:7422  [----]  ABSENCE
+    a **deleted** checkpoint and the live `nb` control is @ 0.125; the family alone shifts B-1a by
+
+  reports/technical_risk_register.md:7448  [----]  MODE-UNNAMED
+    | the honest 4.97σ̂ bar against one unreplicated arm | **4.177** — **418× the margin** |
+
+  reports/technical_risk_register.md:7488  [P---]  DECLARED-ONLY,MODE-UNNAMED
+    | Trigger | Quoting `0.039327`, `0.039186`, `0.046023` or `0.050758` as an **absolute** CRPS level — in a prereg, an ADR, a comparison against an arm scored on different months, or the paper — rather than as a margin measured within months 457–469. Also: reading L1 (#469) as a search for a sharper o
+
+  reports/technical_risk_register.md:7590  [----]  ABSENCE
+    | RP-2's transfer table, row 1: *"published B-1a 0.391 / B-1b 0.6267 — `nb` @ 0.15 — checkpoint **DELETED**"* | ⛔ **false row** |
+
+  reports/technical_risk_register.md:7717  [---M]  NO-ARTIFACT
+    | **Location** | `RESULTS_LEDGER.md` **M67**(4) — the sentence *"it ties the delivered model on the quiet background (0.000260 vs 0.000266)"*; `docs/ADRs/proposed/073_emit_time_distribution_split.md` §0, which repeats the localisation; `reports/2026-10-27_family_free_head/family_free_cdf.py:136` (`e
+
+  reports/technical_risk_register.md:7740  [----]  MODE-UNNAMED
+    forecast** (exact integer count, G-L2c; ≈0.055 each, against structurally **exactly 0** on the
+
+  reports/technical_risk_register.md:7832  [---M]  NO-ARTIFACT
+    AUC **does not decay with horizon** (0.99730 → 0.99783 over 13 steps) while the delivered one does

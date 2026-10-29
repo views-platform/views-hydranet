@@ -146,7 +146,21 @@ plug-in biased, **the locked framework contains no dispersion instrument at all.
 | the body is **timid** | `size_ratio` ≈ **0.02** | foundation |
 | θ **on the grid** has collapsed | **3.6e-06** | ADR-073 §0 |
 | …and that is the objective's correct answer, not a bug | the NB NLL of a zero is `θ·log(1+μ/θ)`, monotone **increasing** in θ ⇒ minimised by θ→0 at every μ, **no interior optimum**, on 99.66% empty cells | `DERIVED`, ADR-073 §0 |
-| ⭐ **but θ where the model actually emits did NOT collapse** | gate-weighted mean θ = **0.0902** — **24,000×** the grid median | ADR-073 §0 |
+| ⭐ **but θ where the model actually emits did NOT collapse** | gate-weighted mean θ = **0.0902** — **24,000×** the grid median | ⚠️ ADR-073 §0, **RELAYED** |
+
+> ⛔⛔ **CORRECTED 2026-10-29 by the claims audit, against this document — `W-109`.** The
+> **0.0902** above appears in **no committed `.out` anywhere in this repository.** It is relayed
+> from ADR-073 §0's prose and has never been reproduced by any run, and I stated it flatly as a
+> measured correction in the document I told Simon was the index of what we know. ⭐ That is the
+> **same shape as the 0.039327 that cost `W-98`** — and worse, this document's own next line warns
+> that the θ claim "has been quoted without that scope, **including by me**", which is precisely
+> what I then did one row above. ⇒ **The direction of the correction still stands and matters** —
+> θ on the grid is not θ where the model emits — but **the factor 24,000× is not a measured number
+> here and must not be quoted as one** until a run produces it. ⚠️ Likewise the gate slope
+> **1.146 / 1.419** two sections below: those are real and labelled `MEASURED` in
+> `reports/2026-10-18_gate_underdispersion_prereg/RESULTS.md` with their script named
+> (`e2_meanlogit.py`), but **that dossier captured no run output at all**, so they cannot be
+> verified without re-running it.
 
 ⇒ ⭐ **"θ collapsed" is a statement about the BACKGROUND, not about the cells that emit.** It has
 been quoted without that scope, including by me.

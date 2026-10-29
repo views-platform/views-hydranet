@@ -7419,9 +7419,13 @@ published headline uses: out/E-W/d=1 gives σ̂ **0.5073** and a bar of **2.5214
 whole observed range is ~0.4–1.5. Usable at larger `d`, where the bar is still ~78% of the value.
 
 ⛔ **Scope.** `truncated_nb` @ 0.15 only. The published B-1a 0.391 / B-1b 0.6267 are `nb` @ 0.15 on
-a **deleted** checkpoint and the live `nb` control is @ 0.125; the family alone shifts B-1a by
-**3.7×**. ⇒ This discharges the noise floor for `truncated_nb` @ 0.15 and, for `nb`, only
-provisionally as a transported CV.
+a checkpoint ⛔ **this paragraph wrongly called "deleted" — CORRECTED 2026-10-29 by the claims
+audit.** It is on disk at `~/Documents/views_hydranet_vehicle_20261012/`, sha256 `4acbf4d3…`,
+exactly the sha stored inside `d4_result.npz` (**C-394**, **W-99**). ⚠️ The scope limit itself is
+unchanged and still binding — that checkpoint has **no replicate**, so σ̂ for `nb` @ 0.15 remains
+**unmeasured**; the artifact's existence does not supply one. The live `nb` control is @ 0.125; the
+family alone shifts B-1a by **3.7×**. ⇒ This discharges the noise floor for `truncated_nb` @ 0.15
+and, for `nb`, only provisionally as a transported CV.
 
 ---
 
