@@ -1,0 +1,72 @@
+PASS  G-10  controls: negative pooled +0.9686 -> conditional +0.0021 (|.|<0.05) | positive conditional +1.0000 (>0.95)
+==============================================================================================================
+Q2 AMENDMENT 2 — IS THE SPREAD–ERROR CORRELATION ANYTHING MORE THAN THE MEAN?
+==============================================================================================================
+  population      13 months 457-469 x 64,818 = 842,634
+  truth           ged_sb_best counts, no transform. mean 0.060383 max 2482
+  draws           K=256 per MC pass x 4 passes = 1,024 members
+  inference mode  ⛔ TEACHER-FORCED (vehicle.py:301-307)
+
+  drawn in 188.8 s
+
+==============================================================================================================
+1. THE POOLED STATISTIC, REPRODUCED — G-9
+==============================================================================================================
+  PASS  G-9  COPY threshold_gate: Spearman(sd, |error|) = +0.728114 (committed +0.728114)
+        4,875 cells with spread, of which 2,355 are events (48.3%) and 2,520 are true zeros (51.7%)
+        ⛔ on every true zero, |error| = mean EXACTLY — the statistic degenerates
+  PASS  G-9  COPY soft_gate: Spearman(sd, |error|) = +0.932179 (committed +0.932179)
+        15,482 cells with spread, of which 2,826 are events (18.3%) and 12,656 are true zeros (81.7%)
+        ⛔ on every true zero, |error| = mean EXACTLY — the statistic degenerates
+
+==============================================================================================================
+2. A · HOW MUCH OF THE SPREAD *IS* THE MEAN
+==============================================================================================================
+  threshold_gate   Spearman(sd, ensemble mean)  = +0.892462
+                   Spearman(mean, |error|)      = +0.762318   ⇐ the mean's own rank skill at error magnitude
+  soft_gate        Spearman(sd, ensemble mean)  = +0.982479
+                   Spearman(mean, |error|)      = +0.952648   ⇐ the mean's own rank skill at error magnitude
+
+==============================================================================================================
+3. B · CONDITIONED ON THE MEAN, all cells with spread  (D-4: bin count swept)
+==============================================================================================================
+  comp                B    rho(sd,|err| | mean)   bins used     cells
+  threshold_gate      5               +0.369148         5/5     4,875
+  threshold_gate     10               +0.279247       10/10     4,875
+  threshold_gate     20               +0.218126       20/20     4,875
+  threshold_gate     50               +0.176597       50/50     4,875
+  soft_gate           5               +0.623875         5/5    15,482
+  soft_gate          10               +0.443431       10/10    15,482
+  soft_gate          20               +0.266586       19/20    14,708
+  soft_gate          50               +0.126858       47/50    14,554
+
+==============================================================================================================
+4. ⭐⭐ C · THE DECISIVE READ — conditioned on the mean, EVENT CELLS ONLY
+==============================================================================================================
+  (removes both confounds: the mean is held fixed, and |error| is no longer
+   identically the mean because truth > 0)
+
+  comp                B    rho(sd,|err| | mean)   bins used     cells
+  threshold_gate   pool               +0.526832           —     2,355
+  threshold_gate      5               +0.195378         5/5     2,355
+  threshold_gate     10               +0.182006       10/10     2,355
+  threshold_gate     20               +0.175607       20/20     2,355
+  threshold_gate     50               +0.171590       50/50     2,355
+  soft_gate        pool               +0.466344           —     2,826
+  soft_gate           5               +0.230393         5/5     2,826
+  soft_gate          10               +0.189625       10/10     2,826
+  soft_gate          20               +0.181270       20/20     2,826
+  soft_gate          50               +0.189658       50/50     2,826
+
+==============================================================================================================
+5. ⚠️ LIMITS
+==============================================================================================================
+  · TEACHER-FORCED. The emission's spread given the trunk's mu/theta (C-399).
+  · A diagnostic, not a FAO-02 column. Selection use needs Simon's amendment first.
+  · Conditioning on the ensemble MEAN is not conditioning on mu: the composition
+    and the gate both enter the mean. It removes the mean's confound, not the gate's.
+  · Equal-count bins of a heavily tied variable split ties across bins; a bin with
+    no rank variance in sd or |error| is dropped and counted above, not imputed.
+  · n=1 checkpoint, sb only, no sigma-hat on any number here.
+
+  wall time 188.9 s   peak RSS 3.14 GiB
