@@ -116,7 +116,26 @@ threshold-swept the honest range is 1.9–7.0×, sign always right, **and no sca
 
 # Q4 · Is the body under-dispersed?
 
-## ⛔⛔ UNKNOWN. It has never been measured — and that is not neglect.
+> ⭐⭐⭐ **ANSWERED LATER THE SAME DAY — `M90`, `reports/2026-10-29_draw_count_sweep/`.** The section
+> below was written when this had never been measured. It has now been measured, and **the answer
+> reframes the question rather than answering it yes or no:**
+>
+> - **On 99.42% of the population the ensemble is a POINT MASS** — not a narrow distribution, *no
+>   distribution at all*. **550 of the 2,905 real events (19%)** fall in that zero-spread set. ⭐ And
+>   the **composition** creates it: `soft_gate` on identical draws leaves **79** events spreadless
+>   where the delivered `threshold_gate` leaves **550**.
+> - **Among cells that DO have spread, the body is OVER-dispersed in 9 of 10 bins** (`sd/RMSE` 1.15–2.14)
+>   and under-dispersed only in the extreme top bin. The pooled 0.59 is a **Simpson artifact**.
+> - ⇒ **"Under-dispersed" is true of the extreme tail and of event coverage (central 90% covers
+>   67.5% on events), and FALSE of the body as a whole.**
+> - ⭐⭐ **The spread is highly informative** — Spearman(sd, |error|) **+0.73** / **+0.93**. The model
+>   knows where it is uncertain.
+>
+> ⛔ **Three of my own predictions failed getting here** — `W-110`, `W-111` (refuted *in sign*),
+> `W-112`. The reasons the section below gives for why it was unanswerable all still stand; they
+> explain why nobody had looked, and they were correct.
+
+## ⛔⛔ UNKNOWN as of this document's first writing. Never measured — and not through neglect.
 
 Four reasons, each measured or derived:
 
@@ -202,11 +221,42 @@ measurement.** The two are routinely spoken of as one thing and they are not.
 | **A structure penalty** | Already run. The two predictions it passed were **exactly the spread-sensitive ones** and it was worse on everything else. ⚠️ If it is ever re-proposed as a *dispersion* fix, note that this is what it already did |
 | **A new emitting family** | Scope-locked out (`D-3`) — and ADR-073 §0's argument is that **no** emitting family repairs a two-parameter NB's inability to hold the law the trunk already ranks well |
 
-## 🔵 The one untested thing, and it is nearly free
+## ⛔ AND ONE MORE MEASURED NON-SOLUTION, added 2026-10-29 by `M90`
 
-**Sweep the head draw count `K` on the frozen cube.** Report ensemble spread, firing rate and CRPS
-as functions of draw count, under **both** estimators. ⭐ **An afternoon of CPU, zero GPU.** It
-either dissolves "the body is under-dispersed" or confirms it, and **both outcomes are useful.**
+**Drawing more head samples. RUN, and it is not a lever.** The ensemble converges by K=256; the
+delivered 16-member ensemble is **38% narrower than the model it is drawn from** (0.071330 vs
+0.115288); and over 4 → 4,096 members the **fair CRPS moves +0.46% — in the wrong direction.**
+
+⭐ **And under-firing cannot be fixed this way at all, by construction rather than by measurement:**
+the per-draw firing rate is flat to 4.02e-03 across the whole sweep and sits at **0.42×** the
+observed positive rate. Draws are iid, so the firing rate *cannot* depend on the draw count.
+
+## ⭐⭐ The one lever this OPENED, and it is new
+
+**A spread recalibration.** Because Spearman(predicted sd, |error|) is **+0.73** (`threshold_gate`)
+and **+0.93** (`soft_gate`), the ensemble's spread carries real information about error magnitude —
+so deflating the over-dispersed middle and inflating the extreme tail, **fitted out of sample**, has
+genuine signal to work on.
+
+⚠️ **A candidate, not a result.** ⛔ Not filed as work, and it needs its own issue. ⚠️ It also needs
+a decision that is not mine: a spread diagnostic used for *selection* rather than *diagnosis* needs
+Simon's amendment to FAO-02, which rejects PIT and is silent on spread–skill.
+
+## ⭐⭐⭐ But the biggest thing `M90` found is not about dispersion at all
+
+The **plug-in CRPS estimator's entire apparent improvement with draw count is BIAS**: over 4 → 4,096
+members the fair estimator moves **0.65% of level** and the plug-in moves **13.9% of the score**.
+
+⛔ **`lodestar_score.py:33` — the FROZEN ruler — computes all three CRPS columns with the plug-in.**
+⇒ FAO-02's primary metric carries a 14%-of-level sensitivity to a parameter that has nothing to do
+with forecast quality, and Ferro 2014 proves the direction of the bias favours exactly the
+under-dispersion this programme has been hunting. **#442**, **#459**.
+
+## 🔵 What remains untested on dispersion
+
+⭐ **Whether `mu`/`theta` themselves are right.** `M90` measures the *emission's* dispersion **given**
+the trunk's parameters, on a **teacher-forced** cube. Nothing yet separates "the head's parameters
+are wrong" from "the emission of correct parameters is wrong".
 
 ---
 
