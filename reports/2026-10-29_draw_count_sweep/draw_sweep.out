@@ -1,0 +1,79 @@
+GATE 0  CRPS primitives on foreign input   PASS
+==============================================================================================================
+Q2 — THE BODY'S DISPERSION vs THE DRAW COUNT
+==============================================================================================================
+  checkpoint      sha 4acbf4d3c2b457b0…  family nb  MC-dropout passes 4
+  population      13 months 457-469 x 64,818 = 842,634
+  truth           ged_sb_best counts, no transform. mean 0.060383  max 2482
+  positives       2,905  (0.3448%)
+  inference mode  ⛔ TEACHER-FORCED (vehicle.py:301-307 fills the volume from truth)
+  composition     threshold_gate tau=0.2 and soft_gate, PAIRED on one draw set
+
+  PASS  G-2  population is exactly 842,634 cell-months
+  PASS  G-4  truth reproduces M89: mean 0.060383 (committed 0.060383)  max 2482 (committed 2482)
+  PASS  G-1  COPY: K=4 threshold_gate reproduces ar_score.out   got 0.049103 / 0.047522  (committed 0.049103 / 0.047522)
+  K=1     m=4     chunk 5000000  done in    1.2 s
+  K=4     m=16    chunk 1250000  done in    4.4 s
+  K=16    m=64    chunk 312500  done in   24.4 s
+  K=64    m=256   chunk  78125  done in   93.7 s
+  K=256   m=1024  chunk  19531  done in  249.2 s
+  K=1024  m=4096  chunk   4882  done in 1534.8 s
+
+==============================================================================================================
+1. THE SWEEP — both compositions, both estimators, paired on one draw set
+==============================================================================================================
+  comp                 K      m    plug-in       fair     ens sd       RMSE  sd/RMSE  fire/draw  any-fire   nonfin  dropped    scored
+  threshold_gate       1      4   0.053952   0.047286   0.050019   3.851709   0.0130   0.001450  0.003312        0        0    842634
+  soft_gate            1      4   0.054096   0.049897   0.031734   3.782935   0.0084   0.000892  0.002365        0        0    842634
+  threshold_gate       4     16   0.048798   0.047205   0.071330   3.674474   0.0194   0.001447  0.004919        0        0    842634
+  soft_gate            4     16   0.050997   0.049933   0.050539   3.688168   0.0137   0.000903  0.004682        0        0    842634
+  threshold_gate      16     64   0.047915   0.047515   0.092450   3.692469   0.0250   0.001446  0.005620        0        0    842634
+  soft_gate           16     64   0.050440   0.050172   0.072085   3.717196   0.0194   0.000894  0.007746        0        0    842634
+  threshold_gate      64    256   0.047435   0.047334   0.106741   3.645730   0.0293   0.001450  0.005783        0        0    842634
+  soft_gate           64    256   0.050063   0.049994   0.095085   3.666630   0.0259   0.000900  0.012269        0        0    842634
+  threshold_gate     256   1024   0.047376   0.047351   0.113698   3.666261   0.0310   0.001451  0.005785        0        0    842634
+  soft_gate          256   1024   0.050041   0.050024   0.110148   3.687409   0.0299   0.000901  0.018373        0        0    842634
+  threshold_gate    1024   4096   0.047430   0.047424   0.115288   3.674674   0.0314   0.001451  0.005785        0        0    842634
+  soft_gate         1024   4096   0.050090   0.050085   0.124085   3.696005   0.0336   0.000899  0.026777        0        0    842634
+
+  observed positive rate on this population: 0.003448
+  PASS  G-3  threshold_gate leaves 0.004473 of cell-month-passes open at EVERY K (mask is draw-independent, asserted exactly)
+
+==============================================================================================================
+2. THE PRE-REGISTERED PREDICTIONS, SCORED
+==============================================================================================================
+
+  threshold_gate
+    P-1  ens sd monotone rising in K: True   0.050019 -> 0.115288
+    P-2a per-draw firing FLAT in K (iid): relative spread 4.02e-03   0.001446..0.001451
+    P-3  fair 0.047286 -> 0.047424 (range 0.000310) | plug-in 0.053952 -> 0.047430 (range 0.006575)
+    P-4  sd/RMSE  0.0194 at the delivered m=16  ->  0.0314 at m=4096
+
+  soft_gate
+    P-1  ens sd monotone rising in K: True   0.031734 -> 0.124085
+    P-2a per-draw firing FLAT in K (iid): relative spread 1.22e-02   0.000892..0.000903
+    P-3  fair 0.049897 -> 0.050085 (range 0.000275) | plug-in 0.054096 -> 0.050090 (range 0.004055)
+    P-4  sd/RMSE  0.0137 at the delivered m=16  ->  0.0336 at m=4096
+
+  G-5  DERIVATION: P-2b's closed form 1-(1-p)^(4K) vs measured per-cell any-fire
+       K=1     measured 0.003312  closed form 0.006828  relative 5.15e-01
+       K=4     measured 0.004919  closed form 0.015243  relative 6.77e-01
+       K=16    measured 0.005620  closed form 0.030630  relative 8.17e-01
+       K=64    measured 0.005783  closed form 0.058546  relative 9.01e-01
+       K=256   measured 0.005785  closed form 0.109597  relative 9.47e-01
+       K=1024  measured 0.005785  closed form 0.209981  relative 9.72e-01
+  ⛔ FAIL  G-5  worst relative residual 9.72e-01 against a 1% bar (⚠️ the closed form ignores the gate mask; see §3)
+
+==============================================================================================================
+3. ⚠️ LIMITS
+==============================================================================================================
+  · TEACHER-FORCED cube. This is the emission's dispersion given the trunk's mu/theta,
+    not a statement about the delivered autoregressive regime (C-399).
+  · The spread-error relation is a DIAGNOSTIC, not a FAO-02 column. Driving a selection
+    decision with it needs Simon's amendment to FAO-02 first.
+  · G-5's closed form is over DRAWS only and ignores threshold_gate's mask, so it bounds
+    the any-fire rate from above wherever the gate closes a cell.
+  · n=1 checkpoint, sb only, no sigma-hat on any number here.
+
+==============================================================================================================
+  wall time 1931.6 s (per-K timings above)   peak RSS 3.41 GiB
