@@ -226,6 +226,21 @@ def written_lines() -> set[str]:
     }
 
 
+def abs_nums(line: str) -> list[str]:
+    """Absolute decimals, skipping any written as a percentage.
+
+    Amendment 4: `ABS_NUM` has no way to see a trailing `%`, so `99.6567%` was looked up
+    as the value 99.6567 and reported NO-ARTIFACT while the run had produced 0.996567.
+    Filtering by the following character rather than by a lookahead avoids the regex
+    backtracking into a shorter match (`99.656`) that satisfies the lookahead."""
+    out = []
+    for m in ABS_NUM.finditer(line):
+        if line[m.end():m.end() + 2].lstrip().startswith("%"):
+            continue
+        out.append(m.group())
+    return out
+
+
 def _places(n: str) -> int:
     """How many decimal places the document actually stated, clamped to the index range.
     An exponent form is already normalised by `float()`, so it is compared at full
@@ -257,7 +272,7 @@ def _index(names: list[str]) -> tuple[dict, dict]:
         except OSError:
             continue
         for line in text.splitlines():
-            nums = ABS_NUM.findall(line)
+            nums = abs_nums(line)
             if not nums:
                 continue
             if not DECLARED.search(line):
@@ -265,8 +280,8 @@ def _index(names: list[str]) -> tuple[dict, dict]:
             elif GOT.search(line):
                 # A gate line: what the run actually produced follows `got`.
                 head, _, tail = line.partition("got")
-                add(declared, ABS_NUM.findall(head), name)
-                add(produced, ABS_NUM.findall(tail), name)
+                add(declared, abs_nums(head), name)
+                add(produced, abs_nums(tail), name)
             else:
                 add(declared, nums, name)
     return produced, declared
@@ -307,7 +322,7 @@ def claim_lines(path: Path) -> list[tuple[int, str, str]]:
 
 def classify(line: str, ctx: str, produced, declared, untracked) -> tuple[set[str], list[str]]:
     """Return the flags this claim earns and the absolute numbers it carries."""
-    nums = ABS_NUM.findall(line)
+    nums = abs_nums(line)
     flags: set[str] = set()
     srcs = []
 
