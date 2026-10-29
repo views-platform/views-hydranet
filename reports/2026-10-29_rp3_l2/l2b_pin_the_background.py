@@ -80,9 +80,11 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parents[2]
 D4 = REPO / "reports" / "2026-10-12_underfire_diagnosis"
+L3 = REPO / "reports" / "2026-10-28_rp3_l3"
 L2 = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(D4))
+sys.path.insert(0, str(L3))
 sys.path.insert(0, str(L2))
 
 from binned_cdf import binned_cdf_crps  # noqa: E402
