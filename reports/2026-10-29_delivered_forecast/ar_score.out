@@ -1,0 +1,105 @@
+GATE 0  pairwise identity, m-member CRPS, tie-aware ranks and AUC, foreign input   PASS
+==============================================================================================================
+#489 — THE DELIVERED AUTOREGRESSIVE FORECAST, SCORED
+==============================================================================================================
+  checkpoint    predictions_calibration_20261012_033112  sha 4acbf4d3c2b457b0…  family nb  MC draws 4
+  score window  13 months 457-469 x 64,818 = 842,634 cell-months   positives 2,905 (0.3448%)
+  fit window    36 months 421-456 x 64,818 = 2,333,448 cell-months
+  truth         ged_sb_best counts, no transform. mean 0.060383  max 2482
+  composition   threshold_gate, tau=0.2 (views-models violet_visitor config)
+
+  extracting predictions_calibration_20261012_033112/*/lr_sb_best from the delivery draws archive …
+  PASS  G-2  draws <-> parquet identifiers match row-for-row: True; max |16-draw mean - pred_lr_sb_best| 0.000e+00
+  PASS  G-3  AR-h1 and AR-o456 both cover exactly the 842,634 TF score cell-months, no gaps, no duplicates
+  PASS  G-5  TF-samp nonzero rate 0.004847 within 2x of the delivered AR-h1 rate 0.004789  (ratio 1.012)
+
+==============================================================================================================
+1. THE DELIVERED ENSEMBLE, SCORED — first CRPS in this repository on an emitted forecast
+==============================================================================================================
+  arm                                             m    plug-in       fair  background event cells
+  TF-samp  teacher-forced  delivered sampler      4   0.054050   0.047845    0.002664      14.908
+  TF-samp  teacher-forced  delivered sampler      8   0.050529   0.047334    0.001646      14.181
+  TF-samp  teacher-forced  delivered sampler     16   0.049103   0.047522    0.001156      13.909
+  AR-h1    autoregr. h=1   delivered sampler      4   0.055241   0.049614    0.003041      15.144
+  AR-h1    autoregr. h=1   delivered sampler      8   0.053852   0.050806    0.002479      14.904
+  AR-h1    autoregr. h=1   delivered sampler     16   0.052109   0.050680    0.001555      14.665
+  AR-o456  autoregr. h=1-13 delivered sampler     4   0.058466   0.055380    0.002214      16.319
+  AR-o456  autoregr. h=1-13 delivered sampler     8   0.056896   0.055242    0.001450      16.084
+  AR-o456  autoregr. h=1-13 delivered sampler    16   0.055790   0.054958    0.001003      15.893
+
+  ⚠️ m is the first m of 16 nested columns, so the trend is a draw-count effect at fixed
+     weights, not a different model. The fair estimator is the one #459 names converged.
+
+==============================================================================================================
+2. CAN THE INDEX RANK EVENTS? — M85's 0.99777 vs 0.72340, decomposed
+==============================================================================================================
+  arm                                                AUC     distinct   frac at zero
+  TF-exp   teacher-forced  E[gate x mu]          0.99777      842,634       0.000000
+  TF-samp  teacher-forced  delivered sampler     0.87807          469       0.995153
+  AR-h1    autoregr. h=1   delivered sampler     0.80290        1,908       0.995211
+  AR-o456  autoregr. h=1-13 delivered sampler    0.72340        1,321       0.996567
+
+  ⭐ EMISSION   TF-exp -> TF-samp   0.99777 -> 0.87807  (delta -0.11970)  — same inference mode, both teacher-forced
+  ⭐ MODE @h=1  TF-samp -> AR-h1    0.87807 -> 0.80290  (delta -0.07517)  — same emission, same information set
+  ⭐ HORIZON    AR-h1 -> AR-o456    0.80290 -> 0.72340  (delta -0.07949)  — same emission, h=1 vs h=1-13
+
+==============================================================================================================
+3. HORIZON PROFILE — AR-o456 by step, with the teacher-forced pass by month as control
+==============================================================================================================
+     h   month AR CRPS(fair)       AR AUC TF CRPS(fair)       TF AUC
+     1     457     0.050781      0.77561     0.050334      0.84798
+     2     458     0.050791      0.74292     0.046781      0.84706
+     3     459     0.072582      0.71599     0.067584      0.87885
+     4     460     0.052534      0.71181     0.044712      0.88462
+     5     461     0.058270      0.72526     0.049933      0.87305
+     6     462     0.055642      0.71100     0.047077      0.87708
+     7     463     0.072487      0.71048     0.062640      0.86745
+     8     464     0.050726      0.74412     0.044795      0.88813
+     9     465     0.052608      0.71626     0.042530      0.88528
+    10     466     0.042590      0.70133     0.034969      0.88843
+    11     467     0.065710      0.71810     0.055545      0.89202
+    12     468     0.043142      0.70462     0.032608      0.89192
+    13     469     0.046588      0.73483     0.038279      0.89032
+
+==============================================================================================================
+4. DOES THE FAMILY-FREE RECALIBRATION TRANSFER? — same bins, same truth, same scorer
+==============================================================================================================
+  index     assign tie               1         50        250       1000       2000       4000       8000      16000      32000
+  TF-exp    value  ordinal    0.060323   0.057975   0.048389   0.042003   0.041354   0.040135   0.039186   0.039287   0.039493
+  TF-exp    rank   ordinal    0.060323   0.057388   0.049141   0.043259   0.042472   0.041932   0.041718   0.041479   0.041672
+  TF-samp   rank   ordinal    0.060323   0.058251   0.050728   0.050013   0.052174   0.053458   0.054261   0.054718   0.055106
+  TF-samp   rank   average    0.060323   0.055421   0.050526   0.049822   0.052038   0.053298   0.054104   0.054546   0.054884
+  AR-h1     rank   ordinal    0.060323   0.059147   0.054232   0.057576   0.059311   0.060126   0.060995   0.061736   0.062242
+  AR-h1     rank   average    0.060323   0.056305   0.054113   0.057393   0.059124   0.059945   0.060801   0.061515   0.062018
+  AR-o456   rank   ordinal    0.060323   0.060314   0.058366   0.062676   0.065367   0.066830   0.067752   0.068215   0.068672
+  AR-o456   rank   average    0.060323   0.057219   0.056058   0.062130   0.064852   0.066323   0.067239   0.067683   0.068063
+
+  the SAME table under the fair estimator `1/(n(n-1))`:
+  index     assign tie               1         50        250       1000       2000       4000       8000      16000      32000
+  TF-exp    value  ordinal    0.060323   0.057973   0.048381   0.041979   0.041309   0.040050   0.039026   0.038971   0.038856
+  TF-exp    rank   ordinal    0.060323   0.057386   0.049133   0.043232   0.042421   0.041832   0.041522   0.041089   0.040893
+  TF-samp   rank   ordinal    0.060323   0.058250   0.050720   0.049986   0.052123   0.053358   0.054065   0.054328   0.054327
+  TF-samp   rank   average    0.060323   0.055420   0.050519   0.049796   0.051989   0.053203   0.053916   0.054173   0.054136
+  AR-h1     rank   ordinal    0.060323   0.059145   0.054225   0.057549   0.059260   0.060026   0.060799   0.061345   0.061463
+  AR-h1     rank   average    0.060323   0.056305   0.054105   0.057367   0.059076   0.059849   0.060613   0.061143   0.061276
+  AR-o456   rank   ordinal    0.060323   0.060312   0.058358   0.062649   0.065316   0.066730   0.067556   0.067825   0.067893
+  AR-o456   rank   average    0.060323   0.057219   0.056051   0.062105   0.064806   0.066232   0.067061   0.067328   0.067353
+
+==============================================================================================================
+5. GATES AND VERDICT
+==============================================================================================================
+  PASS  G-1  COPY GATE: TF-exp/value/ordinal at B=8000 reproduces family_free_cdf.out  got 0.039186 / 0.039026  (committed 0.039186 / 0.039026)
+  PASS  G-4  STRUCTURAL: B=1 is identical across all 8 variants  spread 0.000e+00  value 0.060323
+
+  ⭐ THE NO-MODEL FLOOR            B=1 climatology, regime-free   0.060323
+  ⭐ DELIVERED ENSEMBLE  TF-samp  teacher-forced  delivered sam plug-in 0.049103  fair 0.047522  vs floor -18.6%
+  ⭐ DELIVERED ENSEMBLE  AR-h1    autoregr. h=1   delivered sam plug-in 0.052109  fair 0.050680  vs floor -13.6%
+  ⭐ DELIVERED ENSEMBLE  AR-o456  autoregr. h=1-13 delivered sa plug-in 0.055790  fair 0.054958  vs floor -7.5%
+
+  TRANSFER  AR-h1    ordinal  best B=250    family-free 0.054232  vs its own delivered ensemble 0.052109 (+4.1%)  vs floor (-10.1%)
+  TRANSFER  AR-h1    average  best B=250    family-free 0.054113  vs its own delivered ensemble 0.052109 (+3.8%)  vs floor (-10.3%)
+  TRANSFER  AR-o456  ordinal  best B=250    family-free 0.058366  vs its own delivered ensemble 0.055790 (+4.6%)  vs floor (-3.2%)
+  TRANSFER  AR-o456  average  best B=250    family-free 0.056058  vs its own delivered ensemble 0.055790 (+0.5%)  vs floor (-7.1%)
+
+==============================================================================================================
+  wall time 29.0 s   peak RSS 3.14 GiB
