@@ -52,6 +52,13 @@ ARCHITECTURE_REGISTRY: dict[str, Callable[[], "type[nn.Module]"]] = {
     "ShallowPool": _lazy("shallow_pool", "ShallowPool"),
     "DualStream": _lazy("dual_stream", "DualStream"),
     "WideMemory": _lazy("wide_memory", "WideMemory"),
+    # 2026-10-30 candidate 7, same dossier (EXP-02): the decoder's ConvTranspose2d(k=2,
+    # s=2) stages cannot mix spatially -- kernel == stride, so no window overlaps and each
+    # of the four in-block phases gets its own free weight. M92/M93 measured it; these two
+    # remove it at +-0 and -20.4% parameters. The 3x3 remedy is +33.9% and is disqualified
+    # -- reports/2026-10-30_upsample_arm/PREREG.md section 2.
+    "UpsampleConv2": _lazy("upsample_interp", "UpsampleConv2"),
+    "UpsampleConv1": _lazy("upsample_interp", "UpsampleConv1"),
 }
 
 

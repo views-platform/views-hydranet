@@ -23,6 +23,7 @@ import torch.nn as nn  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
 
 from views_hydranet.architectures.registry import get_architecture  # noqa: E402
+from views_hydranet.architectures.upsample_interp import NearestConvUp  # noqa: E402
 
 IN_CH, HID, H, W = 3, 32, 32, 32
 
@@ -176,3 +177,100 @@ def test_every_candidate_differs_from_the_incumbent_in_output():
         assert not torch.allclose(out, ref, atol=1e-7), (
             f"{name} reproduces the incumbent's output exactly — it would score as a perfect null"
         )
+
+
+# ── (7) UpsampleConv{1,2}: no transposed conv may survive, on any of the TWELVE paths ────────
+
+#: Every upsample attribute in the incumbent. Replacing only the `reg` paths would leave the gate's
+#: placement on the old stage, and EXP-01's finding is that the effect IS the gate's placement.
+_UPSAMPLES = tuple(
+    f"upsample{stage}_head{head}_{branch}"
+    for head in (1, 2, 3)
+    for branch in ("reg", "class")
+    for stage in (0, 1)
+)
+
+#: PREREG.md section 2, computed from base = total_hidden_channels = 32 and asserted, not trusted.
+_EXPECTED_PARAMS = {
+    "HydraBNUNet06_LSTM4": 905_289,
+    "UpsampleConv2": 905_289,
+    "UpsampleConv1": 720_969,
+}
+
+
+@pytest.mark.parametrize("name", ["UpsampleConv2", "UpsampleConv1"])
+def test_upsample_candidates_replace_all_twelve_transposed_convs(name):
+    """One surviving ConvTranspose2d would leave the measured defect on that path."""
+    m = _build(name)
+    assert len(_UPSAMPLES) == 12, _UPSAMPLES
+    for attr in _UPSAMPLES:
+        mod = getattr(m, attr)
+        assert not isinstance(mod, nn.ConvTranspose2d), f"{attr} is still a ConvTranspose2d"
+        assert isinstance(mod, NearestConvUp), f"{attr} is {type(mod).__name__}"
+    leftover = [n for n, z in m.named_modules() if isinstance(z, nn.ConvTranspose2d)]
+    assert not leftover, f"transposed convs survive at {leftover}"
+
+
+@pytest.mark.parametrize("name", ["UpsampleConv2", "UpsampleConv1"])
+def test_upsample_candidates_hold_the_decoder_shapes(name):
+    """The parent concatenates each upsample's output with a skip, so a shape change throws there.
+
+    Checked against the incumbent's own stages rather than against hard-coded numbers.
+    """
+    inc, m = _build("HydraBNUNet06_LSTM4"), _build(name)
+    for attr in _UPSAMPLES:
+        in_ch = inc.conv_base * 4 if attr.startswith("upsample0") else inc.conv_base * 2
+        res = H // 4 if attr.startswith("upsample0") else H // 2
+        feat = torch.randn(1, in_ch, res, res)
+        with torch.no_grad():
+            assert getattr(m, attr)(feat).shape == getattr(inc, attr)(feat).shape, attr
+
+
+@pytest.mark.parametrize("name,delta_pct", [("UpsampleConv2", 0.0), ("UpsampleConv1", -20.4)])
+def test_upsample_candidate_parameter_counts_are_what_the_prereg_declared(name, delta_pct):
+    """⭐ The capacity confound, asserted rather than argued.
+
+    `nearest + Conv2d(3x3)` — the textbook remedy — is **+33.9%**, which is 5.6x the most
+    capacity-confounded arm in the 2026-08-24 dossier (WideMemory, +6.0%). These two are the
+    remedies that survive that constraint, and the counts are pinned so a later edit cannot
+    quietly reintroduce the confound.
+    """
+    inc, m = _build("HydraBNUNet06_LSTM4"), _build(name)
+    n_inc = sum(p.numel() for p in inc.parameters())
+    n = sum(p.numel() for p in m.parameters())
+    assert n_inc == _EXPECTED_PARAMS["HydraBNUNet06_LSTM4"], n_inc
+    assert n == _EXPECTED_PARAMS[name], f"{name}: {n:,} != {_EXPECTED_PARAMS[name]:,}"
+    assert abs(100.0 * (n - n_inc) / n_inc - delta_pct) < 0.1, f"{name}: {n} vs {n_inc}"
+
+
+def test_a_three_by_three_upsample_kernel_is_refused():
+    """The disqualified remedy must fail loudly, not be buildable by a later edit."""
+    with pytest.raises(ValueError, match="kernel_size must be one of"):
+        NearestConvUp(8, 4, 3)
+
+
+def test_upsample_candidate_without_a_kernel_refuses_to_build():
+    """A subclass that forgets `_KERNEL` would silently inherit the incumbent's stages.
+
+    That is the exact false-negative this file exists to prevent: it would train for ~2 GPU-hours
+    and report "this architecture does not help" when the architecture was never applied.
+    """
+    from views_hydranet.architectures.upsample_interp import _UpsampleInterpBase
+
+    class _Forgot(_UpsampleInterpBase):
+        pass
+
+    with pytest.raises(ValueError, match="does not set _KERNEL"):
+        _Forgot(IN_CH, HID, 1, 0.0, output_distribution="nb")
+
+
+@pytest.mark.parametrize("name", ["UpsampleConv2", "UpsampleConv1"])
+def test_upsample_candidates_are_not_inert(name):
+    """Seeds are identical, so any output difference is architectural."""
+    inc, m = _build("HydraBNUNet06_LSTM4"), _build(name)
+    torch.manual_seed(11)
+    x = torch.randn(1, IN_CH, H, W)
+    with torch.no_grad():
+        ref = inc(x, inc.init_hTtime(inc.base, H, W)).reg
+        out = m(x, m.init_hTtime(m.base, H, W)).reg
+    assert not torch.allclose(ref, out, atol=1e-6), f"{name} reproduces the incumbent's output"
