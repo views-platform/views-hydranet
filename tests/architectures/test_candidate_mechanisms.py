@@ -23,7 +23,10 @@ import torch.nn as nn  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
 
 from views_hydranet.architectures.registry import get_architecture  # noqa: E402
-from views_hydranet.architectures.upsample_interp import NearestConvUp  # noqa: E402
+from views_hydranet.architectures.upsample_interp import (  # noqa: E402
+    NearestConvUp,
+    _UpsampleInterpBase,
+)
 
 IN_CH, HID, H, W = 3, 32, 32, 32
 
@@ -273,7 +276,6 @@ def test_upsample_candidate_without_a_kernel_refuses_to_build():
     That is the exact false-negative this file exists to prevent: it would train for ~2 GPU-hours
     and report "this architecture does not help" when the architecture was never applied.
     """
-    from views_hydranet.architectures.upsample_interp import _UpsampleInterpBase
 
     class _Forgot(_UpsampleInterpBase):
         pass
@@ -312,3 +314,144 @@ def test_upsample_candidate_refuses_a_stage_that_is_not_the_defect():
 
     with pytest.raises(ValueError, match="expects enc_conv0 to be a ConvTranspose2d"):
         _PointedAtAConv(IN_CH, HID, 1, 0.0, output_distribution="nb")
+
+
+# ── (7b) the NUMERICAL guards. A /falsify guard audit found every test above checks a type, a
+#        shape or a parameter count, and NOT ONE checks what the module computes — so the defect
+#        could be put back verbatim (zero-stuff + conv ≡ ConvTranspose2d(k=2,s=2)) with all of
+#        them green. These assert the arithmetic instead. ─────────────────────────────────────
+
+def _in_degree(mod, c, h=8):
+    """Max number of distinct INPUT cells any single OUTPUT cell reads. 1 == no spatial mixing.
+
+    This is the property that separates the remedy from the defect, and it is not a shape, a type
+    or a parameter count — which is why nothing above could see it.
+    """
+    with torch.no_grad():
+        base = mod(torch.zeros(1, c, h, h))
+        deg = torch.zeros_like(base[0, 0])
+        for i in range(h):
+            for j in range(h):
+                x = torch.zeros(1, c, h, h)
+                x[0, :, i, j] = 1.0
+                deg += ((mod(x) - base).abs().sum(1)[0] > 1e-8).float()
+    return int(deg.max())
+
+
+def test_upsample_conv2_actually_mixes_neighbours():
+    """⭐⭐ THE GUARD THE AUDIT SAID WAS MISSING.
+
+    `ConvTranspose2d(k=2, s=2)` gives every output cell **exactly one** input cell — that IS the
+    defect. `UpsampleConv2` must read **more than one**, or it is the defect under a new name.
+
+    Measured: incumbent 1, honest nearest+2x2 max 4. A zero-stuffing `forward` — which is
+    mathematically identical to the transposed conv it replaces — scores 1 and passed every other
+    test in this file.
+    """
+    inc = _build("HydraBNUNet06_LSTM4")
+    ct = inc.upsample1_head1_reg
+    assert _in_degree(ct, ct.in_channels) == 1, "the incumbent should be the non-mixing case"
+    rep = NearestConvUp(ct.in_channels, ct.out_channels, 2)
+    assert _in_degree(rep, rep.in_ch) > 1, (
+        "UpsampleConv2 reads only one input per output — it has become the defect it replaces "
+        "(zero-stuffing, or a kernel that cannot straddle a block boundary)"
+    )
+
+
+def test_upsample_conv1_applies_the_SAME_map_at_every_phase():
+    """⭐⭐ `UpsampleConv1`'s whole claim is that **no phase pattern can form by construction**.
+
+    It does NOT mix — in-degree 1 is correct for it — so the mixing guard above would wrongly fail
+    it. The claim to assert is instead **phase invariance**: all four positions of each 2x2 output
+    block must be the identical function of the single input cell they share.
+
+    An added learnable per-phase offset refutes that claim and passed every other test here.
+    """
+    rep = NearestConvUp(3, 2, 1)
+    with torch.no_grad():
+        x = torch.randn(1, 3, 4, 4)
+        y = rep(x)
+    for a in range(2):
+        for b in range(2):
+            assert torch.allclose(y[:, :, a::2, b::2], y[:, :, 0::2, 0::2], atol=1e-6), (
+                f"phase ({a},{b}) differs from (0,0) — UpsampleConv1 acquired a phase "
+                "pattern, the one thing it exists to be incapable of"
+            )
+
+
+def test_nearest_upsample_keeps_the_top_left_alignment():
+    """A pad flipped to top/left, or a conv applied before the pad, leaves shape and parameter
+    count untouched while shifting the field one cell against the skip it is concatenated with.
+    Both passed every other test here. Alignment is asserted on a known impulse.
+    """
+    rep = NearestConvUp(1, 1, 2)
+    with torch.no_grad():
+        rep.conv.weight.fill_(0.0)
+        rep.conv.weight[0, 0, 0, 0] = 1.0   # read only the window's top-left tap
+        rep.conv.bias.fill_(0.0)
+        x = torch.zeros(1, 1, 4, 4)
+        x[0, 0, 0, 0] = 1.0
+        y = rep(x)
+    assert y[0, 0, 0, 0] == pytest.approx(1.0), (
+        "input (0,0) no longer lands on output (0,0) — the upsample/pad alignment is shifted"
+    )
+    assert y[0, 0, 3, 3] == pytest.approx(0.0), "an impulse at (0,0) reached the far corner"
+
+
+def test_nearest_conv_up_supports_exactly_the_two_admitted_kernels():
+    """Testing only that `3` is refused leaves every other disqualified kernel buildable."""
+    assert NearestConvUp._SUPPORTED == (1, 2), NearestConvUp._SUPPORTED
+    for k in (0, 3, 4, 5, 7):
+        with pytest.raises(ValueError, match="kernel_size must be one of"):
+            NearestConvUp(8, 4, k)
+
+
+def test_a_transposed_conv_with_uneven_overlap_is_also_refused():
+    """⭐ The conformance check has TWO branches and only one was ever executed.
+
+    `_PointedAtAConv` above exercises `not isinstance(..., ConvTranspose2d)`. The clause encoding
+    the defect's actual definition — `kernel_size == stride`, i.e. non-overlapping — had no test,
+    so deleting it left the whole suite green.
+
+    The probe is assembled through the MRO so the parent builds `probe` before the replacement
+    loop walks `_STAGES`, which is how a real stage would arrive.
+    """
+    from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
+    from views_hydranet.architectures.upsample_interp import UpsampleConv2
+
+    class _WithUnevenStage(HydraBNUNet06_LSTM4):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            # kernel 4, stride 2: overlapping, i.e. NOT the defect this candidate replaces
+            self.probe = nn.ConvTranspose2d(8, 4, 4, stride=2, padding=1)
+
+    class _Probe(UpsampleConv2, _WithUnevenStage):
+        _STAGES = ("probe",)
+
+    with pytest.raises(ValueError, match="kernel_size == stride"):
+        _Probe(IN_CH, HID, 1, 0.0, output_distribution="nb")
+
+
+def test_padding_is_applied_before_the_convolution_not_after():
+    """Applying the pad AFTER the conv keeps shape and parameter count and survives the alignment
+    impulse — but it feeds a hard-zero final row and column into every skip concatenation.
+
+    Asserted directly: a strictly positive input must produce no all-zero border.
+    """
+    rep = NearestConvUp(2, 2, 2)
+    with torch.no_grad():
+        rep.conv.weight.fill_(0.25)
+        rep.conv.bias.fill_(0.0)
+        y = rep(torch.ones(1, 2, 4, 4))
+    assert y[..., -1, :].abs().sum() > 0, "the last ROW is all zeros — pad applied after the conv"
+    assert y[..., :, -1].abs().sum() > 0, "the last COLUMN is all zeros — pad applied after conv"
+
+
+def test_nearest_conv_up_refuses_a_channel_mismatch():
+    """The channel check exists because the parent CONCATENATES this output with a skip, so a
+    mismatch either throws far downstream or mis-pairs the branches. Deleting it left the suite
+    green, so nothing was exercising the raise its own docstring justifies.
+    """
+    rep = NearestConvUp(8, 4, 2)
+    with pytest.raises(ValueError, match="built for 8 channels, got 5"):
+        rep(torch.randn(1, 5, 4, 4))
