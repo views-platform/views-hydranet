@@ -25,7 +25,13 @@ about the workflow — the same rule the experiment log lives under.
 |---|---|
 | **WRONG** | **121** |
 | **RIGHT** | **60** |
-| OPEN | 1 |
+| OPEN | 3 |
+
+⚠️ **2026-10-30 — `O-4` added (P-30, the refetch's shape), and the OPEN count corrected 1 → 3.** The
+count said **1** while `O-2` and `O-3` both sat in the block, so it was already one short before
+this row; counted directly off the `O-` rows rather than trusted. ⛔ `WRONG` and `RIGHT` were
+verified the same way and are correct at **121** and **60**. ⇒ The OPEN tally is hand-maintained and
+has now drifted once; it is the only one of the three that no test reads.
 
 ⛔ **2026-10-25 — four rows added (`W-59`, `W-60`, `W-61`, `W-62`).** ⭐ **Two of the three were caught by my
 own `/falsify`, not by a panel or by Simon** — which is the first time in this ledger that the
@@ -403,6 +409,7 @@ fact about the measurement rather than a choice I made after seeing it. The as-r
 |---|---|---|---|
 | O-2 | `pos_weight → 1.0` is a better-motivated single-variable arm than A. | 2026-10-15, from the Gneiting seat's G&Ranjan Thm 1 derivation plus P2's measured implied 1.0365 | Not yet tested; not in any pre-registration. |
 | O-3 | **P-20…P-26, the upsample arm's seven predictions**, declared in `reports/2026-10-30_upsample_arm/PREREG.md` §5b and committed **alone and before any architecture code existed**. ⭐ Anchored to EXP-01's **measured** horizon gradient rather than to intuition, because all four of `M92`'s predictions were refuted for assuming the upsampling would BLUR when it phase-stripes. The load-bearing one is **P-23**: Δ AP **positive at h1 and NEGATIVE at h36** on both seeds — the 13th instance of a `2⁻¹²` pattern. | 2026-10-30, `PREREG.md` §5b, commit `da89d6c` | `G-F` settles P-20/P-21 on CPU; the arm settles P-22…P-26. ⛔ The verdict rule is §6 of that document and **may not be changed after the numbers exist** — if I wish to, §6 device 3 requires a `W-` row against myself FIRST. |
+| O-4 | **P-30** — the refetched calibration pull has the **same** `level`, `month_first`, `month_last` and row count as the 2026-09-19 cache: `pgm`, `121`, `504`, **5,034,240** rows (13,110 cells × 384 months). ⇒ The vintage change is in cell *values*, not in *shape*. ⛔ Declared **before the pull**, in `PREREG.md` §13d, together with the conceded cost: the refetch gives `P-27` a second possible cause (code drift *or* data vintage) that this design **cannot separate**. ⚠️ Risky because `37c4fca2` changed the volume to the whole PRIO-GRID raster *after* this pull, and I am predicting the cache already reflects it — 5,034,240 / 384 is exactly 13,110, which is global land rather than the Africa+ME crop. If that reading is wrong, P-30 fails and the EXP-01 absolute cross-reference goes from *indicative* to **void**. | 2026-10-30, `PREREG.md` §13 (amendment 4), written while the cached pull was still the only pull that existed | The refetch. Its fetch timestamp, row count, `month_first`/`month_last` and `queryset_digest` are recorded in the dossier's `07_experiment_log.md` in the same entry as the first arm, and P-30 is settled there against the four values above. |
 
 ---
 

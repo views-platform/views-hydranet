@@ -5211,7 +5211,7 @@ is now knowingly left in place.
 | ID | C-347 |
 | Tier | 3 |
 | Source | `falsify` claim-mode audit of the v0.1.4 release readiness (2026-10-20) — found by running the documented procedure and reading its own output |
-| Trigger | Running `docs/guides/publishing-to-pypi.md` §B's snippet **from the repository root** — which is where an operator already is when they finish a release — and reading the `OK` line as confirmation that the published wheel works |
+| Trigger | ✅ **FIXED 2026-10-30** in the guide. The residual trigger is now: writing a *new* release-verification snippet (or a `reports/` measurement script) that imports `views_hydranet` without `-I` and without the `purelib` assertion, and reading its `OK` line as confirmation. ⛔ The original trigger — running §B from the repository root — **fired twice**, so this class is demonstrated, not hypothetical |
 | Location | `docs/guides/publishing-to-pypi.md` §B ("the full clean-room import check (manual)"); contrast `.github/scripts/wheel_contract.py:69-78` (`check_installed_code`), which guards the identical hazard |
 | Cross-refs | C-329 (a check that cannot fail — this is its *manual-procedure* form rather than its test form), C-303 (prose asserting a check the procedure does not perform), C-335 (the same false-confidence class at the other end of the release path) |
 
@@ -5293,6 +5293,46 @@ names can actually be built in this process rather than checking a path), and
 that check moved out of `vehicle`'s import path (where it was a module-level `SystemExit` on all 68
 importers) into `load_vehicle`, so it now fires only for callers that load an artifact.
 Cross-ref **C-402**.
+
+---
+
+#### ⬆ INSTANCE 4 — 2026-10-30, the release check itself, and the arrow is back to instance 1's
+
+**⛔ The predicted trigger fired again, during the 0.1.8 release, and the
+recommended fix had not been applied in the ten days between.** Verifying that `UpsampleConv2` ships
+in the published wheel, this session ran the §B-shaped check (⚠️ its own ad-hoc version, not the guide's) with the shell's cwd at the repository
+root and got:
+
+```
+version: 0.1.8
+package: /home/simon/.../views-hydranet/views_hydranet/__init__.py
+```
+
+⇒ `importlib.metadata.version` read the **installed dist-info** (0.1.8, correct) while the module
+object came from the **working tree**. ⭐ That pairing is the nastier form: the version line is
+genuine, so the output looks like a verified install. The session caught it from the path and
+re-ran from a neutral directory with `-I`, where it resolved inside `site-packages` and genuinely
+passed — but it had already composed the passing report.
+
+⚠️ **What instance 4 adds beyond instance 1.** The entry's trigger named *an operator* following the
+guide. Here the actor was an **assistant session writing its own ad-hoc check**, which never reads
+the guide at all — so the hazard is not carried by that document, it is carried by `python -c`. ⇒ A
+fix scoped to the guide's snippet is necessary but **not sufficient**; the same shape recurs in any
+release check or `reports/` script written fresh. That is the overlap with **C-402** (`reports/`
+instruments outside every gate) and the reason this stays open rather than closing on the doc fix.
+
+**✅ The fix is now applied, and measured in both directions.** `docs/guides/publishing-to-pypi.md`
+§B now runs `python -I -c` and asserts `views_hydranet.__file__.startswith(sysconfig.get_paths()
+["purelib"])`, carrying the identical message to `wheel_contract.py`'s. Verified from the repository
+root against the 0.1.8 wheel:
+
+| form | from the repo root | result |
+|---|---|---|
+| patched (`-I` + assertion) | yes | `OK .../site-packages/views_hydranet/__init__.py 104 config fields` |
+| assertion only, `-I` dropped | yes | `AssertionError: this check read a source tree, not the wheel: /home/simon/.../views-hydranet/views_hydranet/__init__.py` |
+
+⇒ `-I` makes the correct thing happen; the assertion makes the incorrect thing **fail loudly** if a
+future edit drops `-I`. Neither alone would have caught instance 4.
 
 
 ---
