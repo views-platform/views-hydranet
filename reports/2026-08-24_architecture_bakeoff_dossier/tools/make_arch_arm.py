@@ -112,6 +112,18 @@ _ARCH_TAG = {
     "ShallowPool": "shal",
     "DualStream": "dual",
     "WideMemory": "wide",
+    # 2026-10-30, EXP-02 (reports/2026-10-30_upsample_arm/PREREG.md section 10c). ADDITIVE: no
+    # existing label changes. The tags are spelled out because `validate_model_name` is
+    # `^[a-z]+_[a-z]+$` and forbids digits, so "up2" would be rejected at pipeline startup —
+    # after the queue had already accepted the arm, which is how the ITF pilot's first launch died.
+    #
+    # ⭐ The incumbent is here for the first time, and it is load-bearing: EXP-01 paired against
+    # `fullzero_*` arms built by an EARLIER programme, those model directories no longer exist, and
+    # pairing against their committed scores would vary the CODE VERSION as well as `model`. The
+    # control is therefore an arm of the EXP-02 queue, built by this builder, on the same commit.
+    "HydraBNUNet06_LSTM4": "ctl",
+    "UpsampleConv2": "upctwo",
+    "UpsampleConv1": "upcone",
 }
 
 
