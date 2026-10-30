@@ -319,6 +319,27 @@ for mode in MODES:
             h = out.h_next
             if fed < OS_LO:
                 continue
+            if fed == OS_LO:
+                #: ⛔⛔ AMENDMENT 4. `stage_roughness.py:288-299` asserts, once on the first scored
+                #: month, that every hook fired AND that each captured map is at its DECLARED
+                #: resolution. The extraction into this file dropped both, and the numpy slice two
+                #: lines below TRUNCATES SILENTLY — so a wrong `div` in the hand-maintained STAGES
+                #: table would crop a 360x720 map to its top-left quadrant and correlate it against
+                #: the /2 land mask at entirely different geography, with no error and a complete
+                #: verdict printed. Only the silent direction was unprotected; a map smaller than
+                #: declared already crashes inside `pair_rho`.
+                missing = [k for k, _, _ in STAGES if k not in caught]
+                if missing:
+                    print(f"⛔⛔ VOID (G-14): hooks never fired for {missing}")
+                    sys.exit(1)
+                for key, spec, div in STAGES:
+                    got = tuple(caught[key].shape[-2:])
+                    want = (GR // div, GC // div)
+                    if got != want:
+                        print(f"⛔⛔ VOID (G-14): {key} ({spec}) emitted {got}, expected {want} "
+                              f"at divisor /{div} — the slice below would truncate it silently.")
+                        sys.exit(1)
+                print(f"    PASS G-14  all {len(STAGES)} hooks fired at their declared resolution")
             for key, _, div in STAGES:
                 mk = MASKS[div]
                 f = caught[key][0].numpy().astype(np.float64)[:, : mk.shape[0], : mk.shape[1]]
@@ -348,6 +369,28 @@ print("\n" + "=" * 110)
 print("2. ⛔ THE VOID CONDITION — PREREG.md §6 device 4, named before any number existed")
 print("=" * 110)
 print(f"  control gap at up1 = {ctrl:+.6f}   bar: must be >= {VOID_GAP:.2f}")
+#: ⛔⛔ AMENDMENT 4 (2026-10-30). The void gate FAILED OPEN on NaN, and that is the FIFTH member of
+#: this dossier's own `W-93`/`W-96`/`W-110`/`W-118` "a gate that cannot fire" family.
+#:
+#: `pair_rho` returns `(nan, nan, npair)` when no channel has positive pair variance; `np.mean`
+#: over months then propagates NaN; and `nan < VOID_GAP` is **False**, so the script printed
+#: "✅ NOT VOID" and continued. Downstream, `gaps[mode] < P20_GAP` is also False for every mode,
+#: `passers` is empty, and it printed **"P-20 REFUTED"** — a pre-registered refutation of the whole
+#: remedy class MANUFACTURED by the very NaN the void gate exists to catch. Reachable whenever any
+#: one hooked stage is constant over the land mask at any one scored month, including the all-zero
+#: field a neutered `NearestConvUp` would emit.
+#:
+#: ⇒ Non-finite is checked FIRST and explicitly, on every value the verdict reads.
+_vals = {f"{m}/{k}/d{d}": res[(m, k, d)][0] for m in MODES for k in ("up1",) for d in LAGS}
+_vals.update({f"{m}/up1 floor": res[(m, "up1", 1)][1] for m in MODES})
+_nonfinite = {k: v for k, v in _vals.items() if not np.isfinite(v)}
+if _nonfinite:
+    print("  ⛔⛔ VOID (non-finite). NaN silently passes every `<` bar the verdict uses:")
+    for k, v in _nonfinite.items():
+        print(f"        {k} = {v}")
+    print("      A stage constant over the land mask gives rho = NaN; continuing would print")
+    print("      'NOT VOID' and then 'P-20 REFUTED' — a refutation manufactured by the NaN.")
+    sys.exit(1)
 if ctrl < VOID_GAP:
     print("  ⛔⛔ VOID. The instrument does not detect on untrained weights what it detected on")
     print("      trained ones. No verdict is read from this run. Nothing else voids it.")

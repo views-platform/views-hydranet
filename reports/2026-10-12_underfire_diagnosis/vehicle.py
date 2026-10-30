@@ -92,6 +92,42 @@ ADMITTED_DROPOUT = (0.15, 0.125)
 ADMITTED_MODELS = ("HydraBNUNet06_LSTM4", "UpsampleConv2", "UpsampleConv1")
 
 
+def _assert_admitted_models_are_importable() -> None:
+    """⛔⛔ Amendment 6 is a LIE unless the `views_hydranet` in THIS process can build its names.
+
+    For a script, `sys.path[0]` is the script's own directory — not the cwd — so
+    `python reports/<dossier>/x.py` resolves `views_hydranet` to the INSTALLED wheel, while
+    `vehicle` comes from the working tree. Mixed provenance, and `pytest` hides it because it puts
+    the repo root on `sys.path`.
+
+    ⇒ Amendment 6 widened `model` to a set so `stage_roughness.py` could read the arm's checkpoint
+    — `M94`'s open question, *does a trained `UpsampleConv2` re-learn a phase pattern?* — but
+    `load_vehicle` then calls `choose_model`, which resolves `get_architecture` from whatever
+    package this process imported. If that is a wheel predating the candidate, the config pin
+    passes and the build raises.
+
+    ⭐ This is a CAPABILITY check, not a path check: it asks whether the admitted names can
+    actually be built here, which is the property Amendment 6 depends on. A path check would pass
+    for an editable install that was nonetheless stale, and fail for a legitimate future layout.
+    """
+    from views_hydranet.architectures.registry import architecture_names
+
+    missing = sorted(set(ADMITTED_MODELS) - set(architecture_names()))
+    if missing:
+        import views_hydranet
+
+        raise SystemExit(
+            f"VOID (F6 / C-347): views_hydranet resolved to "
+            f"{Path(views_hydranet.__file__).parent} and cannot build {missing}, which "
+            f"ADMITTED_MODELS admits. `load_vehicle` would pass the config pin and then raise "
+            "inside choose_model. Put the repository root on sys.path before importing, or "
+            "install the working tree."
+        )
+
+
+_assert_admitted_models_are_importable()
+
+
 def emitted_magnitude(mu, theta, family: str):
     """The per-cell magnitude the head actually EMITS, which is not always ``mu``.
 

@@ -92,7 +92,12 @@ T0 = time.time()
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 D4 = REPO / "reports" / "2026-10-12_underfire_diagnosis"
-sys.path.insert(0, str(D4))
+# ⛔ REPO FIRST (C-347): for a script `sys.path[0]` is the script's own
+# directory, so `views_hydranet` would otherwise resolve to the installed
+# wheel while `vehicle` comes from the working tree. `vehicle.py` now
+# asserts the admitted architectures are importable and fails loudly.
+sys.path.insert(0, str(REPO))
+sys.path.insert(1, str(D4))
 
 from vehicle import TARGETS, build_volume, pull  # noqa: E402
 
