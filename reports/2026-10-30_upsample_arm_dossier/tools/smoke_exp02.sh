@@ -47,11 +47,28 @@ unset ALLOW_RE_REPORT
 ctl_label() {
   $CENV python -c "
 import sys; sys.path.insert(0,'$BAKEOFF/tools')
-from make_arch_arm import arm_label; print(arm_label(lessons=2, eps=0.0, seed=$1, variant='HydraBNUNet06_LSTM4'))" 2>/dev/null
+from make_arch_arm import arm_label; print(arm_label(lessons=2, eps=0.0, seed=$1, variant='$CTL'))" 2>/dev/null
 }
 
+# ⛔⛔ THE ARCHES COME FROM G-F'S SENTINEL, NOT FROM THIS LINE. `for ARCH in HydraBNUNet06_LSTM4
+# UpsampleConv2` stood here until 2026-10-30 — one of four hand-typed copies of a decision
+# `gf_phase_signature.py` makes and, at the time, only printed. A /falsify guard audit measured
+# the cost: one word changed in the launcher and four arms trained, scored and were never
+# identity-checked. Smoking an architecture the queue will not run is the same defect pointed the
+# other way: the gate would pass on a model nobody trains.
+SEL="$RES/SELECTED_ARM"
+[ -f "$SEL" ] || { echo "SMOKE REFUSED: no SELECTED_ARM sentinel at $SEL. The arm is chosen by \
+gf_phase_signature.py under PREREG section 2, not typed into this file — run G-F first."; exit 1; }
+read -r CTL ARM < <(python3 -c "
+import json
+d = json.load(open('$SEL'))
+print(d['control'], d['selected'])" 2>/dev/null) || true
+[ -n "${CTL:-}" ] && [ -n "${ARM:-}" ] || { echo "SMOKE REFUSED: $SEL is unreadable or has no \
+'control'/'selected' keys. Re-run gf_phase_signature.py rather than editing it by hand."; exit 1; }
+echo "smoking the control and the SELECTED arm, read from the sentinel: $CTL, $ARM"
+
 fail=0
-for ARCH in HydraBNUNet06_LSTM4 UpsampleConv2; do
+for ARCH in "$CTL" "$ARM"; do
   label=$($CENV python -c "
 import sys; sys.path.insert(0,'$BAKEOFF/tools')
 from make_arch_arm import arm_label; print(arm_label(lessons=2, eps=0.0, seed=$SEED, variant='$ARCH'))" 2>/dev/null)

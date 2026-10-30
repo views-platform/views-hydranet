@@ -18,9 +18,18 @@ def test_P2_plain_pytest_collects_without_ignore():
     package) but line 6 imports the SUBMODULE `views_evaluation.evaluation.evaluation_manager`,
     which is absent — so the guard is bypassed and collection hard-errors. The whole session ran
     pytest with `--ignore=tests/test_eval_integration_toy.py`. Fix: guard the submodule actually
-    imported (`importorskip('views_evaluation.evaluation.evaluation_manager')`)."""
+    imported (`importorskip('views_evaluation.evaluation.evaluation_manager')`).
+
+    ⭐ The target is `.` — the WHOLE TREE, `reports/` included — and it is passed explicitly.
+    This ran bare until 2026-10-30, which collected the whole tree only because `pyproject.toml`
+    declared no `testpaths`; the guard's reach was an accident of a missing config rather than
+    something it asked for. `testpaths = ["tests"]` now exists so a bare `pytest` means the suite,
+    and this test states what it actually wants instead of silently narrowing with it. Measured at
+    the change: bare and `.` both collected 2,459, `tests/` 2,443 — so the reach here is
+    unchanged, and `test_falsify_track_readiness.py` (which asks for `tests/`) stays distinct.
+    """
     r = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider"],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "."],
         cwd=str(_REPO),
         capture_output=True,
         text=True,

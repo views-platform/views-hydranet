@@ -1,0 +1,29 @@
+{
+  "selected": "UpsampleConv2",
+  "control": "HydraBNUNet06_LSTM4",
+  "rule": "PREREG \u00a72: among remedies that REMOVE the signature, the lowest parameter cost (distance from the incumbent's count) takes the GPU slot",
+  "gaps": {
+    "UpsampleConv2": -0.19842098040522715,
+    "UpsampleConv1": -0.20782792438244435
+  },
+  "channel_floors": {
+    "UpsampleConv2": 0.6174873974786738,
+    "UpsampleConv1": 0.6046817218112822
+  },
+  "bars": {
+    "gap_below": 0.15,
+    "floor_at_least": -0.05
+  },
+  "p20_passers": [
+    "UpsampleConv2",
+    "UpsampleConv1"
+  ],
+  "p21_held": true,
+  "smallest_residual_gap": "UpsampleConv1",
+  "params": {
+    "HydraBNUNet06_LSTM4": 905289,
+    "UpsampleConv2": 905289,
+    "UpsampleConv1": 720969
+  },
+  "views_hydranet": "/home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet"
+}
