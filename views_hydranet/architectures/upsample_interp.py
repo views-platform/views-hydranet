@@ -66,11 +66,10 @@ entirely the gate's placement degrading through the autoregressive loop."*
 
 ``forward`` is untouched, inherited verbatim.
 
-⚠️ NOTED, NOT FIXED (out of scope here): the upsample constructors in the parent size themselves
-from ``base`` (the CONV width, stored as ``self.conv_base``), not from ``state`` (the RECURRENT
-width, stored as ``self.base``). These classes therefore use ``self.conv_base``.
-``anti_aliased_pool.py`` uses ``self.base`` for its pools, which coincides only while
-``state_channels is None`` — true for every config except ``WideMemory``.
+⚠️ NOTED, NOT FIXED (out of scope here): ``anti_aliased_pool.py`` sizes its pools from
+``self.base`` (the RECURRENT width) where ``self.conv_base`` (the CONV width) is meant. The two
+coincide only while ``state_channels is None`` — true for every config except ``WideMemory``.
+These classes avoid the question entirely by reading the widths off the modules they replace.
 """
 
 from __future__ import annotations
@@ -153,10 +152,25 @@ class _UpsampleInterpBase(HydraBNUNet06_LSTM4):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        b = self.conv_base  # the CONV width — see the module docstring's scope note
+        # ⭐ The widths are READ OFF the module being replaced, never recomputed. Restating the
+        # parent's channel plan (`base*4 -> base*2`, `base*2 -> base`) would duplicate it, and the
+        # copy would diverge silently the first time the parent's plan changed.
         for name in self._STAGES:
-            in_ch, out_ch = (b * 4, b * 2) if name.startswith("upsample0") else (b * 2, b)
-            setattr(self, name, NearestConvUp(in_ch, out_ch, self._KERNEL))
+            old = getattr(self, name)
+            # Fail loud if the parent's upsample primitive is no longer what this candidate was
+            # written against: the whole point is to replace a NON-OVERLAPPING transposed conv, and
+            # wrapping something else would produce an arm that tests nothing while looking fine.
+            if not isinstance(old, nn.ConvTranspose2d) or old.kernel_size != old.stride:
+                err_msg = (
+                    f"{type(self).__name__} expects {name} to be a ConvTranspose2d with "
+                    f"kernel_size == stride (the defect it removes); found "
+                    f"{type(old).__name__} with kernel_size={getattr(old, 'kernel_size', None)} "
+                    f"stride={getattr(old, 'stride', None)}. The parent's decoder changed and "
+                    "this candidate needs re-deriving, not silently wrapping."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+            setattr(self, name, NearestConvUp(old.in_channels, old.out_channels, self._KERNEL))
 
 
 class UpsampleConv2(_UpsampleInterpBase):

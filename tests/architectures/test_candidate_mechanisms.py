@@ -190,12 +190,11 @@ _UPSAMPLES = tuple(
     for stage in (0, 1)
 )
 
-#: PREREG.md section 2, computed from base = total_hidden_channels = 32 and asserted, not trusted.
-_EXPECTED_PARAMS = {
-    "HydraBNUNet06_LSTM4": 905_289,
-    "UpsampleConv2": 905_289,
-    "UpsampleConv1": 720_969,
-}
+#: ⛔ The parameter counts are asserted RELATIONALLY, never against a literal. An earlier version
+#: pinned 905,289 / 720,969 here — a tripwire that the first legitimate change to the incumbent
+#: would trip, and that would then be "fixed" by editing the constant, after which it guards
+#: nothing. What the capacity argument actually claims is a RELATION: the 2x2 remedy is free and
+#: the 1x1 remedy is cheaper. That survives any change to the parent.
 
 
 @pytest.mark.parametrize("name", ["UpsampleConv2", "UpsampleConv1"])
@@ -226,21 +225,40 @@ def test_upsample_candidates_hold_the_decoder_shapes(name):
             assert getattr(m, attr)(feat).shape == getattr(inc, attr)(feat).shape, attr
 
 
-@pytest.mark.parametrize("name,delta_pct", [("UpsampleConv2", 0.0), ("UpsampleConv1", -20.4)])
-def test_upsample_candidate_parameter_counts_are_what_the_prereg_declared(name, delta_pct):
-    """⭐ The capacity confound, asserted rather than argued.
+def test_upsample_conv2_is_exactly_parameter_free():
+    """⭐ The capacity confound, asserted as a RELATION rather than against a literal.
 
-    `nearest + Conv2d(3x3)` — the textbook remedy — is **+33.9%**, which is 5.6x the most
-    capacity-confounded arm in the 2026-08-24 dossier (WideMemory, +6.0%). These two are the
-    remedies that survive that constraint, and the counts are pinned so a later edit cannot
-    quietly reintroduce the confound.
+    `nearest + Conv2d(3x3)` — the textbook remedy — would be **+33.9%** of the whole model, 5.6x
+    the most capacity-confounded arm in the 2026-08-24 dossier (WideMemory, +6.0%), so a win or a
+    loss would be uninterpretable. `UpsampleConv2` is the remedy that costs nothing, which is what
+    makes it the arm: the `AntiAliasedPool` standard, where a win cannot be capacity.
     """
-    inc, m = _build("HydraBNUNet06_LSTM4"), _build(name)
-    n_inc = sum(p.numel() for p in inc.parameters())
-    n = sum(p.numel() for p in m.parameters())
-    assert n_inc == _EXPECTED_PARAMS["HydraBNUNet06_LSTM4"], n_inc
-    assert n == _EXPECTED_PARAMS[name], f"{name}: {n:,} != {_EXPECTED_PARAMS[name]:,}"
-    assert abs(100.0 * (n - n_inc) / n_inc - delta_pct) < 0.1, f"{name}: {n} vs {n_inc}"
+    n_inc = sum(p.numel() for p in _build("HydraBNUNet06_LSTM4").parameters())
+    n = sum(p.numel() for p in _build("UpsampleConv2").parameters())
+    assert n == n_inc, f"UpsampleConv2 is no longer parameter-free: {n:,} vs {n_inc:,}"
+
+
+def test_upsample_conv1_is_strictly_cheaper_than_the_incumbent():
+    """A 1x1 kernel is parameter-REDUCING, so a win cannot be capacity (the ShallowPool read)."""
+    n_inc = sum(p.numel() for p in _build("HydraBNUNet06_LSTM4").parameters())
+    n = sum(p.numel() for p in _build("UpsampleConv1").parameters())
+    assert n < n_inc, f"UpsampleConv1 should be cheaper than the incumbent: {n:,} vs {n_inc:,}"
+
+
+def test_nearest_conv_up_k2_matches_the_transposed_conv_it_replaces():
+    """⭐ The LOCAL invariant the whole-model relation rests on, so a failure localises itself.
+
+    A 2x2 kernel over a nearest-upsampled map has exactly the weight count of the
+    `ConvTranspose2d(k=2, stride=2)` it replaces — same in/out channels, same 4 taps, same bias.
+    Asserted on the modules directly, at widths taken from the incumbent rather than hard-coded.
+    """
+    inc = _build("HydraBNUNet06_LSTM4")
+    for attr in _UPSAMPLES:
+        ct = getattr(inc, attr)
+        rep = NearestConvUp(ct.in_channels, ct.out_channels, 2)
+        n_ct = sum(p.numel() for p in ct.parameters())
+        n_rep = sum(p.numel() for p in rep.parameters())
+        assert n_rep == n_ct, f"{attr}: replacement {n_rep} != transposed conv {n_ct}"
 
 
 def test_a_three_by_three_upsample_kernel_is_refused():
@@ -274,3 +292,23 @@ def test_upsample_candidates_are_not_inert(name):
         ref = inc(x, inc.init_hTtime(inc.base, H, W)).reg
         out = m(x, m.init_hTtime(m.base, H, W)).reg
     assert not torch.allclose(ref, out, atol=1e-6), f"{name} reproduces the incumbent's output"
+
+
+def test_upsample_candidate_refuses_a_stage_that_is_not_the_defect():
+    """⭐ The fail-loud guard, exercised with a REAL non-conforming module from the real parent.
+
+    The candidate exists to replace a NON-OVERLAPPING transposed conv (`kernel_size == stride`).
+    If the parent's decoder ever changes primitive, wrapping whatever is there would produce an arm
+    that tests nothing while looking healthy — the false-negative this file exists to prevent. So
+    the replacement loop asserts what it is replacing.
+
+    `enc_conv0` is a plain `Conv2d` on the real parent, so pointing `_STAGES` at it is a faithful
+    stand-in for "the thing at this name is not what this candidate was written against".
+    """
+    from views_hydranet.architectures.upsample_interp import UpsampleConv2
+
+    class _PointedAtAConv(UpsampleConv2):
+        _STAGES = ("enc_conv0",)
+
+    with pytest.raises(ValueError, match="expects enc_conv0 to be a ConvTranspose2d"):
+        _PointedAtAConv(IN_CH, HID, 1, 0.0, output_distribution="nb")

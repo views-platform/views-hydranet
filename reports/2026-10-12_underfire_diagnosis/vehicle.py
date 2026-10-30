@@ -24,7 +24,7 @@ GRID_ROWS, GRID_COLS = 360, 720
 
 # The delivered violet_visitor config (views-models, read-only). F6 compares against this.
 EXPECTED_SIDECAR = {
-    "model": "HydraBNUNet06_LSTM4",
+    # ⛔ `model` was here until AMENDMENT 6 moved it to ADMITTED_MODELS below. See that note.
     "input_channels": 3,
     "total_hidden_channels": 32,
     "output_channels": 1,
@@ -60,6 +60,36 @@ ADMITTED_FAMILIES = ("nb", "truncated_nb")
 #: regularisation knob and this programme's readouts are smoothness readouts, so the two are
 #: exactly the pair most likely to interact. The caller records which rate it loaded.
 ADMITTED_DROPOUT = (0.15, 0.125)
+
+#: ⛔ AMENDMENT 6 (2026-10-30). `model` is checked against a SET, for the same reason and in the
+#: same shape as Amendments 4 and 5 — and, like both of them, because the pin refused a vehicle and
+#: the refusal was the finding.
+#:
+#: WHY. `M92`/`M93` localised the body's near-field smoothness to the decoder's two
+#: `ConvTranspose2d(kernel=2, stride=2)` stages: kernel == stride, so no window overlaps and each
+#: of the four in-block phases carries its own free weight. `UpsampleConv2` / `UpsampleConv1`
+#: (`views_hydranet/architectures/upsample_interp.py`, bake-off candidate 7) remove that, and `G-F`
+#: measured the removal on untrained weights — gap rho(2)-rho(1) at `up1` **+1.2572 -> -0.1984**.
+#:
+#: ⛔ WITHOUT THIS AMENDMENT the candidate's own checkpoint is UNDIAGNOSABLE. Every readout in
+#: `reports/` loads through `load_vehicle`, so `stage_roughness.py` — the only instrument that can
+#: answer `M94`'s open question, *does a TRAINED `UpsampleConv2` re-learn a phase pattern its 2x2
+#: kernel permits?* — would refuse the artifact the arm produces. The arm would train, score, and
+#: then be unreadable, and we would discover that AFTER the GPU hours.
+#:
+#: ⚠️ THIS IS A WIDENING, AND THE DISTINCTION FROM A BYPASS IS DELIBERATE. Amendments 4 and 5 both
+#: say *"anything else is a different model and needs its own amendment, not a widening here"* —
+#: this IS that amendment. It is written BEFORE the checkpoint exists rather than to get past a
+#: refusal in flight, it follows the in-file precedent rather than inventing a mechanism, and it
+#: ADDS the constraint below rather than removing one.
+#:
+#: ⛔ A number measured on one model is NEVER quoted against another. These are three DIFFERENT
+#: architectures: the incumbent's `up*` stages are `ConvTranspose2d`, the candidates' are
+#: `NearestConvUp`, and their `state_dict` keys differ (`...reg.weight` vs `...reg.conv.weight`),
+#: which is why `load_state_dict` refuses a cross-load in both directions. The caller records which
+#: model it loaded, and an arm-vs-control comparison is valid ONLY between artifacts from the same
+#: queue, the same commit and the same data pull.
+ADMITTED_MODELS = ("HydraBNUNet06_LSTM4", "UpsampleConv2", "UpsampleConv1")
 
 
 def emitted_magnitude(mu, theta, family: str):
@@ -167,6 +197,13 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
             f"VOID (F6): output_distribution {fam!r} is not an admitted vehicle family "
             f"{ADMITTED_FAMILIES}. Amendment 4 admits exactly these two; anything else is a "
             "different model and needs its own amendment, not a widening here."
+        )
+    arch = cfg.get("model")
+    if arch not in ADMITTED_MODELS:
+        raise SystemExit(
+            f"VOID (F6): model {arch!r} is not an admitted architecture {ADMITTED_MODELS}. "
+            "Amendment 6 admits exactly these three; anything else is a different network and "
+            "needs its own amendment, not a widening here."
         )
     drop = cfg.get("dropout_rate")
     if drop not in ADMITTED_DROPOUT:
