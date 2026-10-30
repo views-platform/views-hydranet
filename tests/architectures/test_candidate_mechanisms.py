@@ -221,11 +221,14 @@ def test_upsample_candidates_hold_the_decoder_shapes(name):
     """
     inc, m = _build("HydraBNUNet06_LSTM4"), _build(name)
     for attr in _UPSAMPLES:
-        in_ch = inc.conv_base * 4 if attr.startswith("upsample0") else inc.conv_base * 2
+        ct = getattr(inc, attr)
+        # ⭐ The width is READ OFF the module being replaced, never recomputed from `conv_base`.
+        # Restating the parent's channel plan here would duplicate it, and the copy would diverge
+        # silently the first time that plan changed — the rule `upsample_interp.py` itself follows.
         res = H // 4 if attr.startswith("upsample0") else H // 2
-        feat = torch.randn(1, in_ch, res, res)
+        feat = torch.randn(1, ct.in_channels, res, res)
         with torch.no_grad():
-            assert getattr(m, attr)(feat).shape == getattr(inc, attr)(feat).shape, attr
+            assert getattr(m, attr)(feat).shape == ct(feat).shape, attr
 
 
 def test_upsample_conv2_is_exactly_parameter_free():
@@ -443,9 +446,14 @@ def test_a_transposed_conv_with_uneven_overlap_is_also_refused():
         _Probe(IN_CH, HID, 1, 0.0, output_distribution="nb")
 
 
-def test_padding_is_applied_before_the_convolution_not_after():
-    """Applying the pad AFTER the conv keeps shape and parameter count and survives the alignment
-    impulse — but it feeds a hard-zero final row and column into every skip concatenation.
+def test_the_last_row_and_column_are_not_a_hard_zero_border():
+    """The k=2 padding must be seen BY the convolution, never added to its output.
+
+    ⚠️ The padding is now `padding=1` inside `nn.Conv2d` with `forward` cropping the surplus
+    leading row and column — there is no separate pad op to put on either side of the conv any
+    more. What is still reachable by one edit is `padding=0` plus a pad applied AFTER the conv:
+    that keeps the output shape and the parameter count, survives the alignment impulse, and
+    feeds a hard-zero final row and column into every skip concatenation.
 
     Asserted directly: a strictly positive input must produce no all-zero border.
     """

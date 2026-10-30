@@ -88,6 +88,7 @@ These classes avoid the question entirely by reading the widths off the modules 
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -130,7 +131,7 @@ class NearestConvUp(nn.Module):
         # /4 -> /2 stage at the production grid.
         self.conv = nn.Conv2d(in_ch, out_ch, kernel_size, padding=1 if kernel_size == 2 else 0)
 
-    def apply(self, fn):
+    def apply(self, fn: Callable[[nn.Module], None]) -> NearestConvUp:
         """⛔⛔ Do NOT recurse into ``self.conv``. This is the single-variable fix, not a quirk.
 
         ``utils.init_weights`` dispatches on ``isinstance(m, nn.Conv2d)`` and

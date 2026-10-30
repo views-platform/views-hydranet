@@ -93,9 +93,32 @@ def main() -> int:
             ctrl = f"{ARCHES[CONTROL_ARCH]}fullzero_{word}"
             ctrl_csv = res / f"score_{ctrl}.csv"
 
+            #: A score CSV is what separates "this arm was scored" from "this arm is queued".
+            scored = (res / f"score_{arm}.csv").exists()
+
             hp = _hp(arm)
             if hp is None:
-                problems.append(f"{arm}: no config — the arm directory is missing")
+                # ⛔⛔ A MISSING ARM DIRECTORY IS NOT A PROBLEM WHILE THE ARM IS STILL QUEUED.
+                # `run_queue.sh` builds each arm INSIDE its own loop iteration (`ensure_arm`),
+                # immediately before that arm trains, and runs this verifier after EVERY arm,
+                # aborting on a non-zero exit (`run_queue.sh:200-204`). `smoke_exp02.sh` builds
+                # `lessons=2` labels (`ctltinyzero_*`), not the queue's `lessons=300` ones, so
+                # nothing pre-builds them.
+                #
+                # An earlier version appended a problem here unconditionally. Measured against an
+                # empty results directory it returned exit 1 with four "arm directory is missing"
+                # rows. ⇒ After arm 1 the three un-built arms would each raise one, the verifier
+                # would return 1, and the queue would log `ABORT — verify_exp02.py failed`:
+                # ~2.5 GPU-h spent and three of four runs never started.
+                #
+                # ⭐ GATE F1 IS UNCHANGED. What makes an absent config incoherent rather than
+                # merely early is a score CSV: that arm WAS scored, so its identity must still be
+                # re-assertable, and it is not.
+                if scored:
+                    problems.append(
+                        f"{arm}: scored, but the arm directory is gone — the identity behind "
+                        f"score_{arm}.csv can no longer be re-asserted (gate F1)"
+                    )
                 continue
             # (1) identity, re-asserted independently of the builder's declaration — gate F1
             if hp.get("model") != arch:
@@ -105,7 +128,7 @@ def main() -> int:
                 )
                 continue
 
-            if (res / f"score_{arm}.csv").exists():
+            if scored:
                 # (2) the setup audit. ⚠️ The control is its own reference, so it is audited
                 # against itself only once its own CSV exists; skip the self-comparison.
                 ref = None if arm == ctrl else (ctrl_csv if ctrl_csv.exists() else None)
@@ -152,4 +175,16 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # ⛔ THE DOCSTRING'S "never raises" PROMISE, with the mechanism that delivers it. The parent
+    # does exactly this (`verify_bakeoff.py:154-159`) and the first version of this file copied the
+    # promise while dropping the code — the same drift-between-two-copies-of-a-gate that the
+    # `PREFLIGHT_OK` incident was. `sys.exit` raises `SystemExit`, which is a `BaseException` and
+    # therefore passes straight through `except Exception`, so a real verdict still sets the code.
+    try:
+        sys.exit(main())
+    except Exception as exc:  # noqa: BLE001 - a crashed verifier must stop the queue, loudly
+        print(
+            f"verify_exp02: CRASHED -> stopping the queue: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)

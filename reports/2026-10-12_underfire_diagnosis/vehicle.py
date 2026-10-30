@@ -48,8 +48,8 @@ ADMITTED_FAMILIES = ("nb", "truncated_nb")
 #: measured on the `nb` checkpoint `4acbf4d3…` at dropout 0.15, and that file is **DELETED**. The
 #: structure-penalty arm's §8 therefore contrasts against `truncated_nb` `2a5efc2a…` "the only one
 #: still on disk" — and on 2026-10-25 the scoreboard was run on it for the first time and returned
-#: B-1(d=1) = **1.462**, i.e. ABOVE its due share. ⇒ The arm's premise does not exist on the vehicle
-#: it would run on, and the premise is an `nb` finding.
+#: B-1(d=1) = **1.462**, i.e. ABOVE its due share. ⇒ The arm's premise does not exist on the
+#: vehicle it would run on, and the premise is an `nb` finding.
 #:
 #: `heavy_freighter` `0ca3f31f…` (trained 2026-10-25, views-hydranet 0.1.7) is the only LIVE `nb`
 #: vehicle. Measured before widening, exactly as Amendment 4 did: of F6's keys, **only
@@ -109,6 +109,12 @@ def _assert_admitted_models_are_importable() -> None:
     ⭐ This is a CAPABILITY check, not a path check: it asks whether the admitted names can
     actually be built here, which is the property Amendment 6 depends on. A path check would pass
     for an editable install that was nonetheless stale, and fail for a legitimate future layout.
+
+    ⛔ CALLED FROM `load_vehicle`, NOT AT IMPORT. It ran at module level until 2026-10-30, which
+    put a `SystemExit` on the import path of the 68 `reports/` scripts that import `vehicle` — to
+    protect one call path inside `load_vehicle`, where `choose_model` actually resolves the name.
+    A permanent guard in a shared file to cover a bounded local failure is the shape this
+    repository has been bitten by before; the check is the same, its blast radius is not.
     """
     from views_hydranet.architectures.registry import architecture_names
 
@@ -123,9 +129,6 @@ def _assert_admitted_models_are_importable() -> None:
             "inside choose_model. Put the repository root on sys.path before importing, or "
             "install the working tree."
         )
-
-
-_assert_admitted_models_are_importable()
 
 
 def emitted_magnitude(mu, theta, family: str):
@@ -241,6 +244,10 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
             "Amendment 6 admits exactly these three; anything else is a different network and "
             "needs its own amendment, not a widening here."
         )
+    # Admitting a name is worthless if this process cannot build it — `choose_model` below
+    # resolves it from whatever `views_hydranet` was imported. Checked HERE, at the one call path
+    # that can fail, rather than at import.
+    _assert_admitted_models_are_importable()
     drop = cfg.get("dropout_rate")
     if drop not in ADMITTED_DROPOUT:
         raise SystemExit(
