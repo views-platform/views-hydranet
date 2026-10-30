@@ -1,6 +1,6 @@
 """G-F — does either remedy remove the phase signature `M92` measured?
 
-PRE-REGISTRATION: `reports/2026-10-30_upsample_arm/PREREG.md` §4. Committed before this runs (D-5).
+PRE-REGISTRATION: `reports/2026-10-30_upsample_arm_dossier/PREREG.md` §4. Committed before this runs (D-5).
 
 WHAT IS BEING TESTED
 --------------------

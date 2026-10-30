@@ -18,7 +18,7 @@
 # code version differs. PREREG.md section 10a.
 set -uo pipefail
 HYD=/home/simon/Documents/scripts/views_platform/views-hydranet
-D="$HYD/reports/2026-10-30_upsample_arm"
+D="$HYD/reports/2026-10-30_upsample_arm_dossier"
 BAKEOFF="$HYD/reports/2026-08-24_architecture_bakeoff_dossier"   # the shared builder lives there
 RES="$D/results"; MODELS=/home/simon/Documents/scripts/views_platform/views-models/models
 CENV="conda run --no-capture-output -n views-hydranet-env"

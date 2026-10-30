@@ -18,7 +18,7 @@
 # PREFLIGHT_OK; see the comment at the check itself for why that was wrong.
 set -uo pipefail
 HYD=/home/simon/Documents/scripts/views_platform/views-hydranet
-D="$HYD/reports/2026-10-30_upsample_arm"
+D="$HYD/reports/2026-10-30_upsample_arm_dossier"
 BAKEOFF="$HYD/reports/2026-08-24_architecture_bakeoff_dossier"
 RES="$D/results"
 CENV="conda run --no-capture-output -n views-hydranet-env"
