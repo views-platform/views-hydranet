@@ -29,6 +29,17 @@ CENV="conda run --no-capture-output -n views-hydranet-env"
 
 die(){ echo "LAUNCH REFUSED: $*" >&2; exit 1; }
 
+# ⛔⛔ C-347. The pipeline imports `views_hydranet` from SITE-PACKAGES (installed 0.1.5), so without
+# this the queue would train the INSTALLED wheel — in which `UpsampleConv2` does not exist at all.
+# Passed into the queue's env below, and asserted here so a silent resolution cannot happen.
+$CENV env PYTHONPATH="$HYD" python -c "
+import pathlib, sys, views_hydranet
+from views_hydranet.architectures.registry import architecture_names
+if pathlib.Path('$HYD') not in pathlib.Path(views_hydranet.__file__).resolve().parents:
+    sys.exit('views_hydranet resolved outside the working tree')
+sys.exit(0 if 'UpsampleConv2' in architecture_names() else 'UpsampleConv2 not registered')
+" >/dev/null 2>&1 || die "PYTHONPATH does not put the working tree's views_hydranet in scope (C-347)." 
+
 [ -f "$RES/SMOKE_OK" ] || die "no SMOKE_OK sentinel. Run tools/smoke_exp02.sh first — it is the real gate."
 smoke_epoch=$(stat -c %Y "$RES/SMOKE_OK")
 
@@ -61,6 +72,7 @@ cd /home/simon/Documents/scripts/views_platform/views-models
 # second reason — a control that fails to reproduce its own historical AP tells us the code moved
 # since August, and that is worth knowing before two more runs. P-27.
 exec setsid nohup env \
+  PYTHONPATH="$HYD" \
   RES_DIR="$RES" \
   VERIFIER="$BAKEOFF/tools/verify_bakeoff.py" \
   ARM_MODULE=make_arch_arm \

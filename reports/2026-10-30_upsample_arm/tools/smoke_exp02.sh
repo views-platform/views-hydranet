@@ -29,6 +29,31 @@ mkdir -p "$RES"; : > "$RES/smoke.jsonl"
 export WANDB_MODE=offline WANDB_SILENT=true
 unset ALLOW_RE_REPORT
 
+# ⛔⛔ C-347, and it is the reason the first smoke run died. The pipeline imports `views_hydranet`
+# from SITE-PACKAGES (installed 0.1.5), not from this working tree — `make_arch_arm.py`'s own
+# verifier failed with "Unknown model type: 'UpsampleConv2'" because the candidate does not exist
+# in the installed wheel. Every EXP-01 arm therefore trained against the INSTALLED package.
+#
+# PYTHONPATH points the whole run at the working tree instead. This is surgical and visible: it
+# mutates no environment and installs nothing. ⭐ It applies to the CONTROL as well as the arm, so
+# arm-vs-control stays one-variable; whether running the working tree rather than 0.1.5 matters at
+# all is exactly what P-27 measures.
+export PYTHONPATH="$HYD"
+
+# ⛔ C-61 / StaleCacheError. `violet_visitor`'s cached datafactory pull is from 2026-09-19 and its
+# queryset digest no longer matches what the arm expects, so `-sa` (--saved) is refused by design:
+# "without this check the cache would have been served and the run would have used data that does
+# not match its own configuration, with no error anywhere."
+#
+# SMOKE_REFETCH=1 drops `-sa` so the arm pulls FRESH — which is also the standing rule ("NEVER
+# validate on cached/stale disk data"). ⚠️ It needs ~/.netrc and it changes the DATA VINTAGE
+# relative to EXP-01's August arms. Default stays `-sa` so this never happens by accident.
+SAVED_FLAG="-sa"
+if [ "${SMOKE_REFETCH:-0}" = "1" ]; then
+  SAVED_FLAG=""
+  echo "SMOKE_REFETCH=1 — pulling FRESH data (no --saved). Vintage will differ from EXP-01."
+fi
+
 fail=0
 for ARCH in HydraBNUNet06_LSTM4 UpsampleConv2; do
   label=$($CENV python -c "
@@ -49,7 +74,8 @@ from make_arch_arm import arm_label; print(arm_label(lessons=2, eps=0.0, seed=$S
       > "$RES/.mem_$label" 2>/dev/null &
   poll=$!
   start=$(date +%s)
-  ( cd "$A" && timeout -k 60 3600 $CENV python main.py -r calibration -t -e -sa ) \
+  # shellcheck disable=SC2086  # SAVED_FLAG is deliberately unquoted: it is empty on a refetch
+  ( cd "$A" && timeout -k 60 3600 $CENV python main.py -r calibration -t -e $SAVED_FLAG ) \
       >>"$RES/smoke_${label}.log" 2>&1
   rc=$?
   kill $poll 2>/dev/null; wait $poll 2>/dev/null
