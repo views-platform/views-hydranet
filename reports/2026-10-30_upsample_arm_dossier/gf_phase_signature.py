@@ -1,6 +1,7 @@
 """G-F — does either remedy remove the phase signature `M92` measured?
 
-PRE-REGISTRATION: `reports/2026-10-30_upsample_arm_dossier/PREREG.md` §4. Committed before this runs (D-5).
+PRE-REGISTRATION: `reports/2026-10-30_upsample_arm_dossier/PREREG.md` §4.
+Committed before it first ran (D-5); amended twice since, both amendments dated in place.
 
 WHAT IS BEING TESTED
 --------------------
@@ -172,16 +173,67 @@ def pair_rho(f: np.ndarray, mask: np.ndarray, d: int) -> tuple[float, float, int
 
 
 # --------------------------------------------------------- G-17, before any model is built
+#
+# ⛔⛔ AMENDMENT 3 (2026-10-30), after an INDEPENDENT `/falsify guard` audit. G-17's first form
+# had three controls — a ramp, a checkerboard and iid noise — and all three are ISOTROPIC,
+# ALL-LAND and LAG-1. The estimator has four free dimensions (direction, mask, lag, channel
+# reduction) and those controls exercised NONE of them, so four mutations survived:
+#
+#   · drop the N-S pair set, measuring E-W roughness only
+#   · ignore `mask` entirely, so sea cells enter every statistic
+#   · hardcode `d = 1`, destroying the rho(2) - rho(1) GAP that is this script's whole verdict
+#   · return the channel MAX where the floor is meant, so `P20_FLOOR` tests the wrong tail
+#
+# Four controls are added, one per dimension, with their expected values MEASURED before the
+# thresholds were written (not guessed — the W-110/W-118 family is a gate that cannot pass).
 rng = np.random.default_rng(15)
 H0, W0 = 64, 64
 m_all = np.ones((H0, W0), dtype=bool)
+_i, _j = np.arange(H0)[:, None], np.arange(W0)[None]
+
 r_ramp = pair_rho(np.tile(np.arange(W0, dtype=np.float64), (H0, 1))[None], m_all, 1)[0]
-r_board = pair_rho((((np.arange(H0)[:, None] + np.arange(W0)[None]) % 2) * 2.0 - 1.0)[None],
-                   m_all, 1)[0]
+r_board = pair_rho((((_i + _j) % 2) * 2.0 - 1.0)[None], m_all, 1)[0]
 r_noise = pair_rho(rng.standard_normal((1, H0, W0)), m_all, 1)[0]
-ok17 = r_ramp > 0.99 and r_board < -0.99 and abs(r_noise) < 0.02
-print(f"{'PASS' if ok17 else '⛔ FAIL'}  G-17  rho controls: ramp {r_ramp:+.4f}  "
-      f"checkerboard {r_board:+.4f}  iid noise {r_noise:+.4f}")
+
+#: DIRECTION. Horizontal stripes are perfectly correlated E-W and perfectly ANTI-correlated N-S,
+#: so the pooled statistic must cancel to ~0. An E-W-only estimator returns +1.0000.
+r_dir = pair_rho(((-1.0) ** _i * np.ones((1, W0)))[None], m_all, 1)[0]
+
+#: LAG. A period-4 diagonal is in quadrature at d=1 and antiphase at d=2 ⇒ rho(1) ~ 0 and
+#: rho(2) ~ -1. An estimator that ignores its `d` argument returns ~0 for both.
+_per4 = np.cos(np.pi * (_i + _j) / 2.0).astype(np.float64)[None]
+r_lag1, r_lag2 = pair_rho(_per4, m_all, 1)[0], pair_rho(_per4, m_all, 2)[0]
+
+#: MASK. Land is a smooth ramp, sea is noise three orders larger. Masked ⇒ +1.0000;
+#: ignoring the mask ⇒ +0.0098. This is the dimension that decides whether the real
+#: measurement is a map of the field or a map of the coastline.
+_half = np.zeros((H0, W0), dtype=bool)
+_half[:, : W0 // 2] = True
+_fld = np.where(_half, (_i + _j).astype(np.float64),
+                rng.standard_normal((H0, W0)) * 1e3)[None]
+r_mask = pair_rho(_fld, _half, 1)[0]
+
+#: CHANNEL REDUCTION. Channel 0 is a ramp (+1), channel 1 a checkerboard (-1) ⇒ the FLOOR must
+#: be -1. Returning the max gives +1, and the floor is what `P20_FLOOR` is tested against.
+_two = np.stack(((_i + _j).astype(np.float64) * np.ones((1, W0)),
+                 ((-1.0) ** (_i + _j)) * np.ones((1, W0))))
+r_floor = pair_rho(_two, m_all, 1)[1]
+
+_c = {
+    "ramp": (r_ramp, r_ramp > 0.99),
+    "checkerboard": (r_board, r_board < -0.99),
+    "iid noise": (r_noise, abs(r_noise) < 0.02),
+    "direction (stripes, pooled)": (r_dir, abs(r_dir) < 0.05),
+    "lag d=1 (period-4)": (r_lag1, abs(r_lag1) < 0.05),
+    "lag d=2 (period-4)": (r_lag2, r_lag2 < -0.95),
+    "mask (half-land ramp)": (r_mask, r_mask > 0.95),
+    "channel FLOOR": (r_floor, r_floor < -0.95),
+}
+ok17 = all(good for _, good in _c.values())
+print(f"{'PASS' if ok17 else '⛔ FAIL'}  G-17  rho estimator controls, "
+      f"{sum(g for _, g in _c.values())}/{len(_c)}:")
+for _name, (_v, _good) in _c.items():
+    print(f"        {'ok ' if _good else '⛔ '} {_name:<28s} {_v:+.4f}")
 if not ok17:
     sys.exit(1)
 
@@ -223,13 +275,26 @@ for mode in MODES:
             n_do += 1
     bn = [type(m).__name__ for m in model.modules()
           if "BatchNorm" in type(m).__name__ and m.training]
-    if bn or not ok23 or n_do == 0:
+    #: ⛔⛔ AMENDMENT 3. G-24 is labelled for C-384 and claimed "dropout is disabled", but its
+    #: first form only counted LockedDropout modules and read `.training`. The audit showed that
+    #: a module with dropout ACTIVE in eval and its mask locked leaves forwards bit-identical, so
+    #: G-24 printed PASS and G-25 printed PASS while **16.3% of activations were zeroed**. The
+    #: assertion is now BEHAVIOURAL: a constant must pass through every LockedDropout unchanged.
+    leaky = []
+    with torch.no_grad():
+        probe = torch.ones(1, 4, 8, 8)
+        for nm, m in model.named_modules():
+            if isinstance(m, LockedDropout) and not torch.equal(m(probe.clone()), probe):
+                leaky.append(nm)
+    if bn or not ok23 or n_do == 0 or leaky:
         print(f"\n⛔⛔ VOID for {mode}: BatchNorm-in-train={len(bn)}  params={n_par:,} "
-              f"(expected {EXPECTED_PARAMS[mode]:,})  LockedDropout found={n_do}")
+              f"(expected {EXPECTED_PARAMS[mode]:,})  LockedDropout found={n_do}  "
+              f"still-dropping={len(leaky)} {leaky[:3]}")
         sys.exit(1)
     print(f"\n  {mode}")
     print(f"    PASS G-23  params {n_par:,} == PREREG §2's {EXPECTED_PARAMS[mode]:,}")
-    print(f"    PASS G-24  no BatchNorm in train mode; {n_do} LockedDropout set to eval")
+    print(f"    PASS G-24  no BatchNorm in train mode; all {n_do} LockedDropout pass a "
+          f"constant through UNCHANGED (behavioural, not a flag read)")
 
     caught: dict[str, torch.Tensor] = {}
 
