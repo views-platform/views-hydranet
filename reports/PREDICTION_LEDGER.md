@@ -24,7 +24,7 @@ about the workflow — the same rule the experiment log lives under.
 | | count |
 |---|---|
 | **WRONG** | **121** |
-| **RIGHT** | **58** |
+| **RIGHT** | **60** |
 | OPEN | 1 |
 
 ⛔ **2026-10-25 — four rows added (`W-59`, `W-60`, `W-61`, `W-62`).** ⭐ **Two of the three were caught by my
@@ -165,6 +165,20 @@ confirmed, and still propagate a hidden assumption; the ledger's base rate does 
 ⭐ `R-29` is the counterweight: the only row here settled by a prediction **declared in a committed
 script before the script ran**, and the run's news was the hole's **size** (twelve columns, not two),
 not its existence.
+
+⭐ **2026-10-30 — two rows closed RIGHT (`R-59`, `R-60`) from `PREREG.md` Amendment 3, and both were
+declared in a COMMITTED document before the measurement existed.** The amendment replaced the k=2
+remedy's zero padding, which attenuated the output's last row 2× and its corner 4× — a defect the
+incumbent does not have at all, since `kernel == stride` means no window ever reaches past the
+input. ⇒ It was a second, undeclared difference between arm and control, and the fix moved a number
+`P-21` had already been settled on.
+
+⚠️ **The honest reading of this pair is that neither row is strong evidence.** `R-60` was
+near-certain by construction. `R-59` held by 88×, and its *point estimate* was 10× off — I said
+~1e-3 and measured 1.07e-4. ⭐ What they are actually worth is the ORDER: the declaration, the
+predicted sign, and the committed verdict all existed before the re-run, so `P-21`'s survival is a
+fact about the measurement rather than a choice I made after seeing it. The as-registered run
+(`R-57`, `R-58`) stands unrewritten beside it.
 
 ## WRONG
 
@@ -380,6 +394,8 @@ not its existence.
 | R-56 | ⭐ **P-18, declared before the run:** the **raw-count** ρ(1) would be lower than the `log1p` ρ(1) at **every** aggregation, because `log1p` compresses the extreme events that otherwise dominate the covariance. | 2026-10-30, `input_roughness.out` §1 | **HELD at all three aggregations:** single month **+0.1456** vs **+0.3442**; 13-month **+0.1748** vs **+0.5671**; 36-month **+0.2577** vs **+0.6011**. ⇒ ⭐⭐ **The transform is a 2.3×–3.2× lever on the headline statistic of the whole Q1 programme**, and it is a `C-351` slot every ρ in the record must name. ⚠️ The network is fed **`log1p`** (`build_volume`), so `log1p` is the correct comparator — but a raw-count ρ quoted beside a `log1p` one is a `W-51` violation of the plainest kind. `M93`. |
 | R-57 | ⭐⭐ **P-20, declared in `PREREG.md` §5b before `G-F` ran:** at least one upsample remedy removes the phase signature — gap `ρ(2) − ρ(1)` at `up1` **< 0.15** AND channel floor at ρ(1) **≥ −0.05**. | 2026-10-30, `gf_phase_signature.out` §1, §3 | **HELD, 2 of 2.** `UpsampleConv2` gap **−0.198421**, floor **+0.617487**; `UpsampleConv1` gap **−0.207828**, floor **+0.604682** ⇒ **both go NEGATIVE** (back to ordinary monotone decay, ρ(1) > ρ(2)) and **both floors go POSITIVE** — no channel is anti-correlated any more. ⭐⭐ **And the instrument was shown to detect the thing first:** the **untrained** control reproduces the signature **more strongly than the trained checkpoint** — gap **+1.257220** against `M92`'s +0.797754, floor **−0.903100** against −0.724900 — clearing the void bar of 0.40 named in `PREREG.md` §6 device 4 **before any number existed**. ⛔ **What this does NOT show:** `out`'s ρ(1) moves only +0.5822 → +0.5702/+0.5559, and the *trained* control's is **+0.958**, so output smoothness is overwhelmingly a **trained** property this run cannot speak to. `M94`. |
 | R-58 | ⚠️ **P-21, declared before the run:** `UpsampleConv1`'s residual gap would fall **below** `UpsampleConv2`'s, because a 1×1 kernel applies the same matrix at every phase and **cannot** form a phase pattern, while a 2×2 kernel can. | 2026-10-30, `gf_phase_signature.out` §3 | ⚠️ **HELD, and I am NOT claiming it as a win.** −0.207828 vs −0.198421 — the signed comparison the prediction asked for is satisfied, but **on a margin of 0.0094**, on a **one-seed, untrained, no-σ̂** quantity. ⇒ ⭐ **The honest statement is that both remedies remove the mechanism and this measurement cannot separate them.** The structural argument behind P-21 is **untested by this run** and needs trained weights — which is a real reason to keep `UpsampleConv1` registered, because a trained `UpsampleConv2` **could re-learn a phase pattern its 2×2 kernel permits** and the 1×1 cannot. ⚠️ Logged as a hold because that is what the declared threshold says; the weakness of the specification is mine and is recorded rather than used. `M94`. |
+| R-59 | ⭐ **P-28, declared in `PREREG.md` §12d and committed BEFORE the re-run:** replacing the k=2 remedy's zero padding with `padding_mode="replicate"` would move `UpsampleConv2`'s gap by **less than 0.0094** — the `P-21` margin — so `P-21`'s HELD verdict survives. The direction was declared too: removing an edge discontinuity should *raise* ρ(1) and therefore *lower* the gap, i.e. push **toward** a flip. | 2026-10-30, `gf_phase_signature.out` §1, §3 under Amendment 3 | **HELD. Δgap = −0.000107** (−0.198421 → −0.198528), 88× inside the margin. ⭐ **The declared sign is right**: the gap moved down, toward the flip, exactly as stated before the number existed. ⚠️ **But my point estimate was 10× pessimistic** — I wrote *"I expect ~1e-3"* and it came in at **1.07e-4**; the prediction held, the magnitude guess did not, and the margin tightened 0.0094 → **0.0093**. ⛔ `R-58` is NOT rewritten: it records the as-registered measurement, and this is a second, declared one. `M94`. |
+| R-60 | ⭐ **P-29, declared in `PREREG.md` §12d before the re-run:** `UpsampleConv1`'s gap would be unchanged to within **1e-6**, because `_KERNEL = 1` sets `padding=0` and `padding_mode` is therefore unreachable for it by construction. Declared although near-certain, because if it moved my account of the code would be wrong — which is worth more than the prediction. | 2026-10-30, `gf_phase_signature.out` §1, §3 under Amendment 3 | **HELD exactly: Δ = 0.000000**, bit-identical at −0.207828, and the channel floor likewise unmoved at +0.604682. ⇒ The one-variable claim is confirmed: the padding change reached the k=2 remedy and nothing else. ⚠️ A near-certain prediction that holds is weak evidence and is logged as such — its value was as a **mechanism check on my own reading**, not as a test of the architecture. `M94`. |
 
 ## OPEN
 
