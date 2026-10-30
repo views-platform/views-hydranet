@@ -162,12 +162,26 @@ uv pip install --python /tmp/hydranet-check/bin/python \
   --extra-index-url https://download.pytorch.org/whl/cpu \
   "views-hydranet==X.Y.Z"
 
-/tmp/hydranet-check/bin/python -c "
-import views_hydranet
+# ⛔ `-I` and the `purelib` assertion are both load-bearing — see the note below.
+/tmp/hydranet-check/bin/python -I -c "
+import sysconfig, views_hydranet
 from views_hydranet.utils.config_initializer import HydraNetConfig
+purelib = sysconfig.get_paths()['purelib']
+assert views_hydranet.__file__.startswith(purelib), (
+    f'this check read a source tree, not the wheel: {views_hydranet.__file__}'
+)
 print('OK', views_hydranet.__file__, len(HydraNetConfig.model_fields), 'config fields')
 "
 ```
+
+⛔ **Why `-I` and the assertion, and not "remember to `cd` first".** `python -c` puts the current
+directory first on `sys.path`, so run from the repo root — the natural place to be at the end of a
+release — this resolves `views_hydranet` from the **working tree** and prints `OK` with a path,
+having verified nothing about the published artifact. That is **C-347**, observed on the 0.1.4
+release (2026-10-20) and again on 0.1.8 (2026-10-30), both times by a session that nearly reported
+it as a passing gate. ⇒ A precondition stated in prose is exactly the thing that failed, twice. `-I`
+drops the cwd and `PYTHONPATH`; the assertion is the same one `.github/scripts/wheel_contract.py`
+already carries in the automated path, with the same message.
 
 Note this installs from **real PyPI**, so do it after a release. To do it against TestPyPI, add
 `--index-url https://test.pypi.org/simple/` — TestPyPI does not carry our dependencies, so the
