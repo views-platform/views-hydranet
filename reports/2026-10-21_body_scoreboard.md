@@ -1,7 +1,55 @@
-# The body's scoreboard — three numbers, defined BEFORE the loss arm runs
+# The body's scoreboard — the numbers, defined BEFORE the loss arm runs
 
 **2026-10-21.** ⛔ **This file defines a ruler. It is not a pre-registration, it makes no prediction,
 and it must be committed before any arm is scored on it.**
+
+---
+
+## ⛔ AMENDMENT 1 — 2026-10-27. B-1 IS A PAIR.
+
+**This title said "three numbers" until today.** It still carries three *entries*, but **B-1 is now
+two halves**, so the count is no longer the right description and has been removed from the title
+rather than left to quietly mislead.
+
+**What changed and why.** Reading rule 1 used to say *"B-1 is the primary readout for any arm aimed
+at spatial structure … the only one that is scale-resolved"*. ⛔ **That sentence was false in a
+specific way.** "Spatial structure" is **two** defects, and B-1 measures one of them:
+
+| defect | moves B-1's variogram ratio? | moves FSS? |
+|---|---|---|
+| forecast too smooth / under-dispersed | ⭐ **yes — 5.2× over three box passes** | ⛔ saturates after one pass |
+| forecast in the wrong place | ⛔ **no — 0.0043 over a 3-cell slide** | ⭐ **yes — 0.5204 → 0.0000** |
+
+And the arm's measured defect was **placement** (body-vs-truth Spearman +0.147 → +0.098). ⇒ **The
+scoreboard's primary readout was blind to the thing it was being read for.**
+
+⇒ **B-1 splits in place**, rather than FSS being bolted on as a fourth number: **B-1a** is the
+dispersion half (the existing variogram ratio, numbers unchanged) and **B-1b** is the placement half
+(count-matched FSS). ⭐ **Splitting rather than appending is deliberate** — a separate "B-4" could be
+quoted, or not quoted, independently of B-1, and a reader six months out would read "B-1 is the
+spatial-structure number" and never scroll. A pair cannot be half-quoted.
+
+**Evidence:** `2026-10-26_fss_battery_outcome.md` (the five-transform battery that adopted FSS and
+rehabilitated B-1a) · `2026-10-26_scoreboard_update_plan.md` (the plan, and its one open question,
+which Simon decided) · `2026-10-26_body_optimisation_gap/b1b_placement_baseline.{py,out}` (B-1b's
+baseline, M-1/M-2/M-4) · `b1b_target_skill_sweep.{py,out}` · `b1b_hitrate_and_m4.{py,out}`.
+
+⛔ **What is NOT here: σ̂.** No noise floor exists for either half of B-1. It needs the seed
+replicates and is blocked on **views-models#625**. ⇒ **B-1a and B-1b are baselines and neither
+carries a decision rule yet**, exactly as C-372 says of every other endpoint in the programme.
+
+> ✅ **AMENDED 2026-10-28 — σ̂ now EXISTS, and the answer splits this paragraph in two.**
+> Measured from three true seed replicates (**M75**, `reports/2026-10-28_sigma_hat/`):
+> * ⛔⛔ **B-1b body-alone CANNOT carry a decision rule, and not for want of a σ̂ — because its σ̂
+>   EXCEEDS ITS OWN MEAN** (CV > 1 at 11 of 14 scales; at out/n=33 the 4.97σ̂ bar is **2.1312**
+>   against a value of **0.2947**). ⇒ Unsatisfiable by construction, not under-specified. **C-391**,
+>   **C-320** instance 6.
+> * ⭐ **B-1b gated out-of-sample CAN**: CV **0.024–0.054** ⇒ **≈0.16 clears the bar.**
+> * ⚠️ **B-1a is weakest at `d = 1`, this scoreboard's own headline setting**: σ̂ **0.5073**, bar
+>   **2.5214**, on a quantity whose observed range is ~0.4–1.5. Usable at larger `d`, where the bar
+>   is still ~78% of the value.
+> ⛔ **Scope:** `truncated_nb` @ dropout 0.15 only — these rows are `nb`, and family alone shifts
+> B-1a **3.7×**, so the transfer is a provisional CV, not a number.
 
 ## 0. Why this exists
 
@@ -30,11 +78,16 @@ its one *blind* prediction was the only thing worth anything.
    chased** — this is ruler work, not result work.
 3. **One session**, hours of CPU, no money, no pod.
 
-## 2. The three numbers
+## 2. The numbers
 
-Each carries its three C-351 slots. ⛔ A number without all three is not on the scoreboard.
+Each carries its three C-351 slots. ⛔ A number without all three is not on the scoreboard. **B-1 is
+one entry in two halves** (Amendment 1) — B-1a and B-1b each carry their own full set of slots,
+because they share a population and nothing else.
 
-### B-1 — the scale profile (spatial structure)
+### B-1a — DISPERSION: the scale profile
+
+⛔ **Half of a pair. Never read without B-1b** — see Amendment 1 and reading rule 1. Numbers
+unchanged from the 2026-10-21 definition; only the name and the role statement are new.
 
 | slot | value |
 |---|---|
@@ -46,6 +99,69 @@ Each carries its three C-351 slots. ⛔ A number without all three is not on the
 its full share of structure at that scale. ⛔ **No fitted parameter** — which is why it survived D12b's
 and D12c's failures. **Source:** `d12_variogram.py` + saved curves (`d12_result.npz`), so re-reading it
 on a new artifact costs one 391 s sweep.
+
+⛔⛔ **WHAT B-1a CANNOT SEE — CORRECTED 2026-10-27b, AND THE CORRECTION MATTERS MORE THAN THE
+CLAIM IT REPLACES.** An earlier version of this paragraph said B-1a moves
+`0.4465 → 0.4466 → 0.4464 → 0.4422` under translation — *"exactly flat"*. **Two things were wrong
+with that**, both found by `/code-review max` on PR #457 and both verified before being written here:
+
+1. ⛔ **Those numbers are from a DIFFERENT ESTIMATOR.** `fss_battery.py:72-75` defines a function
+   called `gamma_ew` that averages the **E-W and N-S** semivariance, while B-1a's own estimator —
+   `instrument_battery.py:69`, `c366_two_instruments.py:93` and the scoreboard's `d12` source — is
+   **E-W only**. One name, two instruments, and the scoreboard was quoting the wrong one.
+2. ⛔ **On B-1a's own estimator it is NOT flat. It moves the WRONG WAY.**
+
+| displacement | `s=0` | `s=1` | `s=2` | `s=3` |
+|---|---|---|---|---|
+| **B-1a, E-W (its real estimator)** | 0.2727 | 0.2727 | 0.2756 | **0.3338** |
+
+⇒ **+22.4%, and upward** — B-1a reads the forecast as carrying *more* of its due structure as the
+forecast slides away from the truth, while rank correlation with truth falls 41%.
+
+⭐ **This makes the case for the pair STRONGER, not weaker, which is why the error is worth this
+much space.** An instrument that does not move is *useless*; one that moves in the **wrong
+direction** is *actively misleading* — it would reward an arm for displacing its forecast. ⛔ **I
+replaced a real and damning measurement with a tidier false one.** Logged as `W-77`.
+
+⇒ B-1a is a dispersion instrument, and on placement it is worse than blind.
+
+### B-1b — PLACEMENT: count-matched FSS
+
+⛔ **The other half of the pair.** Adopted after the five-transform battery of 2026-10-26; the
+instrument is Roberts & Lean 2008's Fractions Skill Score (MWR 136:78–97, Eq. 6–7), already in
+production at `scripts/sharpness_scorecard.py:78`.
+
+| slot | value |
+|---|---|
+| population | ⛔ **identical to B-1a** — all **64,818** land cells, `ged_sb_best`, **no** admission filter, **no** activity selection, in sample 421–456 and out of sample 457–469, never pooled. Without this the two halves cannot be set beside each other |
+| transform | **count-matched binarisation.** Truth: `truth > 0` in that month. Model: fired in exactly as many cells as that month's truth has events (`matched_pred_thresh`). ⛔ Record *why* this matters: it forces `f_M = f_o` and therefore `AFSS = 1.000000`, so our FSS is bias-free **by construction** rather than by design — **C-374** |
+| estimator | pooled FSS — FBS summed over the window's monthly fields **before** the ratio — reported at **`n = 1, 3, 5, 9, 17, 33, 65`**. ⭐ The headline scalar is **`FSS(n=1)`**, which **is the hit rate exactly**: `H/E`, the share of the month's events sitting inside the forecast's own top-`E` cells. Measured identity, `1.1e-16` over 49 fields (`R-27`) |
+
+**Reads:** higher is better; `1.00` = every event placed in a fired cell. **No-skill bar:** a uniform
+forecast scores `0.5 + f_o/2` (p.83), which is **0.500440** in sample and **0.500431** out of sample.
+
+⛔ **AMENDED 2026-10-27:** these bar figures were computed from `f_o` on **land cell-months** (0.003518 / 0.003448) while FSS is scored over the full **360×720** field, ocean included. On the scored domain `f_o` is **0.000880 / 0.000862** and the bar is **0.500440 / 0.500431**. ⭐ Every conclusion is unchanged and the degeneracy is **worse**, not better: the bar sits even closer to 0.5 against an FSS of 0.6267 at one cell, and `scale_min` still reads 1 on all 49 fields. (`/code-review max` on PR #457; `b1b_placement_baseline.py` M-2 now reports both.)
+
+⛔ **THREE DECLARED DEPARTURES FROM B-1a (C-351), stated because they are real and not hidden:**
+
+1. **The field is one MONTH**, pooled within the window. B-1a reads a single window-mean field; a
+   placement readout needs the events themselves. ⇒ The two halves share the **population** and the
+   **windows** — which is what makes them readable side by side — and not the field.
+2. **The truth is that month's events**, not B-1a's 336-month base rate. Binarising a base rate
+   gives a static mask with no placement content in it.
+3. **The predictor is the BODY ALONE (`mu`), primary**, because B-1a's field is the body and a pair
+   has to be read on one object. The **gated forecast** (`gate × mu`, B-3's primary) is reported
+   alongside. ⛔ This choice is load-bearing in a way no transform choice is, because FSS reads
+   **rank order alone** and those two fields have different rank orders.
+
+⛔ **AND ONE SLOT THAT WAS COMMITTED AND THEN DROPPED, `scale_min`.** The plan had committed
+*"`scale_min` = the smallest `n` reaching `0.5 + f_o/2`"* as part of this estimator. Measured, it is
+**1** — in both windows, both predictors, and **all 49 monthly fields.** It is pinned at the floor.
+Roberts & Lean say why on p.83: a large domain drives `f_o → 0` and the bar to 0.5, and our FSS at a
+single cell is already 0.63. Swept to a *binding* target instead (0.90, the lowest the sweep shows
+discriminating), the per-field scale runs **5–47 cells in sample** against a pooled 15 — so the
+month-to-month spread swallows the in-vs-out difference and **no scale-based scalar is readable on
+this population at all.** Logged as `W-73`. ⇒ The profile plus `FSS(n=1)`, and nothing else.
 
 ### B-2 — the magnitude slope `b`
 
@@ -96,20 +212,47 @@ conflict cells and is a **score**; this is the intercept of a fit and is a **def
 | **`crps_events`** | FAO-02 comparability, and every historical arm has it. ⚠️ Its **insensitivity is recorded as a property of the metric**, not as evidence about an arm |
 | **`size-ratio`** | already on every headline row, locked in the glossary (median of guess ÷ truth on conflict cells) |
 
-⇒ So a body arm reports **B-1, B-2, B-3** plus the two retained numbers. **Five lines, one of which
-(B-1) is scale-resolved.**
+⇒ So a body arm reports **B-1a, B-1b, B-2, B-3** plus the two retained numbers. **Six lines, two of
+which (B-1a and B-1b) are scale-resolved — and those two are one pair, not two choices.**
 
 ## 4. ⛔ The reading rules, committed now
 
-1. **B-1 is the primary readout for any arm aimed at spatial structure.** It is the only one that is
-   scale-resolved and the only one independent of `AP`.
+1. ⛔ **An arm aimed at spatial structure is read on BOTH B-1a AND B-1b.** B-1a is the
+   **dispersion** readout; B-1b is the **placement** readout. **Neither is sufficient and neither
+   substitutes for the other** — B-1a is **perversely displacement-sensitive** (it reads
+   `0.2727 → 0.3338` across a 3-cell slide, i.e. **better** as the forecast moves away from truth),
+   and B-1b saturates under blur after one box pass. ⚠️ **This clause said `0.000e+00` under
+   translation until 2026-10-27b.** No run ever measured that for translation — every `0.000e+00` in
+   the record is for **rescaling** or a production-equality gate — and the real number is worse for
+   B-1a than the false one was. See §2's B-1a entry and `W-77`. ⇒ **An arm that moves one and not the other has
+   moved one defect, and the report must say which.** Both are scale-resolved and both are
+   independent of `AP`.
 2. ⛔ **No gate-vs-body comparison is quotable unless both sides share a transform and a null.**
    `W-51` was exactly that error, and it steered a research decision before it was caught.
 3. ⛔ **The gate's equivalent numbers are not read for a body arm unless B-1 moves.** If the body half
    is null, a gate improvement is a consolation, not a result.
-4. **An arm that moves B-1 while degrading `crps_all` beyond FAO-02's margin has bought sharpness with
-   calibration** — the wall `project_body_knob_quest` and `project_body_mask_sweep_negative` both hit.
-   That outcome is a **negative**, not a trade to be argued.
+4. **An arm that moves either half of B-1 while degrading `crps_all` beyond FAO-02's margin has
+   bought sharpness with calibration** — the wall `project_body_knob_quest` and
+   `project_body_mask_sweep_negative` both hit. That outcome is a **negative**, not a trade to be
+   argued.
+5. ⛔ **B-1b is a diagnostic and NEVER a training target.** Count-matched FSS is a function of the
+   forecast's **rank order alone** — proven exactly, not argued: **0** differing binary cells in
+   10,368 and `max |ΔFSS| = 0.000e+00` under rescaling by `0.5×…16×` and between counts and log1p. A
+   forecast multiplied by any `c > 0` satisfies it identically, so it carries **no magnitude
+   information at all** and optimising it would be a Goodhart trap with a proof attached.
+6. ⛔ **NO NUMBER ON THIS SCOREBOARD CAN SEE PREDICTIVE VARIANCE.** B-1a, B-1b, B-2 and B-3 all
+   consume a **point field**. Under a transform that inflates per-cell predictive variance while
+   holding the mean field *exactly* fixed, every one of them is **exactly invariant** (measured, both
+   batteries, 2026-10-26). ⇒ **The scoreboard cannot detect an arm that buys structure by widening
+   the predictive distribution** — the loophole C-370 found in VS-p. An arm with a dispersion channel
+   needs an instrument this file does not have.
+7. ⛔ **Neither half of B-1 carries a decision rule until σ̂ exists.** views-models#625. A single
+   artifact's reading cannot be called a move without a noise floor (C-307, C-372).
+   > ✅ **AMENDED 2026-10-28 (M75): σ̂ exists, and it discharges this rule for ONE column only.**
+   > **B-1b gated out-of-sample MAY carry a rule** (CV 0.024–0.054; ≈**0.16** clears the 4.97σ̂ bar).
+   > ⛔ **B-1b body-alone MAY NOT, ever** — its σ̂ exceeds its own mean, so the rule is unsatisfiable
+   > rather than unspecified (**C-391**). ⚠️ **B-1a may, but not at `d = 1`**, where σ̂ is 0.5073 on a
+   > range of ~0.4–1.5. ⛔ Discharged for **`truncated_nb` @ 0.15**; for `nb` a provisional CV only.
 
 ## 5. Baselines
 
@@ -117,7 +260,7 @@ Computed on the **control** artifact (via `d4_result.npz`, vehicle sha `4acbf4d3
 `body_scoreboard.py`, committed before it ran. **Cost measured: 6.38 s / 2.69 GiB.** Land cells with
 truth exactly 0: **97.79%** in the in-sample window, **94.15%** on the 336-month base rate.
 
-### B-1 — the scale profile
+### B-1a — the scale profile (dispersion)
 
 | window | direction | d1 | d2 | d4 | d8 | d16 | d32 |
 |---|---|---|---|---|---|---|---|
@@ -125,6 +268,51 @@ truth exactly 0: **97.79%** in the in-sample window, **94.15%** on the 336-month
 | in sample | isotropic | 0.546 | 0.515 | 0.593 | 0.732 | 0.893 | 0.967 |
 | out of sample | E–W | **0.205** | 0.229 | 0.314 | 0.473 | 0.661 | 0.776 |
 | out of sample | isotropic | 0.210 | 0.251 | 0.339 | 0.500 | 0.721 | 0.851 |
+
+### B-1b — count-matched pooled FSS (placement)
+
+`b1b_placement_baseline.py`, committed before it ran. **Cost measured: 33.12 s / 2.30 GiB.** 36
+monthly fields in sample, 13 out of sample, ~228 and ~224 events per field.
+
+| window | predictor | n1 (= hit rate) | n3 | n5 | n9 | n17 | n33 | n65 |
+|---|---|---|---|---|---|---|---|---|
+| in sample | **body alone (`mu`)** | **0.6267** | 0.8201 | 0.8550 | 0.8819 | 0.9066 | 0.9277 | 0.9495 |
+| in sample | gated forecast | **0.6656** | 0.8497 | 0.8840 | 0.9093 | 0.9310 | 0.9477 | 0.9660 |
+| out of sample | **body alone (`mu`)** | **0.5883** | 0.7983 | 0.8339 | 0.8661 | 0.8955 | 0.9186 | 0.9451 |
+| out of sample | gated forecast | **0.6485** | 0.8483 | 0.8848 | 0.9135 | 0.9364 | 0.9524 | 0.9705 |
+
+⛔ **AMENDMENT, 2026-10-27 — THE GATED ROWS WERE RECOMPOSED.** They were built as
+`E[gate] × E[mu]`, averaging each half over the four MC-dropout draws and multiplying afterwards.
+The gated forecast is **`E[gate × mu]`**, and the two differ by `Cov(gate, mu)` over draws, which is
+not zero by construction: both heads sit on one shared trunk and see the same dropout mask on every
+draw. ⇒ `n=1` moves **0.6663 → 0.6656** in sample and **0.6468 → 0.6485** out of sample; no other
+cell moves by more than 0.0002, and ⭐ **the body-alone rows do not move at all**, which is the gate
+that proves the recomposition is the only change. The defect was found by `/code-review max` on
+PR #457 and measured by `b1b_composition_check.py` before anything was edited.
+
+⚠️ **The field was wrong by much more than the score was.** Per land cell-month the two
+compositions differ by **+1.96% on average** (median +0.49%, extremes +234% / −87%), and the total
+emitted mass by +0.43%. FSS barely notices because `matched_pred_thresh` is a **count-matched
+quantile**, so FSS is blind to any monotone distortion of the field. ⇒ **A rank-based readout
+survived this; a magnitude-based one would not have.** Registered as **C-386**, with the sibling
+defect in `body_level_selection_check.py` — where the same mistake is made over **36 months**
+rather than 4 draws, inside a check whose subject *is* magnitude — recorded there and left for its
+own branch.
+
+⛔ **`f_o`, both populations named** (§5e's rule, and the bar depends on which):
+**on land cell-months** 0.003518 in sample / 0.003448 out; **on the scored 360×720 domain**, which is
+what Roberts & Lean's bar takes, **0.000880** / **0.000862** ⇒ bar **0.500440** / **0.500431**.
+Gate C-1 passed — one pooled field equals production `fss` at `0.000e+00`.
+
+⚪ **Two things the baseline run turned up, LOGGED AND NOT CHASED** (§1 cap, rule 2):
+
+- The **gated forecast is better placed than the body alone at every scale**, and the gap *widens*
+  out of sample (0.5883 → 0.6485). ⇒ The gate carries placement information the body does not. This
+  is consistent with the rest of the record and is **not** pursued here.
+- ⭐ **The two halves of B-1 degrade out of sample by very different amounts.** B-1a falls
+  `0.391 → 0.205` at d=1, a **48%** drop; B-1b falls `0.6267 → 0.5883`, a **6%** drop. ⇒ The body's
+  dispersion generalises far worse than its placement does. ⛔ Noted as the first thing the pair
+  showed that neither half could have, and nothing is concluded from it.
 
 ### B-2 and B-3 — in sample, the **gated forecast** against the truth
 
@@ -146,6 +334,21 @@ to the truth at all** — it degenerates to median `log mu` plus the constant `�
 |---|---|
 | `b`, in sample, gated | **0.52 → 1.08** (2.1×) |
 | the level, in sample, gated | **9.7% → 119.5%** — ⛔ **the sign flips** |
+
+### ⭐ And what the FSS battery established about the ruler itself (added 2026-10-27)
+
+**B-1a was validated against five controlled transforms and failed one it was being used for.**
+⛔ The lesson is **not** "B-1 was a bad instrument" — it is a good dispersion instrument, and the
+battery is what established that. The lesson is that **an instrument's loopholes are not visible
+from its definition**, and this file committed B-1 to a role nobody had tested it in. ⇒ Every number
+here is now expected to carry the transform it was shown to be *blind* to, not only the one it moves
+under.
+
+⚠️ **And the correction has a correction.** The ruler for B-1b — `scale_min` — reproduced Roberts &
+Lean's `scale_min = 2D` prediction **exactly** on ideal 128×128 bands, and was committed on the
+strength of that. On this population it is **saturated and useless** (`W-73`). ⇒ **A validation on a
+synthetic field is a check of the implementation, never a check that the statistic will discriminate
+on the real one.** That distinction is the one this section exists to record.
 
 ⇒ **Why, and it is not a defect in the measurement:** selecting cells with an event *in 36 months*
 selects observations whose 36-month mean is **upward-biased by their own sampling noise**, so the

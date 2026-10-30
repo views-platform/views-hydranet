@@ -1,0 +1,82 @@
+PASS  G-15  rho controls: ramp +0.9996 (>+0.99)  checkerboard -1.0000 (<-0.99)  iid noise +0.0006 (|.|<0.02)
+  land mask /1: 360x720  land 64,818 (25.0%)
+  land mask /2: 180x360  land 15,069 (23.3%)
+  land mask /4: 90x180  land 3,311 (20.4%)
+==============================================================================================================
+Q1/B2b — WHERE THE SPATIAL SMOOTHNESS COMES FROM, PER STAGE
+==============================================================================================================
+  population      months 421-469 fed, rho accumulated over the 13 out-of-sample months 457-469
+  raster          360x720, 64,818 land cells
+  inference mode  ⛔ TEACHER-FORCED (vehicle.py:301-307)
+  lags            (1, 2, 4, 8, 16, 32)   (D-4)
+vehicle: calibration_model_20261012_033112.pt  sha256 4acbf4d3c2b457b0…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git f99413e · trained 2026-10-12T01:24:58Z to 2026-10-12T04:25:10Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+
+  dropout_off: vehicle sha 4acbf4d3… family nb  PASS G-12 (no BatchNorm in train mode, 99 modules)
+  PASS G-13  two forwards on identical input are bit-identical (dropout_off)
+  PASS G-14  all 11 hooks fired at their declared resolution
+  dropout_off swept in 120s
+vehicle: calibration_model_20261012_033112.pt  sha256 4acbf4d3c2b457b0…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git f99413e · trained 2026-10-12T01:24:58Z to 2026-10-12T04:25:10Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+
+  dropout_on: vehicle sha 4acbf4d3… family nb  PASS G-12 (no BatchNorm in train mode, 99 modules)
+  PASS G-13  two forwards on identical input are bit-identical (dropout_on)
+  PASS G-14  all 11 hooks fired at their declared resolution
+  dropout_on swept in 275s
+
+  PASS  G-16  land-pair masking excludes ocean at every stage
+
+==============================================================================================================
+PRIMARY — dropout_off: rho(d) PER STAGE, channel median (min..max across channels)
+==============================================================================================================
+  stage          res       pairs    rho(1)    rho(2)    rho(4)    rho(8)   rho(16)   rho(32)
+  enc0            /1     124,928   +0.4433   +0.2933   +0.1498   +0.0856   +0.0209   +0.0052   enc_conv0
+  e0s             /1     124,928   +0.3135   +0.2574   +0.1556   +0.1020   +0.0396   +0.0146   dropout["e0s"]
+  pool0           /2      28,269   +0.5786   +0.4226   +0.2747   +0.1475   +0.0631   +0.1017   pool0
+  e1s             /2      28,269   +0.6271   +0.4249   +0.2450   +0.1097   +0.0499   +0.0930   dropout["e1s"]
+  pool1           /4       5,963   +0.5204   +0.2830   +0.1392   +0.0665   +0.0951   -0.0011   pool1
+  bneck           /4       5,963   +0.7802   +0.5137   +0.2436   +0.1043   +0.1849   -0.0130   bottleneck_conv
+  up0             /2      28,269   +0.1492   +0.9539   +0.8826   +0.7863   +0.6965   +0.6585   upsample0_head1_reg
+  dec0            /2      28,269   +0.7637   +0.9281   +0.8099   +0.6039   +0.4206   +0.3670   dec_conv0_head1_reg
+  up1             /1     124,928   +0.1233   +0.9209   +0.9703   +0.9223   +0.8492   +0.7789   upsample1_head1_reg
+  dec1            /1     124,928   +0.7062   +0.9386   +0.9301   +0.8095   +0.6107   +0.4378   dec_conv1_head1_reg
+  out             /1     124,928   +0.9584   +0.9288   +0.8389   +0.6762   +0.4249   +0.2473   dec_conv4_head1_reg
+                    ch min..max at d=1                                                            
+  enc0                  +0.0276 .. +0.7846
+  e0s                   -0.0367 .. +0.5997
+  pool0                 +0.4076 .. +0.7112
+  e1s                   +0.3091 .. +0.9558
+  pool1                 +0.2642 .. +0.8621
+  bneck                 +0.5227 .. +0.9406
+  up0                   -0.6240 .. +0.7439
+  dec0                  -0.0062 .. +0.9695
+  up1                   -0.7249 .. +0.7187
+  dec1                  -0.1807 .. +0.9362
+  out                   +0.9486 .. +0.9682
+
+==============================================================================================================
+SECONDARY — dropout_on: rho(d) PER STAGE, channel median (min..max across channels)
+==============================================================================================================
+  stage          res       pairs    rho(1)    rho(2)    rho(4)    rho(8)   rho(16)   rho(32)
+  enc0            /1     124,928   +0.4433   +0.2933   +0.1498   +0.0856   +0.0209   +0.0052   enc_conv0
+  e0s             /1     124,928   +0.2433   +0.2015   +0.1183   +0.0817   +0.0312   +0.0115   dropout["e0s"]
+  pool0           /2      28,269   +0.5316   +0.3850   +0.2457   +0.1302   +0.0560   +0.0889   pool0
+  e1s             /2      28,269   +0.3773   +0.2350   +0.1384   +0.0660   +0.0385   +0.0477   dropout["e1s"]
+  pool1           /4       5,963   +0.4759   +0.2570   +0.1245   +0.0616   +0.0909   +0.0011   pool1
+  bneck           /4       5,963   +0.7762   +0.5112   +0.2321   +0.1057   +0.1877   -0.0141   bottleneck_conv
+  up0             /2      28,269   +0.1934   +0.8543   +0.7793   +0.6787   +0.5820   +0.5390   upsample0_head1_reg
+  dec0            /2      28,269   +0.7228   +0.8805   +0.7778   +0.5947   +0.4013   +0.3372   dec_conv0_head1_reg
+  up1             /1     124,928   +0.1358   +0.8357   +0.8791   +0.8271   +0.7784   +0.7086   upsample1_head1_reg
+  dec1            /1     124,928   +0.6781   +0.9148   +0.8954   +0.7885   +0.5974   +0.4150   dec_conv1_head1_reg
+  out             /1     124,928   +0.8718   +0.8251   +0.7133   +0.5702   +0.3589   +0.2120   dec_conv4_head1_reg
+                    ch min..max at d=1                                                            
+  enc0                  +0.0276 .. +0.7846
+  e0s                   -0.0250 .. +0.5218
+  pool0                 +0.3435 .. +0.6697
+  e1s                   +0.1328 .. +0.7255
+  pool1                 +0.2060 .. +0.8589
+  bneck                 +0.4754 .. +0.9383
+  up0                   -0.5785 .. +0.7075
+  dec0                  +0.0248 .. +0.9595

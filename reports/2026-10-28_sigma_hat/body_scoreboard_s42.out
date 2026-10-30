@@ -1,0 +1,53 @@
+================================================================================================
+THE BODY'S SCOREBOARD — baselines on the CONTROL artifact
+================================================================================================
+  vehicle sha c77451551627f04e…   land cells 64,818
+  land cells with truth exactly 0:  in-sample window 0.9779   336-month base rate 0.9415
+
+------------------------------------------------------------------------------------------------
+B-1  the scale profile — gamma_model(d)/gamma_truth(d) over the same-shape null
+------------------------------------------------------------------------------------------------
+     1.00 = the model carries its full share of spatial structure at that scale
+     in sample      E-W        d1=1.462  d2=1.040  d4=0.900  d8=0.933  d16=0.897  d32=0.931
+     in sample      isotropic  d1=1.282  d2=1.200  d4=1.148  d8=1.157  d16=1.107  d32=1.062
+     out of sample  E-W        d1=1.538  d2=0.971  d4=0.755  d8=0.816  d16=0.842  d32=0.810
+     out of sample  isotropic  d1=1.282  d2=1.107  d4=1.021  d8=1.024  d16=0.990  d32=0.919
+
+------------------------------------------------------------------------------------------------
+B-2  the magnitude slope b  |  B-3  the magnitude level (median log mu - log truth)
+------------------------------------------------------------------------------------------------
+     window        predictor                  population                  n       b        r    level  implied
+     in sample     gated forecast (gate x mu) all land                64818  1.5764  +0.7026  +9.9796 2158226.7%
+     in sample     gated forecast (gate x mu) truth > 0 in window      1431  0.8774  +0.8383  +0.8832   241.9%
+     in sample     gated forecast (gate x mu) 336-mo base rate > 0     3790  2.3986  +0.7777  +9.9476 2090280.8%
+     in sample     body alone (mu)            all land                64818  1.0043  +0.1242 +16.6825 1758425499.8%
+     in sample     body alone (mu)            truth > 0 in window      1431  1.3095  +0.5835  +3.7969  4456.1%
+     in sample     body alone (mu)            336-mo base rate > 0     3790  2.9743  +0.2774 +16.3587 1272014715.4%
+     out of sample gated forecast (gate x mu) all land                64818  0.8729  +0.5830  +8.6739 584850.8%
+     out of sample gated forecast (gate x mu) truth > 0 in window       912  0.8123  +0.8372  +0.3544   142.5%
+     out of sample gated forecast (gate x mu) 336-mo base rate > 0     3790  1.7518  +0.7081  +9.3762 1180444.9%
+     out of sample body alone (mu)            all land                64818 -0.1687  -0.0324 +16.4960 1459209571.1%
+     out of sample body alone (mu)            truth > 0 in window       912  1.3053  +0.6571  +2.6728  1448.0%
+     out of sample body alone (mu)            336-mo base rate > 0     3790  1.6662  +0.1730 +16.0545 938414049.7%
+
+     ⛔ READING RULES (§4 of the scoreboard file)
+       - b and the level on 'all land' are COMPARATORS, not estimates: 97.8% of cells have a window
+         truth of exactly 0, so log(eps) = -13.8 dominates. Quote DIFFERENCES between arms measured
+         identically, never the level of either number as a property of the model.
+       - the 'truth > 0' and '336-mo base rate > 0' populations are defined by the TRUTH alone, so
+         they are identical for every arm and cannot flatter one.
+       - GLOSSARY.md:263 records the level as -0.5831 on the 100-cell set and flags it
+         UNVERIFIED on the grid. The figures above settle that, and they are NOT comparable to
+         -0.5831 — different population, so a different number is expected, not a
+         contradiction.
+
+------------------------------------------------------------------------------------------------
+RETAINED, not recomputed here: crps_events (FAO-02 comparability; its insensitivity is a
+property of the metric) and size-ratio (on every headline row, locked in GLOSSARY §4).
+------------------------------------------------------------------------------------------------
+
+================================================================================================
+COST, measured
+================================================================================================
+  wall time 6.08 s
+  peak RSS  3.00 GiB

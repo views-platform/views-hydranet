@@ -1,0 +1,72 @@
+================================================================================================
+RP-2 step 0 — the determinism matrix, and a contradiction between two documents
+================================================================================================
+
+G-1  VOID GATE — every staged file against MANIFEST.sha256
+  PASS  G-1  24 files verified, 0 bad
+
+loading six state dicts (CPU)
+  tensor counts: {'amber': 190, 'silver': 190, 'silver_0_1_4': 190, 'bronze': 190, 'cobalt': 190, 'indigo': 190}
+  PASS  G-5  all six state dicts hold the SAME number of entries: [190] (both documents say 190 — COUNTED, not assumed)
+
+================================================================================================
+  THE PAIRWISE BIT-IDENTITY MATRIX — bit-identical tensors out of 190
+================================================================================================
+                         amber        silver  silver_0_1_4        bronze        cobalt        indigo
+  amber                      —       190/190       190/190        15/190        15/190        15/190
+  silver               190/190             —       190/190        15/190        15/190        15/190
+  silver_0_1_4         190/190       190/190             —        15/190        15/190        15/190
+  bronze                15/190        15/190        15/190             —        15/190        15/190
+  cobalt                15/190        15/190        15/190        15/190             —        15/190
+  indigo                15/190        15/190        15/190        15/190        15/190             —
+
+  max |delta| for pairs that are NOT bit-identical:
+    cobalt         vs indigo            15/190 identical  max|Δ| 1.469012e+01   differs in: seed,wd
+    bronze         vs indigo            15/190 identical  max|Δ| 1.387189e+01   differs in: seed,wd
+    amber          vs cobalt            15/190 identical  max|Δ| 1.386159e+01   differs in: seed,ver
+    silver         vs cobalt            15/190 identical  max|Δ| 1.386159e+01   differs in: seed,ver
+    silver_0_1_4   vs cobalt            15/190 identical  max|Δ| 1.386159e+01   differs in: seed
+    bronze         vs cobalt            15/190 identical  max|Δ| 1.383157e+01   differs in: seed
+    amber          vs bronze            15/190 identical  max|Δ| 9.683242e+00   differs in: seed,ver
+    silver         vs bronze            15/190 identical  max|Δ| 9.683242e+00   differs in: seed,ver
+    silver_0_1_4   vs bronze            15/190 identical  max|Δ| 9.683242e+00   differs in: seed
+    amber          vs indigo            15/190 identical  max|Δ| 4.915841e+00   differs in: ver,wd
+    silver         vs indigo            15/190 identical  max|Δ| 4.915841e+00   differs in: ver,wd
+    silver_0_1_4   vs indigo            15/190 identical  max|Δ| 4.915841e+00   differs in: wd
+
+================================================================================================
+  GATES
+================================================================================================
+  PASS  G-2  READOUT's M4: silver vs amber 190/190 bit-identical (across git 2e73de3 vs 73c3f42, lib 0.1.3 vs 0.1.2)
+  PASS  G-3  ⭐ ARTIFACT_METADATA: silver vs silver_0_1_4 190/190 bit-identical ⇒ the 0.1.3→0.1.4 boundary is numerically INERT
+  PASS  G-4  NON-VACUITY: bronze(42+1) vs cobalt(42+2) differ — 15/190 identical, max|Δ| 1.383157e+01
+
+================================================================================================
+  THE ADJUDICATION — which of the two documents is right about the version boundary
+================================================================================================
+
+  ARTIFACT_METADATA  'silver_0_1_4 == silver; 0.1.4 vs 0.1.3'      -> UPHELD
+  READOUT            'the excess sits on the 0.1.3/0.1.4 bound'   -> REFUTED
+
+  ⇒ The version boundary moves NOTHING here, so it cannot carry the excess the
+    READOUT eliminated onto it. With stochastic variation measured at zero and hardware excluded,
+    the only variable left between silver(42) and bronze(43)/cobalt(44) is THE SEED.
+
+  ⛔ CONSEQUENCE FOR RP-2, and it is the opposite of the READOUT's reading:
+    * the as-launched sigma-hat_b (0.0351 n>=1000 / 0.0932 all / 0.0434 sqrt-n, df=2) IS a seed
+      variance and is the honest number;
+    * the same-version pair (0.0002..0.0196, df=1) is NOT a cleaner estimate -- it is the
+      same estimate with the outlying seed dropped, a 3x..200x UNDERSTATEMENT of the floor;
+    * so every decision rule built on the same-version pair is built on the smaller of two
+      numbers for a reason that does not hold.
+
+  ⚠️ What this does NOT establish: that seed 42 is an outlier rather than 43/44 being the
+    pair that happens to agree. n=3, df=2, 95% CI [0.52 sigma-hat, 6.28 sigma-hat] -- a
+    12.1-fold span. The READOUT's own pre-registered prediction is also resolved here: it said
+    seed-42-on-0.1.4 would show bronze/cobalt's positive-throughout pattern if version mattered.
+    silver_0_1_4 IS seed-42-on-0.1.4 and is bit-identical to silver, which CROSSES ZERO.
+    ⇒ the version hypothesis is dead on its own pre-registered terms.
+
+================================================================================================
+  ALL GATES PASS
+================================================================================================

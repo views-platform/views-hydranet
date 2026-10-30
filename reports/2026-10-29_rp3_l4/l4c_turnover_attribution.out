@@ -1,0 +1,66 @@
+===================================================================================================
+RP-3 L4c (#472) — WHO PAYS FOR THE TURNOVER, on a population held fixed
+===================================================================================================
+  cube  d4_result.npz  sha 4acbf4d3c2b457b0…  family nb   score 842,634 cell-months 457-469
+
+===================================================================================================
+  G-L4m  COPY GATE on l4b_the_turnover.out
+===================================================================================================
+    PASS  total B=50     committed 0.057975 got 0.057975  |Δ| 4.49e-07
+    PASS  total B=250    committed 0.048389 got 0.048389  |Δ| 4.77e-07
+    PASS  total B=1000   committed 0.042003 got 0.042003  |Δ| 1.38e-07
+    PASS  total B=2000   committed 0.041354 got 0.041354  |Δ| 3.67e-07
+    PASS  total B=4000   committed 0.040135 got 0.040135  |Δ| 1.02e-07
+    PASS  total B=8000   committed 0.039186 got 0.039186  |Δ| 3.48e-07
+    PASS  total B=16000  committed 0.039287 got 0.039287  |Δ| 5.00e-07
+    PASS  total B=32000  committed 0.039493 got 0.039493  |Δ| 2.98e-07
+    PASS  fixed split B=8000   the 62 77.8475/77.8475   complement 0.033461/0.033461
+    PASS  fixed split B=16000  the 62 79.7342/79.7342   complement 0.033423/0.033423
+    PASS  fixed split B=32000  the 62 79.8830/79.8830   complement 0.033618/0.033618
+    PASS  the anchor set is L4's 62 cell-months (got 62)
+
+===================================================================================================
+  1 · THE ATTRIBUTION — on the set held FIXED at B=8,000, so the parts are comparable
+===================================================================================================
+    the fixed split: 62 exceeding cell-months (0.0074% of the window) against 842,572
+
+    step                  Δtotal the 62's part    the rest's   62 share rest share
+    B=8,000 → 16,000   +0.000101     +0.000139     -0.000038     137.2%     -37.2%
+      PASS  G-L4o  D-L4e the 62    predicted +0.000139 measured +0.000139  |Δ| 1.74e-07 vs 5e-6
+      PASS  G-L4o  D-L4e the rest  predicted -0.000038 measured -0.000038  |Δ| 3.26e-07 vs 5e-6
+    B=8,000 → 32,000   +0.000307     +0.000150     +0.000157      48.8%      51.2%
+      PASS  G-L4o  D-L4e the 62    predicted +0.000150 measured +0.000150  |Δ| 2.32e-07 vs 5e-6
+      PASS  G-L4o  D-L4e the rest  predicted +0.000157 measured +0.000157  |Δ| 1.82e-07 vs 5e-6
+
+    PASS  G-L4n  the two parts re-add to Δtotal to 1e-12 at both steps (scale ~0.058)
+    HELD   D-L4f  the FIRST step is more than fully the 62's (137.5%), by 32k the halves share it (48.8%)
+
+===================================================================================================
+  2 · THE ANCHOR-FREE CHECK — the 62 LARGEST truths, a set that does not know about B
+===================================================================================================
+    ⚠️ The set above is selected AT the anchor rung, so its argmin there is partly a
+      selection artifact. This set is defined by truth alone. If the two disagree, this
+      one is the number to trust.
+
+    overlap with the exceeding 62: 8 of 62   truth range 94-2482
+
+          B         total    top-62: mean    complement
+         50      0.057975        234.1961      0.040747
+        250      0.048389        212.4038      0.032763
+       1000      0.042003        179.5705      0.028793
+       2000      0.041354        166.9934      0.029069
+       4000      0.040135        161.9979      0.028217
+       8000      0.039186        163.1542      0.027184
+      16000      0.039287        166.1444      0.027065
+      32000      0.039493        165.6363      0.027308
+    argmin of the top-62's curve B=4,000
+    the top-62's part of the first turnover step: +0.000220 of +0.000101 = 217.8%
+
+===================================================================================================
+  THE GATES
+===================================================================================================
+  PASS  G-L4m  copy gate on l4b_the_turnover.out
+  PASS  G-L4n  the attribution re-adds to Δtotal
+  PASS  G-L4o  D-L4e's four predicted contributions
+
+  wall time 25.5 s   peak RSS 2.22 GiB

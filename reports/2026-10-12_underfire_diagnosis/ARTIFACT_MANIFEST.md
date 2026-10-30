@@ -15,7 +15,10 @@ become uncheckable — not wrong, but unverifiable, which for this programme is 
 |---|---|---|---|
 | `d4_result_CONTROL_nb_4acbf4d3.npz` | 133 MB | `cf13f2d7e165d7d3…` | ⭐ the **`nb` control**: `mu`, `theta`, `gate` at (4 dropout passes, 49 months 421–469, 64,818 land cells), plus `land_cells`, `months`, `sha`. Checkpoint deleted. |
 | `d4_result.npz` | 133 MB | `cf13f2d7e165d7d3…` | ⛔ **BYTE-IDENTICAL to the control cube** — same sha256, different name. Pure duplication; one of the two can go. |
-| `d4_result_tnb.npz` | 129 MB | `9d00420e901f0e90…` | the `truncated_nb`-trained arm, same shape |
+| `d4_result_tnb.npz` | 129 MB | `9d00420e901f0e90…` | the `truncated_nb`-trained arm, same shape. ⛔ **MEASURED 2026-10-28: produced by `amber` (`2a5efc2a`), and byte-identical in `mu`/`theta`/`gate` to `d4_result_s42.npz` at exactly `0.000000e+00`** — because amber's 190 weight tensors are bit-identical to `silver_0_1_4`'s (M74). ⇒ a redundant copy, the same duplication this table already flags two rows above; and ⛔ it must never be counted as a fourth replicate. |
+| `d4_result_s42.npz` | 135 MB | `7f5dd77faf175d5b…` | ⭐ RP-2 seed replicate, **seed 42**, vehicle `c7745155`, family `truncated_nb` @ dropout 0.15, git `2e73de3`, 300 lessons. One of the **three** that give the B-1a/B-1b noise floor (M75). ⛔ Never pooled with `d4_result_tnb.npz` — see below. |
+| `d4_result_s43.npz` | 136 MB | `34db0cb22a0aca16…` | ⭐ RP-2 seed replicate, **seed 43**, vehicle `80696bb5`, family `truncated_nb` @ dropout 0.15, git `2e73de3`, 300 lessons. One of the **three** that give the B-1a/B-1b noise floor (M75). ⛔ Never pooled with `d4_result_tnb.npz` — see below. |
+| `d4_result_s44.npz` | 137 MB | `7f5e659973502981…` | ⭐ RP-2 seed replicate, **seed 44**, vehicle `23fb3221`, family `truncated_nb` @ dropout 0.15, git `2e73de3`, 300 lessons. One of the **three** that give the B-1a/B-1b noise floor (M75). ⛔ Never pooled with `d4_result_tnb.npz` — see below. |
 | `d4_result_tnbNODROP.npz` | 18 MB | `dc175fd5f39fe252…` | the dropout-OFF condition (1 pass × 16), C-128's cost test |
 | `p2_result.npz` | 15 MB | `2186c479b8e92dc6…` | the gate-calibration readout (P2) |
 
@@ -61,3 +64,21 @@ existed.** That is the entire argument for writing it.
 **What a reader should do before trusting a number from this dossier:** check that the file is still
 present and its sha256 still matches. If it does not, the number is unverifiable and should be
 re-measured or withdrawn, not quoted.
+
+## `reports/2026-10-28_rp3_l3/l3b_cube3.npz` — the three-target cube, 2026-10-28
+
+| | |
+|---|---|
+| shape | `(3, 4, 49, 64818)` = **(targets, draws, months, land cells)**, axis 0 = `['ged_sb_best', 'ged_ns_best', 'ged_os_best']` |
+| vehicle | `calibration_model_20261012_033112.pt`, sha256 `4acbf4d3c2b457b0…`, family **`nb`**, dropout **0.15**, git `f99413e`, 300 lessons |
+| ⭐ reproduction gate | **G-2 PASS — the `sb` slice is BIT-IDENTICAL to `d4_result.npz`** (`mu`, `theta`, `gate`; `np.array_equal`, no tolerance) |
+| size / cost | 413.3 MB · 818.1 s, 3.19 GiB peak, CPU, 8 threads |
+| written by | `reports/2026-10-28_rp3_l3/l3b_three_target_cube.py` (committed `4b1c3b7` before it ran) |
+
+⛔ **NOT a `d4_result*.npz` and must never be counted as one.** It carries an extra leading target
+axis, lives outside `2026-10-12_underfire_diagnosis/`, and is named differently on purpose — the 25
+scripts that `np.load` a `d4_result` cube would mis-index it rather than raise. **#487** holds the
+deferred decision about whether the repo's cube writer should ever grow a target axis.
+
+⚠️ **One seed.** This is seed 42, the only checkpoint in the `nb` @ 0.15 cell. It is a reproduction,
+not a replicate, and carries **no σ̂** (C-394).

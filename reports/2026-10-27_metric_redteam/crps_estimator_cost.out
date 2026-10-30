@@ -1,0 +1,158 @@
+G-0  the three imported FROZEN primitives reproduce their hand cases:
+       crps({0,2} vs 0) = 0.5 | brier = 0.0 / 0.25 | AP = 1.0 | AP(no positives) = nan
+       ⇒ the frozen ruler's own functions are in hand, not copies            PASS
+================================================================================================
+M1 (#478) — THE DEGENERATE-FORECAST RED-TEAM HARNESS
+================================================================================================
+  cube      d4_result.npz  sha 4acbf4d3c2b457b0  family nb  draws 4
+  score     13 months 457-469 x 64,818 cells = 842,634 cell-months
+  fit       36 months 421-456 (climatology + persistence's lag)
+  truth     ged_sb_best counts. positives 2,905 (0.003448), max 2482, total 50881
+  S         256 members per forecast, identical across all seven (epic #263's rule)
+  spiky     1/30 of active cells = 97 occupied cells per month
+
+  forecast                    field total    frac>0          max  size_ratio
+  oracle (raw truth)               50,881  0.003448      2,482.0      1.0000
+  all-zero                              0  0.000000          0.0      0.0000
+  climatology                      75,534  0.022077        373.8      0.3750
+  persistence                      51,285  0.003412      2,482.0      0.0000
+  spiky-1/30                       50,881  0.001496         52.7      0.0000
+  freq-right/mag-wrong             50,881  0.003448         17.5      2.9192
+  mag-right/freq-wrong             50,881  0.003448      2,482.0      0.0000
+  reference (delivered)            16,612  0.012225         54.5      0.2598
+  blurred-truth r=1                50,881  0.047694        281.9      0.3371
+  blurred-truth r=2                50,881  0.081489        114.4      0.2594
+  blurred-truth r=4                50,881  0.131980         40.2      0.1747
+  TRUTH                            50,881  0.003448      2,482.0      1.0000
+
+================================================================================================
+  VOID GATES
+================================================================================================
+  PASS  G-h  ORACLE: crps_all EXACTLY 0, size_ratio 1, AP 1, Brier 0
+        crps_all=0  size_ratio=1  AP=1  Brier=0
+  PASS  G-a  ALL-ZERO: crps_none, size_ratio, pos_mcr all EXACTLY 0.0
+        crps_none=0  size_ratio=0  pos_mcr=0
+  PASS  G-c  CLIMATOLOGY: per-cell gate == fit-window positive rate
+        max |delta rate| 0.000e+00; identical across months True
+  PASS  G-d  PERSISTENCE: byte-identical to the truth field lagged one month
+        array_equal True; max |delta| 0.0
+  PASS  G-b  SPIKY: per-month total exact and occupancy exactly k
+        max relative total error 4.454e-16; occupancy 97..97 (want exactly 97)
+  PASS  G-e  FREQ-RIGHT: nonzero cell SET == the truth-positive set
+        array_equal True; nonzero 2,905 vs truth positives 2,905
+  PASS  G-f  MAG-RIGHT: sorted nonzero multiset == truth's, every month
+        all 13 months exact: True
+  PASS  G-i  BLURRED r=1: per-month land total preserved exactly
+        max relative total error 2.407e-16
+  PASS  G-i  BLURRED r=2: per-month land total preserved exactly
+        max relative total error 3.544e-16
+  PASS  G-i  BLURRED r=4: per-month land total preserved exactly
+        max relative total error 4.815e-16
+  PASS  G-g  ALL 11: N == 842,634, identical ordering, identical S == 256
+        asserted per forecast above (shape and gate-shape assertions)
+  PASS  G-j  BLUR is monotone in r: max falls, frac>0 rises
+        r=1: max 281.9 frac 0.047694 sr 0.3371  r=2: max 114.4 frac 0.081489 sr 0.2594  r=4: max 40.2 frac 0.131980 sr 0.1747
+
+  wall time 23.4 s   peak RSS 8.27 GiB
+  all construction gates PASS — the seven are safe for M2 (#479) to score
+
+G-A  degenerate ensemble gives plug == fair == |c-y| with no m dependence;
+     m=2 members {0,2} against y=0 gives plug-in exactly 0.5 and fair exactly 0.0   PASS
+G-B  O(m log m) sorted identity == O(m^2) brute force on 9 x 40 foreign draws        PASS
+G-C  this file's plug-in == the FROZEN crps_ensemble, max |delta| 0.000e+00             PASS
+G-D  all 9 `_tile` forecasts are CONSTANT per cell (max ptp exactly 0)
+     and give plug == fair exactly                                                 PASS
+     ⚠️ their COMPUTED spread is not 0 but 6.1e-18 — IEEE754 cancellation in the
+     weighted sum over 256 identical values of order 1e2, not dispersion. The
+     mathematical value is 0 by algebra, which is why the structural fact is the gate.
+
+======================================================================================================================
+M4 (#481) — THE PLUG-IN'S BIAS IS THE ARM'S OWN SPREAD, AND EIGHT OF ELEVEN PAY NOTHING
+======================================================================================================================
+  m = S = 256   842,634 cell-months   bias = E|X-X'| / (2m), per forecast
+
+  forecast                   plug-in        fair   plug-fair    E|X-X'|   bias share of fair
+  oracle (raw truth)         0.000000    0.000000    0.000000   0.000000             0.0000%
+  all-zero                   0.060383    0.060383    0.000000   0.000000             0.0000%
+  climatology                0.060480    0.060251    0.000229   0.117431             0.3807%
+  persistence                0.074692    0.074692    0.000000   0.000000             0.0000%
+  spiky-1/30                 0.067660    0.067660    0.000000  -0.000000             0.0000%
+  freq-right/mag-wrong       0.064742    0.064742    0.000000  -0.000000             0.0000%
+  mag-right/freq-wrong       0.120705    0.120705    0.000000   0.000000             0.0000%
+  reference (delivered)      0.050140    0.050072    0.000068   0.034948             0.1363%
+  blurred-truth r=1          0.080279    0.080279    0.000000   0.000000             0.0000%
+  blurred-truth r=2          0.092686    0.092686    0.000000  -0.000000             0.0000%
+  blurred-truth r=4          0.101201    0.101201    0.000000  -0.000000             0.0000%
+
+----------------------------------------------------------------------------------------------------------------------
+  ⛔ DOES IT CANCEL? The whole point of equal-m (#330) is that the bias should be common.
+----------------------------------------------------------------------------------------------------------------------
+       forecasts with EXACTLY ZERO bias: 9 of 11  (every `_tile` construction)
+       nonzero: climatology              0.000229
+       nonzero: reference (delivered)    0.000068
+       ⇒ the bias RANGE across the eleven is 0.000229 at m = 256, against ZERO for a point forecast
+       ⇒ ⛔ equal m equalises the bias's FORM, not its SIZE. Ferro 2014, on our own eleven.
+
+----------------------------------------------------------------------------------------------------------------------
+  ⭐⭐ M2's FINDING C, RE-SCORED. 'On crps_all only 1 of 9 non-oracle forecasts beats
+     predicting nothing.' Does the conclusion survive the fair estimator?
+----------------------------------------------------------------------------------------------------------------------
+       all-zero: plug 0.060383   fair 0.060383   mean(truth) 0.060383
+
+       forecast                  plug-in  beats all-zero?        fair  beats all-zero?
+       climatology               0.060480  no               0.060251  YES
+       persistence               0.074692  no               0.074692  no
+       spiky-1/30                0.067660  no               0.067660  no
+       freq-right/mag-wrong      0.064742  no               0.064742  no
+       mag-right/freq-wrong      0.120705  no               0.120705  no
+       reference (delivered)     0.050140  YES              0.050072  YES
+       blurred-truth r=1         0.080279  no               0.080279  no
+       blurred-truth r=2         0.092686  no               0.092686  no
+       blurred-truth r=4         0.101201  no               0.101201  no
+
+       under the PLUG-IN: 1 of 9 beat predicting nothing
+       under the FAIR:    2 of 9 beat predicting nothing
+       ⛔ CONCLUSION CHANGES — these forecasts flip: climatology
+       ⚠️ all-zero's own score is IDENTICAL under both (zero spread ⇒ zero bias), so the
+          bar does not move. Only the dispersed forecasts can improve.
+
+----------------------------------------------------------------------------------------------------------------------
+  the same question on the column that actually works: crps_events
+----------------------------------------------------------------------------------------------------------------------
+  forecast                   plug-in        fair   plug-fair   rank(plug)  rank(fair)
+  oracle (raw truth)         0.000000    0.000000    0.000000            1           1
+  all-zero                  17.514974   17.514974    0.000000            8           8
+  climatology               14.760416   14.728038    0.032378            4           4
+  persistence               17.080207   17.080207    0.000000            7           7
+  spiky-1/30                17.593122   17.593122    0.000000           10          10
+  freq-right/mag-wrong      18.779348   18.779348    0.000000           11          11
+  mag-right/freq-wrong      17.517728   17.517728    0.000000            9           9
+  reference (delivered)     14.486967   14.472313    0.014654            3           3
+  blurred-truth r=1         13.946399   13.946399    0.000000            2           2
+  blurred-truth r=2         14.900456   14.900456    0.000000            5           5
+  blurred-truth r=4         15.378240   15.378240    0.000000            6           6
+       ⇒ 0 of 11 forecasts change rank on crps_events: none
+
+----------------------------------------------------------------------------------------------------------------------
+  ⛔⛔ AMENDMENT 2 — WHAT IT DOES TO A SKILL SCORE, AT THE DRAW COUNT THE RECORD USED
+----------------------------------------------------------------------------------------------------------------------
+       measured E|X-X'|   climatology 0.117431   delivered 0.034948   ratio 3.36x
+       ⇒ the plug-in charges the BASELINE 3x what it charges the model, because the
+         baseline is the more dispersed forecast. ⛔ The direction that flatters us.
+
+       m      model plug   baseline plug   CRPSS(plug)   CRPSS(fair)   inflation   as % of CRPSS
+           4     0.054440        0.074929      0.273444      0.168937    0.104507          61.86%
+          16     0.051164        0.063920      0.199564      0.168937    0.030627          18.13%
+          64     0.050345        0.061168      0.176939      0.168937    0.008001           4.74%
+         256     0.050140        0.060480      0.170960      0.168937    0.002023           1.20%
+        1024     0.050089        0.060308      0.169445      0.168937    0.000507           0.30%
+
+       ⛔ FAO-02's superiority bar is a 5% CRPS reduction against the baseline.
+       At m = 16 — the draw count the published numbers were scored at — the plug-in
+       reports CRPSS 0.199564 where the fair estimator reports 0.168937:
+       an inflation of 3.06 percentage points, 18.1% of the skill score's own value.
+       ⚠️ Both sides clear 5% here, so NO verdict flips on this pair. ⛔ But the error is
+         one-directional and it is largest exactly where the margin is thinnest.
+
+  wall time 143.3 s   peak RSS 8.34 GiB
+  wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-10-27_metric_redteam/crps_estimator_cost.npz

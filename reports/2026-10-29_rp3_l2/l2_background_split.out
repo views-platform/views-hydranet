@@ -1,0 +1,124 @@
+GATE 0  binned_cdf.self_test: the sorted pairwise identity vs brute force        PASS
+===================================================================================================
+RP-3 L2 (#470) — WHAT M67's 'QUIET BACKGROUND' IS A BACKGROUND OF
+===================================================================================================
+  cube          d4_result.npz  sha 4acbf4d3c2b457b0…  family nb  draws 4
+  fit           36 months 421-456 x 64,818 = 2,333,448 cell-months
+  score         13 months 457-469 x 64,818 = 842,634 cell-months
+  truth         ged_sb_best counts. event fraction 0.003448, zero fraction 0.996552
+
+===================================================================================================
+  G-L2a  COPY GATE — the committed implementation, at B=8,000
+===================================================================================================
+    PASS  plug       committed 0.039186   got 0.039186     |Δ| 3.48e-07 vs tol 5e-07
+    PASS  fair       committed 0.039026   got 0.039026     |Δ| 1.14e-07 vs tol 5e-07
+    PASS  occ        committed 291.700000 got 291.680522   |Δ| 1.95e-02 vs tol 5e-02
+    PASS  bg_truth0  committed 0.001964   got 0.001964     |Δ| 9.97e-09 vs tol 5e-07
+    PASS  ev_truth   committed 10.799000  got 10.798800    |Δ| 2.00e-04 vs tol 5e-04
+    PASS  module     binned_cdf_crps agrees to 1e-12 (|Δplug| 0.00e+00, |Δfair| 0.00e+00)
+    ⛔ M67's 0.039327 is printed, never gated: gap -0.000141 (-0.36%), an open item of #460 (W-98).
+
+===================================================================================================
+  1 · THE RECONSTRUCTION IDENTITY — a complementary split must rebuild its own total
+===================================================================================================
+    split           background       event     rebuilt    headline       gap
+    reproduction      0.001964      10.799    0.039186    0.039186    +0.00%
+    M67 published     0.000260      10.831    0.037599    0.039327    -4.39%
+    PASS  G-L2b  the reproduction's halves rebuild its headline (+0.00%); M67's published trio does NOT (-4.39%)
+    ⇒ ⛔ M67's background and event numbers are NOT two halves of one score. A
+      complementary reproduction could never have matched both, whatever it measured.
+
+===================================================================================================
+  2 · CANDIDATE 1 — SIX DEFINITIONS OF 'BACKGROUND', at B=8,000, plug-in
+===================================================================================================
+    definition                 share  background  complement   vs M67 bg
+    truth == 0 (#460)       99.6552%    0.001964   10.798800       7.55x
+    ⭐ forecasts nothing     96.0959%    0.000021    1.003215       0.08x
+    bin mean == 0           96.0959%    0.000021    1.003215       0.08x
+    truth==0 & nothing      96.0940%    0.000000    1.003243       0.00x
+    index < p90             89.9999%    0.000000    0.391861       0.00x
+    index < p95             95.0000%    0.000008    0.783578       0.03x
+    index < p98             98.0000%    0.000074    1.955657       0.28x
+    index < p98.64          98.6400%    0.000214    2.865759       0.82x
+    index < p99             98.9999%    0.000510    3.867844       1.96x
+    index < p99.5           99.4999%    0.002467    7.344989       9.49x
+    index < p99.655         99.6549%    0.005091    9.884755      19.58x
+    PASS  G-L2d  NON-VACUITY: the definitions disagree, max/min = 600693.3x over 10 of them
+
+===================================================================================================
+  G-L2c  PARTITION STRUCTURE — exact integer counts, no tolerance
+===================================================================================================
+    symmetric difference of {truth==0} and {forecasts nothing}: 30,024 cell-months
+    truth==0 but forecast IS something: 30,008  (the expensive ones)
+    forecast nothing but truth > 0:     16  (the missed mass)
+    PASS  {bin has no positive} == {bin mean == 0} exactly, as counts on a non-negative support require
+    PASS  G-L2c  neither set contains the other ⇒ they are different partitions, not two estimates of one
+
+===================================================================================================
+  3 · H-L2 ACROSS THE BIN LADDER — is 'forecasts anything' 1.36%, and does its
+      complement score 0.000260?
+===================================================================================================
+      bins     n/bin       total   any-share bg(nothing) ev(anything)      nan%
+       250    9333.8    0.048389    10.6686%    0.000001    0.453550   0.0000%
+      1000    2333.4    0.042003     7.3023%    0.000006    0.575120   0.0000%
+      2000    1166.7    0.041354     6.0341%    0.000006    0.685239   0.0000%
+      4000     583.4    0.040135     4.8469%    0.000007    0.827898   0.0000%
+      8000     291.7    0.039186     3.9041%    0.000021    1.003215   0.0000%
+     16000     145.8    0.039287     2.9624%    0.000062    1.324172   0.0000%
+     32000      72.9    0.039493     2.3239%    0.000117    1.694536   0.0000%
+    PASS  G-L2f  nan coverage < 1% at every B
+
+    at B=8,000: 'forecasts anything' is 3.9041% of the score window (M67 says 1.36%), and its complement scores 0.000021 (M67 says 0.000260, ratio 0.08x)
+
+===================================================================================================
+  4 · CANDIDATE 2 — EQUAL-WIDTH BINS (M67 states no rule), at B=8,000
+===================================================================================================
+    rule                   n/bin       total bg(truth=0) ev(truth>0)      nan%
+    equal-count            291.7    0.039186    0.001964   10.798800   0.0000%
+    equal-width, linear    1439.1    0.040713    0.003121   12.512504   0.0474%
+    equal-width, log10     302.0    0.044230    0.002704   12.047683   0.0000%
+    ⇒ the EVENT half already reproduces to 0.3% under equal-count, so any rule that moves
+      it cannot be M67's. Read this table on the event column, not the background column.
+
+===================================================================================================
+  5 · CANDIDATE 3 — 'same m=16 plug-in estimator', MEASURED against its derivation
+===================================================================================================
+    measured E|X-X'|/2 from (plug-fair)*n at B=8,000: 0.0468
+    ⇒ derived plug-in at m=16: 0.039026 + 0.0468/16 = 0.041951
+    ⇒ the m implied by M67's headline 0.039327: 155.4
+
+         m  plug-in mean   sd over 8 bg(truth=0) ev(truth>0)
+         4      0.051955    7.03e-03    0.004383      13.803
+         8      0.046159    2.52e-03    0.003123      12.486
+        16      0.041397    4.54e-04    0.002511      11.282
+        32      0.040393    4.71e-04    0.002334      11.042
+        64      0.039801    2.80e-04    0.002108      10.935
+       128      0.039431    2.21e-04    0.001997      10.860
+       256      0.039174    7.93e-05    0.001965      10.795
+      full      0.039186           —    0.001964      10.799
+    PASS  G-L2e  measured m=16 0.041397 within 5% of the derived 0.041943 (-1.30%)
+    ⇒ m=16 scores +5.3% against M67's headline.
+    ⛔ Candidate 3 is REFUTED: it cannot be what M67 did.
+
+===================================================================================================
+  6 · THE GAIN LOCALISATION — M67's '~99.7% of the gain', against the B=1 comparator
+===================================================================================================
+    ⛔ NOT M67's comparator. M67 localises the gain against the DELIVERED model, which
+      #460 deliberately did not gate because it cannot tell which composition produced it.
+      The comparator here is the INTERNAL B=1 lookup — the same method with ONE bin, i.e.
+      the unconditional empirical CDF of the fit window, the index never consulted.
+    B=1 total 0.060323 → B=8,000 0.039186  (-35.0%)
+    share of the total gain on the 3.9041% it forecasts anything for: 99.66%
+    share of the total gain on the 0.3448% with an event:            108.91%
+
+===================================================================================================
+  THE GATES
+===================================================================================================
+  PASS  G-L2a  copy gate, the committed implementation at B=8,000
+  PASS  G-L2b  the reconstruction identity separates the two trios
+  PASS  G-L2c  the two partitions are different sets, by integer count
+  PASS  G-L2d  non-vacuity: the definitions disagree by >2x
+  PASS  G-L2e  candidate 3's derivation matches its measurement
+  PASS  G-L2f  nan coverage < 1% at every B
+
+  wall time 73.5 s   peak RSS 2.52 GiB

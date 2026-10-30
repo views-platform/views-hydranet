@@ -1,0 +1,77 @@
+===================================================================================================
+RP-3 L4b (#472) — IS THE LADDER'S TURNOVER THE EXTRAPOLATION LIMIT BITING?
+===================================================================================================
+  cube  d4_result.npz  sha 4acbf4d3c2b457b0…  family nb
+  score 842,634 cell-months 457-469   2,905 with an event
+
+===================================================================================================
+  G-L4i  COPY GATE — both committed artifacts, the ladder and L4's anchor
+===================================================================================================
+    PASS  B=50     committed 0.057975  got 0.057975  |Δ| 4.49e-07
+    PASS  B=250    committed 0.048389  got 0.048389  |Δ| 4.77e-07
+    PASS  B=1000   committed 0.042003  got 0.042003  |Δ| 1.38e-07
+    PASS  B=2000   committed 0.041354  got 0.041354  |Δ| 3.67e-07
+    PASS  B=4000   committed 0.040135  got 0.040135  |Δ| 1.02e-07
+    PASS  B=8000   committed 0.039186  got 0.039186  |Δ| 3.48e-07
+    PASS  B=16000  committed 0.039287  got 0.039287  |Δ| 5.00e-07
+    PASS  B=32000  committed 0.039493  got 0.039493  |Δ| 2.98e-07
+    PASS  l2_scorer still agrees with the frozen binned_cdf to 1e-12
+    PASS  L4's exceeding cell-months  62.0000    got 62.0000     |Δ| 0.00e+00
+    PASS  L4's their CRPS share       0.1462     got 0.1462      |Δ| 2.86e-05
+    PASS  L4's event half's mean      10.7988    got 10.7988     |Δ| 4.48e-07
+
+===================================================================================================
+  1 · EACH RUNG SPLIT BY ITS OWN EXCEEDING SET — the accounting identity
+===================================================================================================
+    ⛔ W-51: the set changes with B, so `rest` is a DIFFERENT population at every rung.
+      This table says where each rung's score sits; it does NOT say these cells got worse.
+
+          B    n exc       total    mass_exc   mass_rest    d rest
+         50        1    0.057975    0.002935    0.055040 +0.000000
+        250        4    0.048389    0.002933    0.045456 -0.009584
+       1000       13    0.042003    0.003021    0.038982 -0.006473
+       2000       20    0.041354    0.003098    0.038256 -0.000726
+       4000       35    0.040135    0.005158    0.034976 -0.003279
+       8000       62    0.039186    0.005728    0.033458 -0.001518
+      16000      123    0.039287    0.006883    0.032404 -0.001054
+      32000      203    0.039493    0.008674    0.030819 -0.001585
+
+    PASS  G-L4j  the identity re-adds to each rung's own total to 1e-12 at all 8 rungs (scale ~0.055)
+    HELD   D-L4b  mass_rest monotone DECREASING across every rung: 0.055040 → 0.030819
+    ⛔ REFUTED  D-L4c  mass_exc monotone INCREASING across every rung: 0.002935 → 0.008674
+    PASS  G-L4l  D-L4a at B=8000   predicted 0.033457 measured 0.033458  |Δ| 1.42e-06 vs 5e-6
+    PASS  G-L4l  D-L4a at B=16000  predicted 0.032404 measured 0.032404  |Δ| 1.99e-07 vs 5e-6
+    PASS  G-L4l  D-L4a at B=32000  predicted 0.030820 measured 0.030819  |Δ| 1.05e-06 vs 5e-6
+    HELD   D-L4d  the turnover is more than fully explained by the exceeding cells: Δmass_exc +0.001155 > Δtotal +0.000101 > 0
+
+===================================================================================================
+  2 · THE FIXED ANCHOR SET — the 62 cell-months that exceed at B=8,000, re-scored
+===================================================================================================
+    ⭐ ONE population across the whole ladder, so these columns ARE comparable rung to
+      rung (C-351). The complement is the other 842,572 cell-months, also held fixed.
+
+          B         total    the 62: mean    complement  62's share
+         50      0.057975         86.2596      0.051632      10.95%
+        250      0.048389         83.8016      0.042226      12.74%
+       1000      0.042003         81.7943      0.035987      14.33%
+       2000      0.041354         81.0130      0.035395      14.41%
+       4000      0.040135         79.5542      0.034284      14.58%
+       8000      0.039186         77.8475      0.033461      14.62%
+      16000      0.039287         79.7342      0.033423      14.93%
+      32000      0.039493         79.8830      0.033618      14.88%
+
+    PASS  G-L4k  the fixed set is the same 62 cell-month indices at every rung
+    ⛔ REFUTED  H-L4e  at and above B=8,000 the 62 get WORSE while their complement gets BETTER
+      the 62:       77.8475 at 8k → 79.8830 at 32k (+2.6%)
+      the 842,572:  0.033461 at 8k → 0.033618 at 32k (+0.5%)
+      argmin of the 62's curve B=8,000   argmin of the complement's B=16,000   argmin of the total B=8,000
+
+===================================================================================================
+  THE GATES
+===================================================================================================
+  PASS  G-L4i  copy gate, the committed ladder and L4's anchor
+  PASS  G-L4j  the mass decomposition re-adds, both splits
+  PASS  G-L4k  the fixed set is fixed across the ladder
+  PASS  G-L4l  D-L4a's three predicted mass_rest values
+
+  wall time 25.8 s   peak RSS 2.20 GiB

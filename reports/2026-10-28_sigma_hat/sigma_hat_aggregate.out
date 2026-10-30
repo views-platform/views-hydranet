@@ -1,0 +1,106 @@
+================================================================================================
+RP-2 — sigma-hat for B-1a and B-1b, from three true seed replicates
+================================================================================================
+
+G-4  THE PARSER GATE — against the CONTROL's committed .out files
+  PASS  G-4a  B-1a in/E-W/d1 parsed as 0.391, want 0.391 (24 cells parsed)
+  PASS  G-4b  B-1b in/body/n1 parsed as 0.6267, want 0.6267 (28 cells parsed)
+  PASS  G-4c  full grids recovered: B-1a 24/24 cells, B-1b 28/28 cells
+
+loading the three replicates
+  _s42  sha c7745155  B-1a 24 cells  B-1b 28 cells
+  _s43  sha 80696bb5  B-1a 24 cells  B-1b 28 cells
+  _s44  sha 23fb3221  B-1a 24 cells  B-1b 28 cells
+  PASS  G-5  allowlist: ['23fb3221', '80696bb5', 'c7745155'] == ['23fb3221', '80696bb5', 'c7745155'], amber(2a5efc2a) absent
+  PASS  G-6  exactly three DISTINCT shas — no rerun contrast pooled
+  PASS  G-7  NON-VACUITY: max sigma-hat over the profile 0.507333
+  PASS  G-8  the three seeds give three DIFFERENT B-1a in/E-W/d1 values: [1.462, 1.195, 1.269]
+
+================================================================================================
+  B-1a  (spatial structure, variogram ratio) — sigma-hat PROFILE (n=3, ddof=1, 2 df)
+================================================================================================
+  window axis          d      mean     sd(1)       CV     sd(0)     range   pair/√2  4.97σ̂ bar
+  in    E-W           1    1.3087    0.1378    0.105    0.1126    0.2670    0.1888      0.6851
+  in    E-W           2    0.9050    0.4230    0.467    0.3454    0.8130    0.5749      2.1022
+  in    E-W           4    0.7123    0.3181    0.447    0.2598    0.5550    0.3924      1.5812
+  in    E-W           8    0.7643    0.2827    0.370    0.2308    0.4950    0.3500      1.4049
+  in    E-W          16    0.8053    0.1981    0.246    0.1617    0.3630    0.2567      0.9846
+  in    E-W          32    0.8430    0.1507    0.179    0.1230    0.2620    0.1853      0.7489
+  in    isotropic     1    1.1890    0.1995    0.168    0.1629    0.3650    0.2581      0.9914
+  in    isotropic     2    1.1303    0.1668    0.148    0.1362    0.3110    0.2199      0.8290
+  in    isotropic     4    1.0153    0.2324    0.229    0.1897    0.4040    0.2857      1.1550
+  in    isotropic     8    1.0237    0.2147    0.210    0.1753    0.3810    0.2694      1.0670
+  in    isotropic    16    1.0220    0.1361    0.133    0.1111    0.2420    0.1711      0.6765
+  in    isotropic    32    0.9987    0.0645    0.065    0.0527    0.1290    0.0912      0.3207
+  out   E-W           1    0.9523    0.5073    0.533    0.4142    0.8900    0.6293      2.5214
+  out   E-W           2    0.4713    0.4339    0.921    0.3543    0.7810    0.5523      2.1563
+  out   E-W           4    0.4160    0.2936    0.706    0.2398    0.5140    0.3635      1.4594
+  out   E-W           8    0.5000    0.2738    0.548    0.2235    0.4810    0.3401      1.3606
+  out   E-W          16    0.5987    0.2114    0.353    0.1726    0.3820    0.2701      1.0507
+  out   E-W          32    0.6300    0.1560    0.248    0.1273    0.2750    0.1945      0.7751
+  out   isotropic     1    0.8037    0.4453    0.554    0.3636    0.8810    0.6230      2.2134
+  out   isotropic     2    0.6660    0.3822    0.574    0.3121    0.6760    0.4780      1.8995
+  out   isotropic     4    0.6190    0.3493    0.564    0.2852    0.6320    0.4469      1.7363
+  out   isotropic     8    0.6717    0.3071    0.457    0.2507    0.5630    0.3981      1.5262
+  out   isotropic    16    0.7493    0.2134    0.285    0.1743    0.4070    0.2878      1.0608
+  out   isotropic    32    0.7837    0.1223    0.156    0.0999    0.2380    0.1683      0.6079
+
+  across the profile: sigma-hat 0.0645…0.5073 (7.9x), CV 0.065…0.921
+
+================================================================================================
+  B-1b  (placement, pooled FSS) — sigma-hat PROFILE (n=3, ddof=1, 2 df)
+================================================================================================
+  window forecast      n      mean     sd(1)       CV     sd(0)     range   pair/√2  4.97σ̂ bar
+  in    body          1    0.1055    0.1796    1.703    0.1467    0.3128    0.2212      0.8927
+  in    body          3    0.1604    0.2715    1.693    0.2216    0.4735    0.3348      1.3492
+  in    body          5    0.1751    0.2957    1.689    0.2415    0.5155    0.3645      1.4698
+  in    body          9    0.1969    0.3168    1.609    0.2586    0.5519    0.3903      1.5743
+  in    body         17    0.2425    0.3170    1.308    0.2589    0.5781    0.4088      1.5756
+  in    body         33    0.3159    0.2952    0.934    0.2411    0.5660    0.4002      1.4673
+  in    body         65    0.4577    0.2858    0.624    0.2334    0.5655    0.3999      1.4206
+  in    gated         1    0.4814    0.1648    0.342    0.1346    0.3160    0.2234      0.8192
+  in    gated         3    0.6783    0.1412    0.208    0.1153    0.2680    0.1895      0.7018
+  in    gated         5    0.7221    0.1296    0.179    0.1058    0.2437    0.1723      0.6439
+  in    gated         9    0.7551    0.1243    0.165    0.1015    0.2312    0.1635      0.6178
+  in    gated        17    0.7836    0.1220    0.156    0.0996    0.2241    0.1585      0.6065
+  in    gated        33    0.8111    0.1205    0.149    0.0984    0.2185    0.1545      0.5990
+  in    gated        65    0.8533    0.1130    0.132    0.0923    0.2057    0.1455      0.5618
+  out   body          1    0.1019    0.1507    1.479    0.1230    0.2747    0.1942      0.7489
+  out   body          3    0.1713    0.2607    1.522    0.2128    0.4710    0.3330      1.2955
+  out   body          5    0.1894    0.2924    1.544    0.2388    0.5260    0.3719      1.4534
+  out   body          9    0.2182    0.3390    1.553    0.2768    0.6087    0.4304      1.6849
+  out   body         17    0.2541    0.3928    1.546    0.3207    0.7051    0.4986      1.9522
+  out   body         33    0.2947    0.4288    1.455    0.3501    0.7666    0.5421      2.1312
+  out   body         65    0.3711    0.4244    1.144    0.3465    0.7388    0.5224      2.1094
+  out   gated         1    0.6030    0.0327    0.054    0.0267    0.0636    0.0450      0.1626
+  out   gated         3    0.7944    0.0285    0.036    0.0232    0.0558    0.0395      0.1414
+  out   gated         5    0.8253    0.0305    0.037    0.0249    0.0597    0.0422      0.1516
+  out   gated         9    0.8509    0.0315    0.037    0.0257    0.0607    0.0429      0.1564
+  out   gated        17    0.8757    0.0306    0.035    0.0250    0.0569    0.0402      0.1522
+  out   gated        33    0.8971    0.0273    0.030    0.0223    0.0483    0.0342      0.1357
+  out   gated        65    0.9264    0.0227    0.024    0.0185    0.0399    0.0282      0.1127
+
+  across the profile: sigma-hat 0.0227…0.4288 (18.9x), CV 0.024…1.703
+
+================================================================================================
+  HOW TO READ THESE — printed, not left to the reader
+================================================================================================
+
+  ⚠️ 2 df. The 95% CI on each sigma-hat is [0.52σ̂, 6.28σ̂] — a 12.1-fold span. ⛔ Derive every
+     bound from the UPPER limit, never from the point estimate.
+  ⚠️ The honest bar against ONE unreplicated arm is 4.97σ̂ (printed per row above). It falls to
+     ~3.0σ̂ at n=5 and ~2.5σ̂ at n=10, so the cost of stopping at three seeds is visible.
+  ⛔ Is sigma-hat FLAT in the scale parameter? Read the per-row columns, not the summary: a
+     sigma-hat that grows with d or n is a different instrument from one that does not, and only
+     the profile can say which this is.
+  ⛔⛔ TRANSFER. These are `truncated_nb` @ dropout 0.15. The published B-1a 0.391 / B-1b 0.6267
+     are `nb` @ 0.15 on a DELETED checkpoint; the live `nb` control is @ 0.125. B-1a on trunc_nb
+     returned 1.462 against nb's 0.391 — a 3.7x level shift from the family alone. ⇒ sigma-hat
+     discharges the noise floor for **truncated_nb @ 0.15**, and only PROVISIONALLY, as a
+     transported CV, for `nb`. Amend the prereg's rule 7 to say which half is discharged.
+  ⛔ NOT the gate-slope sigma-hat of 2026-10-21 (M74 / C-390). Different statistic; never quoted
+     against this one.
+
+================================================================================================
+  ALL GATES PASS
+================================================================================================

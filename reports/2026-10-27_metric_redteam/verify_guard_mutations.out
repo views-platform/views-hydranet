@@ -1,0 +1,14 @@
+mutation                                              applied  verdict
+X1  monthly ignores the declared population               yes  CAUGHT   1 failed, 30 passed in 0.35s
+X2  the default population becomes the blind one          yes  CAUGHT   1 failed, 32 passed in 0.36s
+X3  delete the monthly per-month refusal                  yes  CAUGHT   1 failed, 33 passed in 0.37s
+X9  the monthly refusal becomes a silent skip             yes  CAUGHT   1 failed, 33 passed in 0.36s
+X14 sweep invents the monthly cells when no months are given      yes  CAUGHT   1 failed, 34 passed in 0.36s
+X16 silent clip of negative predictions                   yes  CAUGHT   1 failed, 35 passed in 0.37s
+X27 silent rounding of the truth                          yes  CAUGHT   1 failed, 37 passed in 0.36s
+X8  shape check weakened to a size check                  yes  CAUGHT   1 failed, 38 passed in 0.36s
+X15 the float() return coercion dropped                   yes  CAUGHT   1 failed, 39 passed in 0.37s
+X7  the dtype coercion dropped                            yes  ⛔ SURVIVED   42 passed in 0.35s
+
+reverted: scripts/placement_rho.py is byte-identical to its pre-run state
+9 of 10 CAUGHT;  still surviving: ['X7  the dtype coercion dropped']

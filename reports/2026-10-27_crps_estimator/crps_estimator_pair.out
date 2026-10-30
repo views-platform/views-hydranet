@@ -1,0 +1,55 @@
+GATE 0  known-answer, foreign inputs: degenerate ensemble and the m=2 hand case  PASS
+GATE 0b sorted identity == brute force on 11 x 500 foreign draws                   PASS
+================================================================================================
+S1 (#459) — THE PLUG-IN AND THE FAIR CRPS ON THE DECISION'S OWN POPULATION
+================================================================================================
+  cube            d4_result.npz   sha 4acbf4d3c2b457b0…   family nb
+  population      13 months 457-469 x 64,818 land cells = 842,634 cell-months
+  draws           m = 4 x 4 = 16   (MC-dropout x head)
+  truth           ged_sb_best, count space, mean 0.060383, positive fraction 0.003448
+
+  predictor                    K     m     plug-in        fair   fair-plug (plug-fair)*m
+  soft_gate x NB body          1     4    0.054533    0.050171   -0.004362      0.017449
+  soft_gate x NB body          4    16    0.051057    0.049944   -0.001112      0.017798
+  soft_gate x NB body         16    64    0.050333    0.050063   -0.000270      0.017263
+  soft_gate x NB body         64   256    0.050088    0.050020   -0.000068      0.017466
+  soft_gate x NB body        256  1024    0.050089    0.050072   -0.000017      0.017487
+
+  NB body alone                1     4    0.063205    0.047729   -0.015476      0.061904
+  NB body alone                4    16    0.050840    0.047350   -0.003490      0.055842
+  NB body alone               16    64    0.048195    0.047329   -0.000866      0.055438
+  NB body alone               64   256    0.047360    0.047144   -0.000216      0.055171
+  NB body alone              256  1024    0.047269    0.047214   -0.000055      0.055816
+
+================================================================================================
+  ⭐⭐ THE ANSWER, and it is not a choice between estimators
+================================================================================================
+  The plug-in's bias is E|X-X'|/(2m) — it DIES AS 1/m. `(plug-fair)*m` above is flat
+  within a few percent across m = 4 .. 1024, which is that signature.
+
+  ⭐ And the sweep says something sharper than 'they converge': the FAIR estimator is
+     already converged at m = 4. It is the PLUG-IN that moves.
+  predictor                   plug-in m=4 plug-in m=1024   error at m=4
+  soft_gate x NB body            0.054533       0.050089           8.9%
+  NB body alone                  0.063205       0.047269          33.7%
+                                 fair m=4    fair m=1024               
+  soft_gate x NB body            0.050171       0.050072           0.2%
+  NB body alone                  0.047729       0.047214           1.1%
+
+  ⛔ WHAT IT COSTS THE RECORD. Published numbers were scored at m = 16.
+  as published (m=16, plug-in)       margin NB body alone - soft_gate x NB body = -0.000216
+  converged (m=1024, either)         margin NB body alone - soft_gate x NB body = -0.002858
+  ⇒ the margin was understated 13x
+
+  ⇒ ⭐ THERE IS NO ESTIMATOR DECISION HERE. There is a draw count to raise, and head draws
+     are free (W-68). At m = 256 the two agree to under 0.0002 on both predictors.
+  ⛔ The first version reported the m=16 gap as a decision for Simon. That was an
+     unswept free parameter dressed as a finding — the exact error
+     `feedback_sweep_before_reporting_a_scalar` exists for. Simon had already said so.
+
+  ⚠️ WHAT REMAINS REAL: record numbers were computed at m=16 and carry the
+     plug-in's 1/m bias, which differs PER ARM because it scales with that arm's own
+     spread. For any cube storing mu/theta/gate this is re-scorable for free.
+
+================================================================================================
+  wall time 118.2 s   peak RSS 20.54 GiB

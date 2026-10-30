@@ -1,0 +1,15 @@
+==================================================================================================
+C-3  does FSS at n=1 equal the hit rate EXACTLY?  (derived above; measured here)
+==================================================================================================
+  49 monthly fields, both windows:  max |FSS(n=1) - hits/events| = 1.110e-16
+  ⇒ IDENTITY HOLDS to within one ulp. B-1b has a scalar with no free parameter.
+
+==================================================================================================
+M-4  per-field scale reaching FSS >= 0.90  (the no-skill bar made M-1 vacuous)
+==================================================================================================
+  in sample      36/36 fields reach it   min 5  median 15  max 47  IQR 11-19
+                 values: [13, 11, 21, 11, 9, 13, 15, 15, 17, 11, 13, 41, 37, 19, 47, 21, 17, 5, 15, 9, 7, 15, 15, 27, 17, 15, 21, 11, 11, 15, 21, 9, 15, 17, 19, 23]
+  out of sample  13/13 fields reach it   min 7  median 21  max 49  IQR 13-31
+                 values: [45, 33, 49, 13, 25, 17, 21, 25, 15, 7, 11, 11, 31]
+
+cost  77.86 s  /  2.31 GiB peak RSS

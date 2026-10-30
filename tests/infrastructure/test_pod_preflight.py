@@ -12,18 +12,22 @@ checked.
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
 from views_hydranet.infrastructure.pod_preflight import (
+    CONFIG_MODULE_NAME,
     FOREIGN_KEYS,
     installed_report,
+    load_config,
     load_config_keys,
     main,
     missing_required,
     required_not_set,
     undeclared_keys,
 )
+from views_hydranet.utils.config_initializer import HydraNetConfig
 
 
 def test_it_reports_the_interpreter_that_will_actually_train():
@@ -80,6 +84,105 @@ def test_load_config_keys_reports_a_syntax_error_against_the_file(tmp_path):
         load_config_keys(p)
 
 
+#: A roster config in the shape that this pre-flight could not read until 2026-10-24. Seven of
+#: views-models' 140 configs open like this — the six ``*_kestrel`` models and ``heavy_freighter``
+#: — and it is how every one of them sets ``trajectory_log_path``, which is the field the
+#: ``--require`` half of this module exists to check.
+_CONFIG_THAT_READS_DUNDER_FILE = """\
+from pathlib import Path
+
+_MODEL_NAME = Path(__file__).resolve().parent.parent.name
+
+
+def get_hp_config():
+    return {
+        'output_distribution': 'nb',
+        'trajectory_log_path': str(Path('/workspace/deliver') / _MODEL_NAME / 'trajectory.csv'),
+    }
+"""
+
+
+def test_load_config_keys_reads_a_config_that_derives_its_name_from_dunder_file(tmp_path):
+    """⭐ The gate could not read the one config shape it was written to check.
+
+    ``exec`` ran against an empty namespace, so a config reading ``__file__`` raised
+    ``NameError`` before ``get_hp_config`` was ever defined. It failed closed — the traceback
+    exits non-zero — but it handed the operator a ``NameError`` instead of a diagnosis, and it
+    refused configs that were correct.
+    """
+    model = tmp_path / "heavy_freighter" / "configs"
+    model.mkdir(parents=True)
+    p = model / "config_hyperparameters.py"
+    p.write_text(_CONFIG_THAT_READS_DUNDER_FILE)
+    assert load_config_keys(p) == {"output_distribution", "trajectory_log_path"}
+
+
+def test_the_dunder_file_a_config_reads_is_its_own_path(tmp_path):
+    """Not merely DEFINED — the configs above derive a MODEL NAME from it, so any placeholder
+    that happened to be a valid path would hand them the wrong name silently.
+
+    The config asserts it itself, so a loader that defined ``__file__`` as anything else fails
+    here rather than in a pod's deliver directory three hours in.
+    """
+    model = tmp_path / "heavy_freighter" / "configs"
+    model.mkdir(parents=True)
+    p = model / "config_hyperparameters.py"
+    p.write_text(
+        "from pathlib import Path\n"
+        "_MODEL_NAME = Path(__file__).resolve().parent.parent.name\n"
+        "if _MODEL_NAME != 'heavy_freighter':\n"
+        "    raise AssertionError('__file__ was not this config: got ' + _MODEL_NAME)\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n"
+    )
+    assert load_config_keys(p) == {"output_distribution"}
+
+
+def test_the_namespace_sets_dunder_name_explicitly(tmp_path):
+    """⛔ This pins the SENTINEL, not merely "not ``__main__``", and the distinction is a measured
+    one: dropping ``__name__`` from the namespace altogether left the whole file green.
+
+    It survives because ``exec`` inserts ``__builtins__`` as the builtins MODULE, so an unresolved
+    global ``__name__`` falls through to ``builtins.__name__`` — the string ``"builtins"``, which
+    is not ``"__main__"``, so the guard below appears to hold. That is a CPython detail, not a
+    contract. Asserting the sentinel is what makes the namespace line load-bearing.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(
+        "if __name__ != '__views_hydranet_config__':\n"
+        "    raise AssertionError('the pre-flight did not name its namespace: ' + __name__)\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n"
+    )
+    assert load_config_keys(p) == {"output_distribution"}
+
+
+def test_a_configs_main_guard_does_not_run(tmp_path):
+    """The consequence that matters: a config whose file ends in a CLI block must not have that
+    block executed by a pre-flight that only wants its keys."""
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(
+        "ran = False\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n"
+        "if __name__ == '__main__':\n"
+        "    raise AssertionError('the pre-flight executed this config as a script')\n"
+    )
+    assert load_config_keys(p) == {"output_distribution"}
+
+
+def test_a_config_reading_dunder_file_PASSES_the_preflight(tmp_path, capsys):
+    """End to end through ``main()``, because the unit above would pass on a module whose CLI
+    still crashed."""
+    model = tmp_path / "heavy_freighter" / "configs"
+    model.mkdir(parents=True)
+    p = model / "config_hyperparameters.py"
+    p.write_text(_CONFIG_THAT_READS_DUNDER_FILE)
+    assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 0
+    out = capsys.readouterr().out
+    assert "all turned on by the config" in out
+
+
 def test_a_clean_config_PASSES_the_preflight(tmp_path, capsys):
     p = tmp_path / "c.json"
     p.write_text(json.dumps({"output_distribution": "nb", "dropout_rate": 0.15}))
@@ -99,8 +202,16 @@ def test_an_undeclared_key_FAILS_the_preflight(tmp_path, capsys):
     assert "DO NOT TRAIN" in out
 
 
-def test_a_missing_required_field_FAILS_the_preflight(capsys):
-    assert main(["--require", "a_field_from_a_future_release"]) == 1
+def test_a_missing_required_field_FAILS_the_preflight(tmp_path, capsys):
+    """⚠️ This test used to pass NO `--config`, which is why it needed changing rather than fixing.
+
+    It still asserts the same thing — an undeclared `--require` field is the W-22 shape and must
+    fail — but it can no longer do so on an invocation that checks no config, because that
+    invocation is now refused outright. See `test_the_preflight_REFUSES_to_run_without_a_config`.
+    """
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb"}))
+    assert main(["--config", str(p), "--require", "a_field_from_a_future_release"]) == 1
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
     assert "W-22" in out
@@ -116,11 +227,69 @@ def test_it_says_what_it_does_NOT_prove(tmp_path, capsys):
 
 
 def test_required_not_set_passes_a_field_the_config_sets():
-    assert required_not_set(["trajectory_log_path"], {"trajectory_log_path", "steps"}) == []
+    cfg = {"trajectory_log_path": "/w/t.csv", "steps": 1}
+    assert required_not_set(["trajectory_log_path"], cfg) == {}
 
 
 def test_required_not_set_reports_a_field_the_config_omits():
-    assert required_not_set(["trajectory_log_path"], {"steps"}) == ["trajectory_log_path"]
+    assert required_not_set(["trajectory_log_path"], {"steps": 1}) == {
+        "trajectory_log_path": "absent"
+    }
+
+
+@pytest.mark.parametrize("field", ["trajectory_log_path", "require_cuda", "struct_penalty_weight"])
+def test_required_not_set_reports_a_field_SET_TO_ITS_OWN_DEFAULT(field):
+    """⭐⭐ Presence is not the question; being TURNED ON is.
+
+    `trajectory_log_path: None` is the field's own default and means "write no trajectory file", so
+    the run is exactly as uninstrumented as if the key were absent. A key-presence test reported
+    `all set by the config` for it. ⛔ This test is the one that would have failed before the fix.
+
+    ⛔⛔ IT IS PARAMETRISED BECAUSE A GUARD AUDIT PROVED THE SINGLE-VALUE VERSION WEAK. With only
+    `trajectory_log_path` it pinned the one motivating default that is a **singleton**, so two
+    mutations to production code left it green:
+
+    * narrowing the comparison to `field.default is None and config[key] is None` — which stops
+      flagging `require_cuda: False`, a case `required_not_set`'s own docstring names verbatim;
+    * changing `==` to `is` — which stops flagging `struct_penalty_weight: 0.0` parsed from JSON,
+      the field the structure-penalty pre-registration exists to turn on.
+
+    ⇒ of the three fields the production docstring names, **two were unguarded**. `False` and `0.0`
+    are not singletons under `==`, so each kills one of those mutations and the trio kills both.
+    """
+    # ⛔ ROUND-TRIPPED THROUGH JSON, not passed as `model_fields[...].default` itself, and that is
+    # the whole point. My first version of this test handed `required_not_set` the IDENTICAL object
+    # the schema holds, so `config[key] is field.default` was trivially true and the `==` → `is`
+    # mutation sailed through a test written to catch it. A real config value never is that object:
+    # a `.json` sidecar parses a fresh float, and a `.py` config's literal is its own constant.
+    # ⚠️ `None` and `False` are singletons, so neither can distinguish `is` from `==` — only a
+    # fresh `0.0` can, which is why `struct_penalty_weight` is the load-bearing parameter here.
+    default = json.loads(json.dumps(HydraNetConfig.model_fields[field].default))
+    got = required_not_set([field], {field: default})
+    assert list(got) == [field], "the key must stay addressable, not be prose"
+    assert got[field].startswith("= its schema default")
+    assert "the capability is off" in got[field]
+
+
+def test_a_required_field_SET_TO_ITS_DEFAULT_fails_the_preflight(tmp_path, capsys):
+    """The same defect end-to-end, because the unit test alone would not have caught the wiring.
+
+    ⛔ IT ASSERTS THE **REASON**, not just the verdict, because a guard audit deleted the reason
+    and left this test green. Collapsing `main()`'s formatting to `", ".join(sorted(unset))`
+    drops `(= its schema default ...)` from the operator's message — and that distinction is the
+    whole justification for `required_not_set` returning `{field: why}` rather than a list.
+    Telling someone a key is "not set" when it is present sends them hunting for the wrong
+    thing, so the words that prevent that are part of the contract and are pinned like one.
+    """
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb", "trajectory_log_path": None}))
+    assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 1
+    out = capsys.readouterr().out
+    assert "PRE-FLIGHT FAILED" in out
+    assert "does NOT turn on" in out
+    assert "schema default" in out, "the REASON must reach the operator, not only the verdict"
+    assert "the capability is off" in out
+    assert "DO NOT TRAIN" in out
 
 
 def test_a_required_field_the_config_DOES_NOT_SET_fails_the_preflight(tmp_path, capsys):
@@ -137,7 +306,32 @@ def test_a_required_field_the_config_DOES_NOT_SET_fails_the_preflight(tmp_path, 
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
     assert "trajectory_log_path" in out
-    assert "does NOT set" in out
+    assert "does NOT turn on" in out
+    # ⛔ The absent case must say "absent", not "schema default" — the two are different diagnoses
+    # and reporting the wrong one is what the {field: why} shape exists to prevent.
+    assert "absent" in out
+    assert "DO NOT TRAIN" in out
+
+
+def test_a_NUMERIC_default_fails_the_preflight_through_a_real_json_sidecar(tmp_path, capsys):
+    """⛔⛔ THE MUTATION THAT SURVIVED MY FIRST ATTEMPT AT FIXING THIS GUARD.
+
+    `struct_penalty_weight: 0.0` is the field the structure-penalty pre-registration exists to turn
+    on, and `0.0` is its schema default — so setting it is exactly as off as omitting it. Changing
+    the comparison from `==` to `is` stops flagging it, because `json.loads` builds a fresh float
+    object that is not the one `model_fields` holds.
+
+    ⚠️ The unit test could not catch that on its own while it passed the schema's own default
+    object in. Going through a written sidecar is what makes the value foreign, and a written
+    sidecar is what a pod actually has.
+    """
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb", "struct_penalty_weight": 0.0}))
+    assert main(["--config", str(p), "--require", "struct_penalty_weight"]) == 1
+    out = capsys.readouterr().out
+    assert "PRE-FLIGHT FAILED" in out
+    assert "struct_penalty_weight" in out
+    assert "schema default" in out
     assert "DO NOT TRAIN" in out
 
 
@@ -147,13 +341,172 @@ def test_a_required_field_the_config_sets_passes_the_preflight(tmp_path, capsys)
     assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 0
     out = capsys.readouterr().out
     assert "all declared by the installed schema" in out
-    assert "all set by the config" in out
+    assert "all turned on by the config" in out
 
 
-def test_require_without_a_config_says_the_set_half_was_not_checked(capsys):
-    """A pre-flight may not report a pass it did not earn. Without `--config` the set-question is
-    unanswerable, so it must be named rather than quietly skipped."""
-    assert main(["--require", "trajectory_log_path"]) == 0
+def test_the_preflight_REFUSES_to_run_without_a_config(capsys):
+    """⛔⛔ THIS TEST REPLACES ITS OWN INVERSE, and the inverse is the reason it exists.
+
+    It used to read `assert main(["--require", "trajectory_log_path"]) == 0` and check that the
+    output said "NOT CHECKED". Measured on that version: the run ALSO printed
+    `✅ PRE-FLIGHT PASSED — the installed package can honour this config` and exited **0**, with no
+    config in evidence anywhere — and `main([])` with no arguments at all did the same. A pod
+    wrapper whose `--config "$CFG"` expanded empty therefore got a green gate.
+
+    ⇒ The suite was DEFENDING the vacuous pass, which is this module's docstring turned inside out:
+    "a pre-flight that cannot fail is worse than none — it converts an unchecked run into a run
+    someone believes was checked." Printing a warning next to a zero exit is not a refusal; a
+    launcher reads the exit code.
+
+    `--config` is now `required=True`, so argparse exits 2 before any verdict is printed.
+    """
+    for argv in (["--require", "trajectory_log_path"], []):
+        with pytest.raises(SystemExit) as e:
+            main(argv)
+        assert e.value.code == 2
+        # ⛔ WHICH argument was refused, not merely THAT something was. A guard audit showed the
+        # code-only assertion is satisfied by ANY argparse usage error: making `--require` required
+        # instead failed this test via an unrelated AttributeError, and `required=True` with
+        # `nargs="?"` left it green while a bare `--config` crashed inside load_config instead of
+        # being refused. An exit code is a verdict; the cause is what makes it the right verdict.
+        assert "--config" in capsys.readouterr().err
+
+
+def test_a_degenerate_config_is_REFUSED_rather_than_passing_empty(tmp_path):
+    """⛔ A JSON sidecar holding `{}`, `[]` or `""` used to yield 0 keys and a full PASS.
+
+    An empty key set satisfies every clause in this module by construction, so degrading to one is
+    the worst available failure mode. A top-level string was worse than useless: it yielded one
+    "key" per character and sent the operator after phantom schema drift.
+    """
+    for payload in ({}, [], "", "output_distribution", 3):
+        p = tmp_path / "c.json"
+        p.write_text(json.dumps(payload))
+        with pytest.raises(ValueError, match="non-empty config mapping"):
+            load_config(p)
+
+
+@pytest.mark.parametrize("returns", ["{}", "[]", "''", "3"])
+def test_a_degenerate_PY_config_is_REFUSED_TOO(tmp_path, returns):
+    """⛔⛔ THE WORST SURVIVOR OF THE GUARD AUDIT, and it was an asymmetry rather than a bug.
+
+    `_require_config_mapping`'s docstring says "Both the Python and the JSON path come through
+    here" — and every degenerate-input test entered via **JSON**, while every encoding test came
+    in via **Python**. So bypassing the check on the `.py` path alone (`return
+    dict(get_hp_config())`) left the whole suite green while `load_config` returned `{}` and
+    `main()` returned **0**: a full `✅ PRE-FLIGHT PASSED` on zero keys, which is verbatim the
+    failure that docstring claims to refuse. The production code was correct; nothing asserted
+    it on this side of the branch.
+
+    ⇒ A shared chokepoint is only guarded if every path INTO it is exercised.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(f"def get_hp_config():\n    return {returns}\n")
+    with pytest.raises(ValueError, match="non-empty config mapping"):
+        load_config(p)
+
+
+def test_an_empty_PY_config_cannot_reach_a_PASS(tmp_path, capsys):
+    """The same asymmetry at the CLI, because `load_config` raising is not the asserted contract.
+
+    ⛔ `main()` returning 0 on an empty key set is the vacuous pass this PR exists to close, and
+    the audit reached it through the `.py` door. An empty key set satisfies every clause in the
+    module by construction, so it must never get as far as a verdict.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text("def get_hp_config():\n    return {}\n")
+    with pytest.raises(ValueError, match="non-empty config mapping"):
+        main(["--config", str(p)])
+    assert "PRE-FLIGHT PASSED" not in capsys.readouterr().out
+
+
+def test_a_config_with_an_unimportable_suffix_is_REFUSED_by_name(tmp_path):
+    """⛔ THIS TEST EXISTS BECAUSE I MARKED ITS BRANCH `# pragma: no cover` AND WAS WRONG.
+
+    `spec_from_file_location` returns None for any suffix the import machinery does not recognise.
+    Measured: `.txt`, `.yaml`, `.cfg` and a bare name with no extension all return None. So
+    `--config models/x/configs/config_hyperparameters` — a forgotten `.py`, an ordinary typo — hits
+    a branch I had declared uncoverable. A coverage exemption over a live path is the same defect
+    class as a test that cannot fail (C-329), pointed the other way.
+    """
+    for name in ("cfg.txt", "cfg.yaml", "cfg"):
+        p = tmp_path / name
+        p.write_text("def get_hp_config():\n    return {'output_distribution': 'nb'}\n")
+        with pytest.raises(ValueError, match="cannot be imported as a Python module"):
+            load_config(p)
+
+
+def test_a_config_is_registered_in_sys_modules_so_a_dataclass_works(tmp_path):
+    """⛔ A regression the hand-built namespace introduced and `exec_module` removes.
+
+    `dataclasses` does `sys.modules.get(cls.__module__).__dict__` with no guard, so a config
+    defining a `@dataclass` died with `AttributeError: 'NoneType' object has no attribute
+    '__dict__'` — the sentinel `__name__` was never registered. No current roster config uses one,
+    so this is the latent half of the class the importlib loader closes.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(
+        "import dataclasses\n"
+        "@dataclasses.dataclass\n"
+        "class Spec:\n"
+        "    n: int = 1\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb', 'steps': Spec().n}\n"
+    )
+    assert load_config_keys(p) == {"output_distribution", "steps"}
+
+
+def test_a_config_is_not_left_behind_in_sys_modules(tmp_path):
+    """It is a gate, not an import: the module must not outlive the check."""
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text("def get_hp_config():\n    return {'output_distribution': 'nb'}\n")
+    load_config_keys(p)
+    assert CONFIG_MODULE_NAME not in sys.modules
+
+
+def test_a_utf8_config_loads_under_a_non_utf8_locale(tmp_path, monkeypatch):
+    """⛔ THE FIX FOR C-367 DID NOT REACH THREE OF THE SEVEN CONFIGS IT WAS WRITTEN FOR.
+
+    `bronze_kestrel`, `cobalt_kestrel` and `silver_kestrel` contain non-ASCII bytes (⛔/⚠️ in
+    comments) AND read `__file__`. `Path.read_text()` with no `encoding=` decodes with the locale's
+    encoding, so on a slim pod image without C.UTF-8 the gate died with
+    `UnicodeDecodeError: 'ascii' codec can't decode byte 0xe2` — the same failure class C-367
+    names, surviving the fix for C-367. A real import always reads source as UTF-8 (PEP 3120).
+
+    A BOM is the other half and needs the same machinery: plain `encoding="utf-8"` would fix the
+    locale case and leave `SyntaxError: invalid non-printable character U+FEFF`.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_bytes(
+        "\ufeff# ⛔ a comment with a non-ASCII marker\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n".encode()
+    )
+    monkeypatch.setenv("LC_ALL", "C")
+    monkeypatch.setenv("LANG", "C")
+    assert load_config_keys(p) == {"output_distribution"}
+
+
+def test_a_repeated_require_flag_keeps_EVERY_field(tmp_path, capsys):
+    """⛔ `--require a --require b` used to keep only `b`, silently, because it was a `store`.
+
+    The invocation the structure-penalty pre-registration documents needs two fields, and two flags
+    is the natural spelling — so the undeclared one was discarded without a word and the gate
+    passed. Both spellings must now work.
+    """
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb"}))
+    rc = main(
+        [
+            "--config",
+            str(p),
+            "--require",
+            "a_field_from_a_future_release",
+            "--require",
+            "output_distribution",
+        ]
+    )
     out = capsys.readouterr().out
-    assert "NOT CHECKED" in out
-    assert "--config" in out
+    assert rc == 1
+    assert "a_field_from_a_future_release" in out
+    assert "does NOT declare" in out

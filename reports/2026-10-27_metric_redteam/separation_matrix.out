@@ -1,0 +1,171 @@
+G-0  the three imported FROZEN primitives reproduce their hand cases:
+       crps({0,2} vs 0) = 0.5 | brier = 0.0 / 0.25 | AP = 1.0 | AP(no positives) = nan
+       ⇒ the frozen ruler's own functions are in hand, not copies            PASS
+================================================================================================
+M1 (#478) — THE DEGENERATE-FORECAST RED-TEAM HARNESS
+================================================================================================
+  cube      d4_result.npz  sha 4acbf4d3c2b457b0  family nb  draws 4
+  score     13 months 457-469 x 64,818 cells = 842,634 cell-months
+  fit       36 months 421-456 (climatology + persistence's lag)
+  truth     ged_sb_best counts. positives 2,905 (0.003448), max 2482, total 50881
+  S         256 members per forecast, identical across all seven (epic #263's rule)
+  spiky     1/30 of active cells = 97 occupied cells per month
+
+  forecast                    field total    frac>0          max  size_ratio
+  oracle (raw truth)               50,881  0.003448      2,482.0      1.0000
+  all-zero                              0  0.000000          0.0      0.0000
+  climatology                      75,534  0.022077        373.8      0.3750
+  persistence                      51,285  0.003412      2,482.0      0.0000
+  spiky-1/30                       50,881  0.001496         52.7      0.0000
+  freq-right/mag-wrong             50,881  0.003448         17.5      2.9192
+  mag-right/freq-wrong             50,881  0.003448      2,482.0      0.0000
+  reference (delivered)            16,612  0.012225         54.5      0.2598
+  blurred-truth r=1                50,881  0.047694        281.9      0.3371
+  blurred-truth r=2                50,881  0.081489        114.4      0.2594
+  blurred-truth r=4                50,881  0.131980         40.2      0.1747
+  TRUTH                            50,881  0.003448      2,482.0      1.0000
+
+================================================================================================
+  VOID GATES
+================================================================================================
+  PASS  G-h  ORACLE: crps_all EXACTLY 0, size_ratio 1, AP 1, Brier 0
+        crps_all=0  size_ratio=1  AP=1  Brier=0
+  PASS  G-a  ALL-ZERO: crps_none, size_ratio, pos_mcr all EXACTLY 0.0
+        crps_none=0  size_ratio=0  pos_mcr=0
+  PASS  G-c  CLIMATOLOGY: per-cell gate == fit-window positive rate
+        max |delta rate| 0.000e+00; identical across months True
+  PASS  G-d  PERSISTENCE: byte-identical to the truth field lagged one month
+        array_equal True; max |delta| 0.0
+  PASS  G-b  SPIKY: per-month total exact and occupancy exactly k
+        max relative total error 4.454e-16; occupancy 97..97 (want exactly 97)
+  PASS  G-e  FREQ-RIGHT: nonzero cell SET == the truth-positive set
+        array_equal True; nonzero 2,905 vs truth positives 2,905
+  PASS  G-f  MAG-RIGHT: sorted nonzero multiset == truth's, every month
+        all 13 months exact: True
+  PASS  G-i  BLURRED r=1: per-month land total preserved exactly
+        max relative total error 2.407e-16
+  PASS  G-i  BLURRED r=2: per-month land total preserved exactly
+        max relative total error 3.544e-16
+  PASS  G-i  BLURRED r=4: per-month land total preserved exactly
+        max relative total error 4.815e-16
+  PASS  G-g  ALL 11: N == 842,634, identical ordering, identical S == 256
+        asserted per forecast above (shape and gate-shape assertions)
+  PASS  G-j  BLUR is monotone in r: max falls, frac>0 rises
+        r=1: max 281.9 frac 0.047694 sr 0.3371  r=2: max 114.4 frac 0.081489 sr 0.2594  r=4: max 40.2 frac 0.131980 sr 0.1747
+
+  wall time 22.7 s   peak RSS 8.27 GiB
+  all construction gates PASS — the seven are safe for M2 (#479) to score
+
+======================================================================================================================
+M2 (#479) — THE SEPARATION MATRIX
+======================================================================================================================
+  11 forecasts x 20 columns, S = 256, 842,634 cell-months, FSS on the full 360x720 grid
+  AFSS at n = 2N-1 = 1439
+
+  forecast                         AP        Brier     crps_all  crps_events    crps_none   size_ratio      pos_mcr         QS99    MCR_field
+  oracle (raw truth)         1.000000     0.000000     0.000000     0.000000     0.000000     1.000000     1.000000     0.000000     1.000000
+  all-zero                   0.003448     0.003448     0.060383    17.514974     0.000000     0.000000     0.000000     0.059779     0.000000
+  climatology                0.439875     0.002408     0.060480    14.760416     0.009626     0.382812     2.450176     0.023174     1.461138
+  persistence                0.221350     0.003646     0.074692    17.080207     0.015862     0.000000     1.425357     0.037111     1.007940
+  spiky-1/30                 0.342722     0.002293     0.067660    17.593122     0.007032     0.000000     2.075473     0.033830     1.000000
+  freq-right/mag-wrong       1.000000     0.000000     0.064742    18.779348     0.000000     2.919162     5.710640     0.032371     1.000000
+  mag-right/freq-wrong       0.003446     0.006876     0.120705    17.517728     0.060521     0.000000     0.005492     0.060352     1.000000
+  reference (delivered)      0.736228     0.001671     0.050140    14.486967     0.000197     0.260074     0.604857     0.013898     0.322676
+  blurred-truth r=1          0.577111     0.002089     0.080279    13.946399     0.032310     0.337141     1.245123     0.040140     1.000000
+  blurred-truth r=2          0.421375     0.002514     0.092686    14.900456     0.041459     0.259355     1.028603     0.046343     1.000000
+  blurred-truth r=4          0.250337     0.002879     0.101201    15.378240     0.048351     0.174658     0.688845     0.050601     1.000000
+
+  forecast                     FSS1       FSS3       FSS5       FSS9      FSS17      FSS33      FSS65       AFSS   hit_rate   act_freq       Gini
+  oracle (raw truth)       1.000000   1.000000   1.000000   1.000000   1.000000   1.000000   1.000000   1.000000   1.000000   0.003448   0.998958
+  all-zero                 0.001723   0.001732   0.001738   0.001751   0.001776   0.001827   0.001937   0.001724   1.000000   0.000000        nan
+  climatology              0.452920   0.700642   0.760068   0.814404   0.859707   0.889265   0.918770   0.999999   0.453076   0.022077   0.997030
+  persistence              0.178667   0.304624   0.338520   0.361499   0.373412   0.377889   0.380410   0.384081   0.799449   0.003412   0.998995
+  spiky-1/30               0.001723   0.001732   0.001738   0.001751   0.001776   0.001827   0.001937   0.001724   1.000000   0.001496   0.998637
+  freq-right/mag-wrong     1.000000   1.000000   1.000000   1.000000   1.000000   1.000000   1.000000   1.000000   1.000000   0.003448   0.996552
+  mag-right/freq-wrong     0.002701   0.012969   0.021766   0.039089   0.076005   0.173370   0.354509   1.000000   0.002701   0.003448   0.998958
+  reference (delivered)    0.629895   0.849306   0.890445   0.920015   0.941911   0.957299   0.973794   0.999999   0.630111   0.012173   0.997411
+  blurred-truth r=1        0.437297   0.711978   0.768017   0.819756   0.859088   0.886891   0.924802   0.999668   0.441780   0.047694   0.995889
+  blurred-truth r=2        0.365939   0.616519   0.667734   0.716249   0.757635   0.788802   0.842781   0.999946   0.367017   0.081489   0.992799
+  blurred-truth r=4        0.281547   0.479267   0.558742   0.615714   0.676228   0.725895   0.795858   0.999973   0.282080   0.131980   0.986870
+
+======================================================================================================================
+  DYNAMIC RANGE — the draft's §4.4 criterion: a range under a few % is blind by itself
+======================================================================================================================
+  column                 min          max        range   rel range   verdict
+  AP                0.003446     1.000000     0.996554    236.50%   
+  Brier             0.000000     0.006876     0.006876    285.59%   
+  crps_all          0.000000     0.120705     0.120705    178.40%   
+  crps_events       0.000000    18.779348    18.779348    122.12%   
+  crps_none         0.000000     0.060521     0.060521    628.71%   
+  size_ratio        0.000000     2.919162     2.919162   1125.55%   
+  pos_mcr           0.000000     5.710640     5.710640    555.18%   
+  QS99              0.000000     0.060352     0.060352    162.63%   
+  MCR_field         0.000000     1.461138     1.461138    146.11%   
+  FSS1              0.001723     1.000000     0.998277    272.80%   
+  FSS3              0.001732     1.000000     0.998268    161.92%   
+  FSS5              0.001738     1.000000     0.998262    149.50%   
+  FSS9              0.001751     1.000000     0.998249    139.37%   
+  FSS17             0.001776     1.000000     0.998224    131.76%   
+  FSS33             0.001827     1.000000     0.998173    126.54%   
+  FSS65             0.001937     1.000000     0.998063    118.42%   
+  AFSS              0.001724     1.000000     0.998276     99.83%   
+  hit_rate          0.002701     1.000000     0.997299    158.27%   
+  act_freq          0.000000     0.131980     0.131980   3828.26%   
+  Gini              0.986870     0.998995     0.012124      1.22%   BLIND (range < 3%)
+
+======================================================================================================================
+  GATES
+======================================================================================================================
+  PASS  G-1  every column ranks 'oracle (raw truth)' FIRST
+  FAIL  G-2  hit_rate == FSS(n=1) for all 11 (R-27)  max |delta| 9.983e-01
+  FAIL  G-3  AFSS == 1.0 for all 11  max |delta| 9.983e-01  => zero bias information
+
+======================================================================================================================
+  THE 2026-08-13 DRAFT'S THREE CLAIMS
+======================================================================================================================
+  C1  'MCR fails: all-zero and over-concentrated both ~ climatology on MCR'
+        MCR_field  all-zero 0.000000  spiky 1.000000  climatology 1.461138
+        max |delta| to climatology 1.461138  => REFUTED on MCR_field
+        (on the ruler's pos_mcr instead: 0.0000 / 2.0755 / 2.4502)
+
+  C2  'CRPS fails on sparse (all collapse together)'   ⛔ FAO-02's PRIMARY
+        crps_all  min 0.000000  max 0.120705  relative range 178.40%
+        => REFUTED
+
+  C3  'AUPRC + activation-frequency + spatial-concentration separate all six'
+        AP         relative range 236.50%  separates
+        act_freq   relative range 3828.26%  separates
+        Gini       relative range 1.22%  BLIND
+
+======================================================================================================================
+  MY OWN PREDICTION (declared in M1 before either script ran)
+======================================================================================================================
+  P1  freq-right/mag-wrong has an ORACLE gate => AP == 1.0 and Brier == 0.0 exactly
+        AP 1   Brier 0   => CONFIRMED
+        its crps_events is 18.779348 against the oracle's 0.000000
+
+======================================================================================================================
+  R1 — THE RP-10 TEST: which columns punish a mass-preserving blur?
+======================================================================================================================
+  column             oracle         r=1         r=2         r=4   punishes the blur?
+  AP               1.000000    0.577111    0.421375    0.250337   YES
+  Brier            0.000000    0.002089    0.002514    0.002879   YES
+  crps_all         0.000000    0.080279    0.092686    0.101201   YES
+  crps_events      0.000000   13.946399   14.900456   15.378240   YES
+  crps_none        0.000000    0.032310    0.041459    0.048351   YES
+  size_ratio       1.000000    0.337141    0.259355    0.174658   YES
+  pos_mcr          1.000000    1.245123    1.028603    0.688845   YES
+  QS99             0.000000    0.040140    0.046343    0.050601   YES
+  MCR_field        1.000000    1.000000    1.000000    1.000000   no
+  FSS1             1.000000    0.437297    0.365939    0.281547   YES
+  FSS3             1.000000    0.711978    0.616519    0.479267   YES
+  FSS5             1.000000    0.768017    0.667734    0.558742   YES
+  FSS9             1.000000    0.819756    0.716249    0.615714   YES
+  FSS17            1.000000    0.859088    0.757635    0.676228   YES
+  FSS33            1.000000    0.886891    0.788802    0.725895   YES
+  FSS65            1.000000    0.924802    0.842781    0.795858   YES
+  AFSS             1.000000    0.999668    0.999946    0.999973   YES
+  hit_rate         1.000000    0.441780    0.367017    0.282080   YES
+
+  wall time 60.7 s   peak RSS 8.37 GiB
+  wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-10-27_metric_redteam/separation_matrix.npz
