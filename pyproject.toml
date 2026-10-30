@@ -151,6 +151,25 @@ select = ["E", "F", "W", "I"]
 # Use double quotes for strings
 quote-style = "double"
 
+[tool.pytest.ini_options]
+# ⛔ THE SUITE IS `tests/`, DECLARED RATHER THAN ASSUMED. `.github/workflows/ci.yml:30` has always
+# passed `tests/` explicitly, and `reports/` deliberately holds `/falsify` output — stubs that are
+# RED BY DESIGN and say so in their own headers ("put here so they are durable and runnable
+# without turning the suite red"). But nothing pinned that intent: with no `testpaths`, a bare
+# `pytest` from the repo root collected 2,459 tests instead of the suite's 2,443 and went red on
+# 5 stubs that are supposed to fail. So the author's "without turning the suite red" held only if
+# you happened to type `tests/`, and any gate that runs a bare `pytest` — `ship-it` step 2 does —
+# could never pass, through no fault of any branch. A gate that always fails is a gate nobody
+# reads.
+#
+# ⚠️ `testpaths` applies ONLY when no path argument is given, so CI is byte-for-byte unaffected.
+# The one place that deliberately wanted the WHOLE TREE —
+# `tests/test_falsify_zero_surprises.py::test_P2_plain_pytest_collects_without_ignore`, which
+# checks that nothing anywhere hard-ERRORS at collection — now passes `.` explicitly instead of
+# relying on this config being absent. Measured: bare and `.` both collected 2,459 before this
+# change, so its reach is unchanged and it is no longer a guard that depends on a gap.
+testpaths = ["tests"]
+
 [tool.mypy]
 # Ignore errors from libraries that don't have type hints
 ignore_missing_imports = true
