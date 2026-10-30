@@ -73,6 +73,91 @@ ranking.
 | 🔵 **#444** left OPEN deliberately — answered by measurement; retiring a standing concern is Simon's call | 2026-10-28 | **Simon** |
 | 🔵 **Branch cleanup** — fully-merged branches need deletion | — | **Simon** |
 
+## ⛔ RE-RANK 2026-10-30, after RP-3 closed by falsification and RP-4 was MEASURED OUT
+
+Required by rule 3 (*"when an epic closes, re-rank before picking the next one; record the re-rank
+with its reason"*). ⛔ **The ranking below RP-4 is UNCHANGED and the reason is recorded, not the
+ranking** — but **one entry gained an argument strong enough that acting on it is Simon's call, and
+it is stated here rather than acted on.**
+
+### What closed, and how
+
+| entry | outcome |
+|---|---|
+| **RP-3** | ⛔ **CLOSED BY FALSIFICATION, not by measurement.** The frozen cube every RP-3 number was computed from is **TEACHER-FORCED** (`vehicle.py:301-307`) ⇒ *"the family-free recalibration beats what ships by 22.5%"* was a **nowcast** statement published as a **forecast** one. `W-107`, `C-399`. ⭐ The arithmetic was never wrong; a label was. The **within-cube** emission-family comparison survives at T=0 (#443 annotated, not retracted). |
+| **RP-4** | ✅ **MEASURED OUT 2026-10-29/30 — `M90`, `M91`.** The draw count is **not** a lever: the ensemble converges by K=256 and over 4 → 4,096 members the **fair** CRPS moves **+0.46% in the wrong direction**. ⇒ And the question was reframed: **99.42% of the population is a point mass**, the cells with spread are **OVER**-dispersed in 9 of 10 bins, and the pooled 0.59 was a **Simpson artifact**. |
+
+⚠️ **RP-4 was executed OUT OF RANK ORDER (5th), and the reason is a dependency, not a preference.**
+`d12c_draw_noise.out` put **11.2%** of the body field's spatial variance in our own 4-draw MC noise,
+*spatially correlated* (lag-1 ρ 0.27–0.37) ⇒ more draws **clean Q1's instrument**. The dependency
+runs one way only. Recorded here as rule 3 requires.
+
+### ⭐⭐⭐ And the two questions this epic was founded on were never queue entries
+
+Simon's founding questions — *is the body too smooth, is it under-dispersed, why, and what are the
+solutions and NON-solutions* — map onto **RP-4** (dispersion) and onto **nothing at all**
+(smoothness). The smoothness work ran as `d12`/`d12b`/`d12c` and now `M92`/`M93` **outside the
+queue**. ⇒ ⛔ **That is a finding about this register, not about the work:** the register ranks
+*instruments and experiments* and had no slot for *the programme's own founding question*. ⚠️ Not
+fixed here — adding an entry is a re-rank and the queue is Simon's.
+
+**Q1 is now ANSWERED end to end** (`M92`, `M93`, `reports/2026-10-30_smoothness_localisation/`):
+the network is fed a field at ρ(1) **+0.344**, its encoder is **roughness-neutral** (+0.314/+0.443,
+bracketing its input), and the output is at **+0.958** ⇒ **the whole move is the decoder's**, caused
+by two `ConvTranspose2d(kernel=2, stride=2)` stages that **cannot mix spatially at all**. The lever
+and its five measured non-solutions are filed as **#491**.
+
+### ⭐⭐ The one entry that gained a real argument: RP-5 should arguably come FIRST
+
+**RP-5** asks why both heads sit below their own objectives. Two things found in this epic bear on
+it, and together they make it a **blocker for several things ranked above it**:
+
+1. ⭐⭐ **`RESEARCH_PROGRAMME.md:455` + ADR-073 §0 together say the body's shape parameter is set by
+   the ZEROS, not by the events.** The NB NLL of a zero is `θ·log(1+μ/θ)`, **monotone increasing in
+   θ**, so on an empty cell the optimum is `θ → 0` at **every** μ with no interior optimum — and
+   **99.66% of cells are empty.** M6's `θ̂` **0.154** against a conditionally-honest **0.432**.
+2. ⭐⭐ **Raised by Simon 2026-10-30, and it holds:** *"the untruncated NB right now is not fitted
+   correctly, so likely a 2-NB mixture would also not have been fitted correctly."* ⇒ **Epic #230's
+   mixture null is confounded by exactly (1)** — both components' θ are pulled by the same zero
+   mass. The null therefore supports *"a mixture trained under this objective did not crack the
+   wall"*, **not** *"a mixture cannot."* `reports/2026-10-30_state_based_direction/RESEARCH_NOTE.md`.
+
+⇒ ⚠️ **The argument, stated plainly:** if the emission's shape is captured by the zeros, then an arm
+that sharpens the **mean field** (#491) may not score better even if it works geometrically, and any
+future mixture or state-based emission repeats #230's confound at higher cost.
+⛔ **NOT acted on. The queue is Simon's and this is a re-rank, not a measurement.** The decision is
+between **#491** (cheap, mechanism known, architecture only) and **RP-5** (diagnoses the objective
+that would read #491's result).
+
+### What else changed shape
+
+1. ⚠️ **RP-7 is NOT closed and did not move.** `M92`/`M93` measure spatial dependence; RP-7 is about
+   the **scoring battery** having no spatial or aggregate column. ⭐ But it gained a sharper first
+   question: if the 1-cell scale is partly a measurement artifact (**RP-10**), then **aggregates may
+   be the only well-posed target**, and #491's win or loss at 1 cell would be the wrong readout.
+2. ⭐⭐ **RP-10's relevance rose sharply, and it now gates TWO directions.** It already gated the
+   reading of the 1-cell defect; it now also gates the state-based direction, because **a latent
+   high-risk state and a geocoding/reporting artifact produce the same residual signature at one
+   cell.** Still rank 3, still minutes of CPU.
+3. ⛔ **A measurement defect found in our own ruler, and it is bigger than any entry here.** The
+   **plug-in** CRPS estimator's entire gain with draw count is **BIAS** — fair moves **0.65% of
+   level** over 4 → 4,096 members, plug-in moves **13.9% of the score** — and
+   `lodestar_score.py:33`, the **FROZEN** ruler, uses the plug-in for all three CRPS columns
+   (`M90`, #442/#459). ⚠️ **Not an RP entry and not inserted as one**, but every number any entry
+   below produces inherits it.
+4. ⚠️ **A new candidate, NOT inserted:** **#491**, the `Upsample(×2) → Conv2d(3×3)` arm. ⛔ Blocked
+   on a **PyPI release** (the pod installs `views-hydranet~=0.1.1` from PyPI,
+   `pod_run_model.sh:172`, which is never-modify, and views-models is read-only) and on a
+   **views-models config entry**. Both are Simon's.
+
+### Why the order does not move
+
+RP-3 closed by falsification and RP-4 by measurement. ⭐ **Both were things this register wanted
+*measured out*, and neither promotes an experiment past another** — the discipline is instruments
+before experiments, and RP-10 (rank 3) and RP-7 (rank 4) are still instruments while everything
+below is an experiment. ⇒ **No re-ranking is warranted on the evidence.** The next pick is Simon's
+between **#491**, **RP-10**, **RP-7**, and **RP-5 promoted on the argument above**.
+
 ## ⛔ RE-RANK 2026-10-28, after RP-1 and RP-2 both closed
 
 Required by rule 3 (*"when an epic closes, re-rank before picking the next one; record the re-rank
@@ -111,11 +196,11 @@ continuing, the new RP-2b readout, and RP-4.**
 | **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | ✅ **MEASURED OUT 2026-10-28** — σ̂ exists for B-1a and B-1b; ⛔ **one readout's noise exceeds its signal** | **CPU — spent: 37 min compute** | no — it makes later ones readable |
 | **3** | **RP-10** | ⭐ **The truth is not ground truth — we have never estimated the Bayes error floor** | 🔵 queued | **CPU, minutes** (route A) | no |
 | **4** | **RP-7** | Nothing scores spatial dependence or aggregates | 🔵 queued | CPU | no |
-| **5** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | 🔵 queued | **CPU, an afternoon** | no |
-| **6** | **RP-5** | Both heads sit BELOW their own objectives and nobody knows why | 🔵 queued | CPU first, then **GPU** | ⭐ **yes** |
+| **5** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | ✅ **MEASURED OUT 2026-10-29/30** — `M90`, `M91`. The draw count is **not** the lever; the question is reframed (99.42% point mass, OVER-dispersed where there is spread) | **CPU — spent: 42 min compute** | no |
+| **6** | **RP-5** | Both heads sit BELOW their own objectives and nobody knows why | 🔵 queued — ⭐⭐ **gained an argument 2026-10-30 that it should come FIRST** (the body's θ is set by the 99.66% zeros, ADR-073 §0, which confounds #230's mixture null and may confound #491's readout). ⛔ **Promotion is Simon's call, not taken** | CPU first, then **GPU** | ⭐ **yes** |
 | **7** | **RP-6** | Magnitude ranking loses to persistence (0.303 vs 0.367) | 🔵 queued | **GPU** | ⭐ **yes** |
 | **8** | **RP-8** | Everything we know is month 1 | 🔵 queued | **GPU, large** | ⭐ **yes** |
-| — | **RP-3** | The family-free recalibration beats our emission by 15% | 🟢 **LIVE in parallel** — epic **#468** | **CPU, minutes** | no GPU needed |
+| — | **RP-3** | The family-free recalibration beats our emission by 15% | ⛔ **CLOSED BY FALSIFICATION 2026-10-29** — the cube is **TEACHER-FORCED**, so the margin was a nowcast statement (`W-107`, `C-399`); the within-cube T=0 family comparison survives | **CPU — spent** | no GPU needed |
 | — | **RP-9** | Optimisation pathologies (plasticity, edge of stability, ridge) | ⛔ **PARKED** | — | — |
 
 ⛔ **RE-RANKED 2026-10-27b, and the reason is a new entry.** Simon raised that the input data is **not ground truth** — `ged_sb_best` is a sum of geocoded point events whose sharpness is partly an artifact of measurement, reporting and aggregation ⇒ there is an irreducible **Bayes error floor** and we have never estimated it. That became **RP-10**, entered at **rank 3**, and it pulled **RP-7 from 7 to 4** because if the fine-scale target is partly noise then **aggregates may be the only well-posed target**. RP-4, RP-5 and RP-6 each moved down one; **RP-3 is unranked and runs in parallel.** Full argument: `reports/2026-10-27_measurement_floor/ARGUMENT.md`.
