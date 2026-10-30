@@ -9,9 +9,14 @@
 ## ⭐⭐⭐ THE ANSWER IN THREE LINES
 
 **1 · The detail exists and the decoder throws it away.** The encoder's full-resolution features
-are **ROUGHER than the truth field**: ρ(1) = **+0.443** (`enc_conv0`) and **+0.314** (`e0s`, the
-skip) against a truth field at **0.499**. ⇒ ⛔ **The smoothing is NOT the encoder, and it is not
-the receptive field.**
+are **ROUGHER than the field the network is fed**: ρ(1) = **+0.443** (`enc_conv0`) and **+0.314**
+(`e0s`, the skip) against the fed single-month `log1p` field at **+0.344** (`M93`). ⇒ ⛔ **The
+encoder is roughness-NEUTRAL — its two outputs bracket its own input. The smoothing is NOT the
+encoder, and it is not the receptive field.**
+
+⛔⛔ **This line first cited d12b's 0.499, a 36-month TEMPORAL MEAN — the wrong comparator.
+CORRECTED 2026-10-30 by `input_roughness.py`, which was written to REFUTE this finding and
+instead STRENGTHENED it.** See §7.
 
 **2 · ⭐⭐⭐ Both upsampling stages are `ConvTranspose2d(kernel=2, stride=2)`, which performs NO
 spatial mixing at all.** With kernel = stride there is zero overlap, so **every output cell is a
@@ -167,3 +172,49 @@ collect, which is a prereg defect, not a measurement one.
 - ⚠️ /2 and /4 land masks require the **whole block** to be land, so those rows are interior
   statistics and drop coastal cells.
 - **n=1 checkpoint, the H1-reg (`sb`) head only, one sweep per condition, no σ̂.**
+
+
+---
+
+## 7 · ⭐⭐ AMENDMENT 1, 2026-10-30 — the comparator was wrong and the finding survived it
+
+`input_roughness.py` / `input_roughness.out`, `M93`. **No model loaded — data read only.** It was
+written to **falsify §2's finding (1)**, and it did not.
+
+⛔ **The defect it was testing.** §2 compared the encoder against **0.499**, which
+`d12b_curve_readout.out:94` labels *"truth log mean, window"* — a **36-month TEMPORAL MEAN.** The
+network is fed **one month** of `log1p` counts (`build_volume`). ⇒ Wrong comparator.
+⭐⭐ **And it also closes the hole `W-114` names:** `stage_roughness.py`'s `STAGES` begins at
+`enc_conv0` and never hooked the input at all.
+
+| aggregation | `log1p` ρ(1) | raw ρ(1) |
+|---|---|---|
+| ⭐ **single month** — what the network is fed | **+0.3442** | +0.1456 |
+| 13-month mean | +0.5671 | +0.1748 |
+| 36-month mean | +0.6011 | +0.2577 |
+
+⇒ ⭐⭐ **Two free parameters, both unswept when §2 was written, both large:** the **aggregation** is
+a **1.75×** lever and the **transform** a **2.3×–3.2×** lever on the one number the whole Q1
+comparison is anchored on. Both are `C-351` slots **every ρ in this record must name.**
+
+### ⭐⭐ The verdict: finding (1) STANDS, and the attribution is now end to end
+
+| | ρ(1) |
+|---|---|
+| fed field, single-month `log1p` | **+0.3442** |
+| `e0s` — the skip | +0.3135 |
+| `enc_conv0` | +0.4433 |
+| `dec_conv4_head1_reg` — the output | **+0.9584** |
+
+⇒ **The encoder's outputs bracket its own input ⇒ roughness-NEUTRAL.** ⭐⭐ **The entire
+0.344 → 0.958 move belongs to the decoder**, which is a stronger statement than §2 made.
+
+⚠️ **One unresolved discrepancy, flagged not explained.** This script's 36-month mean is
+**+0.601076** against d12b's **+0.499** — a gap of **0.102**, larger than the defect either is used
+to discuss. ⇒ **They are not the same statistic.** Candidate causes — month range (this used
+421–456), land set, E–W/N–S pooling rule — are **not isolated**. ⛔ 0.499 was quoted in `M92`, in
+the body index and in #491; all three are corrected to **0.344**. `W-120`.
+
+⚠️ **And the limit that keeps this honest:** a conditional-MEAN field *should* be smoother than a
+realisation (`W-101`'s identity). ⇒ *"The model is smoother than one month of truth"* is **not by
+itself a defect.** The claim here is about the **encoder-vs-decoder split**, not the absolute level.

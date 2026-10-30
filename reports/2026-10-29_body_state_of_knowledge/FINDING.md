@@ -23,7 +23,8 @@ out of sample (months 457–469), E–W:
 |---|---|---|---|
 | **model `log mu`** | **+0.926** | +0.677 | +0.282 |
 | truth, 336-month base rate | +0.638 | +0.316 | +0.074 |
-| truth, 36-month window mean | +0.499 | +0.176 | −0.104 |
+| truth, 36-month window mean ⚠️ **NOT the fed field — see `M93`** | +0.499 | +0.176 | −0.104 |
+| ⭐ **truth, SINGLE MONTH `log1p` — what the network is actually fed** (`M93`) | **+0.344** | — | — |
 
 §3, model-free and with the threshold swept: the model's field needs **3–7×** the distance that
 truth needs to decorrelate to any given level. ⛔ No parametric fit is involved — that route is
@@ -69,7 +70,7 @@ against the smoothest truth available.
 |---|---|
 | **4-draw MC averaging** | `MEASURED`, **small**. 11.2% of field variance in-sample, 4.5% out (`d12c_draw_noise.out`). ⛔ And it is **not white** — the difference field has lag-1 ρ 0.27–0.37, so our own sampling noise is itself spatially structured |
 | **mean-vs-realisation necessity** | `MEASURED`, bounded, insufficient — above |
-| ⭐⭐⭐ **the architecture: conv encoder + U-Net upsampling decoder** | ⭐⭐⭐ **MEASURED 2026-10-30 — `M92`, and it is the ANSWER.** Both upsampling stages are `ConvTranspose2d(kernel=2, stride=2)`: kernel = stride ⇒ **the windows do not overlap and NO spatial mixing occurs.** Each output cell is a fixed per-channel scalar multiple of exactly one input cell — the stage **replicates and rescales**, it does not interpolate. ⛔ **The encoder is NOT the culprit**: its full-resolution features are ROUGHER than truth (ρ(1) **+0.443** / **+0.314** vs truth **0.499**) ⇒ **the detail exists and the decoder discards it.** See §Q2a |
+| ⭐⭐⭐ **the architecture: conv encoder + U-Net upsampling decoder** | ⭐⭐⭐ **MEASURED 2026-10-30 — `M92`, and it is the ANSWER.** Both upsampling stages are `ConvTranspose2d(kernel=2, stride=2)`: kernel = stride ⇒ **the windows do not overlap and NO spatial mixing occurs.** Each output cell is a fixed per-channel scalar multiple of exactly one input cell — the stage **replicates and rescales**, it does not interpolate. ⛔ **The encoder is NOT the culprit**: its full-resolution features are ROUGHER than **the field the network is fed** (ρ(1) **+0.443** / **+0.314** vs the fed single-month `log1p` field at **+0.344**, `M93`) ⇒ the encoder is **roughness-NEUTRAL** and **the detail exists and the decoder discards it.** See §Q2a |
 | **BN recalibration fitted on 32×32 windows, applied to the 360×720 grid** | ⛔ `NOT MEASURED` for smoothness. It is a live lead for the **gate's** dispersion defect; `E6` separates it on CPU for free |
 | **`weight_decay` 0.1 global, heads not excluded** | ⛔ `NOT MEASURED` |
 | the parametric nugget/sill route | ⛔ **CLOSED.** The fits are **VOID** — P-1, P-2 and P-3 all missed, and F5 fired with a fit SE 2×10¹⁰ times its own parameter (`d12b_restricted_fit.out`). Detection floor ~2% |
@@ -96,7 +97,11 @@ resolution**.
 **Three findings:**
 
 **1 · ⛔ The encoder is not the culprit** — its full-resolution features are **rougher than the
-truth field** (0.314–0.443 vs 0.499). ⇒ **The 1-cell detail exists inside the network.**
+field the network is FED** (0.314–0.443 vs **+0.344**, `M93`). ⇒ ⭐⭐ **Its outputs BRACKET its own
+input, so the encoder is roughness-NEUTRAL, and the 1-cell detail exists inside the network.**
+
+⛔⛔ **This first cited d12b's 0.499, a 36-month TEMPORAL MEAN — the wrong comparator. CORRECTED
+2026-10-30 by `M93`, which was written to REFUTE this finding and strengthened it instead.**
 
 **2 · ⭐⭐⭐ The upsampling stages cannot create spatial information.** `ConvTranspose2d(k=2, s=2)`
 with kernel = stride has **no overlap**, so each output cell is a fixed per-channel scalar multiple
@@ -143,8 +148,9 @@ extrapolated an exponential from a single lag, and it was not like-for-like (`W-
 threshold-swept the honest range is 1.9–7.0×, sign always right, **and no scalar is quotable.**
 
 **4 · ⛔ A bigger receptive field / more context. MEASURED NON-SOLUTION, 2026-10-30 (`M92`).**
-The encoder's full-resolution features are already **rougher than the truth field**, and prior art
-puts the *effective* receptive field far below the theoretical one — interior `rel_abs_diff`
+The encoder's full-resolution features are already **rougher than the field it is fed** (0.314–0.443 vs
+**+0.344**, `M93`) — i.e. the encoder is **roughness-neutral** — and prior art puts the *effective*
+receptive field far below the theoretical one — interior `rel_abs_diff`
 **0.0006** against **0.10** pooled, a **142×** gap (`2026-08-23_state_range_dossier`). ⇒ **The
 model is not over-integrating context. It is failing to use detail it already has.**
 
