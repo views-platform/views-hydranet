@@ -129,7 +129,29 @@ class NearestConvUp(nn.Module):
         # convolution, and `forward` crops the surplus leading row/column. Bit-identical output
         # (verified, max|diff| = 0.0) and cheaper than a separate pad op: 22.3 -> 13.3 ms on the
         # /4 -> /2 stage at the production grid.
-        self.conv = nn.Conv2d(in_ch, out_ch, kernel_size, padding=1 if kernel_size == 2 else 0)
+        #
+        # ⛔⛔ `padding_mode="replicate"`, NOT the `"zeros"` default — PREREG Amendment 3. With
+        # zero padding the retained output's last row and last column each read one row of hard
+        # zeros and the bottom-right corner reads two. MEASURED on a constant field through a
+        # uniform kernel: interior 2.0000, last row 1.0000, corner 0.5000 — exactly 2x and 4x.
+        # The INCUMBENT has no such artifact at all: `kernel == stride` means no window ever
+        # extends past the input, so there is nothing to pad. ⇒ The defect is introduced BY the
+        # remedy, which makes it a second difference between arm and control in a programme whose
+        # protocol is that `model` is the only key that differs — the same class as Amendment 2's
+        # RNG draw (11a) and output scale (11b). Replication costs NO parameter, so `UpsampleConv2`
+        # stays at exactly +-0 against the incumbent, which is the whole reason it is the arm.
+        #
+        # ⚠️ NOTED, NOT DONE: on a 360x720 global raster the left/right edges are a LONGITUDE WRAP,
+        # so `"circular"` would be correct in x while `"replicate"` is correct in y. `padding_mode`
+        # applies to all four sides uniformly, so splitting them needs explicit per-axis pad ops —
+        # a bigger claim than this defect warrants. Recorded, out of scope (PREREG section 12b).
+        self.conv = nn.Conv2d(
+            in_ch,
+            out_ch,
+            kernel_size,
+            padding=1 if kernel_size == 2 else 0,
+            padding_mode="replicate" if kernel_size == 2 else "zeros",
+        )
 
     def apply(self, fn: Callable[[nn.Module], None]) -> NearestConvUp:
         """⛔⛔ Do NOT recurse into ``self.conv``. This is the single-variable fix, not a quirk.
