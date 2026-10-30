@@ -321,6 +321,7 @@ def test_upsample_candidate_refuses_a_stage_that_is_not_the_defect():
 #        could be put back verbatim (zero-stuff + conv ≡ ConvTranspose2d(k=2,s=2)) with all of
 #        them green. These assert the arithmetic instead. ─────────────────────────────────────
 
+
 def _in_degree(mod, c, h=8):
     """Max number of distinct INPUT cells any single OUTPUT cell reads. 1 == no spatial mixing.
 
@@ -387,7 +388,7 @@ def test_nearest_upsample_keeps_the_top_left_alignment():
     rep = NearestConvUp(1, 1, 2)
     with torch.no_grad():
         rep.conv.weight.fill_(0.0)
-        rep.conv.weight[0, 0, 0, 0] = 1.0   # read only the window's top-left tap
+        rep.conv.weight[0, 0, 0, 0] = 1.0  # read only the window's top-left tap
         rep.conv.bias.fill_(0.0)
         x = torch.zeros(1, 1, 4, 4)
         x[0, 0, 0, 0] = 1.0
