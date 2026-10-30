@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | **2026-10-28c (`register-risk` — **C-389 added, Tier 2**: `MCR` names **three mutually non-equal statistics** in this repo and one of them is a **LOCKED FAO-02 guardrail**. Appendix A.1, read rather than recalled: MCR = ŷ̄/ȳ, a **ratio of means across ALL cell–month observations**, judged as distance from 1 with a 1% margin. The ruler emits `pos_mcr` (a **mean of ratios** over `truth>0`) and `size_ratio` (its median); `sharpness_scorecard` computes a ratio of means over `truth>0`; only the red-team's `MCR_field` is the locked form. ⭐ M3 measured the gap in closed form — `pos_mcr`'s per-cell weight is exactly `1/truth` (7.6e-17), so the same mass moves it **115.3× more** on the smallest truths ⇒ one statistic is about one-event cells, the other about the total, and the delivered model's **16,612 vs 50,881** mass deficit is exactly what the aggregate form sees and the conditional one can hide. ⛔⛔ **Of FAO-02's three locked guardrails the frozen ruler computes exactly ONE (Brier) as defined** — QS99 is absent (M5's other half: three implementations, one formula, all matching A.1 ⇒ a coverage gap, CLOSED), MCR only as two statistics that are not it. ⛔ **And `GLOSSARY.md` was part of the defect**: it listed `MCR` only as a banned alias of `pos-mcr`, with no row of its own, so the locked guardrail had no entry in the fixed vocabulary. Now fixed — locked `MCR` and `QS99` rows added. ⚠️ No eligibility decision was ever taken, so nothing is retrospectively invalid; this is a readiness gap.) Earlier: 2026-10-28b (`register-risk` — **C-388 AMENDED 1** from M3 / #480: the entry named ONE mechanism and asserted *"no published FSS number is affected"*; both are corrected. `matched_pred_thresh` keeps its documented promise in **75 of 143 forecast-months (52%)** and fails in **three** distinct ways — (a) kth == 0 ⇒ all 259,200 cells, 34 months; (b) a TIED kth, every duplicate clearing `kth − 1e-12`, 31 months, **structural because an ensemble mean of S integer draws is quantised to multiples of 1/256**; (c) the `−1e-12` is **ABSOLUTE** on a field with no absolute scale, 3 months, confirmed in closed form. ⛔ **The delivered model IS affected** — by (b), in 2 of 13 months, over-selecting exactly 1 cell, i.e. at the 1e-4 level and not the 1.0 level. ⛔ `persistence` hits (a) in 8 of 13. ⭐ Mechanisms (b) and (c) were each derived BEFORE being measured, and **G-7's failure is how (c) was found at all.** ⚠️ Still unmeasured: whether (a) fires on the B-1a/B-1b populations.) Earlier: 2026-10-28a (`register-risk` — **C-388 added, Tier 2**: `matched_pred_thresh` (`scripts/sharpness_scorecard.py:92`) promises *"the SAME event count as truth>0"* and silently selects **every cell** when the forecast has fewer nonzero cells than the truth has events — the `n_events`-th largest prediction is zero, the threshold becomes **−1e-12**, and `pred > thresh` delivers **259,200** events instead of 2,905. ⭐ Measured consequence: a degenerate forecast with the **exactly correct monthly mass** (`spiky-1/30`, 97 occupied cells) scores **identically to `all-zero`** on all seven FSS scales and on AFSS, to six decimal places ⇒ **FSS cannot see the #258 defect at any scale**, and FSS is what the 2026-08-13 draft proposed to catch it with. ⚠️ No published FSS number is affected — every delivered forecast is DENSER than the truth (0.012225 vs 0.003448), which is why it survived. ⛔ **R-27 and the `GLOSSARY.md` AFSS row are both derived FROM the broken invariant** and need the count-matching precondition added. Found by two pre-declared gates (G-2, G-3) failing together in M2 / #479. **C-303 escalated TWENTY-TWO → TWENTY-THREE.** ⚠️ Noted, not fixed: the C-303 occurrence log for instances 10/21/22 sits **below `### C-306`'s separator**, i.e. orphaned from its own entry — a placement defect for the next `review-rr triage`.) Earlier: 2026-10-27h (`register-risk` — **C-387 added, Tier 2**: the quantile head cannot represent the zero atom, two sub-forms with one root. (a) `hurdle_quantiles_to_samples` documents *"trained on POSITIVE cells only"* as a precondition of its inverse-CDF composition, while `QuantileLoss.forward` ends in a bare `pin.mean()` with no mask and `training_engine.py:924` passes the full target — and the one `body_supervision` setting that would supply it was swept and REJECTED. (b) `midpoint_levels` is UNIFORM: against the measured 0.996552 zero fraction, **K must be >= 146 for one level to clear the atom and the 2026-07 run used K=50** ⇒ all fifty levels' pinball optimum is exactly 0, which `monotone_quantiles`' strict `cumsum(softplus)` forbids. ⇒ ⭐⭐ **The "top-quantile overshoot" is the FORCED MONOTONE FAN, not a tail-modelling failure**, and it is the SAME structural defect as ADR-073 §0's `theta`-collapse — neither head can place an atom where 99.66% of the mass lives. Closes epic #458; found by Simon's challenge, not by a gate.) Earlier: 2026-10-27g (`register-risk` — **C-386 added, Tier 2**: the gated forecast was composed as E[gate] x E[mu] instead of E[gate x mu]. ⭐ Measured before editing: the FIELD differs by +1.96% per cell on average while FSS(n=1) moves 0.0007 / 0.0017 with the sign FLIPPING between windows — because FSS thresholds at a count-matched quantile and is blind to monotone distortion. ⇒ A rank-based readout survived a wrong field; a magnitude-based one would not have. Two sites fixed; ⛔ a third, `body_level_selection_check.py:83`, averages over 36 MONTHS inside a LEVEL check and is left unfixed and unmeasured because it is not in PR #457. ⚠️ Third time on this branch that the knowledge already existed in the repo — here in `hydranet_inference.py:995`'s own docstring.)** |
+| Last Updated      | **2026-10-29c (RP-3 FALSIFIED — **C-399 added, Tier 1**: the frozen `nb` cube every RP-3 number is computed from is **teacher-forced** — `build_volume` writes the three observed fatality series into the model's three input channels and the sweep steps over that volume, so the model is handed last month's truth at every inference step. Teacher-forced index **AUC 0.99777** vs the delivered autoregressive forecast's **0.72340**, and the teacher-forced AUC **does not decay with horizon**. Re-running the recalibration with only the index changed scores **0.067752** against **0.060323** for no model at all. ⛔ The instrument is correct for the job it was built for; the defect is the **carry** into a forecast claim, a proposed ADR and a ship recommendation. First **Tier 1** since C-384. Checked against **C-351**, **C-398** and **C-393** and **NOT merged** — every number named its population correctly; the unnamed axis is the **inference mode**, which no existing entry has a slot for.)** · **2026-10-29b (RP-3 L4 — **C-398 added, Tier 2**: a split **recomputed at every rung** of a swept parameter turns **composition into a trend** — the family-free ladder's complement mass falls monotonically at all eight rungs only because the set is **shedding its worst members** (62 exceeding cell-months removed at B=8,000, 123 at 16,000, 203 at 32,000); held **fixed**, the same complement turns over at B=16,000. ⭐ Caught inside the same run for the cost of one extra mask, because W-51 had already forced the split to be measured both ways. Checked against **C-351** and **NOT merged** — the B-dependent column names its population correctly at every rung and that is precisely what fails to help.)** · 2026-10-29 (RP-3 L2 — **C-397 added, Tier 2**: M67's *"quiet background"* is **`index < 0.03`**, a set defined by the model's own output, and the **entire** background cost of the family-free recalibration sits on the **30,008** cell-months that are **empty but hold a non-zero forecast** — the cells a low-index background excludes **by construction**. ⇒ Against B=1 the same method **pays 26.14×** on `truth == 0` and **gains 26%** on M67's own partition: the sign of *"it ties on the quiet background"* **flips with the split**. ⭐ Detected by a one-multiplication identity — a complementary split obeys `total = bg·(1−f) + ev·f`, and M67's trio misses its own headline by **−4.39%** while the reproduction's hits it to **+0.00%**. Checked against **C-351** and **NOT merged** (a *partition* whose membership rule is downstream of the quantity under test is a different object from a *statistic* built on a chosen population — naming the population honestly does not help here); **C-351** and **C-374** gain cross-references instead, C-374 as the same family's second confirmed instance in a different instrument.) · 2026-10-28f (RP-2b — **C-392 added, Tier 2**: FAO-02 A.1 locks **MCR** with a **1% non-inferiority margin**, and σ̂ from the seed alone is **0.840477 — 84× that margin**; the honest 4.97σ̂ bar is **418×** it. ⛔ Not a claim FAO-02 is wrong — it is locked; the claim is that **our ability to test compliance is two orders of magnitude coarser than the test**, and nothing in the apparatus says so. ⚠️ It is the whole magnitude family: size_ratio **0.237** / pos_mcr **0.293** / MCR_field **0.356** against placement columns at **0.024–0.055** ⇒ **the quantity we most want to move is measured by our three least resolvable columns.** Even at the 2-df CI's LOWER limit the noise is **44×** the margin. ⛔ Scoped `truncated_nb` @ 0.15, expectation composition. Pairs with **C-389** (the definition half) and **C-391** (the sibling readout).) · 2026-10-28e (RP-2 — **C-391 added, Tier 2**: B-1b **body-alone** pooled FSS has **CV > 1 at 11 of 14 scales** over three true seed replicates — σ̂ **exceeds the mean** (in/n=1: mean 0.1055, σ̂ 0.1796; out/n=33: mean 0.2947, σ̂ 0.4288, bar **2.1312 = 7.2× the value**) ⇒ **no single-run comparison on it can clear its own floor**. ⭐ The spread is PURELY the seed — training and scoring are both bit-deterministic (M74, G-9) — so there is no noise term to argue it down. ⚠️ Its sibling is fine: B-1b **gated out-of-sample** has CV **0.024–0.054** ⇒ route arms there (≈0.16 clears the bar). **C-320** escalated FIVE → SIX. ⛔ `truncated_nb` @ 0.15 only.) · 2026-10-28d (RP-2 step 0 — **C-390 added, Tier 2**: a noise floor was selected by an elimination inference that is now REFUTED, and the selected value understates the floor **3× to 200×**. `READOUT.md` (2026-10-21) reports σ̂ of the gate slope two ways — as-launched {42,43,44} **0.0351/0.0932/0.0434** (df=2) and the same-version pair {43,44} **0.0023/0.0196/0.0002** (df=1) — and selects the pair by arguing *"by elimination the excess sits on the 0.1.3/0.1.4 boundary"*. ⛔ Measured: `silver`(0.1.3) and `silver_0_1_4`(0.1.4) are **190 of 190 bit-identical**, so the boundary moves nothing and there is nothing to eliminate onto it; with rerun variance at **exactly zero** (`amber`≡`silver`≡`silver_0_1_4`, across **two git shas** and **three library versions**) the only variable left is **the seed**. ⇒ the pair is the same estimate with the outlying seed dropped. ⭐ The readout's OWN pre-registration decides it: it said seed-42-on-0.1.4 would show `bronze`/`cobalt`'s positive-throughout pattern if version mattered — `silver_0_1_4` IS that arm and is bit-identical to `silver`, which crosses zero. **C-363** escalated ONE → TWO occurrences, the second about an **inference** rather than a value, so C-363's remedy does not reach it. ⚠️ And this σ̂ is the **gate slope**, not B-1a/B-1b — σ̂ for what #462/#463 need is still unmeasured.) · 2026-10-28c (`register-risk` — **C-389 added, Tier 2**: `MCR` names **three mutually non-equal statistics** in this repo and one of them is a **LOCKED FAO-02 guardrail**. Appendix A.1, read rather than recalled: MCR = ŷ̄/ȳ, a **ratio of means across ALL cell–month observations**, judged as distance from 1 with a 1% margin. The ruler emits `pos_mcr` (a **mean of ratios** over `truth>0`) and `size_ratio` (its median); `sharpness_scorecard` computes a ratio of means over `truth>0`; only the red-team's `MCR_field` is the locked form. ⭐ M3 measured the gap in closed form — `pos_mcr`'s per-cell weight is exactly `1/truth` (7.6e-17), so the same mass moves it **115.3× more** on the smallest truths ⇒ one statistic is about one-event cells, the other about the total, and the delivered model's **16,612 vs 50,881** mass deficit is exactly what the aggregate form sees and the conditional one can hide. ⛔⛔ **Of FAO-02's three locked guardrails the frozen ruler computes exactly ONE (Brier) as defined** — QS99 is absent (M5's other half: three implementations, one formula, all matching A.1 ⇒ a coverage gap, CLOSED), MCR only as two statistics that are not it. ⛔ **And `GLOSSARY.md` was part of the defect**: it listed `MCR` only as a banned alias of `pos-mcr`, with no row of its own, so the locked guardrail had no entry in the fixed vocabulary. Now fixed — locked `MCR` and `QS99` rows added. ⚠️ No eligibility decision was ever taken, so nothing is retrospectively invalid; this is a readiness gap.) Earlier: 2026-10-28b (`register-risk` — **C-388 AMENDED 1** from M3 / #480: the entry named ONE mechanism and asserted *"no published FSS number is affected"*; both are corrected. `matched_pred_thresh` keeps its documented promise in **75 of 143 forecast-months (52%)** and fails in **three** distinct ways — (a) kth == 0 ⇒ all 259,200 cells, 34 months; (b) a TIED kth, every duplicate clearing `kth − 1e-12`, 31 months, **structural because an ensemble mean of S integer draws is quantised to multiples of 1/256**; (c) the `−1e-12` is **ABSOLUTE** on a field with no absolute scale, 3 months, confirmed in closed form. ⛔ **The delivered model IS affected** — by (b), in 2 of 13 months, over-selecting exactly 1 cell, i.e. at the 1e-4 level and not the 1.0 level. ⛔ `persistence` hits (a) in 8 of 13. ⭐ Mechanisms (b) and (c) were each derived BEFORE being measured, and **G-7's failure is how (c) was found at all.** ⚠️ Still unmeasured: whether (a) fires on the B-1a/B-1b populations.) Earlier: 2026-10-28a (`register-risk` — **C-388 added, Tier 2**: `matched_pred_thresh` (`scripts/sharpness_scorecard.py:92`) promises *"the SAME event count as truth>0"* and silently selects **every cell** when the forecast has fewer nonzero cells than the truth has events — the `n_events`-th largest prediction is zero, the threshold becomes **−1e-12**, and `pred > thresh` delivers **259,200** events instead of 2,905. ⭐ Measured consequence: a degenerate forecast with the **exactly correct monthly mass** (`spiky-1/30`, 97 occupied cells) scores **identically to `all-zero`** on all seven FSS scales and on AFSS, to six decimal places ⇒ **FSS cannot see the #258 defect at any scale**, and FSS is what the 2026-08-13 draft proposed to catch it with. ⚠️ No published FSS number is affected — every delivered forecast is DENSER than the truth (0.012225 vs 0.003448), which is why it survived. ⛔ **R-27 and the `GLOSSARY.md` AFSS row are both derived FROM the broken invariant** and need the count-matching precondition added. Found by two pre-declared gates (G-2, G-3) failing together in M2 / #479. **C-303 escalated TWENTY-TWO → TWENTY-THREE.** ⚠️ Noted, not fixed: the C-303 occurrence log for instances 10/21/22 sits **below `### C-306`'s separator**, i.e. orphaned from its own entry — a placement defect for the next `review-rr triage`.) Earlier: 2026-10-27h (`register-risk` — **C-387 added, Tier 2**: the quantile head cannot represent the zero atom, two sub-forms with one root. (a) `hurdle_quantiles_to_samples` documents *"trained on POSITIVE cells only"* as a precondition of its inverse-CDF composition, while `QuantileLoss.forward` ends in a bare `pin.mean()` with no mask and `training_engine.py:924` passes the full target — and the one `body_supervision` setting that would supply it was swept and REJECTED. (b) `midpoint_levels` is UNIFORM: against the measured 0.996552 zero fraction, **K must be >= 146 for one level to clear the atom and the 2026-07 run used K=50** ⇒ all fifty levels' pinball optimum is exactly 0, which `monotone_quantiles`' strict `cumsum(softplus)` forbids. ⇒ ⭐⭐ **The "top-quantile overshoot" is the FORCED MONOTONE FAN, not a tail-modelling failure**, and it is the SAME structural defect as ADR-073 §0's `theta`-collapse — neither head can place an atom where 99.66% of the mass lives. Closes epic #458; found by Simon's challenge, not by a gate.) Earlier: 2026-10-27g (`register-risk` — **C-386 added, Tier 2**: the gated forecast was composed as E[gate] x E[mu] instead of E[gate x mu]. ⭐ Measured before editing: the FIELD differs by +1.96% per cell on average while FSS(n=1) moves 0.0007 / 0.0017 with the sign FLIPPING between windows — because FSS thresholds at a count-matched quantile and is blind to monotone distortion. ⇒ A rank-based readout survived a wrong field; a magnitude-based one would not have. Two sites fixed; ⛔ a third, `body_level_selection_check.py:83`, averages over 36 MONTHS inside a LEVEL check and is left unfixed and unmeasured because it is not in PR #457. ⚠️ Third time on this branch that the knowledge already existed in the repo — here in `hydranet_inference.py:995`'s own docstring.)** |
 | ID accounting     | **C-365 added 2026-10-25b (`register-risk`) from `/falsify "you are ready for a pod"` — FOUR findings produced ONE ID and THREE escalations, which is the deduplication rule doing most of the work.** ⛔ **The audit FALSIFIED the claim: 2 hard, 2 soft, and the hard ones block the pod.** ⚠️ **It was NOT independent** — the same session wrote the pre-registration, derived the weight and ran the probes, and two of the four findings are errors in its own correction committed hours earlier; every verdict carries that discount. **NEW: C-365** (Tier 2) — the audit went looking for one missing trajectory column and found that **all five** additive loss terms (`pf_loss`, `qs99_loss`, `decay_pen`, `struct_pen`, `pi_pen`) have **no logged magnitude anywhere**: not in `_TRAJECTORY_BASE_COLUMNS` (six names), not in the per-task columns (body/gate only), not in the step's return dict (`reg`/`cls` come from the balancer's 6-vector, which the penalties are added outside of), and not in any of the file's three `wandb.log` calls. Tier 2 because it is the specific mechanism that makes a constant derived **at initialisation** unfalsifiable — a term that starts at 11% of the loss and ends at 95% produces an identical trajectory CSV. **ESCALATED, not registered: C-303 EIGHTEEN → TWENTY** (§3b/§3c's *"the trajectory log is what would show the two terms drifting apart"*, which is C-365's prose half and was **written the same day it was found**; and §7.4's potency gate *"at a trained checkpoint"*, for which `assert_potent` has no caller outside two test files) — ⭐ and the class gained a lesson: its eighteen priors are mostly docstrings and ADRs, while these two are in a **pre-registration**, where prose is load-bearing for a decision, and the entry's mechanical `git log` mitigation does not transfer there. **C-357 gains a SECOND INSTANCE**, and it is the finding that blocks the pod: §7.1 sizes the arm's two surviving predictions *"against the ~0.019 seed sd"*, which is an **average-precision** figure from M34–M37, while P-3 is B-2's slope and P-4 is B-1 — **no noise floor for either exists anywhere**, so neither a pass nor a fail would be interpretable. ⛔ §7.2 names this exact class about *itself* ("M-5 appearing in a third pre-registration") two paragraphs above the clause that commits the fourth instance: **naming a recurring class in a document does not inoculate the document.** **C-351 ELEVEN → TWELVE** — §3c's "21.7% of the loss" divides by the body NLL sum while the optimiser's denominator gives **11.3%**; the first instance to land in the **normalisation** slot this class gained the same morning, and SOFT precisely because every reading stays under 50% so the pinned weight is unchanged — ⇒ *a normalised statistic can be wrong in its denominator and still support the right decision, which is why this class survives review.* ⚠️ **One thing deliberately NOT done:** §3's rule admits two readings (literal body NLL → 0.416904; body as the loss weights it → 0.208452, a 2× spread). The rule was **not** amended — changing a pre-registration after seeing the number it produces is worse than the ambiguity — and the alternative is recorded in C-351 instead. ⚠️ **Noted and not chased:** C-302's premise is now partly stale (it says `trajectory_log_path` is *"not a field on HydraNetConfig"*; it is, at `config_initializer.py:258`), and the two curation items this cell has carried since 2026-10-22 are still open. Earlier the same day: **C-362..C-364 added 2026-10-25 (`register-risk`) from correcting `struct_penalty_weight` before the structure arm's pod run — FIVE findings produced THREE IDs.** ⛔ **The incident:** the arm's one *derived* constant was committed into a prereg under a ⭐ and was **wrong by 21×** (8.89624 against a correct 0.416904), three independent ways — derived on the **`truncated_nb`** vehicle rather than the `nb` one the arm runs on, pinned at **v1** where **v2 had already superseded it on disk**, and gradient-matched against **one** of the **three** targets the loss sums over. ⭐ **The third was found by Simon asking a question about the config schema** ("do we have a penalty weight for each type of violence?"), not by any gate. Registered as **C-362** (a derived constant pinned without the artifact it was derived from — Tier 2) and **C-363** (two committed preregs disagreed about the same number for four days; every pre-flight gate is scoped to one document — Tier 2), **split rather than combined** because their triggers and remedies differ: C-362's remedy is provenance in the sentence, C-363's is one home plus links. **C-364** (Tier 3) is a missing assertion with **no instance fired**, registered honestly as such: slicing a model head past its width returns an **empty** tensor in torch rather than raising, and the `reports/` drivers slice against a hard-coded `TARGETS` list while the artifact's sidecar does not record `regression_targets` at all — two sources, nothing comparing them, which is C-322's shape. ⛔ **TWO findings were MERGED and NOT given IDs, which is the dedup rule working:** (a) the structure penalty's equal per-target weighting went into **C-170**, whose narrative has asserted since 2026-06-21 that the frozen balancer equal-weights the three targets "despite their very different scales" and which had **no number** — it now carries the measured one, that **non-state, the rarest target at an 11× lower positive rate, contributes 45.3% of the summed penalty and the largest penalty gradient**, and its trigger gains a second clause; (b) the import that resolved to **installed 0.1.5 instead of the working tree** went into **C-347** as a **second instance with the arrow reversed** — C-347's original read the working tree where it should have read site-packages, this one read site-packages where it should have read the working tree, and the register's C-333 precedent for "same class, arrow reversed" is why this is an update rather than a new entry. ⚠️ **One finding SKIPPED and recorded rather than registered:** that `pod_run_model.sh` never invokes `pod_preflight.py`, so the W-22 gate is on no execution path — it is real and it bears directly on this arm, but it is a **views-models** defect, already filed there as **views-models#602**, and duplicating it here would put the entry where the fix cannot land. ⛔ **C-362 was checked against C-351 and deliberately NOT merged:** C-351 is a statistic whose construction was chosen *by the thing being measured* and its remedy is a reporting convention for a **claim**; C-362's constant is **executed** as a hyperparameter and its vehicle was chosen by *availability*, not by the outcome. Different consequence class. ⚠️ Scope was minimal: three entries, two merges, the counts, and nothing else. **Not done, and noted rather than silently skipped:** the two curation items this cell has carried since 2026-10-22 (relocating the RESOLVED entries out of §Open Concerns, and rewriting this cell into a dated changelog) are still not done, and the clustering is now **three weeks** stale with C-362..C-364 unmapped — C-362/C-363 belong with cluster 18 (instrument integrity) or arguably a new "provenance of a derived number" root, and C-364 belongs in 18. Earlier: ****C-358..C-361 added 2026-10-22 (`register-risk`) from `reports/2026-10-22_emit_time_split_method_review.md` §7, which wrote M-1..M-6 in register-compatible form with the instruction "route via register-risk" — routed the same day rather than six days later, which is the C-354..C-357 lesson applied. **SIX findings produced FOUR IDs:** `M-3` and `M-4` were MERGED into **C-351** as instances #10 and #11 (both are population-selection defects and the register's multi-instance idiom fits better than two near-duplicate entries), and C-351's title moved from "seven instances in one day" to "ELEVEN instances, seven of them in one day". ⛔ **Two tier decisions were CHALLENGED and one changed:** `M-6` was proposed Tier 3 and is registered **Tier 2** (C-361) — its trigger is a single realistic action, merging an ADR, and the outcome is a measured −0.238 AP regression, which is the Tier 2 criterion verbatim; `M-2`'s case for Tier 1 was argued and **rejected** (C-359 stays Tier 2 — the capability shipped default-off, nothing was delivered, and a blind metric fails to *detect* a corruption rather than causing one). `M-6` was also checked against **C-303** and is NOT an instance of it, on the dividing line the 2026-10-21 pass established for C-356: C-303's prose asserts a *guard* and a mutation test catches it; C-356's asserts a *derivation*; C-361's asserts a *decision status* — a third object, and no test can fail on any of the latter two. ⚠️ Scope was deliberately MINIMAL by Simon's decision: new entries, falsified-entry corrections and the counts only. **Not done, and noted rather than silently skipped:** relocating the RESOLVED entries out of §Open Concerns, and rewriting this cell's prose into a dated changelog. ⚠️ Also noted: the repo has TWO register-counting tests with divergent rules (`test_falsification_repo_clean.py` F4-04 matches `RESOLVED` anywhere on a header line; `test_risk_register_integrity.py` requires the literal `— RESOLVED` at end-of-line and is section-aware), which is why C-357 passed one and failed the other on the same file. Earlier: **C-354..C-357 added 2026-10-21 from `reports/2026-10-15_loss_balance_method_review.md` §6 — a SIX-DAY routing gap: the review wrote M-1..M-5 in register-compatible form and said "NOT appended; route via register-risk", and nobody did. Verified absent before registering (`6.011e-04`, `0.90 nats`, `0.88 positives` → 0 hits each). **M-3 and M-4 were MERGED into a single class entry (C-356)** — both are a published result applied outside the scope its source derives, and the register's multi-instance idiom (C-303, C-351) fits better than two near-identical Tier-3 entries. **M-4 was checked against C-303 and is NOT an instance of it**: C-303's occurrences are prose asserting a *guard* and a mutation test catches them; C-356's are prose asserting a *derivation* and no test can fail. C-119 updated in place with a pointer to C-357 rather than C-357 being merged into it, because C-119 is RESOLVED and the live defect is in two pre-registration files, not in C-119's own location.** C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** **2026-09-14, Epic #353 (remediating `/code-review max` on PR #351): ONE new entry and FIVE updates, deduped before writing. New: C-344 (a diagnostic instrument that perturbs or kills the run it measures — the gate probe drawing from the stream it observes, and two unbounded stats buffers that OOM-killed a probe run at rc=137). Updated rather than duplicated: C-331 escalated from a diagnostic risk to a PRODUCTION one (ADR-027 §2.1 promoted `freeze_recurrent`, so a zero weight now makes a delivered forecast claim a clamp it does not apply); C-328 instance 5 with the artifact consequence recorded BEFORE the change; C-303 from twelve to FOURTEEN, then EIGHTEEN on 2026-09-15 with three found in the PR's own trail and one by the guard audit; C-329 with three review-found instances plus TWO authored inside this epic and caught by its own deletion test; C-341 EXTENDED, not resolved — deleting the input closed one path, a branch dispatch at the release version was a second. **One routing correction: issue #361 filed the pass-0 docstring as C-320 occurrence 12; it is C-303, and C-320 stays at four.** This epic produced NO measurement — it fixed traps and changed no forecast. (An earlier version of this line excepted S3 as changing future artifacts; that half of S3 was wrong and is reverted — see C-328.)** **C-346 added 2026-10-20 (`register-risk`), closing the blind spot the same day's review-rr pass named and told the user to register: six load-bearing dependencies shipped undeclared across four releases, and the whole three-link guard chain derived from the declaration rather than from the import graph. Tier 2 — the failure is a loud `ImportError`, matching C-333's tiering; the register's own two-recurrence threshold was passed at six. Deduplicated against all twelve cluster-20 members before writing: NOT merged into C-285 (same accidental-guarantor shape but inside our CI env, not the published wheel — C-285 updated instead, half closed) and NOT merged into C-336 (which is the already-registered *range* half of the same concern). Cross-referenced to C-303/C-324/C-329 rather than merged: in this class the guards existed and ran, they just derived from the wrong source. The same pass made FIVE corrections against fresh measurement rather than against the entries' own text — and three of the five were entries asserting a state the system had already left: **C-335 verified RESOLVED** (`ci.yml:47` has a `build:` job running `uv build` at `:59`, deliberately the same command publish uses; bannered in place, relocation left to the next curation pass per the C-184/C-312/C-303 precedent), **C-341's "⛔ Still unexecuted" line falsified** (`gh run list`: ten runs, four published releases v0.1.0–v0.1.3), **C-342's deferral condition declared SPENT** (it rested on C-341's stale line; the entry stays open and stays Tier 3 — only the reason for inaction expired, and whether to act is the owner's call, not this skill's), **C-285's `Location` corrected** (it cites a `pyproject.toml` test extra that no longer exists), and ⛔ **C-337's PREMISE FALSIFIED**: it asserts 8 views-models configs pin `views-hydranet>=0.1.0,<1.0.0` and asks for tightening to `<0.2.0`; measured at views-models `7bcf9851`, every live pin is already `~=0.1.1` (= `>=0.1.1,<0.2.0`) across 15 `models/*/requirements.txt`, so the work it asks for was done at #462/#484 and never read back. The real residue — views-models CI pinning `views-hydranet==0.1.1` exactly while the models resolve to the newest 0.1.x — is filed as views-models#587. **That last one is C-303's shape pointed across a repository boundary, and cluster 20 is where it is most likely, because the cited artefact is the one thing a pass of this repository never opens.** This pass registered ONE risk and resolved NONE of the clustering/demotion recommendations the review-rr pass left open.** **C-352 added 2026-10-20 (`register-risk`): the platform's registered `AP` metric ranks FLATTENED ENSEMBLE DRAWS (`views-evaluation metric_catalog.py:107` → `native_metric_calculators.py:316`), so it is coupled to per-cell dispersion and to the exact-zero atom — two models with identical per-cell means score differently. Tier 2 by consistency with C-319 and C-293 rather than 1, reasoning recorded in the entry because it was contested. ⛔ **The entry was DRAFTED WRONG and corrected before registration:** it first asserted the channel affected M45/M62/M64 and therefore undermined #396's firing argument. It does not — those were scored by the frozen `lodestar_score.py:182`, which ranks a per-cell probability, so the experiment ledger is unaffected and #396's premise stands. The misscope is the same shape as the five claims withdrawn in `2026-10-20_d3_static_channel_ceiling.md` §10.1 and is logged as `W-43`. Deduplicated against C-293 (its 2026-08-21 correction is the same class one site weaker — a gate-less reference ranked on a two-level score), C-319 and C-220: registered as NEW with cross-references rather than merged, because C-293's trigger and location are about a missing baseline. The entry's own table records that **three** AP constructions exist across the platform and only one is affected — treating them as one is what produced the misscope. ⚠️ **`C-351` was RESERVED for one commit and is now REGISTERED** (2026-10-21, `register-risk`): the three-slot reporting convention — population, transform, estimator — drafted in Appendix A of `2026-10-20_d3_static_channel_ceiling.md`, seven instances in one day of a statistic computed on a set, scale or estimator chosen by the thing being measured, each caught by a *different* mechanism and two of them reaching a committed artifact. Tier 2: it corrupts conclusions, never data or a forecast. Deduplicated against C-307/C-309/C-319/C-320/C-325 and registered NEW with cross-references — no existing entry covers how a statistic is *built*, only how a result is *read*. The reservation was deliberate (the register was forked across three branches and its `ID accounting` cell is hand-maintained) and is recorded here so the one-commit gap is not later read as a fourth C-106. ⛔ **The remedy is a reporting convention, not a guard:** a validator asserting *"your cell set was not chosen by the outcome"* cannot be written, because selection is sometimes correct and only the claim decides which. Numbering gaps are therefore back to the three unexplained ones — C-34, C-106, C-188. **C-353 added 2026-10-21 (`register-risk`), and it was found BY the C-351 registration rather than by a review pass:** §10.11 of `2026-10-20_d3_static_channel_ceiling.md` cross-referenced Appendix A as *"a different defect from C-351"* while Appendix A **was** C-351 — a pointer that referred to itself while denying it, and in doing so hid a class with three instances in one programme and no entry. C-353 is that class: a second-order property of the emitted field attributed to ONE component of a variance decomposition from a SINGLE measurement of the total (`Var(Y) = Var(E[Y|X]) + E[Var(Y|X)]`; `Var(N) = E[Var(N|Λ)] + Var(E[N|Λ])`). Instance 1 (§9.3) was ill-posed and rescued by D6-C's simulation; instance 2 (§10.10) was caught analytically; instance 3 (§10.11) is WITHDRAWN and not identifiable at all, per `Cox1955` C-3611. Tier 2 — it corrupts attributions, never data or a forecast. Deduplicated against C-351 (its sibling: how a statistic is *built* vs what may be *attributed* from one built correctly), C-307, C-320, C-345: registered NEW with cross-references. ⚠️ **No remedy is proposed, because there is nothing to patch** — every number in all three instances is correct; the defect is in the sentence. The instrument that would settle instance 3 is pre-registered and unrun (`2026-10-20_d12_spectral_prereg.md` — a variogram returns nugget, sill AND range, i.e. two components instead of one scalar). **2026-10-21, after D12/D12b/D12c: THREE EXISTING ENTRIES UPDATED AND NO NEW ONE ADDED**, which is the deduplication rule working rather than a quiet quarter — counts therefore unchanged at 350/196/183. **C-128** gains the first magnitude *and spatial* measurement of the locked-dropout posterior (11.2% of the body field's spatial variance at 4 draws; lag-1 **+0.27 to +0.46**, so the epistemic spread is spatially coherent, independently corroborating the one-shared-mask defect its 2026-08-03 update found by code read) plus ⭐ the cheap **cost** test nobody has run — a dropout-OFF run scored at matched total sample count on the frozen ruler, since every MC draw costs a full forward pass and head draws are free. **C-209** gains the consequence that epistemic and aleatoric differ in spatial *structure* and not only in size, so recording `(D,K)` is necessary but no longer sufficient; cross-ref C-110's aggregation concern, which now has a measured number. **C-351** gains **instance #8** — the first one *between* two instruments rather than inside one statistic: D12b's P-1 subtracted D6-C's attenuation (a property of the **model's** rate field) from the truth's nugget (a property of the **truth's**), two fields whose firing differs 4.18×, so the "contradiction" may be an artifact of the comparison. ⛔ None of the three is a new risk class and none was registered as one.** |
-| Total Concerns    | 386                                  |
-| Open Concerns     | 232                                  |
+| Total Concerns    | 396                                  |
+| Open Concerns     | 242                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | **219** = Open (232) − demoted (13). ⛔ Read 208 until 2026-10-27, against an Open count that had moved eight times without it; the line was incremented whenever a concern was added and never reconciled to its own formula. The formula is now written here so the next reader can check the number instead of trusting it (`/code-review max` on PR #457). |
+| — net active risks | **229** = Open (242) − demoted (13). ⛔ Read 208 until 2026-10-27, against an Open count that had moved eight times without it; the line was incremented whenever a concern was added and never reconciled to its own formula. The formula is now written here so the next reader can check the number instead of trusting it (`/code-review max` on PR #457). |
 | Resolved Concerns | 154                                  |
 | Last curation pass | **2026-10-20 (review-rr strategic)** — ✅ **structure CLEAN on all six derived checks**: 342 headers / 342 distinct, §Open exactly 188 and §Resolved exactly 154 matching the header, no duplicate IDs, no ID in both sections, three gaps (C-34/C-106/C-188) all documented, 13 `[DEMOTED]` headers matching 13 backlog rows, and **0 of 188 open entries lack a tier or a trigger**. ✅ **Trigger quality: 0 weak of 188** — two flagged by pattern (C-164, C-192) were both false positives on inspection, which also confirms C-164's perpetual trigger WAS rewritten as the 2026-09-10 pass claimed. ✅ **No duplicates** — four title-overlap candidates (C-75/C-265, C-189/C-233, C-296/C-331, C-303/C-308) are all distinct concerns. ⛔ **One entry changed: C-345** gains the cross-artifact challenge and its resolution (see the entry). ⚠️ **One proposed change WITHDRAWN by the reviewer before applying it:** C-248 was proposed for demotion 1→2 as being about *"the planned"* GW ruler extension — reading the entry shows a **second symptom measured 2026-08-21 (#282, PR #283)** in which the same unloaded pre-origin month *"already breaks a shipped code path, not just a planned one"*, silently zeroing the persistence baseline. **Tier 1 is correct; the proposal was made from the title.** ⛔ **NOT ACTIONED, left as recommendations (this skill does not add risks or demote unilaterally):** (a) **clustering is stale** — 21 clusters cover 120 of 188 open entries, **68 unmapped including 16 Tier-1/2** (C-225/226/228/249/250/259/290/300/317/321/322/328/338/339/341/344), six weeks and ~25 entries since the last pass; (b) **27 live Tier-4s** — 40 open at Tier 4 against the tier's own *"does not affect correctness or reliability"*, only 13 demoted; (c) ⛔ **a BLIND SPOT that has now fired twice and is unregistered: an undeclared load-bearing dependency** — `wandb` (undeclared until 2026-09-19, #381) and `pandas` (undeclared through releases 0.1.0–0.1.3, declared 2026-10-20 in #408), both shipped to PyPI; the pandas instance has a specific mechanism worth capturing, that `__init__.py`'s lazy PEP-562 `__getattr__` lets an import smoke test pass while only a real run fails. Two recurrences is this register's own threshold for a cluster. **Use `register-risk` for it.** Previous pass: **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. **C-338..C-340 registered 2026-09-10 immediately after this pass, closing the three blind spots it named — C-338 (truth-data aggregate assignments; the register covered whether we measure the model correctly and not whether the reference is correct, with a live instance at views-datafactory#484), C-339 (the 8-member ensemble's benefit is assumed, and the first measurement says sample count not diversity), C-340 (no secrets convention, at the moment the repo acquires its first secret).** **C-341..C-343 added 2026-09-10 from `expert-code-review` of PR #351 (the development→main release): C-341 (Tier 2) the publish workflow's manual path could publish IRREVERSIBLY to PyPI while skipping the tag guard — tier set by irreversibility, not likelihood, since a PyPI version cannot be deleted or reused; FIXED the same day by deleting the input rather than guarding it, together with a second defect in the same never-executed file (a `tomllib` import on the runner's Python, working only by accident of the current image). C-342 (Tier 3) a production release now depends on TestPyPI, deliberately unfixed. C-343 (Tier 4) `__all__` and the lazy `__getattr__` can drift. The same review MERGED its BN finding into C-328 rather than registering it: the recal fix is a real training-time behaviour change and the release PR had claimed none.** Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -4315,7 +4315,7 @@ as unmeasurable, abandons it, and the actually-broken measurement survives into 
 — while this module's whole stated principle is that **two different failures must not produce the
 same signature.** The gate that enforces that principle violates it.
 
-### C-320: pre-registered decision rules that cannot deliver a verdict on the run that actually happens (FIVE instances)
+### C-320: pre-registered decision rules that cannot deliver a verdict on the run that actually happens (SIX instances)
 
 | Field | Value |
 |-------|-------|
@@ -4324,7 +4324,18 @@ same signature.** The gate that enforces that principle violates it.
 | Source | EXP-1 G1 check, silence-vs-fade dossier (2026-09-02) |
 | Trigger | Writing an agreement threshold (`within X%`) between two instruments without first bounding the *reference's* sampling error in the regime where the comparison will be made; **or writing a decision rule whose branches are all numeric outcomes, with no branch for "the arm produced no number"** |
 | Location | `reports/2026-09-02_silence_vs_fade_dossier/05_analysis_plan.md` (F3); `tools/exp1_g1.py`; `reports/2026-09-03_bptt_sa_dossier/05_analysis_plan.md` (the SCREEN rule) |
-| Cross-refs | C-319 (the sibling: a falsifier built on an untested assumption about a statistic), C-307 (cheap screens recorded as closures), **C-376 (instance 5, and the first where a *successful* synthetic validation is what produced the unusable readout)** |
+| Cross-refs | C-319 (the sibling: a falsifier built on an untested assumption about a statistic), C-307 (cheap screens recorded as closures), **C-376 (instance 5, and the first where a *successful* synthetic validation is what produced the unusable readout)**, **C-391 (instance 6 — the first where the rule is unsatisfiable for a MEASURED reason rather than a design one)** |
+
+#### ⬆ INSTANCE 6 — 2026-10-28, and it is the first one that is PROVED unsatisfiable rather than argued
+
+Instances 1–5 are decision rules that *could not be evaluated* on the run that happened — a missing column, an absent reference, a population that did not exist. **Instance 6 is different: the rule is evaluable, and the measurement shows no run can ever satisfy it.**
+
+RP-2 measured the noise floor of **B-1b body-alone pooled FSS** over three true seed replicates: **CV > 1 at 11 of 14 scales**, i.e. σ̂ exceeds the mean, and at out/n=33 the honest bar is **2.1312 against a value of 0.2947 — 7.2× the quantity itself**. ⇒ **Any pre-registered single-arm rule written against this readout is unsatisfiable by construction**, however well specified.
+
+⭐ **And it cannot be argued down.** Training and scoring are both bit-deterministic (M74, G-9), so the spread is **purely the seed** and there is no measurement-noise term to subtract.
+
+⚠️ **The remedy differs from instances 1–5.** Those were fixed by specifying the rule better. This one cannot be — it is fixed by **routing the rule to a different readout**: B-1b **gated out-of-sample**, CV **0.024–0.054**, where ≈0.16 clears the bar. See **C-391**.
+
 
 F3 required two instruments to agree within 10% at every horizon. It fired — and then fired on the
 **known-good control** too (2 of 36 horizons, 13.1% and 10.7%). The reference is a 16-sample
@@ -5541,6 +5552,8 @@ sometimes correct and only the claim decides which"*. For **this** sub-form that
 the class where a rule, not a convention, applies. *Location:*
 `reports/2026-10-21_emit_time_split_prereg.md` OUTCOME; ADR-073 §4.
 
+⚠️ **2026-10-29, CROSS-REFERENCE RATHER THAN A THIRTEENTH INSTANCE — see C-397.** RP-3 L2 found a *partition* whose membership rule is causally downstream of the quantity under test (M67's background is `index < 0.03`, a set defined by the model's own output). It was checked against this entry and **deliberately not merged**: this class is about how a **statistic** is built on a chosen population, and its remedy is the three-slot convention — which **does not help there**, because that population is named correctly and is *still* blind to the method's only cost. A different object needs a different remedy (report the complementary truth-based split alongside).
+
 ### C-352: the platform's registered `AP` metric ranks FLATTENED ENSEMBLE DRAWS, so it is coupled to per-cell dispersion and to the zero atom — two models with identical per-cell means score differently
 
 | Field | Value |
@@ -6135,7 +6148,7 @@ see what answered.
 
 ---
 
-### C-363: two committed pre-registrations disagreed about the same number for four days, and every pre-flight gate is scoped to a single document
+### C-363: two committed documents disagreed about the same thing, and every pre-flight gate is scoped to a single document — TWO occurrences, the second about an INFERENCE rather than a value
 
 | Field | Value |
 |-------|-------|
@@ -6166,6 +6179,33 @@ other mention is a link to it — because a value duplicated across two document
 grep is the only thing that will ever notice. ⚠️ The retraction convention already in use (keep the
 wrong value, annotate why it is wrong) makes this *worse* rather than better unless the link is
 there, because both documents then contain the dead number in plain text.
+
+#### OCCURRENCE 2 — 2026-10-28, and it is a different OBJECT again: an **inference**, not a value
+
+`/home/simon/Documents/kestrel_sigma_backup_20261021/` holds two committed documents that contradict
+each other about **which variable carries the σ̂ excess**:
+
+- `READOUT.md` §*The confound*: *"By elimination the excess sits on the 0.1.3/0.1.4 boundary"* — the
+  inference that makes the as-launched σ̂ not-a-seed-variance and selects the **same-version pair**
+  (0.0002…0.0196) over the as-launched family (0.0351…0.0932) as the number to use.
+- `ARTIFACT_METADATA.md`, staged **later in the same directory**, on `silver_0_1_4`: *"Its 190 weight
+  tensors are bit-identical to `silver`'s … 0.1.4 instead of 0.1.3"*, and calls that arm **"the
+  single-variable test that killed the library-version hypothesis"**.
+
+⇒ If the boundary is numerically inert there is **nothing to eliminate onto it**. ⛔ **Measured
+2026-10-28** (`reports/2026-10-28_sigma_hat/determinism_matrix.py`, committed before it ran):
+`silver` vs `silver_0_1_4` is **190 of 190 bit-identical**. The metadata is UPHELD and the readout's
+inference is **REFUTED**.
+
+⚠️ **Three things make this occurrence worse than occurrence 1, not merely another instance:**
+1. The later document **already knew** it contradicted the earlier one — it says so in its own prose
+   — and **nothing reconciled them**. The disagreement was not latent; it was documented twice.
+2. The object is an **inference**, so the C-363 remedy ("a derived constant gets exactly one home")
+   **does not apply**. There is no number to link to. ⇒ The remedy must widen: an inference that a
+   later artifact falsifies needs the **earlier document amended**, and nothing in the apparatus
+   makes a later staging look back.
+3. It was **load-bearing**: it selected the σ̂ that downstream decision rules would use. See
+   **C-390**.
 
 ---
 
@@ -6557,7 +6597,7 @@ halves. ⛔ **The risk is the pairing being forgotten, not the blind spot existi
 
 | Field | Value |
 |---|---|
-| **Tier** | **3** — an undocumented dependency that raises the cost of a realistic change. No instance has fired. |
+| **Tier** | **2** — ⛔ **escalated from 3 on 2026-10-28**: an instance HAS fired (L5 / #473, M79), and the dependency is not merely undocumented — it makes FSS purely ordinal and therefore unable to adjudicate any monotone change. |
 | **Source** | same run; the `f_M / f_o ∈ {0.5, 1.0, 2.0}` sweep |
 | **Trigger** | ⛔ **Anyone replacing the count-matched threshold with a fixed physical threshold**, which is what Roberts & Lean actually sweep and what any intensity-resolved FSS would need. |
 | **Location** | `scripts/sharpness_scorecard.py:92`; `reports/2026-10-26_body_optimisation_gap/fss_battery.out` |
@@ -6574,9 +6614,38 @@ goes **UP**, `0.5204 → 0.5342` — ⇒ **deliberately under-forecasting the ev
 grid-scale FSS.** At `f_M/f_o = 2.0` it falls to `0.4422`. The bias enters hardest at large `n`
 (`n=23`: `0.9514 → 0.8016 / 0.7785`), exactly as Eq. (8) predicts.
 
+⛔⛔ **ESCALATED 2026-10-28, and no longer "no instance has fired" — one has, and it is PROVED
+rather than noticed.** L5 (#473) needed FSS to adjudicate whether a per-cell recalibration damages
+spatial structure. It cannot, and the reason is this entry's own mechanism taken to its conclusion:
+
+`sharpness_scorecard.py:92` thresholds the prediction at the **`n_events`-th largest value** and
+`:78` then uses only `pred_grid > thresh`. ⇒ **FSS depends on the forecast ONLY through the SET of
+its top-`n_events` cells**, and no order-preserving map can change that set.
+
+**G-L5c demonstrated it rather than arguing it**: a strictly increasing surrogate transform applied
+to the delivered field left FSS **bit-identical at all seven scales**. On the real recalibration —
+monotone for 97.3–98.6% of adjacent bin pairs — FSS moved by at most **7.1e-03** across five bin
+counts while the aggregate mass ratio moved **0.3231 → 1.1471**. ⇒ **FSS registered essentially
+nothing about a change that tripled the forecast's total mass.**
+
+⇒ ⛔ **The consequence is sharper than "an undocumented dependency".** FSS is a *placement*
+instrument and `matched_pred_thresh` makes it a **purely ordinal** one. Any claim of the form "FSS
+is unchanged, so the field is unharmed" is **unsound for every monotone transform** — which includes
+every recalibration, every rescale, and every emission-composition change that preserves ranking.
+⚠️ Pairs with **C-373** (FSS saturates under blur) and **C-319** (a field statistic that cannot see
+placement, used to explain a placement effect): three instances of one instrument failing to carry
+the weight a verdict put on it.
+
+**Added remedy:** ⛔ an unchanged FSS must be reported as **blindness, not safety**, whenever the
+change under test is monotone — and whether it is monotone is cheap to check (L5's **G-L5f** does it
+in one line). ⭐ `reports/2026-10-28_rp3_l5/l5_spatial_and_aggregate.py` holds a reusable proof
+harness. **M79.**
+
 **Remedy is documentation, not a guard:** state in `sharpness_scorecard.py` and in
 `reports/GLOSSARY.md` that count-matching is what buys `AFSS = 1`, so a future intensity-threshold
 variant is known in advance to need its own bias term. Cross-refs: **C-373**, **C-351**.
+
+⚠️ **2026-10-29, SECOND CONFIRMED INSTANCE IN A DIFFERENT INSTRUMENT — see C-397.** RP-3 L2 found an event/background decomposition whose "background" is defined by the **model's own output** being small, which therefore **cannot contain a false alarm at any size** — the same family as this entry's count-matched threshold: a construction that removes the thing the instrument is being asked about. ⇒ The class now has two fired instances in two unrelated instruments (FSS's threshold, M67's partition), and the generalisation is **a construction keyed on the forecast cannot measure the forecast's cost**.
 
 ---
 
@@ -7264,6 +7333,535 @@ being consumed.
 | Narrative | **FAO-02 Appendix A.1, verbatim:** *"MCR = ŷ̄ / ȳ, where ŷ̄ denotes the mean predicted fatalities and ȳ denotes the mean observed fatalities computed **across all PRIO-GRID cell–month observations** in the validation evaluation period"*, judged as **distance from 1**, non-inferiority margin **1%**. ⇒ **A ratio of means, over every cell.** The repo holds three statistics under that name and **no two are equal**: (1) `lodestar_score.pos_mcr` = **mean of** `ey/truth` over `truth>0` — a mean of ratios, conditioned; (2) `sharpness_scorecard` = **ratio of means** over `truth>0` — right order of operations, wrong population; (3) the red-team's `MCR_field` = **ratio of means** over **all** cells — the FAO-02 form. ⭐ **M3's I-6 measured how far apart (1) and (3) are, in closed form:** `pos_mcr`'s per-cell weight is **exactly `1/truth`**, confirmed to **7.6e-17** against the prediction `Σ(1/truth)/n_event`, so the **same 100 units of mass move it 115.3× more when added to the smallest truths**. ⇒ (1) is a statement about **one-event cells**; (3) is a statement about the **total**, and neither bounds the other. ⛔ **This matters in the direction of the known defect:** the delivered model emits a total of **16,612** against the truth's **50,881**, which is exactly what the aggregate form is built to see and what a conditional mean-of-ratios can hide. ⭐ **Of FAO-02's three locked guardrails the frozen ruler computes exactly ONE as defined** — Brier. QS99 is absent entirely (**M5's first half**, closed as a coverage gap: three implementations, one formula, matching A.1). MCR is present only as two statistics that are not it. ⛔⛔ **And the fixed glossary was part of the defect.** `GLOSSARY.md` §4 listed `MCR` among the **banned aliases** of `pos-mcr` and gave MCR **no locked row of its own**. Banning the alias is correct — *don't say MCR when you mean pos-mcr* — but with no MCR row anywhere, the available reading was *"MCR is pos-mcr, just spelled wrong"*, and FAO-02's guardrail had **no entry in the fixed vocabulary at all**. ⚠️ **One further tension, and both sides are right.** `bulk_score.py` bans MCR by name — *"the pooled-mean/MCR cancellation cannot occur; MCR is BANNED"* — correctly, for a per-cell bulk-calibration question where a pooled mean lets over- and under-prediction cancel. FAO-02 locks the pooled form precisely because it wants the **aggregate** check. The error available here is not choosing wrongly between them; it is letting either stand in for the other. |
 | Remedy | ⛔ **Nothing is added to `lodestar_score.py`** — it is frozen, #482 forbids it, and development work does not need it. **Done in this pass:** `GLOSSARY.md` gains a locked **`MCR`** row (FAO-02's formula, population, margin, and the three repo statistics named), a locked **`QS99`** row, and a continuation on `pos-mcr` carrying the 115.3× measurement and the sentence ⛔ *"a `pos_mcr` number does not discharge the MCR guardrail."* **Owed, and NOT done:** before any FAO-02 eligibility claim, a **separate guardrail pass** computing QS99 and FAO-02's MCR on the **validation** partition, over the **36-month** rolling-origin protocol, against the **empirical conflictology** baseline. ⚠️ That is a job, not a column, and it is not in epic #477's scope. |
 | Cross-refs | **C-351** (population + transform + estimator + normalisation — this is that rule at the level of a *governance* term, which is the highest-stakes place it can fail); **C-303** (prose asserting a guarantee nothing enforces — the glossary row is that class pointed at a controlled vocabulary); **C-306** (a margin derived for one contrast used for another — `2026-10-21_structure_penalty_arm_prereg.md` P-5/F3 borrow FAO-02's **5%** margin for an intra-programme bound, without the three conjunctive guardrails it travels with in the locked framework); **C-388** (the other locked-guardrail-adjacent instrument defect found in the same epic); **M5** / #482; `reference_fao02_locked_eval_framework` (the memory whose one-line summary was insufficient — ⇒ for a locked definition, read the document). |
+
+---
+
+### C-390: a noise floor was selected by an elimination inference that is now refuted, and the selected value understates the floor 3× to 200×
+
+| Field | Value |
+|-------|-------|
+| ID | C-390 |
+| Tier | 2 |
+| Source | RP-2 step 0, `reports/2026-10-28_sigma_hat/determinism_matrix.py` (committed `ab3f122` before it ran); finding `FINDING_RP2_S0.md` |
+| Trigger | Writing a decision rule, MDE, or non-inferiority bound for ANY one-run-per-arm comparison, and taking σ̂ from the 2026-10-21 readout's **same-version pair** rather than its **as-launched family** |
+| Location | `/home/simon/Documents/kestrel_sigma_backup_20261021/READOUT.md` §M1 and §"The confound"; the σ̂ consumers named in `reports/2026-10-18_weight_decay_arms_prereg.md:1051` |
+| Cross-refs | **C-363** occurrence 2 (the document disagreement that produced it). **W-83** (σ̂ declared missing while the artifact was on disk). **GLOSSARY §5e** (σ̂ of the gate slope is not σ̂ of B-1a/B-1b — same word, different statistic). **C-351** |
+
+`READOUT.md` reports σ̂ of the gate-calibration slope `b` two ways: **as launched** over seeds
+{42,43,44} — **0.0351** (n≥1000) / **0.0932** (all) / **0.0434** (√n), df = 2 — and over the
+**same-version pair** {43,44} — **0.0023 / 0.0196 / 0.0002**, df = 1. It then argues the as-launched
+family is **not** a seed variance, because *"by elimination the excess sits on the 0.1.3/0.1.4
+boundary"*, and reports the same-version pair as the clean estimate.
+
+⛔ **The elimination is refuted.** `silver` (0.1.3) and `silver_0_1_4` (0.1.4) are **190 of 190
+bit-identical weight tensors** — the boundary moves nothing for this config. With rerun variance
+measured at exactly zero (`amber` ≡ `silver` ≡ `silver_0_1_4`, across **two git shas** and **three
+library versions**) and pod hardware excluded by the same comparison, **the only variable left
+between seed 42 and seeds 43/44 is the seed.**
+
+⇒ **The same-version pair is not a cleaner estimate of the same thing. It is the same estimate with
+the outlying seed dropped**, and it understates the noise floor by **3× to 200×** depending on
+weighting. ⛔ Any bound derived from 0.0002–0.0196 is derived from the smaller of two numbers for a
+reason that does not hold.
+
+⭐ **The readout's own pre-registration decides this, not a preference.** It predicted that if the
+version boundary were real, seed-42-on-0.1.4 would show `bronze`/`cobalt`'s *positive-throughout*
+signed-error pattern. `silver_0_1_4` **is** seed-42-on-0.1.4 and is bit-identical to `silver`, which
+**crosses zero**. The version hypothesis is dead on its declared terms.
+
+⚠️ **What this does NOT say.** It does not say seed 42 is the outlier rather than 43/44 being the
+pair that happens to agree — n = 3, df = 2, and three points cannot identify which one is unusual.
+The honest statement is the df = 2 one **with its interval**: 95% CI **[0.52 σ̂, 6.28 σ̂ ]**, a
+**12.1-fold** span, and the real bar against one unreplicated arm is **4.97 σ̂**.
+
+⛔ **And it is σ̂ of the WRONG STATISTIC for what #462/#463 need.** This is the gate-calibration
+slope. σ̂ for **B-1a / B-1b** has still not been measured, and the two must never be quoted against
+each other (GLOSSARY §5e, instance 4 — the collision that produced W-83).
+
+---
+
+### C-391: an instrument on the scoreboard has a noise floor LARGER THAN ITS OWN SIGNAL, and has been quoted from single runs
+
+| Field | Value |
+|-------|-------|
+| ID | C-391 |
+| Tier | 2 |
+| Source | RP-2, `reports/2026-10-28_sigma_hat/sigma_hat_aggregate.py` (committed before it ran); finding `FINDING_RP2_SIGMA.md`; **M75** |
+| Trigger | Quoting **B-1b body-alone pooled FSS** from a single run — in a scoreboard row, a prereg decision rule, a results-ledger entry, or any comparison between two arms |
+| Location | `reports/2026-10-26_body_optimisation_gap/b1b_placement_baseline.py` (the `body alone (mu)` blocks); `reports/2026-10-26_body_optimisation_gap/b1b_placement_baseline.out`; every row quoting it |
+| Cross-refs | **C-320** instance 6 (the decision-rule consequence). **C-376** (the same instrument, validated on a synthetic example then committed where its premise inverts). **C-351** (population/transform/estimator). **M74**, **C-390** (σ̂ of the *gate slope* — a different statistic, never quoted against this one) |
+
+Three true seed replicates (`silver_0_1_4`/42, `bronze`/43, `cobalt`/44 — identical configs, git
+`2e73de3`, `truncated_nb` @ dropout 0.15) give, for **B-1b body alone**:
+
+| window | n | mean | σ̂ (ddof=1, 2 df) | **CV** | 4.97 σ̂ bar |
+|---|---|---|---|---|---|
+| in | 1 | 0.1055 | 0.1796 | **1.703** | 0.8927 |
+| out | 33 | 0.2947 | 0.4288 | **1.455** | **2.1312** |
+
+⛔⛔ **CV > 1 at 11 of 14 scales: the across-seed standard deviation exceeds the quantity being
+measured.** At out/n=33 the honest bar for believing a one-arm difference is **7.2× the value
+itself**. ⇒ **No single-run comparison on this readout can clear its own noise floor.** It is not a
+weak instrument; at n=1 it is **not an instrument**.
+
+⭐ **And the spread is purely the seed.** Training is bit-deterministic (M74: 190/190 weight tensors
+identical across two git shas and three library versions) and scoring is bit-deterministic (G-9:
+`mu`/`theta`/`gate` reproduce at exactly `0.000000e+00` across a seven-day gap). There is **no
+measurement-noise term to subtract** and therefore no way to argue the floor down.
+
+⚠️ **The sibling readout is fine, which is why this is a trigger and not a retirement.** B-1b
+**gated, out-of-sample** has CV **0.024–0.054** (σ̂ 0.023–0.033 against means 0.60–0.93), so a
+difference of **≈0.16** clears the bar. ⇒ The remedy is **route arms to the gated out-of-sample
+variant**, not to delete the body-alone one, which remains a legitimate *descriptive* statistic.
+
+⚠️ **B-1a is adjacent but not the same finding.** It is weakest exactly at `d = 1`, the setting its
+published headline uses: out/E-W/d=1 gives σ̂ **0.5073** and a bar of **2.5214** on a quantity whose
+whole observed range is ~0.4–1.5. Usable at larger `d`, where the bar is still ~78% of the value.
+
+⛔ **Scope.** `truncated_nb` @ 0.15 only. The published B-1a 0.391 / B-1b 0.6267 are `nb` @ 0.15 on
+a checkpoint ⛔ **this paragraph wrongly called "deleted" — CORRECTED 2026-10-29 by the claims
+audit.** It is on disk at `~/Documents/views_hydranet_vehicle_20261012/`, sha256 `4acbf4d3…`,
+exactly the sha stored inside `d4_result.npz` (**C-394**, **W-99**). ⚠️ The scope limit itself is
+unchanged and still binding — that checkpoint has **no replicate**, so σ̂ for `nb` @ 0.15 remains
+**unmeasured**; the artifact's existence does not supply one. The live `nb` control is @ 0.125; the
+family alone shifts B-1a by **3.7×**. ⇒ This discharges the noise floor for `truncated_nb` @ 0.15
+and, for `nb`, only provisionally as a transported CV.
+
+---
+
+### C-392: a LOCKED FAO-02 guardrail is judged on a 1% margin against 84% seed noise, and nothing in the apparatus says so
+
+| Field | Value |
+|-------|-------|
+| ID | C-392 |
+| Tier | 2 |
+| Source | RP-2b, `reports/2026-10-28_column_noise_floors/column_noise_floors.py` (committed before it ran); finding `FINDING_RP2b.md`; **M76** |
+| Trigger | Asserting, or pre-registering, FAO-02 **MCR** compliance — or a non-inferiority verdict on any magnitude-calibration column (`MCR_field`, `pos_mcr`, `size_ratio`) — from a **single** unreplicated run |
+| Location | `reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py` (the frozen ruler, which emits `pos_mcr`/`size_ratio`); `reports/2026-10-27_metric_redteam/separation_matrix.py` (`MCR_field`, the locked form); FAO-02 Pre-Release Note 05 Appendix A.1 |
+| Cross-refs | **C-389** (MCR names three non-equal statistics and the ruler computes only one of FAO-02's three guardrails as defined — this is the *resolution* half of that *definition* finding). **C-391** (the sibling: a readout whose σ̂ exceeds its mean). **C-320** instance 6. **C-376**. **GLOSSARY §4** (locked `MCR` row), **§5e** (`run-to-run σ̂`) |
+
+FAO-02 Appendix A.1 locks **MCR** with a **1% non-inferiority margin**, judged as distance from 1.
+Measured over three true seed replicates (identical configs, git `2e73de3`, differing only in the
+seed):
+
+| | |
+|---|---|
+| the margin compliance is judged on | **0.01** |
+| **σ̂ from the seed alone** | **0.840477** |
+| ⇒ | **the seed noise is 84× the margin** |
+| the honest 4.97σ̂ bar against one unreplicated arm | **4.177** — **418× the margin** |
+
+⛔ **This is NOT a claim that FAO-02 is wrong.** FAO-02 is locked and stays locked. The claim is
+that **our ability to test compliance with it is two orders of magnitude coarser than the test
+itself**, and no gate, prereg or scoreboard in this repository states that.
+
+⚠️ **And it is the whole magnitude family, not one column.** The three magnitude-calibration columns
+are an order of magnitude noisier than the placement columns measured on the same three runs:
+
+| group | CV |
+|---|---|
+| gate-only (AP, Brier) | 0.021 – 0.024 |
+| placement / shape (FSS × 7, hit_rate, Gini) | 0.024 – 0.055 |
+| ⛔ **magnitude calibration** — size_ratio **0.237**, pos_mcr **0.293**, MCR_field **0.356** | **10× worse** |
+
+⇒ **The quantity this programme most wants to move is measured by its three least resolvable
+columns.**
+
+⛔ **Scope, binding.** `truncated_nb` @ dropout 0.15, **expectation composition** (`gate ×
+emitted_magnitude`), not the delivered `nb` draws. ⇒ An **order-of-magnitude** statement, not a
+number to put in front of FAO-02. ⚠️ The levels here are **not** comparable to M2's committed
+battery values (`act_freq` is 0.012225 there and 1.000000 here — a different object); only σ̂ and
+the CV transfer, and only provisionally.
+
+⚠️ **n = 3, 2 df**: 95% CI **[0.52 σ̂, 6.28 σ̂]**. Even at the CI's **lower** limit the noise is
+**44×** the margin, which is why this is registered rather than held pending more seeds.
+
+**Remedy, and it is not "add a metric".** Either replicate any arm that will carry an MCR claim, or
+state in the prereg that MCR is reported **descriptively and carries no verdict** at n=1 — the same
+split C-391 forced on B-1b.
+
+---
+
+### C-393: a headline was quoted from the most favourable cell of an 8 x 3 grid of available score windows and targets, and nothing records that either was a choice
+
+| Field | Value |
+|-------|-------|
+| ID | C-393 |
+| Tier | 3 |
+| Source | RP-3 L3a (#471), `reports/2026-10-28_rp3_l3/l3a_split_sensitivity.py` (committed `363c69f`, Amendment 1 `ba4d47d`, both before their run); finding `FINDING_L3a.md`; **M77** |
+| Trigger | Quoting `0.039327`, `0.039186`, `0.046023` or `0.050758` as an **absolute** CRPS level — in a prereg, an ADR, a comparison against an arm scored on different months, or the paper — rather than as a margin measured within months 457–469. Also: reading L1 (#469) as a search for a sharper optimum. |
+| Location | `reports/2026-10-27_family_free_head/family_free_cdf.py:70-71` (`IS_LO, IS_HI = 421, 456`; `OS_LO, OS_HI = 457, 469`, hardcoded with no record of why that boundary); `reports/RESULTS_LEDGER.md` **M67**(4) and **M77**; `docs/ADRs/proposed/073_emit_time_distribution_split.md` §0; issue #443 |
+| Cross-refs | **C-351** (population, transform, estimator — this is the *population* slot failing in a way the convention does not currently catch: the population was named correctly and was still a selection); **C-383** (a published number with no committed script, the reason L3a's copy gate exists); **C-390** (a floor selected by an inference nobody re-derived); **C-363** (two routes to one statistic disagreeing); #469 (L1), #471 (L3), #487 (the sb-only cube) |
+
+The family-free lookup's headline was measured on fit months **421–456**, score months **457–469**.
+L3a swept the boundary over eight positions with the score window held at 13 months, so every CRPS
+mean is over the same 842,634 cell-months. The **B = 1** column — the unconditional empirical CDF of
+the fit window, which never consults the model — is the part that matters here:
+
+| score window | CRPS(B=1), model not consulted |
+|---|---|
+| 434–446 | 0.086285 |
+| 438–450 | **0.087141** (hardest) |
+| 441–453 | 0.083406 |
+| 444–456 | 0.080029 |
+| 448–460 | 0.073622 |
+| 451–463 | 0.069809 |
+| 454–466 | 0.063869 |
+| ⭐ **457–469 (the published window)** | **0.060323** (easiest) |
+
+⇒ The baseline falls **monotonically** as the window moves later, a **1.43× range**, and the
+published window is the **easiest of the eight by a measure that cannot be accused of
+model-dependence**. The published absolute **0.039186** is therefore the best absolute CRPS
+obtainable from this cube.
+
+⛔ **What is NOT being claimed.** The **−15.3% / −17.6%** margin is **not** retracted and is **not**
+in doubt from this. Its comparator was scored on the *same* window, so the window's easiness is
+common to both sides and largely cancels — and the internal margin holds on all eight windows
+(**−28.6% to −35.0%**, four of them sharing no month with the published one). ⇒ The **method**
+generalises; the **absolute number** does not transport.
+
+⛔ **The defect is the silence, not the choice.** 457–469 is a defensible boundary — it is the last
+13 months, which is what a forecaster would hold out. Nothing in the script, the ledger row, the ADR
+or the issue records that it was *a* choice, that seven alternatives existed in the same cube, or
+that it was the most forgiving of them. ⚠️ That makes it structurally the same failure as C-390: a
+single value selected by a reasonable rule, then quoted with the rule's existence forgotten.
+
+⚠️ **A second consequence, cheap to act on.** The ladder is **flat-topped**, not peaked: 8k / 16k /
+32k give 0.039186 / 0.039287 / 0.039493 at the published split — **0.8% over a 4× bin change** — and
+B\* sits at 8,000 or 16,000 on all eight windows. ⇒ **#469 (L1) is asking about a plateau, not a
+slope**, and should be scoped accordingly before it spends anything.
+
+⛔⛔ **EXTENDED 2026-10-28, same day — a SECOND favourable selection in the same number.**
+L3c (#471) scored the lookup on all three targets from one bit-identical cube, at the published
+split, against the same internal B=1 comparator:
+
+| target | positive rate | B\* | **internal margin** |
+|---|---|---|---|
+| ⭐ `ged_sb_best` — **the published target** | 0.003448 | 8,000 | **−35.0%** |
+| `ged_ns_best` | 0.001201 | 16,000 | −26.0% |
+| ⛔ `ged_os_best` | 0.001291 | 2,000 | **−14.9%** |
+
+⇒ The published target is the **best of the three**, and the margin **more than halves** across
+them. ⚠️ Not a base-rate artifact: `ns` is rarer than `os` and scores better. ⛔ `os` is weak
+independently of the margin — its ladder is flat from 1,000 bins up (0.9% span over 1k–32k) and its
+optimum is 4× coarser.
+
+⇒ **Two independent favourable selections, window and target, in one headline, neither recorded.**
+The headline is the most favourable cell of an **8 × 3 grid**. ⚠️ Still not a retraction: the
+comparator sat on the same window AND the same target, so both selections are common to both sides
+and largely cancel. What changes is what must travel with the number. **M78**,
+`reports/2026-10-28_rp3_l3/FINDING_L3bc.md`.
+
+⭐ **And the generalisation itself is good news, stated plainly so the caveat does not swallow it:**
+three of three targets hold, which means the lookup is reading the **shared trunk's** ranking rather
+than something peculiar to the `sb` head.
+
+**Remedy.** Two lines, no new measurement. (1) Every future quote of these numbers carries the
+window and the fact that it was the easiest of eight — M77 and `FINDING_L3a.md` now do. (2) ⛔ Do
+not compare a CRPS level across score windows at all; compare margins measured inside one window,
+or nothing — and the same now applies across TARGETS, which have different base rates and are not comparable in level either. ⚠️ **Not remediable here:** the spread cannot be separated into *window effect* and
+*noise*, because no σ̂ exists for CRPS on this route — RP-2 measured it for B-1a/B-1b, a different
+statistic, and C-391's rule forbids transporting one to the other.
+
+---
+
+### C-394: a SCOPED absence was written up as a GENERAL one, and it foreclosed the reproduction of every baseline number in the body scoreboard for seven days
+
+| Field | Value |
+|-------|-------|
+| ID | C-394 |
+| Tier | 2 |
+| Source | RP-3 L3b (#471) — found while checking which checkpoint a three-target sweep could legally run on, BEFORE spending the compute; `reports/2026-10-28_rp3_l3/l3b_three_target_cube.py` G-1/G-2 |
+| Trigger | Writing *"deleted"*, *"gone"*, *"cannot be regenerated"* or *"frozen historical record"* about any artifact — or scoping a σ̂, transfer or comparator caveat on a checkpoint's absence. Also: searching for a checkpoint under `views-models` only, which is where the original search was performed and is not where vehicles are archived. |
+| Location | `reports/2026-10-12_underfire_diagnosis/d4_result_CONTROL_nb_4acbf4d3.PROVENANCE.md` (the origin; corrected in place 2026-10-28, original text kept); `reports/2026-10-21_body_scoreboard.md` §5/§7 (inherited it); `reports/2026-10-28_sigma_hat/sigma_hat_aggregate.py` + its `.out` TRANSFER block and `FINDING_RP2_SIGMA.md` (inherited it as a transfer-table row); the plan's S4 transfer table |
+| Cross-refs | **C-363** (two committed documents disagreeing — this is the single-document form: a document disagreeing with the disk); **C-390** (a floor selected by an inference nobody re-derived — same family, an inference inherited without its premise); **C-393** (a window selected by a rule whose existence was forgotten); **W-83**, **W-89**, **W-99** (recording as absent what is on disk — now three instances); #471, #487 |
+
+The note said, correctly: *"**DELETED** — not on disk anywhere under `views-models`."* The heading
+above that sentence said: *"⛔ Why this file cannot be regenerated."* ⛔ **The scoped observation
+was true; the general conclusion was false.** The vehicle is at
+`~/Documents/views_hydranet_vehicle_20261012/calibration_model_20261012_033112.pt`, verified by
+hash as `4acbf4d3c2b457b0827a84148606c55dab022e859257ca4e669e224edca6bc7f` — **exactly** the sha
+stored inside `d4_result.npz` — with its `.config.json` sidecar, its own `.sha256` and the full
+`run_20261012/` directory. Sidecar: family **`nb`**, dropout **0.15**, 300 lessons, git `f99413e`.
+
+**What the false generalisation cost, for seven days:**
+
+| inherited claim | status |
+|---|---|
+| *"every baseline number in `2026-10-21_body_scoreboard.md` §5/§7 traces to this one file and to nothing else"* | ⛔ **false** — all of them are re-measurable |
+| *"a frozen historical record, not a live comparator"* | ⛔ **false** — it is a live comparator |
+| *"the arm is re-baselined on the surviving `truncated_nb` vehicle **because that one can be re-measured and this one cannot**"* | ⛔ the **reason** is false. ⚠️ The decision may still be right on other grounds, but it was taken for a reason that does not hold |
+| RP-2's transfer table, row 1: *"published B-1a 0.391 / B-1b 0.6267 — `nb` @ 0.15 — checkpoint **DELETED**"* | ⛔ **false row** |
+| RP-2's transfer **limit** (σ̂ is `truncated_nb` @ 0.15 and transfers to `nb` only provisionally, as a CV) | ⭐ **STILL TRUE, and must not be read as discharged** |
+
+⛔⛔ **The last two lines are the dangerous pair.** σ̂ needs **≥2 further seeds**; this is **one**
+checkpoint at seed 42. ⇒ Finding the vehicle makes the published numbers **reproducible**, which is
+a different thing from making them **resolvable**. A reader who takes this correction as relief for
+the σ̂ caveat would be making exactly C-390's error one level up.
+
+⭐ **What it does unlock, concretely and cheaply.** (1) `l3b_three_target_cube.py`'s **G-2** asserts
+bit identity of its `sb` slice against `d4_result.npz`, which in one assertion proves the lead-in,
+month range, draw count, dropout masks and slice arithmetic identical **and** proves
+`d4_result.npz` is what it claims. (2) L3's three-target result comes off the **very vehicle** the
+published `sb` number came off ⇒ **no cross-family caveat at all**, where the plan had assumed one
+was unavoidable. (3) B-1a / B-1b / B-2 / B-3 are re-measurable on the real `nb` @ 0.15 vehicle.
+
+**Remedy.** (1) ⛔ An absence is reported **with the search that established it** — the path, the
+command, and what was *not* searched — or it is not reported. The original note's own sentence did
+this correctly and the heading above it undid the work. (2) ⛔ No document may state *"cannot be
+regenerated"* without a recorded `find` across the archive roots, not just the repo. (3) The three
+inheriting documents are corrected by cross-reference to this entry rather than silently edited, so
+the inheritance stays visible.
+
+---
+
+### C-395: `git add -f <directory>` defeats the gitignore it is overriding, and staged a 413 MB artifact that GitHub would have refused
+
+| Field | Value |
+|-------|-------|
+| ID | C-395 |
+| Tier | 3 |
+| Source | RP-3 L3b, 2026-10-28 — self-inflicted, and caught by inspecting `git ls-files` sizes after the fact, not by any gate |
+| Trigger | Any `git add -f` whose argument is a **directory** rather than named files — above all when staging a new dossier under `reports/`, which is where every cube, `.npz`, `.parquet` and `.pt` in this project lives. |
+| Location | the abandoned local branch `epic/rp2-sigma-hat` (⭐ **never pushed**, kept on disk as the record); the live branch `epic/rp2-sigma-hat-v2` carries the same work with the blob absent |
+| Cross-refs | #488 (the decision, now answered); #448 (the workstation disk, open, 94% full); **C-394** (the artifact is regenerable, which is why it never needed committing); **W-100** (the framing error that followed) |
+
+`reports/` is gitignored **because** it holds large derived artifacts; documents in it are staged
+with `git add -f`. ⇒ ⛔ **`-f` on a directory inverts the exact protection it is overriding**, and
+stages every artifact in that directory along with the prose. The commit took
+`reports/2026-10-28_rp3_l3/l3b_cube3.npz`, **413,333,743 bytes**, against a next-largest tracked
+file of **14.8 MB** — **28× anything else in the repo**.
+
+⛔⛔ **AND IT WAS NOT A TIDINESS PROBLEM.** GitHub **hard-blocks** any single file over **100 MiB**
+(server-side pre-receive hook, `GH001`). At 413 MB the blob is **4× over**, so the branch **could
+not have been pushed at all** — and with it the whole of 2026-10-28's work: L3a, L3b, L3c, C-393,
+C-394, M77, M78 and six ledger rows. ⇒ The real cost was not disk. It was that the work could not
+have left the workstation.
+
+⚠️ **`git rm --cached` does not fix this**, and that distinction is written here because it feels
+like a fix: untracking stops the blob entering *future* commits, and leaves it in the commit that
+already has it.
+
+**What was actually done, 2026-10-28, with Simon's authorisation and WITHOUT breaking a standing
+rule.** The blob sat only in commits that were **not on origin**, so no force-push was ever needed.
+The work was rebuilt on a fresh branch cut from the last clean commit, using only `switch -c`,
+`checkout -- <path>`, `commit` and `push`. ⛔ No `rebase`, no `filter-repo`, no `reset --hard`, no
+`cherry-pick`, no `--force`. **Nine of twelve commits keep their exact shas**, including the one
+that evidences D-5 for the L3b script; the last three were reconstructed with their original
+messages and the same files minus the cube, and say so in their own text.
+
+⭐ **The artifact never needed committing.** It is **derived**: 818 s to regenerate from a
+checkpoint that is on disk, and `l3b_three_target_cube.py`'s **G-2** *proves* the regeneration
+bit-identical to the published cube. ⇒ Reproducibility here rests on a passing gate, not on
+storage, and committing it bought nothing the gate had not already given.
+
+**Remedy.** ⛔ **`git add -f` takes named files, never a directory.** No exception: the directory
+form cannot be made safe, because what it stages depends on what happens to be sitting in the
+directory at the time. ⚠️ Two supporting notes, deliberately not promoted to rules: a repo-wide
+`git gc` is an unrelated and larger disk win (`.git` holds **4.61 GiB loose** against **19 MiB
+packed**); and committing `.npz` is established practice here at 14.8 MB, so the novelty was the
+**size**, not the kind.
+
+---
+
+### C-396: the recalibration's bin count overstates its expressiveness by ~70x — at the published optimum 96.81% of bins carry the identical forecast
+
+| Field | Value |
+|-------|-------|
+| ID | C-396 |
+| Tier | 3 |
+| Source | RP-3 L5 gate G-L5d (as a by-product), then swept by `reports/2026-10-28_rp3_l5/l5b_effective_resolution.py` (committed `6dcaa93` before it ran); **M79**, **M80** |
+| Trigger | Quoting the lookup's bin count — "8,000 bins", "the curve was still improving at 32,000" — as a measure of its resolution, in a prereg, an ADR, issue #469 (L1), or the paper. Also: scoping L1 as a search for a sharper optimum. |
+| Location | `reports/2026-10-27_family_free_head/family_free_cdf.py` (the `B_SWEEP` ladder and its reported curve); `reports/RESULTS_LEDGER.md` **M67**(4), **M77**, **M80**; #443, #469 |
+| Cross-refs | **C-393** (the same headline quoted from the most favourable window and target — this is the third way the number is less than it looks); **C-376** (a statistic pinned at its floor on the real population: the same shape, a method's nominal range not being its realised range); **C-351** (population / transform / estimator — this is the *estimator's* effective granularity, which the convention does not currently require anyone to state) |
+
+The lookup bins cell-months by the model's index and forecasts each bin with the **mean** of the
+truth observed in it. Swept over its own bin count:
+
+| bins B | members/bin | bins with mean **exactly 0.0** | distinct values realised | distinct / B |
+|---|---|---|---|---|
+| 250 | 9,333.8 | 90.80% | 17 | 0.0680 |
+| 1,000 | 2,333.4 | 94.00% | 37 | 0.0370 |
+| 4,000 | 583.4 | 96.07% | 78 | 0.0195 |
+| ⭐ **8,000** (the published optimum) | 291.7 | ⛔ **96.81%** | ⛔ **115** | 0.0144 |
+| 16,000 | 145.8 | 97.51% | 170 | 0.0106 |
+| 128,000 | 18.2 | **98.70%** | 407 | 0.0033 |
+
+⇒ **B grew 512×; the realised distinct-value count grew 23.9×**, and the efficiency fell
+**21-fold**. At the published optimum the method expresses **115** distinct forecasts over 842,634
+score cell-months, and **96.81% of its 8,000 bins are the same forecast**. ⇒ **"8,000 bins"
+overstates what it can express by roughly 70×.**
+
+⛔ **A property of the data, not a defect in the method.** With **99.66%** of cell-months at zero
+and ~8,000 events in 2,333,448 fit cell-months, the average bin at B = 8,000 holds 292 members and
+about **one** event; a bin containing none has a mean of **exactly 0.0**. ⇒ A different binning rule
+would not repair it. A different target base rate would.
+
+⭐ **It offers a mechanism for the flat-topped ladder (M77).** The `max bin mean` rises
+**20.9 → 333.8** across the sweep, so the extra distinct values come from **isolating extreme events
+in the tail**, not from resolving the body. ⇒ CRPS, dominated by the zeros, stops improving.
+⚠️ **Registered as an explanation, not a demonstration** — a mechanism consistent with a curve is
+not evidence that it produced it, and that distinction is part of this entry's content.
+
+**Remedy, and it is cheap.** ⛔ Quote the **realised distinct-value count** beside any bin count
+wherever the method's resolution is at issue. ⚠️ And **rescope #469 (L1)** before it spends
+anything: L1 exists because "the curve was still improving at 32,000 bins", and at 32,000 the method
+expresses 232 values with **98.00%** of bins at zero ⇒ it is asking about a **plateau**, and about
+the **tail**, not about a slope in the body.
+
+---
+
+### C-397: a decomposition whose "background" is defined by the FORECAST being small cannot report what the forecast costs when it is large, and the sign of its headline claim flips with the partition
+
+| field | value |
+|---|---|
+| **Tier** | **2** — structural fragility with a clear trigger. It corrupts a *conclusion about where a method's cost lands*, never data and never a forecast. Not Tier 1: nothing is silently mis-emitted, and both halves of the arithmetic are individually correct. Not Tier 3: the defect already carried a published claim in the **opposite** direction for a week, and the next action on epic #468 is to decide whether the recalibration's background cost is acceptable. |
+| **Source** | RP-3 L2 (#470), `reports/2026-10-29_rp3_l2/FINDING_L2.md` §2–§3; `l2_background_split.py` / `l2b_pin_the_background.py`, both committed before they ran |
+| **Trigger** | Reporting, or acting on, an event/background (or signal/noise, or active/quiet) decomposition of a score where the partition is defined by the **model's own output** rather than by the **truth** — specifically: the next time epic #468 quotes the recalibration's background cost to decide whether to deliver it, or any later readout re-uses M67's split. |
+| **Location** | `RESULTS_LEDGER.md` **M67**(4) — the sentence *"it ties the delivered model on the quiet background (0.000260 vs 0.000266)"*; `docs/ADRs/proposed/073_emit_time_distribution_split.md` §0, which repeats the localisation; `reports/2026-10-27_family_free_head/family_free_cdf.py:136` (`ev = y_sco > 0`), the complementary split that could not match it |
+
+**What was measured.** M67's *"quiet background"* is **`index < 0.03`** — a set defined by the
+model's own `gate × mu` being small — covering **98.7123%** of the score window and scoring
+**0.000261** against M67's published **0.000260**. Pinned three independent ways (level to 0.4%;
+share to **0.07 percentage points** of M67's own *"1.36% of cells it forecasts anything for"*;
+neighbouring rungs refusing it at 0.40× and 2.66×). #460's reproduction partitioned on `truth == 0`
+instead and measured **0.001964** — **7.55×** — and was **structurally unable** to match: a
+complementary split obeys `total = bg·(1−f) + ev·f`, which the reproduction's trio satisfies to
+**+0.00%** and **M67's misses by −4.39%**, because M67's background is an *index* set and its event
+half a *truth* set. They overlap and do not cover the window.
+
+**Why it is a risk and not just an error.** Against the internal B=1 comparator, the same
+recalibration is:
+
+| population | B=1 | B=8,000 | |
+|---|---|---|---|
+| `truth == 0` | 0.000075 | 0.001964 | ⛔ **26.14× — it pays** |
+| `index < p98.64` (M67's definition) | 0.000289 | 0.000214 | ⭐ **0.74× — it gains** |
+
+⇒ ⛔⛔ **The same method, the same cube, the same months: "it ties on the quiet background" is TRUE
+under M67's partition and FALSE under the truth-based one.** And the mechanism is not subtle — the
+**entire** 0.001964 is carried by **30,008** cell-months that are **empty but hold a non-zero
+forecast** (exact integer count, G-L2c; ≈0.055 each, against structurally **exactly 0** on the
+96.0940% that are empty and forecast nothing). Those are precisely the cells a low-index background
+excludes **by construction**: they are where the index is large and nothing happened. ⇒ **The
+partition was blind to the only place the method's cost lives.**
+
+⚠️ **This is the general form, not a one-off.** A partition keyed on the forecast puts every
+false-alarm cell on the *other* side of the line, so the "quiet" half can only ever contain cells the
+model was already quiet about — and a false-alarm cost **cannot appear in it at any size**. The same
+shape would hide a false-alarm cost in any signal/noise split keyed on a predicted intensity,
+including the gate.
+
+**Relationship to existing entries — checked and deliberately NOT merged.**
+- **C-351** (population/transform/estimator chosen by the thing being measured) is the nearest, and
+  this is a **13th instance in that family's spirit** but a **different object**: C-351's remedy is a
+  three-slot reporting convention for a *statistic*; this is about a *partition* whose membership
+  rule is causally downstream of the quantity under test, where naming the population honestly is
+  **not enough** — the population is named correctly and is still blind. **C-351 gains a
+  cross-reference, not an instance.**
+- **C-319** (field statistics blind to placement) is the closest in consequence but concerns
+  internal statistics with no truth reference; this partition *is* truth-scored and still blind.
+- **C-374** (FSS's count-matched threshold) is the same *family of blindness* — an instrument whose
+  construction removes the thing it is asked about — and this is its second confirmed instance in a
+  different instrument. **C-374 gains a cross-reference.**
+- **W-51** is cited inside the finding and not merged: it is the rule that stops the 26.14× being
+  quoted against M67's 13.5× (different comparators).
+
+**Remedy, and it is a convention rather than a guard.** ⛔ **State the partition's membership rule
+beside any decomposition, and report the complementary truth-based split alongside it whenever the
+rule reads the model's own output.** Two numbers, not one. ⚠️ No validator can be written: a
+forecast-keyed partition is sometimes exactly the right question (*"what does it cost where it
+speaks?"*), and only the claim being made decides whether it is. ⭐ What **is** mechanical is the
+reconstruction identity — `total = bg·(1−f) + ev·f` to within rounding — which costs one
+multiplication and would have caught this on the day M67 was written.
+
+---
+
+### C-398: a split recomputed at every rung of the parameter being swept turns COMPOSITION into a trend — the complement improves monotonically because the set is shedding its worst members
+
+| field | value |
+|---|---|
+| **Tier** | **2** — structural fragility with a clear trigger. It corrupts a *conclusion about why a swept curve moves*, never data and never a forecast. Not Tier 1: nothing is silently mis-emitted and no artifact is wrong; the numbers are all correct and the sentence attached to them is not. |
+| **Source** | RP-3 L4 (#472), `reports/2026-10-29_rp3_l4/FINDING_L4.md` §4; `l4b_the_turnover.py` §1 against its own §2, committed before it ran; `l4c_turnover_attribution.py` measured the fixed-population version |
+| **Trigger** | Quoting a trend in a per-rung decomposition of a sweep — the next time a swept table carries a column computed on a population that is **recomputed at each rung** (an exceeding / outlier / tail / threshold-crossing set, a mask derived from the setting under test) and that column's monotone direction is read as the method improving or degrading. ⛔ Specifically: before reporting any such column's trend, re-measure it on the set **frozen at one rung** and report both. |
+| **Location** | `reports/2026-10-29_rp3_l4/l4b_the_turnover.out` §1 (the B-dependent split) against §2 (the fixed split); the general form applies to every `*_sensitivity.py` and `*_sweep.py` in `reports/` that splits a population by a rule involving the swept parameter |
+
+**What was measured.** The family-free lookup's bin ladder was split at every rung into the
+cell-months whose truth **exceeds** their bin's observed maximum and the rest. Split by **each
+rung's own** exceeding set, the complement's mass falls monotonically at all eight rungs
+(0.055040 → 0.030819) — which reads as *"the method keeps improving on everything it can
+represent"*. ⛔ It does not. Held **fixed** at B=8,000, the same complement's argmin is **B=16,000**,
+after which it degrades. Both numbers are correct. As the bin count grows the B-dependent
+complement **sheds its worst members** — 62 exceeding cell-months removed at B=8,000, 123 at
+16,000, 203 at 32,000, each carrying 60–80× the window's mean CRPS — so its mean falls **with no
+cell-month's forecast improving at all**.
+
+**Why it is its own entry and not an instance of C-351.** C-351 requires every number to name its
+population, transform and estimator, and the B-dependent column **does** name its population
+correctly at every rung: *"the cell-months not exceeding their bin at this B"*. Naming it honestly
+is exactly what fails to help — the population is named, correctly, and it is a **different**
+population at each rung, so the column is a sequence of means over eight different sets and has no
+trend to read. ⇒ C-351 is a labelling rule; this is a statement that a correctly-labelled sequence
+can still be uninterpretable as a curve. Related to **C-397** (a partition whose membership rule is
+downstream of the quantity under test) and the same family's third fired instance: there the
+partition was keyed on the **forecast**, here on the **swept parameter**.
+
+**The mitigation, and it is cheap.** Measure the split twice — once by each rung's own rule, once
+on the set frozen at one rung — and quote trends only from the second. In L4 this cost one extra
+mask and 26 s, and it is the only reason the error was caught inside the same run rather than in a
+published finding. ⭐ The fixed version is also the only form that licenses an **attribution**: on
+it, the first turnover step is 137.2% the frozen 62's doing, and an anchor-free set (the 62 largest
+truths) puts it at 217.8%.
+
+⚠️ **The defect is not the measurement, it is the sentence.** `W-105` records the prediction this
+fired on — a derivation whose number held exactly and whose mechanism clause was false — which is
+why the trigger above gates the *reporting*, not the computation.
+
+---
+
+### C-399: an instrument's output carried into a claim its INFERENCE MODE cannot support — the frozen `nb` cube is TEACHER-FORCED and every margin built on it was read as forecast skill
+
+| field | value |
+|---|---|
+| **Tier** | **1** — silent incorrectness with **no error signal anywhere on the path**. Every number is arithmetically correct, every declared gate passes, three independent implementations agree to 0.008%, and the claim attached to them is about a task the measurement cannot see. Tier 1 rather than 2 because nothing warns, nothing `nan`s, nothing fails — and the defect reached a **recommendation to deliver**, which is the consequence class Tier 1 names. |
+| **Source** | The `opponent` peer session's falsification of RP-3, 2026-10-29; mechanism verified in source the same day. |
+| **Trigger** | Before any CRPS, AUC, skill score or margin computed from `d4_result.npz` — or from any cube produced by `d4_mu_on_the_grid.py` — is (a) compared against a number from the delivery pipeline, (b) quoted as a forecast result, or (c) carried into a prereg, ADR or issue as evidence a method should ship: **state the inference mode of BOTH sides in the same sentence** (teacher-forced or autoregressive), and refuse the comparison if they differ. |
+| **Location** | `reports/2026-10-12_underfire_diagnosis/vehicle.py:301-307` (`build_volume` fills every input slice from the truth frame); `reports/2026-10-12_underfire_diagnosis/d4_mu_on_the_grid.py:143-146` (steps that volume; the model never consumes its own output). Consumed by every script under `reports/2026-10-27_family_free_head/`, `reports/2026-10-28_rp3_l3/`, `reports/2026-10-28_rp3_l5/`, `reports/2026-10-29_rp3_l2/`, `reports/2026-10-29_rp3_l4/`. |
+
+**What was measured.** `build_volume` writes the three observed fatality series into the model's
+three input channels for every month, and the sweep steps the model over that volume one month at a
+time. The model is therefore handed last month's truth at every inference step and never feeds back
+its own output. Measured on the identical 842,634 cell-months: the teacher-forced index ranks events
+at **AUC 0.99777**; the delivered autoregressive forecast at **AUC 0.72340**. ⭐ The teacher-forced
+AUC **does not decay with horizon** (0.99730 → 0.99783 over 13 steps) while the delivered one does
+(0.776 → 0.735) — the signature of reading rather than forecasting. Re-running the family-free
+recalibration with **only the index changed** gives **0.067752** on the deliverable forecast against
+**0.060323** for no model at all: worse than not ranking.
+
+**⛔⛔ **ESCALATED 2026-10-29 (M89) — the concern STANDS and its founding evidence was itself confounded.** The AUC pair above is a **two-variable contrast**: the two indices differ in inference mode **and** in emission (an expectation over MC draws vs the mean of 16 composed samples, which `threshold_gate` at τ=0.20 zeroes on 99.6567% of the population). Split on one population, holding each fixed in turn: **emission −0.1197** (0.99777 → 0.87807, both teacher-forced), **inference mode at h=1 −0.0752**, **horizon −0.0795**. ⇒ the trigger below is unchanged and the mechanism is unchanged, but the **magnitude** this entry now carries is measured rather than inferred: teacher-forcing on this cube is worth **+6.1% of CRPS at h=1** (0.049103 → 0.052109) and the delivered product scores **+13.6%** worse than the teacher-forced pass (0.055790 vs 0.049103) — the same order as the −14.9% margin the carry produced, which is why the carry was fatal rather than cosmetic. ⭐ And the delivered forecast itself, scored for the first time, **beats the no-model climatology by 7.5%** (0.055790 vs 0.060323) ⇒ nothing here says the model is worthless; it says the margin was read in the wrong regime. `W-108`, `M89`.
+
+⛔ The instrument is not at fault.** `d4_mu_on_the_grid.py` was built to inspect the head at step
+zero, and feeding observed truth is correct for that. The defect is the **carry** — its output
+crossed into comparisons, a ledger headline, a proposed ADR, an epic and a ship recommendation
+without the mode ever being named. ⚠️ The comparators turned out to sit on the **same** cube
+(`reports/2026-10-21_emit_time_split_prereg.md:102`), so the emission-family comparison is
+like-for-like and survives scoped to T=0; what falls is every sentence calling it a forecast result.
+
+**Why it is its own entry and not an instance of C-351, C-398 or C-393.** C-351 requires every number
+to name its **population, transform and estimator** — and every number here did, correctly and in
+writing (842,634 cell-months, months 457–469, plug-in CRPS, not normalised). The unnamed axis is
+the **inference mode**, which no slot in C-351's convention has, and adding one would not have helped
+because the mode is not a property of the statistic but of the artifact it reads. C-398 and C-397 are
+about a **population selected by the quantity under test**; this is about an **index** selected by the
+instrument that produced it, one level upstream, and its remedy is a provenance check on the artifact
+rather than a reporting convention for the claim. C-393 forbids quoting these CRPS values as
+**absolute levels**; it is silent on the regime, and the margin — which C-393 explicitly permits
+— is exactly what this defect corrupts.
+
+**Remedy.** Not a guard. A cube cannot declare its own inference mode without being rewritten, and
+rewriting it would change artifacts that other results depend on. The remedy is the trigger above
+plus one measurement that does not exist: **score the delivered autoregressive forecast**, so that
+every future margin has a same-regime comparator to sit beside.
 
 ---
 

@@ -1,0 +1,155 @@
+  PASS  G-L5a  offsets(120) = 22,612 (want 22,612), E-W 120 (want 120), N-S 120 (want 120)
+  PASS  G-L5b  copied variogram on in-sample log mu: var 1.6418/1.6418 sd 1.2813/1.2813 iso g(1) 0.350/0.35 E-W g(1) 0.233/0.233
+  PASS  G-L5c  ⭐⭐⭐ BLINDNESS PROOF: a strictly increasing surrogate leaves FSS BIT-IDENTICAL at all 7 scales
+           ⇒ FSS depends on the forecast ONLY through the SET of its top-n_events cells.
+             An unchanged FSS below is BLINDNESS, not reassurance.
+
+===================================================================================================
+L5 (#473) — SPATIAL AND AGGREGATE COST OF THE PER-CELL RECALIBRATION
+===================================================================================================
+  cube          l3b_cube3.npz  sha 4acbf4d3c2b457b0…  family nb  dropout 0.15
+  target        ged_sb_best   fit 421-456   score 457-469
+  score window  13 months x 64,818 cells = 842,634 cell-months, 2,905 events
+
+===================================================================================================
+  1 · FSS ACROSS SCALES  ⛔ proven blind to any monotone recalibration (G-L5c)
+===================================================================================================
+  field               n=1      n=3      n=5      n=9     n=17     n=33     n=65
+  delivered        0.6474   0.8456   0.8815   0.9095   0.9326   0.9496   0.9688
+  recal B=1000     0.6469   0.8416   0.8758   0.9030   0.9256   0.9429   0.9631   max|Δ| 7.06e-03
+  recal B=2000     0.6469   0.8416   0.8758   0.9030   0.9256   0.9429   0.9631   max|Δ| 7.06e-03
+  recal B=4000     0.6423   0.8397   0.8750   0.9029   0.9265   0.9443   0.9639   max|Δ| 6.60e-03
+  recal B=8000     0.6441   0.8433   0.8792   0.9073   0.9303   0.9475   0.9665   max|Δ| 3.29e-03
+  recal B=16000    0.6417   0.8426   0.8787   0.9067   0.9300   0.9474   0.9667   max|Δ| 5.71e-03
+
+  G-L5f  MONOTONICITY of the bin-mean sequence (reported, NOT pass/fail):
+           B=1000   occupied bins 1,000   fraction of adjacent pairs non-decreasing 0.9730
+           B=2000   occupied bins 2,000   fraction of adjacent pairs non-decreasing 0.9785
+           B=4000   occupied bins 4,000   fraction of adjacent pairs non-decreasing 0.9800
+           B=8000   occupied bins 8,000   fraction of adjacent pairs non-decreasing 0.9825
+           B=16000  occupied bins 16,000   fraction of adjacent pairs non-decreasing 0.9860
+
+===================================================================================================
+  2 · THE VARIOGRAM — on the window-mean log field, as d12 computes it
+===================================================================================================
+  field / dir            var      g(1)      g(2)      g(4)      g(8)     g(16)     g(32)
+  delivered iso       5.0603    0.2924    0.5858    1.2350    2.3170    3.8460    5.1260
+  delivered E-W       5.0603    0.2161    0.5008    1.1466    2.1310    3.3419    4.3032
+  TRUTH iso           2.6209    1.4115    1.6861    2.0162    2.3573    2.7971    3.0628
+  TRUTH E-W           2.6209    1.3132    1.5819    1.9154    2.1597    2.5146    2.8922
+  recal B=1000 iso    6.5997    0.8297    1.1594    1.8957    3.1528    4.9605    6.5440
+  recal B=1000 E-W    6.5997    0.7413    1.0516    1.7712    2.9391    4.3380    5.4721
+  recal B=8000 iso    6.1296    1.0415    1.4635    2.3093    3.5507    5.1942    6.4966
+  recal B=8000 E-W    6.1296    0.9142    1.3428    2.2063    3.3135    4.6808    5.6024
+
+===================================================================================================
+  3 · AGGREGATES — do per-cell errors CANCEL or COMPOUND?
+===================================================================================================
+  ⚠️ geometric k x k blocks: 100% of cells, exact, no external dependency.
+  ⛔ NOT country-month. See the docstring: no country id exists for 79.8% of our cells.
+
+  delivered      global sum      16439.4 vs truth      50881.0   ratio  0.3231
+         k     groups         nMAE        ratio       corr
+         1      64818       0.7421       0.3231     0.5991
+         2      17397       0.7020       0.3231     0.7896
+         4       4838       0.6896       0.3231     0.8330
+         8       1412       0.6810       0.3231     0.9074
+        16        431       0.6792       0.3231     0.9864
+        32        147       0.6788       0.3231     0.9924
+        64         52       0.6781       0.3231     0.9905
+
+  recal B=1000   global sum      65739.9 vs truth      50881.0   ratio  1.2920
+         k     groups         nMAE        ratio       corr
+         1      64818       0.8830       1.2920     0.5790
+         2      17397       0.7433       1.2920     0.7787
+         4       4838       0.6913       1.2920     0.8243
+         8       1412       0.6528       1.2920     0.9061
+        16        431       0.4732       1.2920     0.9842
+        32        147       0.4324       1.2920     0.9900
+        64         52       0.3315       1.2920     0.9849
+
+  recal B=2000   global sum      64970.6 vs truth      50881.0   ratio  1.2769
+         k     groups         nMAE        ratio       corr
+         1      64818       0.8752       1.2769     0.5899
+         2      17397       0.7568       1.2769     0.7918
+         4       4838       0.7076       1.2769     0.8317
+         8       1412       0.6457       1.2769     0.9047
+        16        431       0.4742       1.2769     0.9841
+        32        147       0.4389       1.2769     0.9898
+        64         52       0.3370       1.2769     0.9836
+
+  recal B=4000   global sum      61807.0 vs truth      50881.0   ratio  1.2147
+         k     groups         nMAE        ratio       corr
+         1      64818       0.8141       1.2147     0.6163
+         2      17397       0.7085       1.2147     0.7933
+         4       4838       0.6628       1.2147     0.8318
+         8       1412       0.5976       1.2147     0.9017
+        16        431       0.4190       1.2147     0.9800
+        32        147       0.3822       1.2147     0.9894
+        64         52       0.3060       1.2147     0.9829
+
+  recal B=8000   global sum      58365.7 vs truth      50881.0   ratio  1.1471
+         k     groups         nMAE        ratio       corr
+         1      64818       0.7612       1.1471     0.6315
+         2      17397       0.6481       1.1471     0.8008
+         4       4838       0.6032       1.1471     0.8345
+         8       1412       0.5381       1.1471     0.9039
+        16        431       0.3542       1.1471     0.9835
+        32        147       0.3163       1.1471     0.9908
+        64         52       0.2629       1.1471     0.9854
+
+  recal B=16000  global sum      57461.5 vs truth      50881.0   ratio  1.1293
+         k     groups         nMAE        ratio       corr
+         1      64818       0.7528       1.1293     0.6191
+         2      17397       0.6352       1.1293     0.7939
+         4       4838       0.5900       1.1293     0.8305
+         8       1412       0.5259       1.1293     0.9023
+        16        431       0.3349       1.1293     0.9834
+        32        147       0.2977       1.1293     0.9905
+        64         52       0.2574       1.1293     0.9850
+
+  ⚠️ SENSITIVITY — bin MEDIAN instead of bin mean, at B=8,000:
+  recal median   global sum      23279.5 vs truth      50881.0   ratio  0.4575
+         k     groups         nMAE        ratio       corr
+         1      64818       0.6469       0.4575     0.6328
+         2      17397       0.5782       0.4575     0.7900
+         4       4838       0.5624       0.4575     0.8230
+         8       1412       0.5524       0.4575     0.8949
+        16        431       0.5425       0.4575     0.9768
+        32        147       0.5425       0.4575     0.9869
+        64         52       0.5425       0.4575     0.9776
+
+===================================================================================================
+  3b · THE COUNTRY PARTITION  ⛔ NOT country totals — 20.2% of cells, see the docstring
+===================================================================================================
+  cells used 11,046 of 64,818 (17.0%)   groups 71   ⛔ overlap_ratio >= 0.9 only
+  field                    nMAE        ratio       corr
+  delivered              0.6311       0.3752     0.9796
+  recal B=1000           0.6379       1.3658     0.9633
+  recal B=2000           0.6030       1.2830     0.9546
+  recal B=4000           0.5381       1.2101     0.9578
+  recal B=8000           0.5180       1.1867     0.9596
+  recal B=16000          0.5047       1.1722     0.9609
+
+===================================================================================================
+  THE REMAINING GATES
+===================================================================================================
+  PASS  G-L5d  the step structure is real: 115 distinct values over 842,634 score cell-months (<= B=8,000 and < 10% of cells)
+  PASS  G-L5e  NON-VACUITY: recal differs from delivered (115 distinct vs 842,634)
+
+===================================================================================================
+  HOW TO READ THIS — printed, not left to the reader
+===================================================================================================
+  ⛔⛔ AN UNCHANGED FSS IS BLINDNESS, NOT SAFETY. G-L5c proves FSS cannot see any
+     strictly monotone recalibration. Read it as a NULL INSTRUMENT here.
+  ⭐ The variogram and the aggregates are the statistics with content on this question.
+  ⛔ The audit-facing COUNTRY-MONTH number is NOT measured: no country id exists for
+     79.8% of our land cells. §3b is a 79-group partition over the covered fifth and its
+     LEVELS are not country totals. The gap is real and stays open.
+  ⛔ ONE SPLIT, ONE CHECKPOINT, ONE SEED, sb only. No σ̂ exists for any statistic here
+     (C-394: the vehicle is on disk, but there is still no second seed in nb @ 0.15)
+     ⇒ nothing below can be separated from run-to-run noise.
+
+  ALL GATES PASS
+  country partition: reported
+  wall time 253.7 s   peak RSS 2.30 GiB

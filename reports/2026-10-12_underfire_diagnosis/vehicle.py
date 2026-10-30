@@ -24,7 +24,7 @@ GRID_ROWS, GRID_COLS = 360, 720
 
 # The delivered violet_visitor config (views-models, read-only). F6 compares against this.
 EXPECTED_SIDECAR = {
-    "model": "HydraBNUNet06_LSTM4",
+    # ⛔ `model` was here until AMENDMENT 6 moved it to ADMITTED_MODELS below. See that note.
     "input_channels": 3,
     "total_hidden_channels": 32,
     "output_channels": 1,
@@ -48,8 +48,8 @@ ADMITTED_FAMILIES = ("nb", "truncated_nb")
 #: measured on the `nb` checkpoint `4acbf4d3…` at dropout 0.15, and that file is **DELETED**. The
 #: structure-penalty arm's §8 therefore contrasts against `truncated_nb` `2a5efc2a…` "the only one
 #: still on disk" — and on 2026-10-25 the scoreboard was run on it for the first time and returned
-#: B-1(d=1) = **1.462**, i.e. ABOVE its due share. ⇒ The arm's premise does not exist on the vehicle
-#: it would run on, and the premise is an `nb` finding.
+#: B-1(d=1) = **1.462**, i.e. ABOVE its due share. ⇒ The arm's premise does not exist on the
+#: vehicle it would run on, and the premise is an `nb` finding.
 #:
 #: `heavy_freighter` `0ca3f31f…` (trained 2026-10-25, views-hydranet 0.1.7) is the only LIVE `nb`
 #: vehicle. Measured before widening, exactly as Amendment 4 did: of F6's keys, **only
@@ -60,6 +60,75 @@ ADMITTED_FAMILIES = ("nb", "truncated_nb")
 #: regularisation knob and this programme's readouts are smoothness readouts, so the two are
 #: exactly the pair most likely to interact. The caller records which rate it loaded.
 ADMITTED_DROPOUT = (0.15, 0.125)
+
+#: ⛔ AMENDMENT 6 (2026-10-30). `model` is checked against a SET, for the same reason and in the
+#: same shape as Amendments 4 and 5 — and, like both of them, because the pin refused a vehicle and
+#: the refusal was the finding.
+#:
+#: WHY. `M92`/`M93` localised the body's near-field smoothness to the decoder's two
+#: `ConvTranspose2d(kernel=2, stride=2)` stages: kernel == stride, so no window overlaps and each
+#: of the four in-block phases carries its own free weight. `UpsampleConv2` / `UpsampleConv1`
+#: (`views_hydranet/architectures/upsample_interp.py`, bake-off candidate 7) remove that, and `G-F`
+#: measured the removal on untrained weights — gap rho(2)-rho(1) at `up1` **+1.2572 -> -0.1984**.
+#:
+#: ⛔ WITHOUT THIS AMENDMENT the candidate's own checkpoint is UNDIAGNOSABLE. Every readout in
+#: `reports/` loads through `load_vehicle`, so `stage_roughness.py` — the only instrument that can
+#: answer `M94`'s open question, *does a TRAINED `UpsampleConv2` re-learn a phase pattern its 2x2
+#: kernel permits?* — would refuse the artifact the arm produces. The arm would train, score, and
+#: then be unreadable, and we would discover that AFTER the GPU hours.
+#:
+#: ⚠️ THIS IS A WIDENING, AND THE DISTINCTION FROM A BYPASS IS DELIBERATE. Amendments 4 and 5 both
+#: say *"anything else is a different model and needs its own amendment, not a widening here"* —
+#: this IS that amendment. It is written BEFORE the checkpoint exists rather than to get past a
+#: refusal in flight, it follows the in-file precedent rather than inventing a mechanism, and it
+#: ADDS the constraint below rather than removing one.
+#:
+#: ⛔ A number measured on one model is NEVER quoted against another. These are three DIFFERENT
+#: architectures: the incumbent's `up*` stages are `ConvTranspose2d`, the candidates' are
+#: `NearestConvUp`, and their `state_dict` keys differ (`...reg.weight` vs `...reg.conv.weight`),
+#: which is why `load_state_dict` refuses a cross-load in both directions. The caller records which
+#: model it loaded, and an arm-vs-control comparison is valid ONLY between artifacts from the same
+#: queue, the same commit and the same data pull.
+ADMITTED_MODELS = ("HydraBNUNet06_LSTM4", "UpsampleConv2", "UpsampleConv1")
+
+
+def _assert_admitted_models_are_importable() -> None:
+    """⛔⛔ Amendment 6 is a LIE unless the `views_hydranet` in THIS process can build its names.
+
+    For a script, `sys.path[0]` is the script's own directory — not the cwd — so
+    `python reports/<dossier>/x.py` resolves `views_hydranet` to the INSTALLED wheel, while
+    `vehicle` comes from the working tree. Mixed provenance, and `pytest` hides it because it puts
+    the repo root on `sys.path`.
+
+    ⇒ Amendment 6 widened `model` to a set so `stage_roughness.py` could read the arm's checkpoint
+    — `M94`'s open question, *does a trained `UpsampleConv2` re-learn a phase pattern?* — but
+    `load_vehicle` then calls `choose_model`, which resolves `get_architecture` from whatever
+    package this process imported. If that is a wheel predating the candidate, the config pin
+    passes and the build raises.
+
+    ⭐ This is a CAPABILITY check, not a path check: it asks whether the admitted names can
+    actually be built here, which is the property Amendment 6 depends on. A path check would pass
+    for an editable install that was nonetheless stale, and fail for a legitimate future layout.
+
+    ⛔ CALLED FROM `load_vehicle`, NOT AT IMPORT. It ran at module level until 2026-10-30, which
+    put a `SystemExit` on the import path of the 68 `reports/` scripts that import `vehicle` — to
+    protect one call path inside `load_vehicle`, where `choose_model` actually resolves the name.
+    A permanent guard in a shared file to cover a bounded local failure is the shape this
+    repository has been bitten by before; the check is the same, its blast radius is not.
+    """
+    from views_hydranet.architectures.registry import architecture_names
+
+    missing = sorted(set(ADMITTED_MODELS) - set(architecture_names()))
+    if missing:
+        import views_hydranet
+
+        raise SystemExit(
+            f"VOID (F6 / C-347): views_hydranet resolved to "
+            f"{Path(views_hydranet.__file__).parent} and cannot build {missing}, which "
+            f"ADMITTED_MODELS admits. `load_vehicle` would pass the config pin and then raise "
+            "inside choose_model. Put the repository root on sys.path before importing, or "
+            "install the working tree."
+        )
 
 
 def emitted_magnitude(mu, theta, family: str):
@@ -168,6 +237,17 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
             f"{ADMITTED_FAMILIES}. Amendment 4 admits exactly these two; anything else is a "
             "different model and needs its own amendment, not a widening here."
         )
+    arch = cfg.get("model")
+    if arch not in ADMITTED_MODELS:
+        raise SystemExit(
+            f"VOID (F6): model {arch!r} is not an admitted architecture {ADMITTED_MODELS}. "
+            "Amendment 6 admits exactly these three; anything else is a different network and "
+            "needs its own amendment, not a widening here."
+        )
+    # Admitting a name is worthless if this process cannot build it — `choose_model` below
+    # resolves it from whatever `views_hydranet` was imported. Checked HERE, at the one call path
+    # that can fail, rather than at import.
+    _assert_admitted_models_are_importable()
     drop = cfg.get("dropout_rate")
     if drop not in ADMITTED_DROPOUT:
         raise SystemExit(

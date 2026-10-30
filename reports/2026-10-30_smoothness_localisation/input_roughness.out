@@ -1,0 +1,55 @@
+PASS  G-17  rho controls: ramp +0.9996  checkerboard -1.0000  iid noise +0.0006
+PASS  G-19  positives over months 457-469 on 64,818 land cells: 2,905 (M89/M90 committed 2,905)
+PASS  G-18  the mask EXCLUDES pairs (structural): 124,928 scored of 517,320 total (24.1%)
+       ⚠️ and its EFFECT on rho(1) is small on this field: masked +0.567100 vs unmasked +0.563022, gap -0.004078
+       ⇒ ged_sb_best is ~99.66% zeros on LAND as well as ocean, so the two are
+         statistically alike. G-18's first form demanded a large gap and FAILED; it
+         could not have passed on this field. Amendment 1, logged as W-118.
+
+==============================================================================================================
+Q1/B2a — THE ROUGHNESS OF THE FIELD THE NETWORK IS FED
+==============================================================================================================
+  raster          360x720, 64,818 land cells
+  truth           ged_sb_best (ged_sb_best), BOTH transforms reported
+  inference mode  ⭐ NOT APPLICABLE — no model loaded, zero forward passes
+  lags            (1, 2, 4, 8, 16, 32)   (D-4, alongside the temporal aggregation below)
+
+==============================================================================================================
+1. rho(d) BY TEMPORAL AGGREGATION — the parameter I quoted without sweeping
+==============================================================================================================
+  aggregation                        transform    rho(1)    rho(2)    rho(4)    rho(8)   rho(16)   rho(32)
+  single month, mean over 457-469        log1p   +0.3442   +0.1947   +0.1124   +0.0856   +0.0138   -0.0003
+  single month, mean over 457-469          raw   +0.1456   +0.0630   +0.0418   +0.0323   +0.0036   -0.0003
+  13-month mean  457-469                 log1p   +0.5671   +0.3392   +0.1982   +0.1490   +0.0249   -0.0017
+  13-month mean  457-469                   raw   +0.1748   +0.0959   +0.0708   +0.0368   +0.0044   -0.0008
+  36-month mean  421-456                 log1p   +0.6011   +0.4000   +0.2463   +0.1162   +0.0384   +0.0030
+  36-month mean  421-456                   raw   +0.2577   +0.1470   +0.0937   +0.0199   +0.0098   +0.0000
+
+==============================================================================================================
+2. ⭐⭐⭐ THE DECISIVE COMPARISON — against M92 finding (1)
+==============================================================================================================
+  single-month log1p truth rho(1)   +0.344210   ⇐ what the network is ACTUALLY FED
+  36-month window mean rho(1)       +0.601076   (d12b committed +0.499)
+  encoder e0s rho(1)                +0.313470   (stage_roughness.out, dropout off)
+  encoder enc_conv0 rho(1)          +0.443300
+
+  P-16  single month below the window's +0.499: HELD  (+0.3442)
+  P-19  window reproduces d12b to within 0.05: ⚠️ MISSED  (|+0.6011 - +0.499| = 0.1021)
+
+  ⭐⭐ P-17 REFUTED ⇒ M92 FINDING (1) STANDS, on the RIGHT comparator.
+      The fed field has rho(1) +0.3442, at or above the encoder's +0.3135.
+  P-18  raw below log1p at every aggregation: HELD
+
+==============================================================================================================
+⚠️ LIMITS
+==============================================================================================================
+  · ⭐ NO MODEL. Data read only — nothing depends on a checkpoint or an inference mode.
+  · ⛔ A single month of ged_sb_best is ~99.66% zeros, so its rho is the clustering
+    of a very sparse point pattern. A conditional-MEAN field SHOULD be smoother than a
+    realisation (W-101's identity), so 'the model is smoother than one month of truth' is
+    NOT by itself a defect — which is exactly why the comparator matters.
+  · ⚠️ d12b's land set, masking rule and E-W/N-S pooling are not verified byte-identical to
+    this script's, so P-19 is a CONSISTENCY check and no copy gate is claimed (W-98).
+  · sb only.
+
+  wall time 270.2 s   peak RSS 2.68 GiB

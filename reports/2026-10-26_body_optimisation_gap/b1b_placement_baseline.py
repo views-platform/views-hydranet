@@ -72,6 +72,17 @@ from vehicle import (  # noqa: E402
 from scripts.sharpness_scorecard import fss, matched_pred_thresh  # noqa: E402
 
 D4 = REPO / "reports" / "2026-10-12_underfire_diagnosis"
+
+#: AMENDMENT 2026-10-28 (RP-2) — optional `--tag=` so a REPLICATE cube can be scored without
+#: touching the control's. ⛔ Default "" keeps the no-tag behaviour byte-for-byte: verified by
+#: re-running with no argument and diffing against the output captured before this change
+#: (0.6267 / 0.5883 / 0.6656 / 0.6485 — gate G-2). Same three lines as `d4_mu_on_the_grid.py:60`
+#: and `body_scoreboard.py:53`; deliberately duplicated rather than factored out, because a shared
+#: arg-parsing helper across three `reports/` dossiers would couple them for three lines.
+TAG = ""
+for _a in sys.argv[1:]:
+    if _a.startswith("--tag="):
+        TAG = _a.split("=", 1)[1]
 IS_LO, IS_HI = 421, 456
 OS_LO, OS_HI = 457, 469
 ODD = list(range(1, 82, 2))          # every odd n to 81; scale_min is swept, never read off a grid
@@ -115,12 +126,12 @@ def pooled_fss(preds, truths, scales):
 
 
 # ------------------------------------------------------------------ the vehicle
-npz = np.load(D4 / "d4_result.npz")
+npz = np.load(D4 / f"d4_result{TAG}.npz")
 if "family" in npz.files:
     FAMILY = str(npz["family"])
 else:
     FAMILY = "nb"
-    print("  ⚠ d4_result.npz carries no `family` key (it predates Amendment 4) ⇒ 'nb'. "
+    print(f"  ⚠ d4_result{TAG}.npz carries no `family` key (it predates Amendment 4) ⇒ 'nb'. "
           "Its PROVENANCE file establishes this; emitted_magnitude is the identity under nb.")
 land_cells, months = npz["land_cells"], list(npz["months"])
 mcol = {int(m): i for i, m in enumerate(months)}

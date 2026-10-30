@@ -2180,6 +2180,65 @@ draw count this project's record was built on (m = 16) the gap between plug-in a
 **3.06 points, 18.1%**. ⇒ Which estimator the battery uses is not a detail; it changes which forecast
 wins.
 
+### 9.4b ⭐⭐⭐ A SECOND criterion the paper needs, and the synthetic population CANNOT supply it
+
+**Found 2026-10-28, by RP-2, immediately after RP-1 built the population.** The two results do not
+overlap and together they close a hole either one alone would leave open.
+
+RP-1's test asks: **does the metric set rank the synthetic forecasts correctly?** That is a question
+about **discrimination** — can the metric tell a good forecast from a bad one.
+
+RP-2 measured something the synthetic population is **structurally unable to measure**: the
+**noise floor**. B-1b body-alone pooled FSS has **CV > 1 at 11 of 14 scales** — its across-seed
+standard deviation exceeds its own mean — so no single-run comparison on it can clear its own floor
+(**C-391**).
+
+⛔⛔ **And that metric would pass the synthetic ranking test.** The eleven synthetic forecasts are
+**deterministic constructions**: the oracle is the truth, persistence is the lagged truth, the blurs
+are convolutions of it. ⇒ **They have no seed, so they have no noise**, and a metric whose noise
+swamps its signal on real models will rank them perfectly.
+
+> ⇒ **"Ranks the synthetic forecasts correctly every time" is necessary and NOT sufficient.**
+> A minimal sufficient battery needs **two** properties, measured on **two different populations**:
+>
+> | criterion | question | population | status |
+> |---|---|---|---|
+> | **discrimination** | can it tell the forecasts apart in the right order? | the **synthetic** eleven (RP-1) | ✅ harness built; ⛔ ranking not declared |
+> | **resolution** | is its noise floor below the effects it must detect? | **true seed replicates** of a real model (RP-2) | ✅ measured for B-1a / B-1b; ⛔ unmeasured for the other 20 columns |
+
+⭐ **This is the stronger version of the paper's claim**, and it is cheap to state: a metric earns its
+place only if it both *separates the known cases* and *resolves a real effect against its own seed
+noise*. ⛔ Neither test substitutes for the other, and the second one **cannot be run on synthetic
+data at all** — it requires repeated training runs that differ only in the seed.
+
+⚠️ **What this costs.** The noise floor is measured for **two** statistics. The separation matrix
+covers **twenty**. ⇒ **18 of the battery's 20 columns have no measured noise floor**, and the three
+seed replicates needed to give them one already exist on disk — the cubes are built (**M75**), so
+scoring the remaining columns on them is a readout, not a pod run. That is the single cheapest
+expansion of the paper's evidence base currently available.
+
+> ✅ **DONE 2026-10-28 (RP-2b, M76) — 16 of the 18, and the result is sharper than the plan.**
+> * ⭐⭐⭐ **FAO-02's locked MCR guardrail has a 1% margin and 84× that in seed noise** (σ̂ 0.840477;
+>   the 4.97σ̂ bar is 418× the margin). ⛔ Not a claim FAO-02 is wrong — a claim that **our ability
+>   to test compliance is two orders of magnitude coarser than the test.** **C-392.**
+> * ⭐⭐ **A clean split**: gate-only columns **CV 0.021–0.024**, placement/shape **0.024–0.055**,
+>   ⛔ magnitude calibration **0.237 / 0.293 / 0.356** ⇒ **the quantity the programme most wants to
+>   move is measured by its three least resolvable columns.**
+> * ⛔⛔ **The remaining 4 are UNMEASURABLE, not unmeasured.** They are the only columns that read
+>   the ensemble beyond its mean, so their noise floor needs real `truncated_nb` draws — and
+>   **#441** is open, with `sample()` vs `mean()` differing **54×** and *"failing on 99% of the
+>   grid"*. ⇒ **The 4 columns that can SEE dispersion are exactly the 4 whose noise cannot be
+>   measured.** For the paper this is a structural statement about the battery, not a to-do.
+> * ⛔ **Two columns saturate** under expectation composition (`AFSS`, `act_freq` at exactly 1.0),
+>   so a σ̂ of 0 there is a **ceiling, not stability** — the C-376 shape, caught by a gate added
+>   after the first run would have reported them as the most stable columns.
+
+⛔ **And it reframes one of RP-1's own findings.** RP-1 said 14 of 20 columns are functions of the
+mean field alone, and called that a redundancy result. It is also a **resolution** result waiting to
+be measured: columns that read the same statistic will have **correlated** noise floors, so a battery
+cannot reduce its noise by averaging them. Unmeasured, and now stated as a question rather than
+discovered later.
+
 ### 9.5 What this changes about how the work is done
 
 Nothing about the ranked research queue — the instruments still come before the experiments. What it

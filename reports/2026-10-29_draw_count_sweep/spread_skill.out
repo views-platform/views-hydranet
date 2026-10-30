@@ -1,0 +1,110 @@
+PASS  G-8  average-tie ranks on the hand case [5,5,5,1] -> [2,2,2,0]
+==============================================================================================================
+Q2 AMENDMENT — THE SPREAD–SKILL DIAGNOSTIC, AT THE CONVERGED DRAW COUNT
+==============================================================================================================
+  population      13 months 457-469 x 64,818 = 842,634
+  truth           ged_sb_best counts, no transform. mean 0.060383 max 2482
+  draws           K=256 per MC pass x 4 passes = 1,024 members (converged: sd is
+                  1.4% from its K=1024 value)
+  inference mode  ⛔ TEACHER-FORCED (vehicle.py:301-307)
+
+  drawn in 279.3 s
+  PASS  G-6  COPY threshold_gate: got 0.047376 / 0.047351 (committed 0.047376 / 0.047351)
+  PASS  G-6  COPY soft_gate: got 0.050041 / 0.050024 (committed 0.050041 / 0.050024)
+
+==============================================================================================================
+1. THE POINT-MASS PROBLEM — reported separately, because it would make bins degenerate
+==============================================================================================================
+  threshold_gate   zero-spread cells 0.994215  (837,759 of 842,634)   ⇒ the ensemble is a point mass on 99.42% of the population
+                   of those, truth is nonzero on 550 — events the ensemble assigns ZERO spread and (where mean=0) zero probability
+  soft_gate        zero-spread cells 0.981627  (827,152 of 842,634)   ⇒ the ensemble is a point mass on 98.16% of the population
+                   of those, truth is nonzero on 79 — events the ensemble assigns ZERO spread and (where mean=0) zero probability
+
+==============================================================================================================
+2. ⭐⭐ SPREAD–SKILL, among cells WITH spread. A calibrated ensemble gives sd/RMSE = 1
+==============================================================================================================
+
+  threshold_gate   4,875 cells with spread
+    pooled: predicted sd 28.364518   realised RMSE 48.084025   ratio 0.5899   MAE 8.859407
+    ⭐ Spearman(predicted sd, |error|) = +0.728114
+    B=5            bin           n     pred sd        RMSE       ratio         MAE
+                    0         975    3.181223    1.965608      1.6184    0.832112
+                    1         975    8.221731    4.709220      1.7459    2.408227
+                    2         975   14.924522    7.305552      2.0429    4.480632
+                    3         975   24.958456   15.920752      1.5677    8.838053
+                    4         975   55.671776  105.959829      0.5254   27.738012
+         G-7  bins recover the pooled sd: 28.364518 vs 28.364518   relative 0.00e+00  (n exact: 4,875)
+    B=10           bin           n     pred sd        RMSE       ratio         MAE
+                    0         487    1.881324    1.335457      1.4087    0.580044
+                    1         488    4.085033    2.437113      1.6762    1.083664
+                    2         487    6.602480    4.889518      1.3503    2.123476
+                    3         488    9.568270    4.522131      2.1159    2.692395
+                    4         487   12.822127    6.098671      2.1024    3.701182
+                    5         488   16.761749    8.337581      2.0104    5.258485
+                    6         487   21.788629   15.685531      1.3891    7.616253
+                    7         488   27.763305   16.152077      1.7189   10.057349
+                    8         487   35.856997   31.108586      1.1526   17.388971
+                    9         488   70.066058  146.513489      0.4782   38.065846
+         G-7  bins recover the pooled sd: 28.364518 vs 28.364518   relative 0.00e+00  (n exact: 4,875)
+    B=20           bin           n     pred sd        RMSE       ratio         MAE
+                    0         243    1.215023    1.201073      1.0116    0.443601
+                   10         244   15.624185    7.310350      2.1373    4.510506
+                   19         244   87.912536  202.740047      0.4336   55.168097
+         G-7  bins recover the pooled sd: 28.364518 vs 28.364518   relative 0.00e+00  (n exact: 4,875)
+    B=50           bin           n     pred sd        RMSE       ratio         MAE
+                    0          97    0.763580    0.803710      0.9501    0.237395
+                   25          98   14.936497    7.841599      1.9048    5.097965
+                   49          98  119.696184  308.464504      0.3880   92.314702
+         G-7  bins recover the pooled sd: 28.364518 vs 28.364518   relative 1.25e-16  (n exact: 4,875)
+
+  soft_gate   15,482 cells with spread
+    pooled: predicted sd 13.953429   realised RMSE 27.203128   ratio 0.5129   MAE 2.891603
+    ⭐ Spearman(predicted sd, |error|) = +0.932179
+    B=5            bin           n     pred sd        RMSE       ratio         MAE
+                    0        3096    0.085876    0.380928      0.2254    0.040666
+                    1        3096    0.415623    0.912962      0.4552    0.111368
+                    2        3097    1.512324    1.902487      0.7949    0.403353
+                    3        3096    5.298840    4.273788      1.2398    1.417851
+                    4        3097   30.704503   60.633958      0.5064   12.482483
+         G-7  bins recover the pooled sd: 13.953429 vs 13.953429   relative 0.00e+00  (n exact: 15,482)
+    B=10           bin           n     pred sd        RMSE       ratio         MAE
+                    0        1548    0.041068    0.303809      0.1352    0.029028
+                    1        1548    0.114293    0.444873      0.2569    0.052304
+                    2        1548    0.262820    0.650626      0.4039    0.086806
+                    3        1548    0.525747    1.115206      0.4714    0.135929
+                    4        1549    0.991897    1.483645      0.6686    0.293725
+                    5        1548    1.895054    2.244689      0.8442    0.513052
+                    6        1548    3.512425    3.306193      1.0624    0.988037
+                    7        1548    6.619538    5.059607      1.3083    1.847664
+                    8        1548   12.959485    9.789439      1.3238    4.206277
+                    9        1549   41.437718   85.175167      0.4865   20.753346
+         G-7  bins recover the pooled sd: 13.953429 vs 13.953429   relative 0.00e+00  (n exact: 15,482)
+    B=20           bin           n     pred sd        RMSE       ratio         MAE
+                    0         774    0.031250    0.309116      0.1011    0.029370
+                   10         774    1.573433    1.264692      1.2441    0.400524
+                   19         775   53.964034  118.611514      0.4550   31.434456
+         G-7  bins recover the pooled sd: 13.953429 vs 13.953429   relative 0.00e+00  (n exact: 15,482)
+    B=50           bin           n     pred sd        RMSE       ratio         MAE
+                    0         309    0.031250    0.462052      0.0676    0.052712
+                   25         309    1.407601    1.217718      1.1559    0.387771
+                   49         310   74.880226  183.415209      0.4083   51.090817
+         G-7  bins recover the pooled sd: 13.953429 vs 13.953429   relative 0.00e+00  (n exact: 15,482)
+
+==============================================================================================================
+3. INTERVAL COVERAGE — ⚠️ a diagnostic, NOT a FAO-02 column, and NOT a PIT histogram
+==============================================================================================================
+  threshold_gate   truth inside [min,max] 0.999346  inside central 90% 0.998880
+                   on the 2,905 EVENT cells: [min,max] 0.810327   central 90% 0.675043
+  soft_gate        truth inside [min,max] 0.999887  inside central 90% 0.998261
+                   on the 2,905 EVENT cells: [min,max] 0.967298   central 90% 0.495697
+
+==============================================================================================================
+4. ⚠️ LIMITS
+==============================================================================================================
+  · TEACHER-FORCED. The emission's dispersion given the trunk's mu/theta (C-399).
+  · A diagnostic, not a FAO-02 column. Selection use needs Simon's amendment first.
+  · Coverage on the full population is dominated by true zeros, which any ensemble
+    containing 0 covers trivially — the EVENT-cell row is the informative one.
+  · n=1 checkpoint, sb only, no sigma-hat on any number here.
+
+  wall time 279.3 s   peak RSS 3.41 GiB

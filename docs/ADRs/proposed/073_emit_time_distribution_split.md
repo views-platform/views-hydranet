@@ -10,6 +10,18 @@ is **not taken**, and `emit_distribution` must not be set in a roster config.
 
 ## 0. ⛔ VERDICT (2026-10-22) — read this before §1
 
+> ⛔⛔⛔ **CORRECTION, 2026-10-29 — the label on this document's decisive measurement is wrong.**
+> The §0 claim that the family-free fit scores *"−17.6% against the best parametric cell and −22.5%
+> against what ships today"* compares **two numbers from the same teacher-forced cube** to a phrase
+> naming the delivered 36-step autoregressive rollout. `reports/2026-10-21_emit_time_split_prereg.md:102`
+> confirms every arm in the 2×2 — 0.050758, 0.047741, 0.046023 — was scored on the frozen `nb`
+> control cube, which `vehicle.py:301-307` fills from observed truth at every step. ⇒ The **margin is
+> like-for-like and survives as an emission-family comparison at T=0**; the words *"what ships today"*
+> are false, because what ships is the autoregressive rollout and it has never been scored. On the
+> deliverable index the family-free method scores **0.067752** against **0.060323** for no model at
+> all. **The arithmetic was never wrong; the label was.** See **M85**, **C-399**, **W-107**.
+
+
 A seven-seat `expert-method-review` and the measurements it prompted rejected this ADR's
 **decision**. The code it describes is merged and tested, default-off and byte-identical when
 unset, and it stays that way: a capability, not a route. What follows is kept as the record of

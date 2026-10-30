@@ -1,0 +1,33 @@
+================================================================================================
+G-3 — the mask-pairing gate, on the SCORING forward pass
+================================================================================================
+  volume shape from build_volume (NOT hard-coded): (1, 1, 3, 360, 720)
+
+  loading each replicate under lock_entropy(42, 42) and taking ONE forward
+vehicle: calibration_model_20261021_092504.pt  sha256 c77451551627f04e…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git 2e73de3 · trained 2026-10-21T07:10:31Z to 2026-10-21T09:25:07Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+    silver_s42   sha c7745155  15 LockedDropout modules  15 cached masks  digest df679f236666bd81
+vehicle: calibration_model_20261021_010229.pt  sha256 80696bb55387cf91…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git 2e73de3 · trained 2026-10-20T22:47:47Z to 2026-10-21T01:02:32Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+    bronze_s43   sha 80696bb5  15 LockedDropout modules  15 cached masks  digest df679f236666bd81
+vehicle: calibration_model_20261021_005527.pt  sha256 23fb322138fee877…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git 2e73de3 · trained 2026-10-20T22:44:38Z to 2026-10-21T00:55:28Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+    cobalt_s44   sha 23fb3221  15 LockedDropout modules  15 cached masks  digest df679f236666bd81
+
+================================================================================================
+  GATES
+================================================================================================
+  PASS  G-3a  all three replicates share mask keys (True) and byte-identical tensors (True); digests ['df679f236666bd81']
+vehicle: calibration_model_20261021_092504.pt  sha256 c77451551627f04e…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git 2e73de3 · trained 2026-10-21T07:10:31Z to 2026-10-21T09:25:07Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+  PASS  G-3b  NON-VACUITY: lock_entropy(7,7) gives digest aae8b840807d0aec vs df679f236666bd81 at (42,42) — the hash is not a constant
+  PASS  G-3c  the masks actually drop: a zero is present (True), kept fraction 0.8500 (expect ~0.85 at p=0.15)
+  PASS  G-3d  allowlist: loaded ['23fb3221', '80696bb5', 'c7745155'], amber(2a5efc2a) absent
+
+================================================================================================
+  ALL GATES PASS — the design is paired; the three d4 runs may proceed.
+================================================================================================

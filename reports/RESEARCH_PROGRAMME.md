@@ -33,7 +33,7 @@ mass-preserving blur **above** the delivered model, and `spiky-1/30` outranks pe
 meant end-2027 this register is under-scoped and the horizon line is the thing to correct, not the
 ranking.
 
-**Last updated** 2026-10-28 · **10 entries** · **1 live (RP-3 #468)** · **1 measured out (RP-1 — epic #477, all seven stories closed; awaiting merge)** · 7 queued · 1 parked (RP-9)
+**Last updated** 2026-10-28 · **10 entries** · **1 live (RP-3 #468)** · **2 measured out** (RP-1 — epic #477, **merged** as PR #485; RP-2 — σ̂ measured, **C-391**) · 6 queued · 1 parked (RP-9)
 
 ## How this works
 
@@ -47,19 +47,160 @@ ranking.
 4. An entry leaves the queue only to **§Closed** or **§Dropped**, with the outcome written down.
    ⛔ Never delete an entry.
 
+## ✅ THE ORDER, DECIDED BY SIMON 2026-10-28 — do not re-litigate
+
+> *"the new cheap RP-2b, then RP-3 continuing, before we move on to RP-4"* — Simon, 2026-10-28
+
+| next | entry | why |
+|---|---|---|
+| **1** | ⭐ **RP-2b** — the noise floor of the other **18** battery columns | ✅ **DONE 2026-10-28** (**M76**): 16 of 18 measured; ⛔ the 4 dispersion columns are **UNMEASURABLE** until **#441** is fixed. ⭐⭐⭐ **FAO-02's locked MCR margin is 1% and its seed noise is 84× that** (**C-392**). |
+| **2** | **RP-3** — the family-free recalibration (#468), already live | ⬅️ **NEXT.** Resume where it stands. |
+| **3** | **RP-4** — is the body under-dispersed, or is it the draw count? | ⛔ Starts **doubly constrained**: 14 of 20 columns are blind to dispersion (RP-1), and the noise floor of the 4 that are not is what RP-2b will supply. |
+
+⛔ **This supersedes the "next pick is Simon's" line below**, which was written before he answered.
+
+## ⚠️ STANDING OWED LIST — carried, not done, so it is not lost
+
+| owed | since | whose |
+|---|---|---|
+| ⛔ **Merge PR #486** (RP-2) into `development` | 2026-10-28 | **Simon** — the auto-mode classifier refused the merge ("Merge Without Review") |
+| ⛔ **Declare the ground-truth ranking of the eleven synthetic forecasts** — the paper's gate; a judgement, not a computation | 2026-10-28 | **Simon** (candidate draft at `reports/2026-10-28_candidate_ranking_DRAFT.md`) |
+| ⚠️ **Comment on views-models#625** retracting the *"origins 0–5"* constraint as route-dependent | 2026-10-27 | me — ⛔ **still owed**; the `GLOSSARY.md` half is now corrected (2026-10-28) |
+| ⚠️ **C-389's guardrail pass** — QS99 and FAO-02's MCR on the **validation** partition, 36-month protocol, vs the empirical conflictology baseline | 2026-10-28 | outside any current epic |
+| ⚠️ **#481's missing count** — how many recorded comparisons are estimator-sensitive (rule written; most cubes deleted) | 2026-10-28 | — |
+| ⚠️ **C-388 is registered, NOT fixed** — `matched_pred_thresh` is production `scripts/`; changing it changes committed FSS columns | 2026-10-28 | **Simon's call** |
+| ⚠️ Whether C-388's mechanism (a) fires on the populations the published **B-1a/B-1b** FSS numbers used | 2026-10-28 | unmeasured |
+| 🔵 **#444** left OPEN deliberately — answered by measurement; retiring a standing concern is Simon's call | 2026-10-28 | **Simon** |
+| 🔵 **Branch cleanup** — fully-merged branches need deletion | — | **Simon** |
+
+## ⛔ RE-RANK 2026-10-30, after RP-3 closed by falsification and RP-4 was MEASURED OUT
+
+Required by rule 3 (*"when an epic closes, re-rank before picking the next one; record the re-rank
+with its reason"*). ⛔ **The ranking below RP-4 is UNCHANGED and the reason is recorded, not the
+ranking** — but **one entry gained an argument strong enough that acting on it is Simon's call, and
+it is stated here rather than acted on.**
+
+### What closed, and how
+
+| entry | outcome |
+|---|---|
+| **RP-3** | ⛔ **CLOSED BY FALSIFICATION, not by measurement.** The frozen cube every RP-3 number was computed from is **TEACHER-FORCED** (`vehicle.py:301-307`) ⇒ *"the family-free recalibration beats what ships by 22.5%"* was a **nowcast** statement published as a **forecast** one. `W-107`, `C-399`. ⭐ The arithmetic was never wrong; a label was. The **within-cube** emission-family comparison survives at T=0 (#443 annotated, not retracted). |
+| **RP-4** | ✅ **MEASURED OUT 2026-10-29/30 — `M90`, `M91`.** The draw count is **not** a lever: the ensemble converges by K=256 and over 4 → 4,096 members the **fair** CRPS moves **+0.46% in the wrong direction**. ⇒ And the question was reframed: **99.42% of the population is a point mass**, the cells with spread are **OVER**-dispersed in 9 of 10 bins, and the pooled 0.59 was a **Simpson artifact**. |
+
+⚠️ **RP-4 was executed OUT OF RANK ORDER (5th), and the reason is a dependency, not a preference.**
+`d12c_draw_noise.out` put **11.2%** of the body field's spatial variance in our own 4-draw MC noise,
+*spatially correlated* (lag-1 ρ 0.27–0.37) ⇒ more draws **clean Q1's instrument**. The dependency
+runs one way only. Recorded here as rule 3 requires.
+
+### ⭐⭐⭐ And the two questions this epic was founded on were never queue entries
+
+Simon's founding questions — *is the body too smooth, is it under-dispersed, why, and what are the
+solutions and NON-solutions* — map onto **RP-4** (dispersion) and onto **nothing at all**
+(smoothness). The smoothness work ran as `d12`/`d12b`/`d12c` and now `M92`/`M93` **outside the
+queue**. ⇒ ⛔ **That is a finding about this register, not about the work:** the register ranks
+*instruments and experiments* and had no slot for *the programme's own founding question*. ⚠️ Not
+fixed here — adding an entry is a re-rank and the queue is Simon's.
+
+**Q1 is now ANSWERED end to end** (`M92`, `M93`, `reports/2026-10-30_smoothness_localisation/`):
+the network is fed a field at ρ(1) **+0.344**, its encoder is **roughness-neutral** (+0.314/+0.443,
+bracketing its input), and the output is at **+0.958** ⇒ **the whole move is the decoder's**, caused
+by two `ConvTranspose2d(kernel=2, stride=2)` stages that **cannot mix spatially at all**. The lever
+and its five measured non-solutions are filed as **#491**.
+
+### ⭐⭐ The one entry that gained a real argument: RP-5 should arguably come FIRST
+
+**RP-5** asks why both heads sit below their own objectives. Two things found in this epic bear on
+it, and together they make it a **blocker for several things ranked above it**:
+
+1. ⭐⭐ **`RESEARCH_PROGRAMME.md:455` + ADR-073 §0 together say the body's shape parameter is set by
+   the ZEROS, not by the events.** The NB NLL of a zero is `θ·log(1+μ/θ)`, **monotone increasing in
+   θ**, so on an empty cell the optimum is `θ → 0` at **every** μ with no interior optimum — and
+   **99.66% of cells are empty.** M6's `θ̂` **0.154** against a conditionally-honest **0.432**.
+2. ⭐⭐ **Raised by Simon 2026-10-30, and it holds:** *"the untruncated NB right now is not fitted
+   correctly, so likely a 2-NB mixture would also not have been fitted correctly."* ⇒ **Epic #230's
+   mixture null is confounded by exactly (1)** — both components' θ are pulled by the same zero
+   mass. The null therefore supports *"a mixture trained under this objective did not crack the
+   wall"*, **not** *"a mixture cannot."* `reports/2026-10-30_state_based_direction/RESEARCH_NOTE.md`.
+
+⇒ ⚠️ **The argument, stated plainly:** if the emission's shape is captured by the zeros, then an arm
+that sharpens the **mean field** (#491) may not score better even if it works geometrically, and any
+future mixture or state-based emission repeats #230's confound at higher cost.
+⛔ **NOT acted on. The queue is Simon's and this is a re-rank, not a measurement.** The decision is
+between **#491** (cheap, mechanism known, architecture only) and **RP-5** (diagnoses the objective
+that would read #491's result).
+
+### What else changed shape
+
+1. ⚠️ **RP-7 is NOT closed and did not move.** `M92`/`M93` measure spatial dependence; RP-7 is about
+   the **scoring battery** having no spatial or aggregate column. ⭐ But it gained a sharper first
+   question: if the 1-cell scale is partly a measurement artifact (**RP-10**), then **aggregates may
+   be the only well-posed target**, and #491's win or loss at 1 cell would be the wrong readout.
+2. ⭐⭐ **RP-10's relevance rose sharply, and it now gates TWO directions.** It already gated the
+   reading of the 1-cell defect; it now also gates the state-based direction, because **a latent
+   high-risk state and a geocoding/reporting artifact produce the same residual signature at one
+   cell.** Still rank 3, still minutes of CPU.
+3. ⛔ **A measurement defect found in our own ruler, and it is bigger than any entry here.** The
+   **plug-in** CRPS estimator's entire gain with draw count is **BIAS** — fair moves **0.65% of
+   level** over 4 → 4,096 members, plug-in moves **13.9% of the score** — and
+   `lodestar_score.py:33`, the **FROZEN** ruler, uses the plug-in for all three CRPS columns
+   (`M90`, #442/#459). ⚠️ **Not an RP entry and not inserted as one**, but every number any entry
+   below produces inherits it.
+4. ⚠️ **A new candidate, NOT inserted:** **#491**, the `Upsample(×2) → Conv2d(3×3)` arm. ⛔ Blocked
+   on a **PyPI release** (the pod installs `views-hydranet~=0.1.1` from PyPI,
+   `pod_run_model.sh:172`, which is never-modify, and views-models is read-only) and on a
+   **views-models config entry**. Both are Simon's.
+
+### Why the order does not move
+
+RP-3 closed by falsification and RP-4 by measurement. ⭐ **Both were things this register wanted
+*measured out*, and neither promotes an experiment past another** — the discipline is instruments
+before experiments, and RP-10 (rank 3) and RP-7 (rank 4) are still instruments while everything
+below is an experiment. ⇒ **No re-ranking is warranted on the evidence.** The next pick is Simon's
+between **#491**, **RP-10**, **RP-7**, and **RP-5 promoted on the argument above**.
+
+## ⛔ RE-RANK 2026-10-28, after RP-1 and RP-2 both closed
+
+Required by rule 3 (*"when an epic closes, re-rank before picking the next one; record the re-rank
+with its reason"*). **The order below is UNCHANGED, and that is the finding** — but two entries
+changed shape and one new candidate appeared, so the reasoning is recorded rather than the ranking.
+
+**What changed:**
+
+1. ⭐⭐⭐ **A NEW CANDIDATE, and it is the cheapest thing on this register: `RP-2b` — measure the
+   noise floor of the other 18 battery columns on the three seed replicates.** RP-1 measured what
+   the 20 columns can *discriminate*; RP-2 measured what 2 of them can *resolve*. ⇒ **18 columns
+   have no measured noise floor**, and the cubes already exist on disk (M75), so this is a
+   **readout, not a pod run** — hours of CPU, no new training. It is also directly the paper's
+   second criterion (evaluation report **§9.4b**). ⚠️ **Not inserted into the ranking without
+   Simon** — it is a new entry and the queue is his.
+2. ⛔ **RP-5 got harder, and knowing that is the point.** RP-5 asks why both heads sit below their
+   own objectives. **C-391 says the body-side placement readout cannot support a single-run
+   comparison at all** ⇒ RP-5 must either use the gated out-of-sample readout or replicate its arms.
+3. ⭐ **RP-6 keeps its new first question** (from RP-1): whether its recorded 0.303-vs-0.367
+   magnitude-ranking ordering is population-dependent, since `placement_rho` gives 0.629 vs 0.428.
+4. ⭐ **RP-4 is now doubly constrained before it starts**: 14 of 20 columns are blind to dispersion
+   (RP-1), and the noise floor of the 4 that are not is **unmeasured** (RP-2 covered B-1a/B-1b, not
+   the CRPS splits).
+
+**Why the order does not move.** RP-3 is already live (#468) and nothing measured today bears on it.
+Everything below it is an *experiment*, and both closed entries were *instruments* — the discipline
+is instruments before experiments, so closing two instruments does not promote any experiment past
+another. ⇒ **No re-ranking is warranted on the evidence; the next pick is Simon's between RP-3
+continuing, the new RP-2b readout, and RP-4.**
+
 ## ⭐ The queue, in order
 
 | # | ID | challenge | status | cost | can it end in a pod run? |
 |---|---|---|---|---|---|
 | **1** | **RP-1** | The metric battery cannot see what we are trying to fix | ✅ **MEASURED OUT 2026-10-28** — epic **#477**, all seven stories closed; ⛔ awaiting merge only | **CPU, hours — spent: ~7 min of compute across six scripts** | no — it makes later ones readable |
-| **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | 🔵 queued | **CPU, ~1 h** | no — same |
+| **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | ✅ **MEASURED OUT 2026-10-28** — σ̂ exists for B-1a and B-1b; ⛔ **one readout's noise exceeds its signal** | **CPU — spent: 37 min compute** | no — it makes later ones readable |
 | **3** | **RP-10** | ⭐ **The truth is not ground truth — we have never estimated the Bayes error floor** | 🔵 queued | **CPU, minutes** (route A) | no |
 | **4** | **RP-7** | Nothing scores spatial dependence or aggregates | 🔵 queued | CPU | no |
-| **5** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | 🔵 queued | **CPU, an afternoon** | no |
-| **6** | **RP-5** | Both heads sit BELOW their own objectives and nobody knows why | 🔵 queued | CPU first, then **GPU** | ⭐ **yes** |
+| **5** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | ✅ **MEASURED OUT 2026-10-29/30** — `M90`, `M91`. The draw count is **not** the lever; the question is reframed (99.42% point mass, OVER-dispersed where there is spread) | **CPU — spent: 42 min compute** | no |
+| **6** | **RP-5** | Both heads sit BELOW their own objectives and nobody knows why | 🔵 queued — ⭐⭐ **gained an argument 2026-10-30 that it should come FIRST** (the body's θ is set by the 99.66% zeros, ADR-073 §0, which confounds #230's mixture null and may confound #491's readout). ⛔ **Promotion is Simon's call, not taken** | CPU first, then **GPU** | ⭐ **yes** |
 | **7** | **RP-6** | Magnitude ranking loses to persistence (0.303 vs 0.367) | 🔵 queued | **GPU** | ⭐ **yes** |
 | **8** | **RP-8** | Everything we know is month 1 | 🔵 queued | **GPU, large** | ⭐ **yes** |
-| — | **RP-3** | The family-free recalibration beats our emission by 15% | 🟢 **LIVE in parallel** — epic **#468** | **CPU, minutes** | no GPU needed |
+| — | **RP-3** | The family-free recalibration beats our emission by 15% | ⛔ **CLOSED BY FALSIFICATION 2026-10-29** — the cube is **TEACHER-FORCED**, so the margin was a nowcast statement (`W-107`, `C-399`); the within-cube T=0 family comparison survives | **CPU — spent** | no GPU needed |
 | — | **RP-9** | Optimisation pathologies (plasticity, edge of stability, ridge) | ⛔ **PARKED** | — | — |
 
 ⛔ **RE-RANKED 2026-10-27b, and the reason is a new entry.** Simon raised that the input data is **not ground truth** — `ged_sb_best` is a sum of geocoded point events whose sharpness is partly an artifact of measurement, reporting and aggregation ⇒ there is an irreducible **Bayes error floor** and we have never estimated it. That became **RP-10**, entered at **rank 3**, and it pulled **RP-7 from 7 to 4** because if the fine-scale target is partly noise then **aggregates may be the only well-posed target**. RP-4, RP-5 and RP-6 each moved down one; **RP-3 is unranked and runs in parallel.** Full argument: `reports/2026-10-27_measurement_floor/ARGUMENT.md`.
@@ -154,10 +295,62 @@ reports it. Changing the framework is Simon's call, separately.
 
 **Rank 2.** 🔵 queued. CPU ~37 min + gates. Issues **#462**, **#463** already filed.
 
+## ✅ MEASURED OUT 2026-10-28 — the answer, and it changes which instrument arms are judged on
+
+**σ̂ now exists for B-1a and B-1b** (`reports/2026-10-28_sigma_hat/FINDING_RP2_SIGMA.md`, **M75**),
+from three true seed replicates, with all eight gates passing.
+
+- ⛔⛔ **B-1b body-alone: CV > 1 at 11 of 14 scales** — σ̂ exceeds the mean. At out/n=33 the honest
+  bar is **2.1312 against a value of 0.2947**, i.e. **7.2× the quantity itself** ⇒ **no single-run
+  comparison on it can ever clear its own floor.** **C-391**, **C-320** instance 6.
+- ⭐ **B-1b gated out-of-sample IS usable**: CV **0.024–0.054** ⇒ **≈0.16 clears the bar.**
+  **This is the readout RP-5 / RP-6 / RP-8 must judge their arms on.**
+- ⚠️ **B-1a is weakest at d=1**, the setting its published headline uses: σ̂ **0.5073**, bar
+  **2.5214**, on a quantity whose range is ~0.4–1.5.
+- ⭐⭐ **σ̂ is not flat in the scale parameter and moves in OPPOSITE directions** across the three
+  (falls, falls, **rises**) ⇒ a single scalar σ̂ would have been wrong both ways. Spans 7.9× / 18.9×.
+- ⭐ **The spread is purely the seed**: training *and* scoring are both bit-deterministic (M74, G-9),
+  so there is no measurement-noise term to subtract and no way to argue the floor down.
+
+⛔ **Scope, binding:** `truncated_nb` @ dropout 0.15. The published B-1a 0.391 / B-1b 0.6267 are
+`nb` @ 0.15 on a checkpoint ⛔ **wrongly recorded as deleted — it is on disk, C-394/W-99** (⚠️ but with no replicate, so σ̂ there is still unmeasured) and the live `nb` control is @ **0.125**; family alone shifts
+B-1a **3.7×**. ⇒ discharged for `truncated_nb` @ 0.15, **provisionally** for `nb` as a transported CV.
+⚠️ **n=3, 2 df**: 95% CI **[0.52σ̂, 6.28σ̂]**. Two more seeds take the bar 4.97σ̂ → ~3.0σ̂ at ~17 min each.
+
+## ⛔ AMENDED 2026-10-28 — part of this entry was WRONG, and it is corrected rather than overwritten
+
+**σ̂ is NOT unrun.** `/home/simon/Documents/kestrel_sigma_backup_20261021/READOUT.md`, dated
+**2026-10-21**, reports σ̂ for the **gate-calibration slope `b`** over seeds 42/43/44, with M1–M4 and
+a pre-registration. ⇒ **W-83's shape a second time** — a quantity recorded as missing while the
+artifact sat on this machine. ⚠️ The fix that worked was not vigilance: it was **reading the
+directory before planning the compute**, four minutes, now the first step of any "never measured"
+claim.
+
+**What RP-2 step 0 measured instead** (`reports/2026-10-28_sigma_hat/`, **M74**):
+
+- ⭐⭐⭐ **The pipeline is bit-deterministic.** `amber` ≡ `silver` ≡ `silver_0_1_4` at **190 of 190**
+  state-dict entries, across git **73c3f42 vs 2e73de3** and views-hydranet **0.1.2/0.1.3/0.1.4**.
+  Every other pair agrees on **15/190**, and those 15 are exactly the BatchNorm
+  `num_batches_tracked` counters ⇒ **0 of 175 float tensors agree between any two seeds.**
+  ⇒ **This entry's falsification question is ANSWERED: rerun variance is exactly zero, so σ̂ across
+  seeds is pure seed sensitivity and the seed axis is NOT decorative.** ⭐ That also means the
+  planned **mask-pairing gate G-3** is superseded by stronger evidence for *training* — though not
+  for the *scoring* forward pass, so it is narrowed rather than dropped.
+- ⛔⛔ **And it refutes the readout's choice of σ̂.** `READOUT.md` selects the same-version pair
+  (**0.0002…0.0196**, df=1) over the as-launched family (**0.0351/0.0932/0.0434**, df=2) by arguing
+  *"by elimination the excess sits on the 0.1.3/0.1.4 boundary"*. That boundary is **numerically
+  inert**, so there is nothing to eliminate onto it ⇒ the pair is **the same estimate with the
+  outlying seed dropped**, understating the floor **3×–200×**. See **C-390**.
+
+⇒ **What is still genuinely unrun: σ̂ for B-1a / B-1b**, which is what #462/#463 ask for. The
+2026-10-21 readout measures a **different statistic** (GLOSSARY §5e). ⛔ Never quote one against
+the other — that collision is what produced W-83.
+
 **The claim.** Every arm this programme has run is **n=1**, and we cannot distinguish a real effect
 from seed variance.
 
-- ⭐ **It is unrun, not blocked.** Three true seed replicates sit on local disk —
+- ⚠️ **It is unrun for B-1a/B-1b, not blocked** — ⛔ *the original wording "it is unrun" was wrong as
+  written and is corrected above.* Three true seed replicates sit on local disk —
   `{silver,bronze,cobalt}_kestrel`, seeds **42/43/44**, identical configs but the seed, git `2e73de3`.
 - ⛔ **W-83**: I told Simon σ̂ *"doesn't exist"* and it was the load-bearing fact in a strategic
   recommendation. He asked *"are you sure? have you checked?"* and the data was on this machine.
@@ -181,7 +374,7 @@ over n = 1, 2, 4 — **draw noise wearing a seed-effect costume. Hard stop and r
 
 | | family | dropout | status |
 |---|---|---|---|
-| published B-1a **0.391** / B-1b **0.6267** | `nb` | 0.15 | checkpoint **DELETED** |
+| published B-1a **0.391** / B-1b **0.6267** | `nb` | 0.15 | ⛔ **said "checkpoint DELETED" — WRONG, corrected 2026-10-28: on disk at `~/Documents/views_hydranet_vehicle_20261012/`, sha `4acbf4d3…`. ⚠️ Reproducible, but still NO REPLICATE — σ̂ here needs ≥2 more seeds. C-394 / W-99.** |
 | the live `nb` control | `nb` | **0.125** | live |
 | the three replicates | **`truncated_nb`** | 0.15 | live |
 
@@ -193,9 +386,21 @@ alone**. ⇒ σ̂ discharges the noise-floor requirement for `truncated_nb` @ 0.
 
 ---
 
-## RP-3 · The family-free recalibration beats our emission by 15%
+## RP-3 · The family-free recalibration beats our emission by 15% — ⛔ AT T=0, ON A TEACHER-FORCED CUBE
 
-**Unranked — runs in parallel.** 🟢 **LIVE — epic #468.** CPU, minutes. Runs in parallel with RP-1/RP-2.
+**Unranked.** ⛔⛔⛔ **CLOSED 2026-10-29 — the forecast claim is RETRACTED (M85, C-399).** The
+cube every number below is computed from is **teacher-forced**: `vehicle.py:301-307` writes the three
+observed fatality series into the model's three input channels, so the model is handed last month's
+truth at every inference step. Teacher-forced index **AUC 0.99777** against the delivered
+autoregressive forecast's **0.72340**, and only the delivered one decays with horizon. Re-running the
+method with **only the index changed** scores **0.067752** against **0.060323** for no model at all
+⇒ **on the deliverable forecast it is worse than not ranking.** ⭐ The comparators sit on the
+**same** cube, so the margin survives as an **emission-family** comparison at T=0 and dies as a
+forecast claim — **the arithmetic was never wrong; a label was.** ⭐ The method's name is
+**EasyUQ** / isotonic distributional regression (Walz, Henzi, Ziegel & Gneiting 2024, *SIAM Review*
+66(1) 91–122), whose proper estimator has **no bin count**. ⛔⛔ **Nothing in this programme
+ever scored the delivered autoregressive forecast — #489.** Everything below is kept as the record
+of what was measured, readable only as T=0.
 
 **The claim.** Keep the model's `gate × mu` **ranking**, throw its predicted **amounts** away, look
 up what history did at each rank. Fit 421–456, score 457–469, 842,634 held-out cell-months:

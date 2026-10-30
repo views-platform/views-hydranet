@@ -1,0 +1,89 @@
+PASS  G-26  views_hydranet resolves to the WORKING TREE: /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/__init__.py
+PASS  G-17  rho estimator controls, 8/8:
+        ok  ramp                         +0.9996
+        ok  checkerboard                 -1.0000
+        ok  iid noise                    +0.0006
+        ok  direction (stripes, pooled)  +0.0001
+        ok  lag d=1 (period-4)           +0.0000
+        ok  lag d=2 (period-4)           -1.0000
+        ok  mask (half-land ramp)        +1.0000
+        ok  channel FLOOR                -1.0000
+==============================================================================================================
+G-F — DOES EITHER REMEDY REMOVE THE PHASE SIGNATURE? (untrained, one seed, three modes)
+==============================================================================================================
+  raster          360x720, 64,818 land cells
+  months fed      421-469; rho over the out-of-sample 457-469
+  weights         ⛔ UNTRAINED, torch.manual_seed(42) before each build
+  inference mode  ⛔ TEACHER-FORCED (vehicle.py:301-307), matching M92
+  M92 reference   trained control at up1: rho(1) +0.123146  rho(2) +0.920900  gap +0.797754
+
+  HydraBNUNet06_LSTM4
+    PASS G-23  params 905,289 == PREREG §2's 905,289
+    PASS G-24  no BatchNorm in train mode; all 15 LockedDropout pass a constant through UNCHANGED (behavioural, not a flag read)
+    PASS G-25  two forwards on identical input are bit-identical
+    PASS G-14  all 3 hooks fired at their declared resolution
+    swept in 91s
+
+  UpsampleConv2
+    PASS G-23  params 905,289 == PREREG §2's 905,289
+    PASS G-24  no BatchNorm in train mode; all 15 LockedDropout pass a constant through UNCHANGED (behavioural, not a flag read)
+    PASS G-25  two forwards on identical input are bit-identical
+    PASS G-14  all 3 hooks fired at their declared resolution
+    swept in 207s
+
+  UpsampleConv1
+    PASS G-23  params 720,969 == PREREG §2's 720,969
+    PASS G-24  no BatchNorm in train mode; all 15 LockedDropout pass a constant through UNCHANGED (behavioural, not a flag read)
+    PASS G-25  two forwards on identical input are bit-identical
+    PASS G-14  all 3 hooks fired at their declared resolution
+    swept in 297s
+
+==============================================================================================================
+1. THE PHASE SIGNATURE, PER MODE — gap = rho(2) - rho(1). A phase pattern makes it LARGE.
+==============================================================================================================
+  mode                   stage     rho(1)     rho(2)        GAP   ch floor rho(1)
+  HydraBNUNet06_LSTM4      up0    -0.0003    +0.7063    +0.7066           -0.5743
+  HydraBNUNet06_LSTM4      up1    -0.2991    +0.9582    +1.2572           -0.9031
+  HydraBNUNet06_LSTM4      out    +0.5822    +0.4476    -0.1346           +0.4723
+  UpsampleConv2            up0    +0.7820    +0.5862    -0.1958           +0.4692
+  UpsampleConv2            up1    +0.7920    +0.5936    -0.1984           +0.6175
+  UpsampleConv2            out    +0.5702    +0.4231    -0.1471           +0.3624
+  UpsampleConv1            up0    +0.7740    +0.5489    -0.2251           +0.5749
+  UpsampleConv1            up1    +0.7912    +0.5833    -0.2078           +0.6047
+  UpsampleConv1            out    +0.5559    +0.4222    -0.1337           +0.3736
+
+==============================================================================================================
+2. ⛔ THE VOID CONDITION — PREREG.md §6 device 4, named before any number existed
+==============================================================================================================
+  control gap at up1 = +1.257220   bar: must be >= 0.40
+  ✅ NOT VOID — the untrained control reproduces the signature, so the remedies are
+     measured against an instrument that demonstrably detects it.
+
+==============================================================================================================
+3. ⭐⭐ THE PRE-REGISTERED VERDICT
+==============================================================================================================
+  UpsampleConv2    gap -0.198421 (bar < 0.15)   channel floor +0.617487 (bar >= -0.05)   ✅ removes it
+  UpsampleConv1    gap -0.207828 (bar < 0.15)   channel floor +0.604682 (bar >= -0.05)   ✅ removes it
+
+  P-20  at least one remedy removes the signature: HELD   (2 of 2)
+  P-21  UpsampleConv1's gap below UpsampleConv2's: HELD   (-0.207828 vs -0.198421)
+
+  ⇒ ⭐⭐ THE ARM, chosen by these numbers and not by argument (PREREG §2):
+       smallest residual gap      : UpsampleConv1 (-0.207828)
+       lowest parameter cost      : UpsampleConv2 (905,289, +0.0%)
+       ⇒ PREREG §2 selects        : UpsampleConv2
+       ⚠️ UpsampleConv1 removes MORE of the signature but costs more capacity. The
+          prereg's rule stands as written; the trade is recorded in the FINDING.
+
+==============================================================================================================
+⚠️ LIMITS
+==============================================================================================================
+  · ⛔ UNTRAINED weights. This measures the stage's GEOMETRY, not what training does with
+    it. A trained candidate could re-learn a phase pattern a 2x2 kernel permits.
+  · ⛔ TEACHER-FORCED (C-399), to match M92. The arm is scored autoregressively, and
+    EXP-01's whole finding is that the two do not agree.
+  · ⚠️ One seed. The architecture difference is deterministic given the seed, but the
+    MAGNITUDE of each gap is a one-draw quantity with no sigma-hat.
+  · sb head (head1) only; up0/up1/out on the reg branch.
+
+  wall time 296.5 s   peak RSS 3.15 GiB
