@@ -97,6 +97,7 @@ GATES
 
 from __future__ import annotations
 
+import json
 import resource
 import sys
 import time
@@ -144,6 +145,21 @@ STAGES = (("up0", "upsample0_head1_reg", 2), ("up1", "upsample1_head1_reg", 1),
           ("out", "dec_conv4_head1_reg", 1))
 VOID_GAP = 0.40          # PREREG.md §6 device 4
 P20_GAP, P20_FLOOR = 0.15, -0.05
+
+#: ⛔⛔ WHERE THE SELECTION IS RECORDED, and the reason it is recorded at all. Until 2026-10-30
+#: this script only PRINTED its verdict, and `launch_exp02.sh`, `smoke_exp02.sh`,
+#: `preflight_exp02.py` and `verify_exp02.py` each carried a hand-typed copy of the answer — four
+#: transcriptions of a decision made by a program that wrote nothing down.
+#:
+#: A `/falsify guard` audit measured what that costs: changing one word in `launch_exp02.sh`
+#: (`UpsampleConv2` -> `UpsampleConv1`, a registered architecture whose tag is already in
+#: `make_arch_arm._ARCH_TAG`) produced four arms that trained, scored, and were NEVER
+#: identity-checked, because the verifier's own arm list was an independent fifth copy. Gate F1 —
+#: pre-registered at `PREREG.md:226` — read as HAVING RUN when it had not.
+#:
+#: ⇒ The four tools now READ this file and refuse without it. Re-running G-F is the only way to
+#: change which arm trains, which is what "chosen by these numbers and not by argument" requires.
+SENTINEL = HERE / "results" / "SELECTED_ARM"
 M92_TRAINED = {"up1_rho1": 0.123146, "up1_rho2": 0.920900, "up1_floor": -0.724900}
 
 
@@ -427,11 +443,39 @@ if passers:
     print(f"       lowest parameter cost      : {pick} "
           f"({EXPECTED_PARAMS[pick]:,}, {100.0 * (EXPECTED_PARAMS[pick] - n_inc) / n_inc:+.1f}%)")
     print(f"       ⇒ PREREG §2 selects        : {pick}")
+    SENTINEL.parent.mkdir(parents=True, exist_ok=True)
+    SENTINEL.write_text(
+        json.dumps(
+            {
+                "selected": pick,
+                "control": MODES[0],
+                "rule": "PREREG §2: among remedies that REMOVE the signature, the lowest "
+                        "parameter cost (distance from the incumbent's count) takes the GPU slot",
+                "gaps": {m: gaps[m] for m in MODES[1:]},
+                "channel_floors": {m: floors[m] for m in MODES[1:]},
+                "bars": {"gap_below": P20_GAP, "floor_at_least": P20_FLOOR},
+                "p20_passers": passers,
+                "p21_held": gaps["UpsampleConv1"] < gaps["UpsampleConv2"],
+                "smallest_residual_gap": tightest,
+                "params": {m: EXPECTED_PARAMS[m] for m in MODES},
+                "views_hydranet": str(_vh.parent),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    print(f"\n  ⭐ SELECTED_ARM written: {SENTINEL}")
+    print("     The four EXP-02 tools read this file. None of them names an arm.")
     if tightest != pick:
         print(f"       ⚠️ {tightest} removes MORE of the signature but costs more capacity. The")
         print("          prereg's rule stands as written; the trade is recorded in the FINDING.")
 else:
+    # ⛔ AND REMOVE ANY STALE SELECTION. A sentinel left behind by an earlier run would let the
+    # tools launch an arm THIS run just refuted — a gate passing because it is old rather than
+    # because it is true, which is the exact failure the SMOKE_OK freshness check exists for.
+    SENTINEL.unlink(missing_ok=True)
     print("\n  ⇒ ⛔ NEITHER remedy removes the signature on untrained weights.")
+    print("     Any previous SELECTED_ARM sentinel has been REMOVED; the tools will now refuse.")
     print("     Per S-2 this lowers confidence and closes nothing; per PREREG §6 device 3, any")
     print("     argument from me that this test was inadequate must be logged as a W- row FIRST.")
 

@@ -77,11 +77,29 @@ sys.path.insert(0, str(_BAKEOFF_TOOLS))
 from make_arch_arm import arm_label  # noqa: E402
 from preflight import _MODELS, INCUMBENT_ARM_HOURS, _resolve, measure  # noqa: E402
 
-#: control first, then the arm — the order `PREREG.md` section 10d pre-registers.
-ARCHES = ("HydraBNUNet06_LSTM4", "UpsampleConv2")
-CONTROL = "HydraBNUNet06_LSTM4"
+#: ⛔⛔ THE ARM IS READ FROM `G-F`'s SENTINEL, NEVER TYPED HERE. `ARCHES` was
+#: `("HydraBNUNet06_LSTM4", "UpsampleConv2")` until 2026-10-30 — one of four hand-typed copies of
+#: a decision `gf_phase_signature.py` makes and, at the time, only printed. See that file's
+#: `SENTINEL` note for what a `/falsify guard` audit measured it costs.
+_SENTINEL = _HERE.parent / "results" / "SELECTED_ARM"
 SEEDS = (42, 43)
 LESSONS, EPS = 300, 0.0
+
+
+def _selection() -> tuple[str, tuple[str, ...]]:
+    """The control and the arm, in the order `PREREG.md` section 10d pre-registers.
+
+    Refuses rather than defaulting: a preflight that silently sized the wrong architecture would
+    clear a budget for a run that never happens.
+    """
+    if not _SENTINEL.is_file():
+        raise SystemExit(
+            f"preflight_exp02: no SELECTED_ARM sentinel at {_SENTINEL}. The arm is chosen by "
+            "gf_phase_signature.py under PREREG section 2 and is not typed into this file — run "
+            "G-F first."
+        )
+    sel = json.loads(_SENTINEL.read_text())
+    return sel["control"], (sel["control"], sel["selected"])
 
 
 def main() -> int:
@@ -99,6 +117,8 @@ def main() -> int:
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    # Read BEFORE the device gate, so a missing sentinel is reported even on a CPU box.
+    CONTROL, ARCHES = _selection()
     problems: list[str] = []
 
     # ── 1. hard device gate ─────────────────────────────────────────────────────────────────

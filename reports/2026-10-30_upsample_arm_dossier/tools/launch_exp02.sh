@@ -34,6 +34,22 @@ die(){ echo "LAUNCH REFUSED: $*" >&2; exit 1; }
 [ -f "$RES/SMOKE_OK" ] || die "no SMOKE_OK sentinel. Run tools/smoke_exp02.sh — it is the real gate."
 smoke_epoch=$(stat -c %Y "$RES/SMOKE_OK")
 
+# ⛔⛔ WHICH ARM RUNS IS READ FROM G-F'S SENTINEL, NOT TYPED HERE. The specs below carried
+# `UpsampleConv2` as a literal until 2026-10-30 — one of four hand-typed copies of a decision
+# `gf_phase_signature.py` makes and, at the time, only printed. A /falsify guard audit changed
+# that one word and four arms trained, scored, and were NEVER identity-checked, because
+# `verify_exp02.py`'s own arm list was an independent fifth copy. Gate F1 (PREREG.md:226) read as
+# HAVING RUN when it had not. Re-running G-F is now the only way to change the arm.
+[ -f "$RES/SELECTED_ARM" ] || die "no SELECTED_ARM sentinel. Run gf_phase_signature.py — PREREG \
+section 2 says the arm is chosen by those numbers, and this launcher will not guess it."
+read -r CTL ARM < <(python3 -c "
+import json
+d = json.load(open('$RES/SELECTED_ARM'))
+print(d['control'], d['selected'])" 2>/dev/null) || true
+[ -n "${CTL:-}" ] && [ -n "${ARM:-}" ] || die "SELECTED_ARM is unreadable or lacks \
+'control'/'selected'. Re-run gf_phase_signature.py rather than editing the sentinel by hand."
+sel_epoch=$(stat -c %Y "$RES/SELECTED_ARM")
+
 # A sentinel measured before the last commit describes code that no longer exists. Silent staleness
 # is how a gate becomes decorative: it passes because it is old, not because it is true. Scope is
 # the model code, the guards and the arm builder — the things that could change WHAT SMOKE
@@ -47,6 +63,22 @@ head_epoch=$(cd "$HYD" && git log -1 --format=%ct -- \
 [ "$smoke_epoch" -ge "$head_epoch" ] || die \
   "SMOKE_OK is STALE: measured $(date -d @"$smoke_epoch" '+%F %T'), but the measured surface last \
 changed $(date -d @"$head_epoch" '+%F %T'). Re-run tools/smoke_exp02.sh."
+# The SELECTION is a measurement too, so the same staleness DISCIPLINE applies — but over its own
+# surface, which is not SMOKE_OK's. The test is "would a change here move G-F's numbers?":
+# `views_hydranet` and `tests` yes; `gf_phase_signature.py` itself yes. `smoke_exp02.sh` and
+# `make_arch_arm.py` NO — they do not enter the gap computation at all, and SMOKE_OK's scope
+# includes them because they determine what SMOKE measures.
+#
+# ⛔ THIS IS NOT THE SCOPE BEING WIDENED TO DODGE A REFUSAL, which is what the comment above warns
+# against — it is NARROWER than SMOKE_OK's on the two files that cannot affect a gap, and it ADDS
+# `gf_phase_signature.py`, which SMOKE_OK's scope omits and which is the one file that most
+# obviously invalidates a selection. Re-run G-F and the refusal clears honestly.
+sel_head_epoch=$(cd "$HYD" && git log -1 --format=%ct -- \
+  views_hydranet tests "$D/gf_phase_signature.py" 2>/dev/null)
+[ -n "$sel_head_epoch" ] || die "cannot read the last commit touching G-F's measured surface."
+[ "$sel_epoch" -ge "$sel_head_epoch" ] || die \
+  "SELECTED_ARM is STALE: written $(date -d @"$sel_epoch" '+%F %T'), but G-F's measured surface \
+last changed $(date -d @"$sel_head_epoch" '+%F %T'). Re-run gf_phase_signature.py."
 
 [ -z "$(cd "$HYD" && git status --porcelain)" ] || die \
   "working tree is dirty; run_queue aborts on HEAD drift (F6). Commit first."
@@ -55,7 +87,8 @@ $CENV ruff check "$HYD" >/dev/null 2>&1 || die "ruff check is red."
 $CENV python -m pytest -q "$HYD/tests/architectures" "$HYD/tests/test_arm_identity_check.py" \
   "$HYD/tests/test_arm_postflight.py" >/dev/null 2>&1 || die "the guard tests are red."
 
-echo "smoke fresh, tree clean, guards green — launching EXP-02 (4 arms)."
+echo "smoke fresh, selection fresh, tree clean, guards green — launching EXP-02 (4 arms)."
+echo "  control: $CTL   arm: $ARM   (both read from SELECTED_ARM, neither typed here)"
 mkdir -p "$RES"
 cd /home/simon/Documents/scripts/views_platform/views-models
 # Order is pre-registered (PREREG.md section 10d): the CONTROL first, both seeds, then the arm.
@@ -68,6 +101,6 @@ exec setsid nohup env \
   ARM_MODULE=make_arch_arm \
   ARM_TOOLS="$BAKEOFF/tools" \
   bash "$HYD/reports/2026-08-18_lesson_curve_dossier/tools/run_queue.sh" \
-  300:42:0.0::HydraBNUNet06_LSTM4 300:43:0.0::HydraBNUNet06_LSTM4 \
-  300:42:0.0::UpsampleConv2       300:43:0.0::UpsampleConv2 \
+  "300:42:0.0::$CTL" "300:43:0.0::$CTL" \
+  "300:42:0.0::$ARM" "300:43:0.0::$ARM" \
   > "$RES/launcher.log" 2>&1 < /dev/null &

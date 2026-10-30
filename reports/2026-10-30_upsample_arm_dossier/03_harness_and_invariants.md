@@ -105,6 +105,7 @@ the defect, not a feature.
 - [x] the incumbent untouched and byte-identical when the candidate is not selected
 - [x] fail-loud guards: unknown name, non-conforming stage, channel mismatch, device
 - [x] the cheap readout ran and **selected the arm** before any GPU time (`G-F`)
+- [x] ⛔ **the selection is a SENTINEL, not four transcriptions.** `G-F` writes `results/SELECTED_ARM`; `launch_exp02.sh`, `smoke_exp02.sh`, `preflight_exp02.py` and `verify_exp02.py` all READ it and refuse without it, and the launcher applies the same staleness rule to it as to `SMOKE_OK`. A `/falsify guard` audit measured the cost of the four hand-typed copies that stood here before: one word changed in the launcher and four arms trained, scored, and were never identity-checked — gate `F1` reading as having run when it had not. A refuted `G-F` run now DELETES the sentinel.
 - [x] parameter counts asserted **relationally**, with no literal
 - [x] ⛔ three process bypasses removed; no `PYTHONPATH`, no gate-set fork
 - [x] `ruff` clean; **2409 passed, 0 failed**; CIC-drift and registry-contract tests green
@@ -112,7 +113,7 @@ the defect, not a feature.
 - [x] ⛔ **`/falsify guard` ran independently and its 13 survivors are closed** (gap C2)
 - [ ] ⛔ **0.1.8 released; the candidate resolvable from site-packages with no `PYTHONPATH`** (gap C1) — **blocker**
 - [ ] the four `*fullzero*` arm dirs built and single-variable (gap C3)
-- [ ] `preflight_exp02.py` → `PREFLIGHT_OK`; `smoke_exp02.sh` → `SMOKE_OK`
+- [ ] `gf_phase_signature.py` → `SELECTED_ARM`; `preflight_exp02.py` → `PREFLIGHT_OK`; `smoke_exp02.sh` → `SMOKE_OK`
 - [ ] the refetch decision taken and logged with its vintage caveat (gap C8)
 - [ ] `C7-6` / `C7-7` routed through `register-risk` (gap C7)
 - [ ] an EXP-02 read-out exists (gap C6)

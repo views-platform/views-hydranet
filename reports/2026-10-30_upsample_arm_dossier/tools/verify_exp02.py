@@ -56,6 +56,7 @@ _BAKEOFF_TOOLS = _HN / "reports" / "2026-08-24_architecture_bakeoff_dossier" / "
 sys.path.insert(0, str(_HN))
 sys.path.insert(0, str(_BAKEOFF_TOOLS))
 
+from make_arch_arm import arm_label  # noqa: E402
 from verify_bakeoff import _ap, _hp  # noqa: E402
 
 from scripts.arm_postflight import audit_arm  # noqa: E402
@@ -65,9 +66,19 @@ from scripts.arm_postflight import audit_arm  # noqa: E402
 #: No default: an unset RES_DIR must stop the queue, not silently pick a directory.
 _ENV_RES = os.environ.get("RES_DIR")
 
-ARCHES = {"HydraBNUNet06_LSTM4": "ctl", "UpsampleConv2": "upctwo"}
-CONTROL_ARCH = "HydraBNUNet06_LSTM4"
-SEEDS = {42: "fortytwo", 43: "fortythree"}
+#: ⛔⛔ THE ARM IS READ FROM `G-F`'s SENTINEL, NEVER TYPED HERE. This file carried
+#: `ARCHES = {"HydraBNUNet06_LSTM4": "ctl", "UpsampleConv2": "upctwo"}` until 2026-10-30 — a
+#: hand-typed copy of a decision `gf_phase_signature.py` makes. A `/falsify guard` audit changed
+#: one word in `launch_exp02.sh` and four arms trained, scored and were never identity-checked,
+#: because this list was an independent fifth copy of the answer.
+_SENTINEL = _D / "results" / "SELECTED_ARM"
+
+#: ⛔ PREREG §10d: both seeds, 300 lessons, eps 0.0. These are the QUEUE's pre-registered spec and
+#: not `G-F`'s output, so they live here — but the LABELS are built by the shared builder's own
+#: `arm_label`, never re-derived. `f"{tag}fullzero_{word}"` was a second copy of `_ARCH_TAG`,
+#: `_LESSON_WORD` and `_SEED_WORD` at once, and it silently hardcoded lessons=300 / eps=0.0, so a
+#: queue run at any other lesson count was invisible to this verifier.
+LESSONS, EPS, SEEDS = 300, 0.0, (42, 43)
 #: ⛔ PREREG §6: primary endpoints are h1 and h36. h18 is NOT an endpoint.
 HORIZONS = (1, 36)
 
@@ -91,12 +102,22 @@ def main() -> int:
         return 1
     res.mkdir(parents=True, exist_ok=True)
 
+    if not _SENTINEL.is_file():
+        print(
+            f"verify_exp02: no SELECTED_ARM sentinel at {_SENTINEL}. The arm is chosen by "
+            "gf_phase_signature.py under PREREG §2 and is not typed into this file — run G-F "
+            "first. Refusing to guess which architecture this queue is scoring."
+        )
+        return 1
+    sel = json.loads(_SENTINEL.read_text())
+    control_arch, arches = sel["control"], (sel["control"], sel["selected"])
+
     problems: list[str] = []
     rows: list[dict] = []
-    for arch, tag in ARCHES.items():
-        for seed, word in SEEDS.items():
-            arm = f"{tag}fullzero_{word}"
-            ctrl = f"{ARCHES[CONTROL_ARCH]}fullzero_{word}"
+    for arch in arches:
+        for seed in SEEDS:
+            arm = arm_label(lessons=LESSONS, eps=EPS, seed=seed, variant=arch)
+            ctrl = arm_label(lessons=LESSONS, eps=EPS, seed=seed, variant=control_arch)
             ctrl_csv = res / f"score_{ctrl}.csv"
 
             #: A score CSV is what separates "this arm was scored" from "this arm is queued".
@@ -177,14 +198,17 @@ def main() -> int:
     # encodes lessons=300 / eps=0.0 via `_LESSON_WORD` / `_EPS_WORD`), and a renamed tag.
     #
     # ⇒ Gate F1 would read as HAVING RUN when it had not — a pre-registered gate silently false,
-    # for the second time in this file. ⚠️ This does NOT replace the real fix, which is for `G-F`
-    # to write a sentinel naming the selected arm and for the three tools to read it instead of
-    # hardcoding; that remains open. This is the backstop that notices when they disagree.
+    # for the second time in this file. ⭐ The ROOT cause is now closed above (the arm comes from
+    # G-F's sentinel, the labels from the shared builder); this stays as the backstop for the case
+    # the sentinel cannot cover — two experiments sharing one RES_DIR.
+    expected_labels = {
+        arm_label(lessons=LESSONS, eps=EPS, seed=s, variant=a) for a in arches for s in SEEDS
+    }
     for csv_path in sorted(res.glob("score_*.csv")):
         label = csv_path.stem[len("score_") :]
         if label.endswith("_use_real"):
             continue  # the oracle companion `run_queue.sh` scores alongside each arm
-        if label not in {f"{t}fullzero_{w}" for t in ARCHES.values() for w in SEEDS.values()}:
+        if label not in expected_labels:
             problems.append(
                 f"{label}: scored in this results directory but is not an EXP-02 arm, so gate F1 "
                 "never ran for it. Either the launcher queues something this verifier does not "
@@ -192,8 +216,10 @@ def main() -> int:
             )
 
     done = [r for r in rows if r[f"ap_h{HORIZONS[0]}"] is not None]
-    expected = len(ARCHES) * len(SEEDS)
-    status = "COMPLETE" if len(done) == expected else f"IN PROGRESS ({len(done)}/{expected})"
+    n_expected = len(arches) * len(SEEDS)
+    status = (
+        "COMPLETE" if len(done) == n_expected else f"IN PROGRESS ({len(done)}/{n_expected})"
+    )
 
     out = [f"# EXP-02 — candidate 7 · {status}", ""]
     out.append("⛔ Endpoints are h1 and h36. h18 is NOT an endpoint — EXP-01's design error.")
