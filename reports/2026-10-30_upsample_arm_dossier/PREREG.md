@@ -394,6 +394,72 @@ a nuisance**, and no reading of this arm may attribute an effect to *geometry al
 
 ---
 
+## 12 · ⛔⛔ AMENDMENT 3, 2026-10-30 — the k=2 remedy pads with ZEROS, and that is an edge defect
+
+⛔ **WRITTEN BEFORE THE RE-RUN, AND BEFORE ANY NEW NUMBER EXISTS.** This is the condition I set
+myself when I first raised the issue and then deferred it: a change that moves a measured quantity
+gets its amendment in writing first, or it is a result chosen after seeing the numbers. §6 device 6
+forbids changing the **rule**; this changes the **operator**, which is allowed, and only with this
+declaration standing ahead of it.
+
+### 12a · What is wrong
+
+`NearestConvUp` with `_KERNEL = 2` convolves a 2×2 kernel over the nearest-upsampled map with
+`nn.Conv2d(..., padding=1)` and crops the surplus leading row and column. `nn.Conv2d`'s default
+`padding_mode` is **`'zeros'`**. ⇒ The retained output's **last row and last column** each read one
+row of hard zeros, and the **bottom-right corner cell reads two** — so the border is attenuated
+roughly 2×, and 4× at the corner.
+
+⚠️ **The incumbent has no such artifact at all.** `ConvTranspose2d(kernel=2, stride=2)` has
+`kernel == stride`, so no window overlaps and no window ever extends past the input — there is
+nothing to pad. ⇒ This edge defect is **introduced by the remedy**, which makes it a second,
+undeclared difference between arm and control, in a programme whose protocol is that `model` is the
+only key that differs. It is the same class as Amendment 2's 11a (the RNG draw) and 11b (the output
+scale): a difference the intervention smuggles in alongside the mechanism under test.
+
+### 12b · The fix, and why it is one keyword
+
+`nn.Conv2d(..., padding=1, padding_mode="replicate")`. The edge window then reads the nearest real
+cell instead of a zero. **No parameter is added** — `padding_mode` is not learnable — so
+`UpsampleConv2` stays at **exactly ±0** against the incumbent, which is the whole reason it is the
+arm. `_KERNEL = 1` uses `padding=0` and the keyword cannot reach it.
+
+⚠️ **NOTED, NOT DONE:** on a 360×720 global raster the left and right edges are a **longitude
+wrap**, so `padding_mode="circular"` would be geographically correct in *x* while `replicate` is
+correct in *y*. `padding_mode` applies to all four sides uniformly, so splitting them needs explicit
+per-axis padding ops. That is a bigger claim than the defect warrants and it is **out of scope
+here** — recorded so the next reader does not have to rediscover it.
+
+### 12c · ⛔ WHAT THIS COSTS, declared
+
+**`G-F` must re-run, and its numbers will move.** The committed run — gap `−0.198421` /
+`−0.207828`, floors `+0.617487` / `+0.604682`, `P-20` HELD 2 of 2, `P-21` HELD — **stands as the
+as-registered measurement** and is not re-read, re-interpreted, or deleted. The re-run is a
+**second, declared measurement** of a changed operator, and both are kept.
+
+⛔⛔ **`P-21` is the one at risk, on a margin of 0.0094.** It held at `−0.207828` vs `−0.198421`.
+Zero padding makes an edge *discontinuity*, so removing it should *raise* `ρ(1)` and therefore
+*lower* `UpsampleConv2`'s gap — i.e. the change pushes **toward** flipping `P-21`. I say this now,
+before the number exists, because saying it afterwards would be worthless.
+
+⭐ **THE ARM CANNOT CHANGE, and this is why the amendment is safe to make.** §2's rule is *lowest
+parameter cost*, `padding_mode` adds none, and `_KERNEL = 1`'s count is untouched. So `UpsampleConv2`
+is selected whichever way the gaps move. ⇒ This amendment can only affect whether a **secondary**
+prediction survives. It cannot affect which arm takes the GPU slot.
+
+### 12d · New predictions, registered against this amendment
+
+| | prediction | why it is risky |
+|---|---|---|
+| **`P-28`** | `UpsampleConv2`'s gap moves by **less than 0.0094**, so `P-21`'s HELD verdict survives | The affected cells are one row and one column of a 360×720 grid — ~1,080 of 259,200, and most of row 359 and column 719 is ocean, which the land mask excludes. I expect ~1e-3. ⛔ If it exceeds the margin, `P-21` flips and I will have moved a verdict with a padding keyword, which is exactly the kind of fragility `R-58` already called a weak hold. |
+| **`P-29`** | `UpsampleConv1`'s gap is unchanged to within **1e-6** | `_KERNEL = 1` sets `padding=0`, so `padding_mode` is unreachable by construction. If this moves at all, my account of the code is wrong — and that is worth more than the prediction. |
+
+⛔ **Neither prediction is a reason to prefer an outcome.** Per §6 device 3, if `P-28` fails and I
+find myself arguing the gap statistic was the wrong instrument, that argument is a `W-` row against
+myself **first**.
+
+---
+
 ## 9 · Attribution
 
 Predictions **S-1** and **S-2** are **Simon's**, quoted verbatim, and are logged as his in

@@ -33,6 +33,8 @@ happening' for a pattern that is unmistakable at h1 and h36."*
 |---|---|
 | `P-20` at least one remedy removes the signature | ✅ **HELD, 2 of 2** — `R-57` |
 | `P-21` `UpsampleConv1`'s gap below `UpsampleConv2`'s | ⚠️ **weak hold on a 0.0094 margin; not claimed as a win** — `R-58` |
+| `P-28` the padding fix moves `UpsampleConv2`'s gap less than the 0.0094 `P-21` margin | ✅ **HELD, Δ = −0.000107**, declared sign correct; point estimate 10× pessimistic — `R-59` |
+| `P-29` `UpsampleConv1`'s gap unchanged to within 1e-6 | ✅ **HELD exactly, Δ = 0.000000** — `R-60` |
 | `P-22`…`P-27` | 🔵 OPEN — `O-3` |
 | `S-1`, `S-2` | 🔵 `S-1` open; `S-2` conceded |
 

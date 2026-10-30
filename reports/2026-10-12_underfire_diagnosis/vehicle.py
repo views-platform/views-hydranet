@@ -35,8 +35,9 @@ EXPECTED_SIDECAR = {
 }
 #: ⛔ AMENDMENT 4 (2026-10-21). The vehicle families F6 admits, and nothing else.
 #: `nb` is the delivered `violet_visitor` config every D3-D12 number was measured on (checkpoint
-#: `4acbf4d3…`, now DELETED). `truncated_nb` is `amber_kestrel`'s delivered arm (`2a5efc2a…`), the
-#: vehicle the structure-penalty arm runs on and the only one still on disk.
+#: `4acbf4d3…` — ⛔ RETRACTED 2026-10-30, see AMENDMENT 5's correction: it is NOT deleted).
+#: `truncated_nb` is `amber_kestrel`'s delivered arm (`2a5efc2a…`), the vehicle the
+#: structure-penalty arm runs on.
 #: ⛔ A number measured under one is NEVER quoted against the other.
 ADMITTED_FAMILIES = ("nb", "truncated_nb")
 
@@ -45,11 +46,27 @@ ADMITTED_FAMILIES = ("nb", "truncated_nb")
 #: vehicle and the refusal being the finding.
 #:
 #: WHY. The whole D3-D12 programme, including `2026-10-21_body_scoreboard.md`'s B-1 = 0.391, was
-#: measured on the `nb` checkpoint `4acbf4d3…` at dropout 0.15, and that file is **DELETED**. The
-#: structure-penalty arm's §8 therefore contrasts against `truncated_nb` `2a5efc2a…` "the only one
-#: still on disk" — and on 2026-10-25 the scoreboard was run on it for the first time and returned
-#: B-1(d=1) = **1.462**, i.e. ABOVE its due share. ⇒ The arm's premise does not exist on the
-#: vehicle it would run on, and the premise is an `nb` finding.
+#: measured on the `nb` checkpoint `4acbf4d3…` at dropout 0.15. On 2026-10-25 the structure-penalty
+#: arm's §8 contrasted against `truncated_nb` `2a5efc2a…` instead, and the scoreboard run on it
+#: returned B-1(d=1) = **1.462**, i.e. ABOVE its due share ⇒ the arm's premise is an `nb` finding
+#: that does not hold on the vehicle it would run on. **That measurement stands.**
+#:
+#: ⛔⛔ RETRACTED 2026-10-30 — THE REASON GIVEN FOR THE SUBSTITUTION WAS FALSE. This note said the
+#: `nb` checkpoint "is **DELETED**" and called `2a5efc2a…` "the only one still on disk". Both are
+#: wrong. `calibration_model_20261012_033112.pt`, sha256 `4acbf4d3c2b457b0827a…`, is at
+#: `/home/simon/Documents/views_hydranet_vehicle_20261012/`, and its file and directory mtimes are
+#: **2026-10-12 06:25** — untouched since the day it was trained, so it was never deleted and the
+#: claim was already false when written. Independent proof: `M92`/`M93`
+#: (`reports/2026-10-30_smoothness_localisation/stage_roughness.out`) LOADED that exact file by
+#: that exact sha on 2026-10-30.
+#:
+#: ⚠️ WHAT THIS DOES AND DOES NOT CHANGE. It does NOT touch Amendment 5's widening of
+#: `dropout_rate`, which rests on its own measurement — of F6's keys only `dropout_rate` differs
+#: between `4acbf4d3…` and `heavy_freighter` `0ca3f31f…`. ⛔ It DOES remove the justification for
+#: substituting the vehicle at all: §8 could have been run on the `nb` checkpoint the premise was
+#: measured on, and the `nb`-vs-`truncated_nb` contrast it reports instead was not forced by
+#: availability. Whether §8's reading survives being redone on `4acbf4d3…` is OPEN and is not
+#: settled here — flagged rather than quietly repaired, because the retraction is the finding.
 #:
 #: `heavy_freighter` `0ca3f31f…` (trained 2026-10-25, views-hydranet 0.1.7) is the only LIVE `nb`
 #: vehicle. Measured before widening, exactly as Amendment 4 did: of F6's keys, **only

@@ -53,7 +53,7 @@ forwards bit-identical, every mode; `G-26` see §3.
 | id | declared before the run | measured | verdict |
 |---|---|---|---|
 | **P-20** | at least one remedy: gap **< 0.15** and channel floor **≥ −0.05** | `UpsampleConv2` −0.1984 / +0.6175; `UpsampleConv1` −0.2078 / +0.6047 | ✅ **HELD, 2 of 2** |
-| **P-21** | `UpsampleConv1`'s gap **below** `UpsampleConv2`'s, because a 1×1 kernel cannot form a phase pattern at all while a 2×2 can | −0.207828 vs −0.198421 | ⚠️ **HELD, but on a margin of 0.009 — see below** |
+| **P-21** | `UpsampleConv1`'s gap **below** `UpsampleConv2`'s, because a 1×1 kernel cannot form a phase pattern at all while a 2×2 can | −0.207828 vs −0.198421 | ⚠️ **HELD, but on a margin of 0.009 — see below, and §2b for the Amendment 3 re-run where it tightens to 0.0093** |
 
 ⚠️ **P-21 is a weak hold and I am not claiming it as a win.** Both gaps are **negative**, so the
 signed comparison the prediction asked for is satisfied — but the two differ by **0.0094** on a
@@ -80,6 +80,45 @@ stands as written** — changing it now would be changing a prereg after seeing 
 `PREREG.md` §6 device 6 forbids. `UpsampleConv1` stays registered and available as a follow-up.
 
 ---
+
+## 2b · ⛔ AMENDMENT 3 RE-RUN — the k=2 remedy had been padding with ZEROS
+
+⚠️ **Everything above is the AS-REGISTERED measurement and is not rewritten.** `PREREG.md` §12
+declares why a second one exists; this section is that second measurement, and both are kept.
+
+**The defect.** `nn.Conv2d`'s `padding_mode` defaults to `"zeros"`, so the k=2 remedy's retained
+output had its last row and column each reading one row of hard zeros, and its bottom-right corner
+reading two. Measured on a constant field through a uniform kernel: interior **2.0000**, last row
+**1.0000**, corner **0.5000** — exactly 2× and 4× attenuation.
+
+⛔ **The incumbent has no such artifact.** `kernel == stride` means no window ever extends past the
+input, so there is nothing to pad. ⇒ It was a **second difference between arm and control**, in a
+programme whose protocol is that `model` is the only key that differs — the same class as
+Amendment 2's RNG draw and output scale. Fixed with `padding_mode="replicate"`, which costs no
+parameter, so `UpsampleConv2` remains at exactly **±0**.
+
+| mode | gap as-registered | gap under Amendment 3 | Δ | channel floor now |
+|---|---|---|---|---|
+| `UpsampleConv2` | −0.198421 | **−0.198528** | **−0.000107** | +0.617505 |
+| `UpsampleConv1` | −0.207828 | **−0.207828** | **0.000000** | +0.604682 |
+
+| | declared before the re-run | outcome |
+|---|---|---|
+| **`P-28`** | Δgap < 0.0094 (the `P-21` margin), and the gap moves **down** | ✅ **HELD**, 88× inside the margin, **sign correct** — `R-59` |
+| **`P-29`** | `UpsampleConv1` unchanged to within 1e-6 | ✅ **HELD exactly**, bit-identical — `R-60` |
+| **`P-20`** | — | **HELD, 2 of 2** (unchanged) |
+| **`P-21`** | — | **HELD**, margin tightened 0.0094 → **0.0093** |
+
+⭐ **The arm is unchanged: `UpsampleConv2`, 905,289 parameters.** §2's rule is lowest parameter cost
+and `padding_mode` adds none, so this could never have moved the selection — only whether a
+secondary prediction survived. That was stated in §12c before the re-run, which is the only reason
+the result is worth anything.
+
+⚠️ **Two things against myself.** My `P-28` point estimate was *"~1e-3"* and the answer was
+**1.07e-4** — an order of magnitude pessimistic, so the prediction held while the quantitative guess
+did not. And `P-29` was near-certain by construction: it earns its place as a **check on my own
+reading of the code**, not as a test of the architecture. ⇒ Neither row is strong evidence, and the
+pair is logged as weak.
 
 ## 3 · ⛔⛔ A defect this run found in how every measurement this week was launched (`C-347`)
 

@@ -15,7 +15,7 @@ is **not taken**, and `emit_distribution` must not be set in a roster config.
 > against what ships today"* compares **two numbers from the same teacher-forced cube** to a phrase
 > naming the delivered 36-step autoregressive rollout. `reports/2026-10-21_emit_time_split_prereg.md:102`
 > confirms every arm in the 2×2 — 0.050758, 0.047741, 0.046023 — was scored on the frozen `nb`
-> control cube, which `vehicle.py:301-307` fills from observed truth at every step. ⇒ The **margin is
+> control cube, which `vehicle.build_volume()` fills from observed truth at every step. ⇒ The **margin is
 > like-for-like and survives as an emission-family comparison at T=0**; the words *"what ships today"*
 > are false, because what ships is the autoregressive rollout and it has never been scored. On the
 > deliverable index the family-free method scores **0.067752** against **0.060323** for no model at

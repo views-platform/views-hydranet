@@ -466,6 +466,45 @@ def test_the_last_row_and_column_are_not_a_hard_zero_border():
     assert y[..., :, -1].abs().sum() > 0, "the last COLUMN is all zeros — pad applied after conv"
 
 
+def test_the_k2_border_is_not_attenuated_by_zero_padding():
+    """⭐ PREREG Amendment 3. `nn.Conv2d`'s `padding_mode` defaults to `"zeros"`, so the retained
+    output's last row and column each read one row of hard zeros and the corner reads two —
+    attenuating the border ~2x and the corner ~4x.
+
+    ⛔ The INCUMBENT has no such artifact: `kernel == stride` means no window ever extends past the
+    input, so there is nothing to pad. The defect is introduced BY the remedy, which makes it a
+    second difference between arm and control in a programme whose protocol is that `model` is the
+    only key that differs.
+
+    Asserted on the sharpest probe available: a CONSTANT input through a UNIFORM kernel must give a
+    CONSTANT field. Under zero padding the border differs by construction; under replication it
+    cannot. A flat field also makes this independent of the kernel's values, so it does not become
+    decorative when the init scheme changes.
+    """
+    rep = NearestConvUp(2, 2, 2)
+    with torch.no_grad():
+        rep.conv.weight.fill_(0.25)
+        rep.conv.bias.fill_(0.0)
+        y = rep(torch.ones(1, 2, 6, 6))
+    assert y.std().item() < 1e-6, (
+        "a constant input through a uniform kernel produced a non-constant field, so the k=2 "
+        f"border is attenuated — padding_mode is back to 'zeros'. std={y.std().item():.6f}, "
+        f"interior={y[0, 0, 0, 0].item():.4f} last_row={y[0, 0, -1, 0].item():.4f} "
+        f"corner={y[0, 0, -1, -1].item():.4f}"
+    )
+
+
+def test_only_the_k2_remedy_replicates_and_k1_cannot_be_affected():
+    """`_KERNEL = 1` sets `padding=0`, so `padding_mode` is unreachable for it by construction —
+    `P-29` in PREREG Amendment 3. Asserted so a later edit cannot quietly make the two kernels
+    differ in a second way, which is what Amendment 3 exists to stop.
+    """
+    k2, k1 = NearestConvUp(4, 2, 2), NearestConvUp(4, 2, 1)
+    assert k2.conv.padding_mode == "replicate", k2.conv.padding_mode
+    assert k2.conv.padding == (1, 1), k2.conv.padding
+    assert k1.conv.padding == (0, 0), k1.conv.padding
+
+
 def test_nearest_conv_up_refuses_a_channel_mismatch():
     """The channel check exists because the parent CONCATENATES this output with a skip, so a
     mismatch either throws far downstream or mis-pairs the branches. Deleting it left the suite

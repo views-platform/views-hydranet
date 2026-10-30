@@ -8,7 +8,7 @@ field at 0.499."*
 
 ⛔ **That 0.499 is the wrong comparator and I used it anyway.** `d12b_curve_readout.out:94` labels
 it *"truth log mean, window"* — a **36-month TEMPORAL MEAN** of log truth. The 0.638 beside it is a
-**336-month** mean. ⛔ **The network is fed ONE MONTH at a time** (`vehicle.py:301-307` writes
+**336-month** mean. ⛔ **The network is fed ONE MONTH at a time** (`vehicle.build_volume()` writes
 `log1p` of a single month's counts into the input channels).
 
 ⇒ A single month of `ged_sb_best` is **99.66% zeros**. Temporal averaging smooths, so single-month

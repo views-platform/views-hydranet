@@ -38,7 +38,9 @@ averages away the phase pattern they leave behind.**
 | population | one teacher-forced sweep of months **421–469** over the full **360×720** raster; ρ accumulated over the **13 out-of-sample months 457–469** |
 | truth | ⛔ **not scored here.** This measures **ACTIVATIONS**, not forecast error |
 | estimator | Pearson ρ of lag-`d` **land–land neighbour pairs**, E–W and N–S pooled, per channel; reported as the **channel median with min/max beside it** |
-| **inference mode** | ⛔ **TEACHER-FORCED** (`vehicle.py:301-307`), `C-399`. Same loop as `d4_mu_on_the_grid.py` (`W-98`) |
+| **inference mode** | ⛔ **TEACHER-FORCED** (`vehicle.build_volume()`), `C-399`. Same loop as `d4_mu_on_the_grid.py` (`W-98`) |
+
+⚠️ **Citation drift, recorded rather than re-run.** This row and the two scripts said `vehicle.py:301-307` until 2026-10-30; those lines now hold the africa-sha refusal, so the reference was stale and is replaced by the **symbol**, per the risk register's own convention. The committed `.out` files still print the old line range because they predate the correction — ⛔ **no number is affected**, the cube route is unchanged, and re-running an 8-minute measurement to update a citation would be waste. Stated so the mismatch is on the record instead of looking like drift.
 | free parameters | **dropout OFF (primary) and ON**, both run; lag `d` ∈ {1,2,4,8,16,32} (D-4) |
 | masking | ⛔ non-land is **zero** in the production raster, so a constant ocean would drive ρ→1. Only pairs where **both** cells are land are scored; at /2 and /4 a block counts as land only if **every** cell in it is land |
 
