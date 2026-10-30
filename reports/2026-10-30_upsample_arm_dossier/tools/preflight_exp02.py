@@ -44,6 +44,17 @@ WHAT IT CHECKS, in order
 3. **Every architecture builds and runs**, with parameter count and peak memory recorded.
    ⚠️ Memory is RECORDED, not gated — `smoke_exp02.sh` is the real memory gate, on the real
    pipeline.
+   ⛔⛔ **AND THE COST RATIO IS MEASURED AT THE WRONG RESOLUTION, deliberately and stated here.**
+   The imported `measure()` times at `dim = hp["window_dim"]` = **32**, which its own docstring
+   calls "the PRODUCTION window size" — but production inference is
+   `hp["height"] x hp["width"]` = **360x720**. Measured on this candidate the two disagree in
+   DIRECTION, not just magnitude: at window 32 with a 12-step BPTT backward `UpsampleConv2` is
+   **0.97x** the incumbent, while a full 360x720 forward is **1.41x** (the twelve stages go
+   6.37 -> 25.48 GMAC, exactly 4x).
+   ⇒ **This gate therefore bounds the TRAINING cost, which is what the queue window is about, and
+   says nothing about rollout or delivered-forecast cost.** That is the right scope for a launch
+   gate and the wrong scope for a promotion decision, so it is named rather than silently relied
+   on. The rollout cost is ~+7.5 min/arm (1,872 forwards), recorded in `02_design`.
 4. **A cost projection** for the four arms, as a RATIO against the imported measured anchor, versus
    the window.
 
@@ -78,6 +89,13 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--steps", type=int, default=30)
     ap.add_argument("--window-hours", type=float, default=48.0)
+    #: ⛔ RESTORED. The parent declares this and raises per-arm on it; the extraction into this
+    #: file kept only the AGGREGATE window check, so an arm projected over the SIGKILL could pass
+    #: while the total sat under the window. `run_lesson_arm.sh:79` sets
+    #: TRAIN_TIMEOUT=$((150 * L)) = 45,000 s = 12.5 h at L=300, enforced by `timeout -k 120`, and
+    #: a killed arm leaves no checkpoint to resume from.
+    ap.add_argument("--timeout-hours", type=float, default=12.5,
+                    help="TRAIN_TIMEOUT at L=300, as run_lesson_arm.sh computes it")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -155,6 +173,14 @@ def main() -> int:
             m["projected_arm_hours"] = INCUMBENT_ARM_HOURS * m["cost_ratio_vs_control"]
         # four runs: every architecture at every seed, the control included (it is re-run)
         total_h = len(SEEDS) * sum(m["projected_arm_hours"] for m in results.values())
+        #: ⛔ PER-ARM first: an arm over the SIGKILL is fatal on its own, however small the total.
+        for name, m in results.items():
+            if m["projected_arm_hours"] > args.timeout_hours:
+                problems.append(
+                    f"{name}: projected {m['projected_arm_hours']:.1f} h exceeds the "
+                    f"{args.timeout_hours} h TRAIN_TIMEOUT — the arm would be SIGKILLed with no "
+                    "checkpoint to resume from"
+                )
         if total_h > args.window_hours:
             problems.append(
                 f"projected total {total_h:.1f} h exceeds the {args.window_hours} h window"

@@ -322,11 +322,19 @@ def test_upsample_candidate_refuses_a_stage_that_is_not_the_defect():
 #        them green. These assert the arithmetic instead. ─────────────────────────────────────
 
 
-def _in_degree(mod, c, h=8):
-    """Max number of distinct INPUT cells any single OUTPUT cell reads. 1 == no spatial mixing.
+def _mixing_fraction(mod, c, h=8):
+    """Fraction of OUTPUT cells that read MORE THAN ONE distinct input cell.
 
-    This is the property that separates the remedy from the defect, and it is not a shape, a type
-    or a parameter count — which is why nothing above could see it.
+    ⛔ An earlier version of this helper returned the MAX in-degree and the guard asserted
+    `> 1`, which is the weakest possible form of the claim: it passes if ANY single output cell
+    mixes. Measured, the honest remedy's in-degree is min 1 / median 2 / max 4 — the
+    `(even, even)` phase legitimately reads one cell, because its window sees four copies of it —
+    so a `min > 1` bar would fail a CORRECT implementation while `max > 1` would pass a remedy
+    neutered at three of its four phases.
+
+    The distribution is the discriminating statistic: **0.000** for
+    `ConvTranspose2d(k=2, s=2)` (the defect: every output reads exactly one input) against
+    **0.684** for the honest `nearest + Conv2d(k=2)`. Measured, not assumed.
     """
     with torch.no_grad():
         base = mod(torch.zeros(1, c, h, h))
@@ -336,7 +344,7 @@ def _in_degree(mod, c, h=8):
                 x = torch.zeros(1, c, h, h)
                 x[0, :, i, j] = 1.0
                 deg += ((mod(x) - base).abs().sum(1)[0] > 1e-8).float()
-    return int(deg.max())
+    return float((deg > 1).float().mean())
 
 
 def test_upsample_conv2_actually_mixes_neighbours():
@@ -351,11 +359,13 @@ def test_upsample_conv2_actually_mixes_neighbours():
     """
     inc = _build("HydraBNUNet06_LSTM4")
     ct = inc.upsample1_head1_reg
-    assert _in_degree(ct, ct.in_channels) == 1, "the incumbent should be the non-mixing case"
+    assert _mixing_fraction(ct, ct.in_channels) == 0.0, (
+        "the incumbent should be the non-mixing case: every output reads exactly one input"
+    )
     rep = NearestConvUp(ct.in_channels, ct.out_channels, 2)
-    assert _in_degree(rep, rep.in_ch) > 1, (
-        "UpsampleConv2 reads only one input per output — it has become the defect it replaces "
-        "(zero-stuffing, or a kernel that cannot straddle a block boundary)"
+    assert _mixing_fraction(rep, rep.in_ch) > 0.5, (
+        "fewer than half of UpsampleConv2's output cells mix — it has become the defect it "
+        "replaces (zero-stuffing, or a kernel neutered at some of its four phases)"
     )
 
 
