@@ -240,6 +240,88 @@ sign change and reports 'nothing is happening' for a pattern that is unmistakabl
 
 ---
 
+## 10 · ⛔⛔ AMENDMENT 1, 2026-10-30 — the control must be RE-RUN, and the harness needs siblings
+
+**Written before the arm is built, after `G-F` and after reading the harness.** Two facts invalidate
+§3's claim that *"paired controls are free"*.
+
+### 10a · The `fullzero_*` controls no longer exist, and their scores are not a valid pairing
+
+⛔ `ls views-models/models/ | grep fullzero` is **empty** — the control model directories are gone.
+Their **score CSVs** do survive in-repo (`2026-09-03_drivers_and_dynamics_dossier/results/`,
+`2026-09-04_input_noise_dossier/results/s1/`), so a comparison is *possible*.
+
+⛔⛔ **But it would not be one-variable.** Those controls were trained on August's code; the arm
+would train on the **0.1.7 working tree** — two releases later. ⇒ The comparison would vary
+**`model` AND the code version**, which breaks the dossier's own protocol (*"the only config key
+that differs between an arm and its control is `model`"*) and is the `W-51`/`C-351` failure in its
+plainest form.
+
+⇒ ⭐ **DECIDED: the control is re-run alongside the arm.** `HydraBNUNet06_LSTM4` becomes an arm of
+this queue, built by the same builder, on the same commit, in the same run.
+
+| | arms | seeds | total runs | est. GPU-h |
+|---|---|---|---|---|
+| §7 as first written | 1 | 2 | 2 | ~5 |
+| ⭐ **amended** | **2** (arm + control) | **2** (42, 43) | **4** | **~10** |
+
+⚠️ Still **local, free, overnight** on the RTX 4070. Simon authorised the increase before it was
+scheduled.
+
+### 10b · Three sibling tools, because EXP-01's must not be edited
+
+⛔ `preflight.py:33`, `smoke.sh:26` and `launch_bakeoff.sh` each carry a **hard-coded
+six-candidate list** and write EXP-01's sentinels. Editing them would alter the instruments that
+produced a committed experiment. ⇒ **New files under `reports/2026-10-30_upsample_arm/tools/`**,
+with their **own** `RES_DIR` and sentinels, reusing `run_queue.sh`, `make_arch_arm.py` and
+`verify_bakeoff.py` **unchanged**:
+
+| file | role |
+|---|---|
+| `preflight_exp02.py` | profiles the two architectures; writes this dossier's `PREFLIGHT_OK` |
+| `smoke_exp02.sh` | ⭐ **the real gate** — 2 real lessons per architecture, measuring actual training footprint, the emit path and BatchNorm recalibration; writes `SMOKE_OK` |
+| `launch_exp02.sh` | the four specs, in the pre-registered order below, via `run_queue.sh` |
+
+⚠️ **The freshness gate is working as designed:** EXP-01's `PREFLIGHT_OK`/`SMOKE_OK` are now
+**stale**, because today's commits touched model code and guard tests. That is a refusal to respect,
+not to widen.
+
+### 10c · One additive edit to the shared builder, instructed by the tool itself
+
+⛔ `make_arch_arm.py`'s `_ARCH_TAG` table has **no entry for the incumbent**, so the builder
+**cannot build a control** — which is exactly why EXP-01 paired against arms from an earlier
+programme. Its own error says *"Add a tag to the table rather than improvising a name."*
+
+⇒ Three **additive** rows, changing no existing behaviour. Labels must match `^[a-z]+_[a-z]+$`
+(⛔ letters only — **no digits**, which is why the tags are spelled out):
+
+| variant | tag | label at 300 lessons, ε=0, seed 42 |
+|---|---|---|
+| `HydraBNUNet06_LSTM4` | `ctl` | `ctlfullzero_fortytwo` |
+| `UpsampleConv2` | `upctwo` | `upctwofullzero_fortytwo` |
+| `UpsampleConv1` | `upcone` | registered for a follow-up; **not queued** |
+
+### 10d · Queue order, pre-registered
+
+⭐ **Control first, both seeds**, then the arm — EXP-01's rule (*"if the harness is going to fail,
+it fails on the cheapest arm"*) applied here, with the added reason that **a control that fails to
+reproduce its own historical AP tells us the code moved**, and that is worth knowing before two more
+runs:
+
+```
+300:42:0.0::HydraBNUNet06_LSTM4  300:43:0.0::HydraBNUNet06_LSTM4
+300:42:0.0::UpsampleConv2        300:43:0.0::UpsampleConv2
+```
+
+⚠️ **A new prediction this amendment creates, declared now:** **P-27** — the re-run control
+reproduces EXP-01's AP@h18 of **0.3298** (seed 42) / **0.3318** (seed 43) to within **±0.010**.
+⛔ **If it does not, the code moved between August and now, and `M94`'s arm comparison is the only
+valid one in this document** — every cross-reference to EXP-01's absolute numbers would become
+indicative rather than comparable. ⭐ This is the single most useful by-product of re-running the
+control and it is the reason to run it first.
+
+---
+
 ## 9 · Attribution
 
 Predictions **S-1** and **S-2** are **Simon's**, quoted verbatim, and are logged as his in
