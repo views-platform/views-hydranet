@@ -74,14 +74,20 @@ HORIZONS = (1, 36)
 
 def main() -> int:
     if not _ENV_RES:
-        print("verify_exp02: RES_DIR is not set — refusing to guess a results directory. "
-              "run_queue.sh passes it; if it is absent the queue is misconfigured.")
+        print(
+            "verify_exp02: RES_DIR is not set — refusing to guess a results directory. "
+            "run_queue.sh passes it; if it is absent the queue is misconfigured."
+        )
         return 1
     res = Path(_ENV_RES)
-    if res.resolve() == (_HN / "reports" / "2026-08-24_architecture_bakeoff_dossier"
-                         / "results").resolve():
-        print(f"verify_exp02: RES_DIR points at EXP-01's results ({res}). Refusing — that "
-              "directory holds a committed verdict from a different experiment.")
+    if (
+        res.resolve()
+        == (_HN / "reports" / "2026-08-24_architecture_bakeoff_dossier" / "results").resolve()
+    ):
+        print(
+            f"verify_exp02: RES_DIR points at EXP-01's results ({res}). Refusing — that "
+            "directory holds a committed verdict from a different experiment."
+        )
         return 1
     res.mkdir(parents=True, exist_ok=True)
 
@@ -96,7 +102,19 @@ def main() -> int:
             #: A score CSV is what separates "this arm was scored" from "this arm is queued".
             scored = (res / f"score_{arm}.csv").exists()
 
-            hp = _hp(arm)
+            try:
+                hp = _hp(arm)
+            except (Exception, SystemExit) as exc:  # noqa: BLE001 - `_hp` exec()s the arm config
+                # ⛔ FAIL CLOSED. `_hp` runs `exec` on the arm's own config module
+                # (`verify_bakeoff.py:57`), so anything in that file can raise — including
+                # `SystemExit`, which is a `BaseException` and would sail straight through the
+                # `except Exception` at the bottom of this file, exiting 0 having written no
+                # verdict at all. A gate that fails OPEN is the recurring defect in this
+                # programme (the VOID-on-NaN gate was the fifth); this one fails closed.
+                problems.append(
+                    f"{arm}: its config could not be read — {type(exc).__name__}: {exc}"
+                )
+                continue
             if hp is None:
                 # ⛔⛔ A MISSING ARM DIRECTORY IS NOT A PROBLEM WHILE THE ARM IS STILL QUEUED.
                 # `run_queue.sh` builds each arm INSIDE its own loop iteration (`ensure_arm`),
@@ -146,6 +164,32 @@ def main() -> int:
                 row[f"ap_h{h}"] = _ap(res / f"score_{arm}.csv", h)
                 row[f"ctrl_h{h}"] = _ap(ctrl_csv, h)
             rows.append(row)
+
+    # ⛔⛔ RECONCILE THE EXPECTED ARMS AGAINST WHAT IS ACTUALLY SCORED. `ARCHES` x `SEEDS` is a
+    # hardcoded universe, `launch_exp02.sh` hardcodes the specs it queues, and NOTHING tied the two
+    # together. An independent `/falsify guard` audit changed one word in the launcher —
+    # `UpsampleConv2` -> `UpsampleConv1`, a registered architecture whose tag (`upcone`) is already
+    # in `make_arch_arm._ARCH_TAG` — and four arms trained, scored, and were never identity-checked
+    # while this verifier exited 0. Reproduced here: with `score_upconefullzero_*.csv` present, the
+    # arms that ran were not flagged, not tabulated, and not MENTIONED.
+    #
+    # The same hole swallows a changed seed, a changed lesson count or eps (`fullzero` silently
+    # encodes lessons=300 / eps=0.0 via `_LESSON_WORD` / `_EPS_WORD`), and a renamed tag.
+    #
+    # ⇒ Gate F1 would read as HAVING RUN when it had not — a pre-registered gate silently false,
+    # for the second time in this file. ⚠️ This does NOT replace the real fix, which is for `G-F`
+    # to write a sentinel naming the selected arm and for the three tools to read it instead of
+    # hardcoding; that remains open. This is the backstop that notices when they disagree.
+    for csv_path in sorted(res.glob("score_*.csv")):
+        label = csv_path.stem[len("score_") :]
+        if label.endswith("_use_real"):
+            continue  # the oracle companion `run_queue.sh` scores alongside each arm
+        if label not in {f"{t}fullzero_{w}" for t in ARCHES.values() for w in SEEDS.values()}:
+            problems.append(
+                f"{label}: scored in this results directory but is not an EXP-02 arm, so gate F1 "
+                "never ran for it. Either the launcher queues something this verifier does not "
+                "know about, or two experiments are sharing RES_DIR."
+            )
 
     done = [r for r in rows if r[f"ap_h{HORIZONS[0]}"] is not None]
     expected = len(ARCHES) * len(SEEDS)
