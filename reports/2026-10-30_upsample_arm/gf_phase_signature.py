@@ -71,6 +71,19 @@ GATES
   G-24 ⛔ C-384 — dropout is disabled by putting `LockedDropout` in eval, never a bare
        `model.train()`; assert **no `_BatchNorm` is in train mode**, for every mode.
   G-25 two forwards on identical input are **bit-identical**, for every mode.
+  G-26 ⛔⛔ **C-347. AMENDMENT 1, after the first run imported the WRONG CODE.**
+       `views_hydranet` must resolve to the **working tree**, asserted on the resolved
+       `__file__` and printed. For a script, `sys.path[0]` is the SCRIPT'S OWN DIRECTORY, not the
+       cwd — so `python reports/.../gf_phase_signature.py` silently imported **installed 0.1.5**
+       from site-packages and died on `Unknown model type: 'UpsampleConv2'`. ⚠️ **It died only
+       because the name did not exist there.** Had it existed, this script would have measured a
+       different build and reported clean numbers. ⭐ `pytest` passes regardless, because it puts
+       the repo root on `sys.path` — so **the test suite and the measurement script were reading
+       different code**, which is exactly `C-347`'s shape with the arrow pointed at reports/.
+       ⭐ **VERIFIED, not assumed, before amending:** installed 0.1.5 is **byte-identical** to the
+       working tree for `HydraBNrecurrentUnet_06_LSTM4.py`, `locked_dropout.py`, `nb_core.py`,
+       `composition.py` and `utils/utils.py` (only `registry.py` differs, and only by the two
+       lines added today) ⇒ **`M90`, `M91`, `M92` and `M93` are UNAFFECTED.**
 """
 
 from __future__ import annotations
@@ -87,12 +100,24 @@ T0 = time.time()
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 D4 = REPO / "reports" / "2026-10-12_underfire_diagnosis"
-sys.path.insert(0, str(D4))
+# ⛔ G-26 / C-347: REPO FIRST. For a script `sys.path[0]` is the script's own directory, so
+# `views_hydranet` would otherwise resolve to the INSTALLED wheel (0.1.5) rather than the working
+# tree. Asserted below as well — a comment is not a guard.
+sys.path.insert(0, str(REPO))
+sys.path.insert(1, str(D4))
 
 from vehicle import build_volume, pull  # noqa: E402
 
+import views_hydranet  # noqa: E402
 from views_hydranet.architectures.locked_dropout import LockedDropout  # noqa: E402
 from views_hydranet.architectures.registry import get_architecture  # noqa: E402
+
+_vh = Path(views_hydranet.__file__).resolve()
+if REPO not in _vh.parents:
+    print(f"⛔⛔ VOID (G-26): views_hydranet resolved to {_vh}, which is NOT under {REPO}. "
+          "This script would measure a different build than the repository under test (C-347).")
+    sys.exit(1)
+print(f"PASS  G-26  views_hydranet resolves to the WORKING TREE: {_vh}")
 
 torch.set_num_threads(8)
 
