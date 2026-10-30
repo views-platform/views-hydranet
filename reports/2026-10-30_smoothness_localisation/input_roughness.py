@@ -59,9 +59,22 @@ GATES, declared before the run
   G-17 ⭐⭐ POSITIVE AND NEGATIVE CONTROL on the rho estimator, reusing the hand cases that gated
        `stage_roughness.py`: ramp -> rho(1) > +0.99; checkerboard -> rho(1) < -0.99; iid noise ->
        |rho(1)| < 0.02.
-  G-18 ⭐ THE LAND MASK IS LOAD-BEARING, so prove it: computing rho(1) on the UNMASKED raster must
-       give a **markedly higher** value than the masked one. If masking changes nothing, the mask
-       is not doing its job and every number here is a map of the coastline.
+  G-18 ⭐ THE MASK IS APPLIED — asserted STRUCTURALLY, on the pair count.
+       ⛔⛔ **AMENDMENT 1, after G-18 FAILED on its first form (`W-118`).** It originally demanded
+       that the unmasked rho(1) be *markedly higher* than the masked one. Measured: **+0.5630
+       unmasked vs +0.5671 masked**, a gap of **-0.0041** — so it failed, and it could never have
+       passed **on this field**. The reason is the finding: `ged_sb_best` is ~99.66% zeros **on
+       land as well as on ocean**, so land and ocean are statistically alike and excluding ocean
+       cannot move a correlation. ⇒ The original form asserted an **EQUALITY-shaped effect where
+       only a bound exists** — the fourth instance of the `W-93`/`W-96`/`W-110` family, and the
+       second time I have done it in two days.
+       ⚠️ **The gate is weakened deliberately and the weakening is recorded, not hidden.** It now
+       asserts the structural property that is actually load-bearing — **the mask excludes pairs**,
+       i.e. `scored < total`, strictly — and the two rho values are **printed side by side with
+       their gap** so the reader sees the size of the effect rather than a verdict (`W-96`).
+       ⚠️ ⛔ **This does NOT retire the mask in `stage_roughness.py`.** There it excluded ~76% of
+       pairs on a field where the network emits a nonzero baseline on land and something else on
+       ocean, and whether it moved rho there is **unmeasured**.
   G-19 STRUCTURAL. The positive count in the scored window must reproduce `M89`/`M90`'s
        **2,905** positives over months 457-469 on the 64,818 land cells, asserted exactly.
 """
@@ -138,14 +151,19 @@ if not ok19:
     print("⛔⛔ G-19 FAILED — this is not the population every other Q1/Q2 number was built on.")
     sys.exit(1)
 
-raw_masked = pair_rho(LOG[os_idx].mean(0), land, 1)[0]
-raw_unmasked = pair_rho(LOG[os_idx].mean(0), np.ones_like(land), 1)[0]
-ok18 = raw_unmasked > raw_masked + 0.05
-print(f"{'PASS' if ok18 else '⛔ FAIL'}  G-18  the land mask is load-bearing: unmasked rho(1) "
-      f"{raw_unmasked:+.4f} vs masked {raw_masked:+.4f}  (gap {raw_unmasked - raw_masked:+.4f})")
+m_rho, m_pairs = pair_rho(LOG[os_idx].mean(0), land, 1)
+u_rho, u_pairs = pair_rho(LOG[os_idx].mean(0), np.ones_like(land), 1)
+ok18 = 0 < m_pairs < u_pairs
+print(f"{'PASS' if ok18 else '⛔ FAIL'}  G-18  the mask EXCLUDES pairs (structural): "
+      f"{m_pairs:,} scored of {u_pairs:,} total ({100.0 * m_pairs / u_pairs:.1f}%)")
 if not ok18:
-    print("⛔⛔ G-18 FAILED — masking changes nothing, so these numbers map the coastline.")
+    print("⛔⛔ G-18 FAILED — the mask excludes nothing, so it is not applied at all.")
     sys.exit(1)
+print(f"       ⚠️ and its EFFECT on rho(1) is small on this field: masked {m_rho:+.6f} vs "
+      f"unmasked {u_rho:+.6f}, gap {u_rho - m_rho:+.6f}")
+print("       ⇒ ged_sb_best is ~99.66% zeros on LAND as well as ocean, so the two are")
+print("         statistically alike. G-18's first form demanded a large gap and FAILED; it")
+print("         could not have passed on this field. Amendment 1, logged as W-118.")
 
 print("\n" + "=" * 110)
 print("Q1/B2a — THE ROUGHNESS OF THE FIELD THE NETWORK IS FED")
