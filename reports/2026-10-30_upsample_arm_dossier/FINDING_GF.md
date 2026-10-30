@@ -38,7 +38,7 @@ mechanism is gone. It does NOT show the output field becomes rougher.** §4.
 | `UpsampleConv1` | `out` | +0.5559 | +0.4222 | −0.1337 | +0.3736 |
 
 ⭐ **Read `up1`'s ρ(1) column**: the control is **−0.2991** — adjacent cells *anti*-correlated on
-the median channel, which is the phase pattern in its purest form. Both remedies sit at **+0.79**,
+the median channel — the phase pattern, unmistakably. Both remedies sit at **+0.79**,
 the ordinary near-field correlation of a smooth field.
 
 **Gates:** `G-17` ρ controls (ramp **+0.9996**, checkerboard **−1.0000**, iid noise **+0.0006**);

@@ -16,8 +16,21 @@ rescales; it never interpolates**, and the four phases are free to diverge.
 Measured at `upsample1_head1_reg`, dropout off, teacher-forced: lag-1 rho **+0.123146** against
 lag-2 **+0.920900**, with channel-wise lag-1 rho spanning **-0.724900 .. +0.718700** — negative
 meaning adjacent cells are *anti*-correlated. That is `Odena2016_Deconvolution`'s checkerboard
-artifact in its purest form, and ``kernel == stride`` is the worst case because there is no overlap
-to average.
+artifact — ⛔ but NOT, as an earlier version of this docstring claimed, "in its purest form" with
+``kernel == stride`` as "the worst case". **CORRECTED 2026-10-30 against the source.** Odena
+attributes the artifact to **uneven overlap**, which arises *"when the kernel size ... is not
+divisible by the stride"* — and ``k=2, s=2`` is evenly divisible, i.e. the configuration Odena
+RECOMMENDS as a mitigation.
+
+⭐ What the source does say, and it is the claim this candidate rests on: *"while this approach
+helps, it is still easy for deconvolution to fall into creating artifacts"*, and **"models with
+even overlap often learn kernels that cause similar artifacts."** ⇒ `M92` is an **empirical
+instance of that warning in a production model** — the learned per-phase weights diverging — which
+is a narrower and better-supported claim than the one it replaces.
+
+⭐⭐ And the source gives this remedy's mechanism in its own words, matching the derivation above:
+*"Where deconvolution has a unique entry for each output window, resize-convolution is implicitly
+weight-tying."*
 
 End to end: the network is fed a field at rho(1) **+0.344210**, its encoder is roughness-NEUTRAL
 (**+0.313470** / **+0.443300**, bracketing its own input), and its output sits at **+0.958400**.

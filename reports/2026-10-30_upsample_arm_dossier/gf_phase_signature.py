@@ -21,9 +21,17 @@ from the same seed, on the same input.
 ⚠️ `G-F` IS A REAL TEST, NOT A TAUTOLOGY. `Upsample(nearest)` makes the conv's input blocky in 2x2
 constant blocks, and a window centred at an even position covers a different arrangement of those
 blocks than one at an odd position ⇒ **a phase pattern CAN survive the remedy.**
-`Odena2016_Deconvolution`'s fix *reduces* checkerboarding; it does not abolish it. For
-`Conv2d(2x2)` specifically: at the `(even, even)` phase the window sees four copies of one input
-cell and applies the **summed** kernel, while the other three phases straddle block boundaries.
+For `Conv2d(2x2)` specifically: at the `(even, even)` phase the window sees four copies of one
+input cell and applies the **summed** kernel, while the other three phases straddle block
+boundaries.
+
+⛔ AMENDMENT 2 (2026-10-30, after this script had already run; the OUTPUT IS UNCHANGED and no
+number here is affected). The paragraph above previously credited the caution to
+`Odena2016_Deconvolution` — "its fix *reduces* checkerboarding; it does not abolish it." Read
+against the source, **Odena's wording is stronger**: "they do fix the checkerboard artifacts". The
+"a phase pattern CAN survive" argument is therefore **this script's own derivation**, not the
+source's, and the measurement below settled it in Odena's favour (gap -> -0.1984). Recorded rather
+than quietly edited, because the argument was load-bearing for calling G-F a real test.
 
 WHAT IS MEASURED  (C-351 slots)
 -------------------------------

@@ -88,9 +88,9 @@ Two consequences, both measured:
 - ⭐ **Lag 2 compares the same phase in neighbouring blocks**, which is the coarse field's own
   lag-1 structure. ρ(2) = **+0.921**, and the curve stays above **+0.65 out to d = 32**.
 
-⇒ ⭐⭐ **This is the classic transposed-convolution checkerboard (Odena et al. 2016) in its purest
-form** — and the `kernel = stride` case is worse than the uneven-overlap case Odena describes,
-because here there is no overlap to average at all.
+⇒ ⛔⛔ **CORRECTED 2026-10-30 against the source** (Odena, Dumoulin & Olah 2016, *Distill*, DOI 10.23915/distill.00003 — **not held** when this was written): `kernel = stride` is **NOT** Odena's worst case, it is the case Odena **recommends as a mitigation**, because the artifact Odena names is **uneven** overlap, *"when the kernel size ... is not divisible by the stride"*.
+
+⭐ **What the source does support, and what this now rests on:** *"models with even overlap often learn kernels that cause similar artifacts"* ⇒ this is an **empirical instance of that warning in a production model**, which is narrower and better supported than the claim it replaces. ⭐⭐ And the remedy's mechanism is the source's own words — *"where deconvolution has a unique entry for each output window, resize-convolution is implicitly weight-tying"* — matching the derivation here independently. `W-121`.
 
 ### ⭐⭐ And at lag 2 the skip is swamped completely
 

@@ -129,8 +129,15 @@ comparing them against a *trained* transposed conv would measure training, not g
 
 ⚠️ **`G-F` is a real test, not a tautology.** `Upsample(nearest)` makes the conv's input blocky in
 2×2 blocks, and a window centred at an even position covers a different arrangement of those blocks
-than one at an odd position ⇒ **a phase pattern CAN survive the remedy.** Odena et al. 2016's fix
-*reduces* checkerboarding; it does not abolish it.
+than one at an odd position ⇒ **a phase pattern CAN survive the remedy.**
+
+⛔⛔ **CORRECTED 2026-10-30 against the source.** This paragraph attributed that caution to Odena et
+al. 2016 — *"the fix reduces checkerboarding; it does not abolish it."* **Odena's wording is
+STRONGER than that**: *"they do fix the checkerboard artifacts"*, qualified only by *"we don't
+necessarily think that either approach is the final solution to upsampling."* ⇒ **The
+"may survive" argument is MY OWN derivation** (the parity of a small window over a 2×2 block grid),
+not the source's, and it should never have been hung on a citation. ⭐ `G-F` then settled it **in
+Odena's favour**: the gap went to **−0.1984**, i.e. the pattern was removed, not merely reduced.
 
 ⛔ **`G-F` is NOT a gate on whether the arm runs.** The arm's premise is `M92`, already measured.
 `G-F` only establishes which remedy addresses it. Per **S-2**, a `G-F` failure lowers confidence and

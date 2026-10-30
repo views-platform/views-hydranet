@@ -106,8 +106,11 @@ input, so the encoder is roughness-NEUTRAL, and the 1-cell detail exists inside 
 **2 · ⭐⭐⭐ The upsampling stages cannot create spatial information.** `ConvTranspose2d(k=2, s=2)`
 with kernel = stride has **no overlap**, so each output cell is a fixed per-channel scalar multiple
 of one input cell. It **phase-stripes** rather than blurs — ρ(1) **+0.123** against ρ(2) **+0.921**,
-channel-wise ρ(1) from **−0.725** to **+0.719**. ⭐ Odena et al. 2016's checkerboard in its purest
-form, and `kernel = stride` is the worst case because there is nothing to average.
+channel-wise ρ(1) from **−0.725** to **+0.719**.
+
+⛔⛔ **CORRECTED 2026-10-30 against the source** (Odena, Dumoulin & Olah 2016, *Distill*, DOI 10.23915/distill.00003 — **not held** when this was written): `kernel = stride` is **NOT** Odena's worst case, it is the case Odena **recommends as a mitigation**, because the artifact Odena names is **uneven** overlap, *"when the kernel size ... is not divisible by the stride"*.
+
+⭐ **What the source does support, and what this now rests on:** *"models with even overlap often learn kernels that cause similar artifacts"* ⇒ this is an **empirical instance of that warning in a production model**, which is narrower and better supported than the claim it replaces. ⭐⭐ And the remedy's mechanism is the source's own words — *"where deconvolution has a unique entry for each output window, resize-convolution is implicitly weight-tying"* — matching the derivation here independently. `W-121`.
 
 **3 · ⭐⭐ At lag 2 the skip is swamped completely.** `dec1` **+0.939** tracks the upsampled branch's
 **+0.921** and bears **no resemblance** to the skip's **+0.257** ⇒ the post-concat 3×3 convolution
