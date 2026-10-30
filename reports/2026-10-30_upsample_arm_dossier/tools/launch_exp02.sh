@@ -64,7 +64,7 @@ cd /home/simon/Documents/scripts/views_platform/views-models
 # since August, and that is worth knowing before two more runs. P-27.
 exec setsid nohup env \
   RES_DIR="$RES" \
-  VERIFIER="$BAKEOFF/tools/verify_bakeoff.py" \
+  VERIFIER="$D/tools/verify_exp02.py" \
   ARM_MODULE=make_arch_arm \
   ARM_TOOLS="$BAKEOFF/tools" \
   bash "$HYD/reports/2026-08-18_lesson_curve_dossier/tools/run_queue.sh" \

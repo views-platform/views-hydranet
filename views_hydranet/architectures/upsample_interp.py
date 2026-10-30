@@ -128,6 +128,33 @@ class NearestConvUp(nn.Module):
         self.pad = nn.ZeroPad2d((0, 1, 0, 1)) if kernel_size == 2 else nn.Identity()
         self.conv = nn.Conv2d(in_ch, out_ch, kernel_size)
 
+    def apply(self, fn):
+        """⛔⛔ Do NOT recurse into ``self.conv``. This is the single-variable fix, not a quirk.
+
+        ``utils.init_weights`` dispatches on ``isinstance(m, nn.Conv2d)`` and
+        ``nn.ConvTranspose2d`` is **not** a subclass of ``nn.Conv2d``. So the incumbent's twelve
+        upsample stages are the only weights in the whole network that the production init pass
+        (``training_engine.py:94-95``, ``model.apply(partial(init_weights, config=config))``)
+        never touches — they keep torch's default. The moment they become ``nn.Conv2d``, they are
+        xavier-initialised.
+
+        Measured at base=32 with the production ``weight_init: 'xavier_norm'``, before this
+        override: ``upsample0_head1_reg`` weight std **0.03612** (incumbent) against **0.05131**
+        (``UpsampleConv2``) and **0.10234** (``UpsampleConv1``) — i.e. the arm differed from its
+        control in INITIALISATION SCHEME as well as mechanism, on 246,336 parameters, 27% of the
+        model, and precisely the ones the experiment is about. That is a second uncontrolled
+        variable in an experiment whose protocol is that ``model`` is the only key that differs.
+
+        ``Module.apply`` recurses through ``children()`` and is distinct from ``_apply``, which is
+        what ``.to(device)`` and dtype casts use — so skipping the subtree here changes
+        initialisation only, and device moves are unaffected. ``fn(self)`` is still called, so any
+        visitor that legitimately wants this module still sees it.
+
+        ⇒ The conv keeps torch's default init, exactly like the ``ConvTranspose2d`` it replaces.
+        """
+        fn(self)
+        return self
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.shape[1] != self.in_ch:
             err_msg = (
@@ -165,6 +192,19 @@ class _UpsampleInterpBase(HydraBNUNet06_LSTM4):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
+        # ⛔⛔ RESTORE THE RNG. Constructing twelve replacement modules draws from the global
+        # generator, so every later draw lands at a different position than the incumbent's would.
+        # Measured before this: at construction the arm and its same-seed control shared 121
+        # parameters with **0** differing — which is why a construction-time check reads clean and
+        # two independent review angles stopped there — but after
+        # `model.apply(partial(init_weights, ...))`, which runs on every production model,
+        # **53 of 121** differed, including `enc_conv0`, `enc_conv1` and `bottleneck_conv`, modules
+        # this class does not touch. ⇒ The paired arm-vs-control contrast at n=2 seeds was not a
+        # minimal perturbation; it was a full re-draw of the shared conv stack.
+        #
+        # Capturing and restoring the state makes the replacement RNG-neutral, so the only
+        # difference between arm and control is the one the experiment is about.
+        _rng_state = torch.random.get_rng_state()
         # ⭐ The widths are READ OFF the module being replaced, never recomputed. Restating the
         # parent's channel plan (`base*4 -> base*2`, `base*2 -> base`) would duplicate it, and the
         # copy would diverge silently the first time the parent's plan changed.
@@ -184,6 +224,7 @@ class _UpsampleInterpBase(HydraBNUNet06_LSTM4):
                 logger.error(err_msg)
                 raise ValueError(err_msg)
             setattr(self, name, NearestConvUp(old.in_channels, old.out_channels, self._KERNEL))
+        torch.random.set_rng_state(_rng_state)
 
 
 class UpsampleConv2(_UpsampleInterpBase):

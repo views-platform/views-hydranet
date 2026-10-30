@@ -329,6 +329,71 @@ control and it is the reason to run it first.
 
 ---
 
+## 11 · ⛔⛔ AMENDMENT 2, 2026-10-30 — two confounds an independent review found, one fixed and one declared
+
+An independent `/code-review max` of PR #492 found that the arm **was not the single-variable
+experiment this document pre-registers.** Both findings verified here by measurement before acting.
+
+### 11a · ⛔⛔ FIXED — the shared conv stack was a different random draw
+
+`utils.init_weights` dispatches on `isinstance(m, nn.Conv2d)`, and **`nn.ConvTranspose2d` is not a
+subclass of `nn.Conv2d`.** ⇒ The incumbent's twelve upsample stages are the **only** weights in the
+network the production init pass (`training_engine.py:94-95`) never touches.
+
+Two consequences, both measured at base=32 with the production `weight_init: 'xavier_norm'`:
+
+| | before | after the fix |
+|---|--:|--:|
+| shared parameters differing after `model.apply(init_weights)` | ⛔ **53 of 121** | ✅ **0 of 121** |
+| `upsample0_head1_reg` weight std — incumbent **0.03612** | 0.05131 (xavier) | 0.02549 (torch default) |
+
+⭐ **The 53/121 was the serious half**: it included `enc_conv0`, `enc_conv1` and `bottleneck_conv` —
+modules the candidate does not touch — because constructing twelve extra modules advances the
+global RNG, so every later xavier draw diverged. ⇒ **The paired arm-vs-control contrast at n=2 was
+not a minimal perturbation; it was a full re-draw of the shared conv stack.**
+
+⚠️ **And nothing in the repository could see it**: at construction the two models share 121
+parameters with **0** differing, so every construction-time check reads clean, and the test suite
+only ever builds via `get_architecture(...)` and never calls the production init pass. **Two
+independent review angles stopped at construction and concluded "load-bearing, not waste."**
+
+**Fixed two ways in `upsample_interp.py`:** the replacement block captures and restores
+`torch.random.get_rng_state()` so it is RNG-neutral, and `NearestConvUp.apply` does not recurse into
+its conv, so the global init pass cannot reach it and it keeps torch's default — exactly like the
+`ConvTranspose2d` it replaces. ⚠️ `Module.apply` is distinct from `_apply`, which is what
+`.to(device)` uses, so device moves are unaffected (verified).
+
+### 11b · ⚠️ DECLARED, NOT FIXED — the remedy changes the stage's output scale, irreducibly
+
+| | weight std | stage output variance on N(0,1) |
+|---|--:|--:|
+| incumbent `ConvTranspose2d(k=2,s=2)` | 0.03612 | **0.1707** |
+| `UpsampleConv2` | 0.02549 | **0.3277** (1.92×) |
+| `UpsampleConv1` | 0.05100 | **0.3413** (2.00×) |
+
+**Both numbers are fully explained and neither is a defect:**
+
+- The **√2** weight-std difference is the **weight layout**: `ConvTranspose2d` stores
+  `(in, out, kH, kW)` ⇒ fan_in **256**, `Conv2d` stores `(out, in, kH, kW)` ⇒ fan_in **512**, and
+  torch's default `kaiming_uniform_(a=√5)` scales by `1/√fan_in`. Predicted 1.414, measured 1.417.
+- The **~1.9× output variance** is the remedy's own arithmetic: a k=2 conv over a
+  **nearest-replicated** field puts all four taps on the **same** input cell and sums them, so it
+  accumulates ~4× the variance of the transposed conv's single tap, offset by the √2 smaller
+  weights ⇒ 4/2 = 2×.
+
+⇒ ⛔ **This cannot be removed without changing the remedy itself** (e.g. an undeclared 1/√2 scale),
+and it should not be: it is what replacing the operator *means*. ⚠️ It was **7.6×** before 11a's fix
+and is **1.9×** now, so the fix removed the avoidable part.
+
+⚠️ **What it costs the comparison, stated plainly:** `bn_dec_conv0`/`bn_dec_conv1` immediately
+follow the concat, so the **absolute** scale is absorbed by BatchNorm. What is **not** absorbed is
+the **relative weighting of the upsampled half against the skip half** inside
+`torch.cat([upsample(b), e1s], 1)` — and the arm's own hypotheses `P-13`/`P-15` are about exactly
+that pair. ⇒ **A difference in the upsampled branch's contribution is part of the intervention, not
+a nuisance**, and no reading of this arm may attribute an effect to *geometry alone*.
+
+---
+
 ## 9 · Attribution
 
 Predictions **S-1** and **S-2** are **Simon's**, quoted verbatim, and are logged as his in
