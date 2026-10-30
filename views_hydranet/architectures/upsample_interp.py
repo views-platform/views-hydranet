@@ -63,7 +63,7 @@ What is implemented are the two remedies that survive that constraint:
       ``ShallowPool``'s -16.3%.
 
 ⛔ Which one runs on the GPU is decided by ``G-F`` on CPU, not by this docstring. Pre-registration:
-`reports/2026-10-30_upsample_arm/PREREG.md` §2.
+`reports/2026-10-30_upsample_arm_dossier/PREREG.md` §2.
 
 WHY NEAREST AND NOT BILINEAR
 ----------------------------

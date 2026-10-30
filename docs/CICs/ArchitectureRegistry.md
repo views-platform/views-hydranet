@@ -29,7 +29,7 @@ branch (#258, the spatial-precision bake-off, which would have multiplied that b
 - Does **not** know the constructor arguments. `make()` passes the same keyword set to every
   architecture (`output_distribution`, `n_static_channels`, `static_top_skip`, `reg_activation`,
   `n_quantiles`); the registry is a name lookup, not a per-model argument table.
-- Does **not** promise the six bake-off candidates are production-ready. `HydraBNUNet06_LSTM4` is
+- Does **not** promise the eight bake-off candidates are production-ready. `HydraBNUNet06_LSTM4` is
   the incumbent and the only architecture any roster config names (verified 2026-09-15, 8/8). The
   candidates are research vehicles under `reports/2026-08-24_architecture_bakeoff_dossier` with
   open defects #365–#370.

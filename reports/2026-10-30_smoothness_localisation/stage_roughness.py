@@ -60,7 +60,7 @@ WHAT IS MEASURED  (C-351 slots)
   truth           not scored here. This measures ACTIVATIONS, not forecast error.
   estimator       Pearson correlation of lag-`d` neighbour PAIRS, E-W and N-S, per channel;
                   reported as the channel median with min/max beside it, never a bare mean.
-  inference mode  ⛔ **TEACHER-FORCED** (`vehicle.py:301-307`). `C-399`. Same cube route as
+  inference mode  ⛔ **TEACHER-FORCED** (`vehicle.build_volume()`). `C-399`. Same cube route as
                   `d4_mu_on_the_grid.py`, whose loop this copies (`W-98`).
   free parameters **dropout OFF and ON, both run** (the primary is OFF: MC-dropout noise is
                   itself spatially correlated — `d12c_draw_noise.out` puts 11.2% of the body
@@ -235,7 +235,7 @@ print("=" * 110)
 print(f"  population      months {LEADIN_START}-{LAST_FED} fed, rho accumulated over the "
       f"{OS_HI - OS_LO + 1} out-of-sample months {OS_LO}-{OS_HI}")
 print(f"  raster          {GR}x{GC}, {len(land_cells):,} land cells")
-print("  inference mode  ⛔ TEACHER-FORCED (vehicle.py:301-307)")
+print("  inference mode  ⛔ TEACHER-FORCED (vehicle.build_volume())")
 print(f"  lags            {LAGS}   (D-4)")
 
 results: dict[tuple[str, str], dict[int, tuple[float, float, float, int]]] = {}

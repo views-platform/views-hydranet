@@ -43,7 +43,7 @@ WHAT IS MEASURED  (C-351 slots)
   estimator       Pearson rho of lag-`d` **land-land** neighbour pairs, E-W and N-S pooled, per
                   channel; reported as the channel median with the channel MINIMUM beside it,
                   because the minimum is where anti-correlation shows.
-  inference mode  ⛔ TEACHER-FORCED (`vehicle.py:301-307`), matching `M92` so the two are
+  inference mode  ⛔ TEACHER-FORCED (`vehicle.build_volume()`), matching `M92` so the two are
                   comparable. ⚠️ The ARM itself is scored autoregressively; that is deliberate and
                   is the whole point of the prereg (§3).
   weights         ⛔ **UNTRAINED**, `torch.manual_seed(SEED)` before each build. No checkpoint is
@@ -268,7 +268,7 @@ print("=" * 110)
 print(f"  raster          {GR}x{GC}, {int(land.sum()):,} land cells")
 print(f"  months fed      {LEADIN_START}-{LAST_FED}; rho over the out-of-sample {OS_LO}-{OS_HI}")
 print(f"  weights         ⛔ UNTRAINED, torch.manual_seed({SEED}) before each build")
-print("  inference mode  ⛔ TEACHER-FORCED (vehicle.py:301-307), matching M92")
+print("  inference mode  ⛔ TEACHER-FORCED (vehicle.build_volume()), matching M92")
 print(f"  M92 reference   trained control at up1: rho(1) {M92_TRAINED['up1_rho1']:+.6f}  "
       f"rho(2) {M92_TRAINED['up1_rho2']:+.6f}  gap "
       f"{M92_TRAINED['up1_rho2'] - M92_TRAINED['up1_rho1']:+.6f}")
