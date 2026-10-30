@@ -5,21 +5,17 @@
 # experiment's twelve specs and writes that experiment's sentinels. PREREG.md section 10b.
 #
 # Refuses unless, in order:
-#   1. SMOKE_OK exists and is FRESH (older than the last commit touching what it measured => the
-#      code moved since it was measured)
-#   2. the working tree is clean and committed (run_queue aborts on any HEAD change mid-flight, F6)
-#   3. ruff + the architecture/guard tests are green
+#   1. PREFLIGHT_OK and SMOKE_OK both exist -- the SAME gate set as EXP-01's launcher, deliberately
+#   2. SMOKE_OK is FRESH (older than the last commit touching what it measured => the code moved
+#      since it was measured)
+#   3. the working tree is clean and committed (run_queue aborts on any HEAD change mid-flight, F6)
+#   4. ruff + the architecture/guard tests are green
 #
 # Hands off to the SHARED scheduler. It does not reimplement one — two schedulers caused the
 # 2026-08-19 audit.
 #
-# ⛔ DELIBERATE, DOCUMENTED DEVIATION from the parent: no PREFLIGHT_OK is required.
-# `preflight.py` carries a hard-coded six-candidate list, and `smoke.sh`'s own header records why
-# it is the weaker check — "a /falsify audit measured that check's margin at x292 and showed a
-# 64x-wider architecture passing it silently". EXP-02's arm is moreover PARAMETER-IDENTICAL to its
-# control (905,289 both, PREREG.md section 2), so a synthetic memory profile has nothing to find
-# that smoke does not measure for real. This is recorded rather than silently skipped, and it
-# narrows the gate set by one DECORATIVE check, not by a load-bearing one.
+# ⛔ NO DEVIATION from the parent's gate set. An earlier version of this file dropped
+# PREFLIGHT_OK; see the comment at the check itself for why that was wrong.
 set -uo pipefail
 HYD=/home/simon/Documents/scripts/views_platform/views-hydranet
 D="$HYD/reports/2026-10-30_upsample_arm"
@@ -29,18 +25,13 @@ CENV="conda run --no-capture-output -n views-hydranet-env"
 
 die(){ echo "LAUNCH REFUSED: $*" >&2; exit 1; }
 
-# ⛔⛔ C-347. The pipeline imports `views_hydranet` from SITE-PACKAGES (installed 0.1.5), so without
-# this the queue would train the INSTALLED wheel — in which `UpsampleConv2` does not exist at all.
-# Passed into the queue's env below, and asserted here so a silent resolution cannot happen.
-$CENV env PYTHONPATH="$HYD" python -c "
-import pathlib, sys, views_hydranet
-from views_hydranet.architectures.registry import architecture_names
-if pathlib.Path('$HYD') not in pathlib.Path(views_hydranet.__file__).resolve().parents:
-    sys.exit('views_hydranet resolved outside the working tree')
-sys.exit(0 if 'UpsampleConv2' in architecture_names() else 'UpsampleConv2 not registered')
-" >/dev/null 2>&1 || die "PYTHONPATH does not put the working tree's views_hydranet in scope (C-347)." 
-
-[ -f "$RES/SMOKE_OK" ] || die "no SMOKE_OK sentinel. Run tools/smoke_exp02.sh first — it is the real gate."
+# ⛔ RESTORED 2026-10-30. This launcher previously required SMOKE_OK but NOT PREFLIGHT_OK, with a
+# paragraph arguing preflight is the weaker check. ⛔ That was narrowing a gate set to make a
+# refusal go away — the exact anti-pattern `launch_bakeoff.sh` warns about in its own comments —
+# and the copy had therefore DRIFTED from its parent on day one, which is how two copies of a gate
+# diverge while the weaker one still passes. The gate set here is now IDENTICAL to EXP-01's.
+[ -f "$RES/PREFLIGHT_OK" ] || die "no PREFLIGHT_OK sentinel. Run tools/preflight_exp02.py first."
+[ -f "$RES/SMOKE_OK" ] || die "no SMOKE_OK sentinel. Run tools/smoke_exp02.sh — it is the real gate."
 smoke_epoch=$(stat -c %Y "$RES/SMOKE_OK")
 
 # A sentinel measured before the last commit describes code that no longer exists. Silent staleness
@@ -72,7 +63,6 @@ cd /home/simon/Documents/scripts/views_platform/views-models
 # second reason — a control that fails to reproduce its own historical AP tells us the code moved
 # since August, and that is worth knowing before two more runs. P-27.
 exec setsid nohup env \
-  PYTHONPATH="$HYD" \
   RES_DIR="$RES" \
   VERIFIER="$BAKEOFF/tools/verify_bakeoff.py" \
   ARM_MODULE=make_arch_arm \
