@@ -42,6 +42,14 @@ unset ALLOW_RE_REPORT
 #     used data that does not match its own configuration, with no error anywhere." A refetch is a
 #     deliberate, logged decision with a data-vintage caveat, not a flag on a gate.
 
+# ⛔ The control label is DERIVED from the shared builder, never retyped — make_arch_arm.py's
+# `--control` is experiment-specific and its default (`fullzero_<seed>`) no longer exists on disk.
+ctl_label() {
+  $CENV python -c "
+import sys; sys.path.insert(0,'$BAKEOFF/tools')
+from make_arch_arm import arm_label; print(arm_label(lessons=2, eps=0.0, seed=$1, variant='HydraBNUNet06_LSTM4'))" 2>/dev/null
+}
+
 fail=0
 for ARCH in HydraBNUNet06_LSTM4 UpsampleConv2; do
   label=$($CENV python -c "
@@ -51,7 +59,7 @@ from make_arch_arm import arm_label; print(arm_label(lessons=2, eps=0.0, seed=$S
 
   if [ ! -d "$MODELS/$label" ]; then
     $CENV python "$BAKEOFF/tools/make_arch_arm.py" --lessons 2 --eps 0.0 --seed $SEED \
-      --variant "$ARCH" >>"$RES/smoke.log" 2>&1 \
+      --variant "$ARCH" --control "$(ctl_label $SEED)" >>"$RES/smoke.log" 2>&1 \
       || { echo "SMOKE $ARCH: builder refused"; fail=1; continue; }
   fi
   A="$MODELS/$label"

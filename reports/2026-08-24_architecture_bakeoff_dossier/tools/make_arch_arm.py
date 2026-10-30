@@ -186,7 +186,8 @@ def _resolve(path: Path, fn: str) -> dict:
 
 
 def build(
-    *, lessons: int, eps: float, seed: int, variant: str, out_root: Path = _MODELS
+    *, lessons: int, eps: float, seed: int, variant: str, out_root: Path = _MODELS,
+    control: str | None = None,
 ) -> Path:
     label = arm_label(lessons=lessons, eps=eps, seed=seed, variant=variant)
     dest = out_root / label
@@ -270,14 +271,15 @@ def build(
     # existing directory, so the wreckage of a rejected build would block every later attempt and
     # look like "the builder is broken" rather than "the config was wrong".
     try:
-        _verify(dest, lessons=lessons, eps=eps, seed=seed, variant=variant)
+        _verify(dest, lessons=lessons, eps=eps, seed=seed, variant=variant, control=control)
     except BaseException:
         shutil.rmtree(dest, ignore_errors=True)
         raise
     return dest
 
 
-def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) -> None:
+def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
+            control: str | None = None) -> None:
     floor = _resolve(_FLOOR / "configs" / "config_hyperparameters.py", "get_hp_config")
     arm = _resolve(dest / "configs" / "config_hyperparameters.py", "get_hp_config")
 
@@ -307,7 +309,23 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
     # The ancestors diff only against the FLOOR. But every claim here is treatment-vs-CONTROL,
     # and the control is `fullzero_<seed>`. Verify THAT symmetric difference is exactly the one
     # key, or the single-variable claim is unproven no matter what the floor diff says.
-    control_dir = _MODELS / f"fullzero_{_SEED_WORD[seed]}"
+    #: ⛔⛔ `control` is EXPERIMENT-SPECIFIC and must be passed, not assumed. The original form
+    #: hardcoded `fullzero_<seed>`, and those directories NO LONGER EXIST — so the `elif lessons
+    #: == 300` branch below raised for every scored arm while the 2-lesson smoke path took neither
+    #: branch and still wrote SMOKE_OK. ⇒ The whole gate chain reported ready for a launch that
+    #: could not build one scored arm. Found by an independent `/code-review max` of PR #492.
+    #:
+    #: ⭐ Default is UNCHANGED (`fullzero_<seed>`), so EXP-01's behaviour is byte-identical.
+    #: EXP-02 passes `--control ctlfullzero_<seed>`, which is an arm of its own queue.
+    control_name = control or f"fullzero_{_SEED_WORD[seed]}"
+    control_dir = _MODELS / control_name
+    #: ⛔ When the arm IS its own control — EXP-02 re-runs the incumbent as a queue member — there
+    #: is no contrast to check and `vs_control` is `set()`, which the `allowed = {"model"}` rule
+    #: below would reject. The reference cannot differ from itself, and saying so is not a
+    #: weakening: it is the one case where the single-variable claim is vacuously true.
+    if control_dir.resolve() == dest.resolve():
+        print(f"  {dest.name} IS its own control — no contrast to verify (it is the reference)")
+        return
     control_hp = control_dir / "configs" / "config_hyperparameters.py"
     if control_hp.is_file():
         control = _resolve(control_hp, "get_hp_config")
@@ -326,7 +344,8 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
     elif lessons == 300:
         raise SystemExit(
             f"make_arch_arm: control {control_dir} not found — a scored arm has nothing to be "
-            "compared against."
+            "compared against. Pass --control <label> naming the control arm of THIS experiment; "
+            "the historical `fullzero_*` directories no longer exist."
         )
 
     # ── prove the mechanism, do not trust the flag ───────────────────────────────────────────
@@ -377,8 +396,15 @@ def main() -> int:
     p.add_argument("--eps", type=float, required=True)
     p.add_argument("--seed", type=int, required=True)
     p.add_argument("--variant", required=True, help=f"architecture: one of {sorted(_ARCH_TAG)}")
+    p.add_argument(
+        "--control",
+        default=None,
+        help="label of THIS experiment's control arm, e.g. ctlfullzero_fortytwo. Default keeps "
+             "the historical `fullzero_<seed>`, which no longer exists on disk.",
+    )
     a = p.parse_args()
-    dest = build(lessons=a.lessons, eps=a.eps, seed=a.seed, variant=a.variant)
+    dest = build(lessons=a.lessons, eps=a.eps, seed=a.seed, variant=a.variant,
+                 control=a.control)
     print(f"built {dest}")
     return 0
 
