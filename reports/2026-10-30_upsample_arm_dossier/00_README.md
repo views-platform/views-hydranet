@@ -37,7 +37,7 @@ registered name. ⇒ An ADR is the **exit ramp on `promote`**, if the arm wins �
 | 04 | `04_roadmap.md` | drafted |
 | 05 | `05_analysis_plan.md` | drafted — the pre-registration itself is `PREREG.md` (absorbed, below) |
 | 06 | `06_glossary.md` | drafted |
-| 07 | `07_experiment_log.md` | **append-only**; `G-F` logged, plus a postmortem of this programme's own process failure |
+| 07 | `07_experiment_log.md` | **append-only**; `G-F` (EXP-02a), the guard audit (EXP-02b), and a postmortem of this programme's own process failure |
 
 **Absorbed artifacts** (this directory was a flat `reports/2026-10-30_upsample_arm/` until it became
 this dossier; nothing was duplicated):
@@ -64,10 +64,11 @@ against the installed package.
 ## 5 · Current state & next actions
 
 - [x] mechanism measured (`M92`, `M93`) and localised to a named defect
-- [x] remedy implemented as a registry candidate; **12 mechanism test cases**; `G-F` selected the arm
+- [x] remedy implemented as a registry candidate; **28 mechanism test cases** (12 → 28 after the audit); `G-F` selected the arm
 - [x] ⛔ **three process bypasses removed** — see `07`'s postmortem
 - [x] code to review standard: `C7-1` (`F6` Amendment 6), `C7-2`, `C7-3`, `C7-4`
-- [ ] ⛔ **`/falsify guard` on every new guard, in a clean-context subagent** — blocker for the release
+- [x] ⛔ **`/falsify guard` in a clean-context subagent — FALSIFIED, 13 survivors, all closed and
+      mutation-verified; the instrument re-run and every number reproduced** (`07` EXP-02b)
 - [ ] ⛔ **release 0.1.8** via the rehearsal path; review the 0.1.6/0.1.7 content that ships with it
 - [ ] build the four `*fullzero*` arm dirs, then `preflight_exp02.py` → `smoke_exp02.sh` → `launch_exp02.sh`
 - [ ] ⚠️ route `C7-6`/`C7-7` through `register-risk` (do not hand-edit the register)

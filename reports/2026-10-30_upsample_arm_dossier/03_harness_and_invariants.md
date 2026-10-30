@@ -52,7 +52,7 @@ the defect, not a feature.
 |---|---|---|
 | **Extension seam (OCP)** | `registry.py:45` `ARCHITECTURE_REGISTRY`, lazy imports | ✅ used |
 | **Name-agnostic contract test** over every registered architecture | `tests/architectures/test_architecture_registry.py`, per `ArchitectureRegistry` CIC §3/§6 | ✅ candidate 7 covered automatically |
-| ⭐ **Mechanism-pinning tests** | `tests/architectures/test_candidate_mechanisms.py` — exists *because* a `/falsify guard` pass found **every** EXP-01 candidate's mechanism could be removed, inverted or neutered with the suite green | ✅ **12 collected cases** for candidate 7 |
+| ⭐ **Mechanism-pinning tests** | `tests/architectures/test_candidate_mechanisms.py` — exists *because* a `/falsify guard` pass found **every** EXP-01 candidate's mechanism could be removed, inverted or neutered with the suite green | ✅ **28 collected cases** for candidate 7, after the audit |
 | **Independent arm-identity verifier** | `verify_bakeoff.py` step 1 — re-reads `model` from the arm's own config rather than trusting the builder's declaration | ✅ reused unchanged |
 | **Per-arm postflight** | `scripts.arm_postflight.audit_arm` via the verifier; 8 tests in `tests/test_arm_postflight.py` (missing/empty artifact, floor-gate token, failed gate, NaN score, missing horizon, support mismatch) | ✅ reused unchanged |
 | ⭐ **Real-pipeline smoke** — the only honest footprint measurement; exercises the emit path, the scorer's view of the cube, BN recalibration and the data pipeline at 2 lessons | `smoke.sh` → `smoke_exp02.sh` | ✅ sibling |
@@ -73,8 +73,12 @@ the defect, not a feature.
 1. ⛔⛔ **The candidate is not in a released wheel.** Every arm trains against the **installed**
    `views_hydranet`; all six EXP-01 candidates were in the published package before their arms ran.
    ⇒ **0.1.8 must ship.** This is the gap the three bypasses were routing around.
-2. ⛔ **No `/falsify guard` audit of the 12 new guards**, in a clean-context subagent. The file they
-   live in exists *because* that audit found the prior six all neuterable.
+2. ✅ **CLOSED 2026-10-30.** The `/falsify guard` audit ran in a clean-context subagent and returned
+   **FALSIFIED — 13 survivors**: every guard asserted a type, a shape or a parameter count and none
+   asserted what the code computes, so the defect could be reinstated verbatim with the suite
+   green. All 13 are closed and each fix is mutation-verified; the instrument was re-run and every
+   number reproduced. ⇒ `07` EXP-02b. ⭐ **The rule it leaves behind: a guard that asserts a proxy
+   is not a guard on the mechanism.**
 3. ⛔ **The four `*fullzero*` arm dirs do not exist.** `make_arch_arm.py --lessons 300` builds them;
    smoke builds `*tinyzero*` dirs, which are **different directories**.
 4. ⚠️ **No σ̂ for ΔAP at h1 or h36.** `C-357` has fired twice on arms sized against a σ̂ that does not
@@ -105,7 +109,7 @@ the defect, not a feature.
 - [x] ⛔ three process bypasses removed; no `PYTHONPATH`, no gate-set fork
 - [x] `ruff` clean; **2409 passed, 0 failed**; CIC-drift and registry-contract tests green
 - [x] a pre-registration exists with falsifiers, a verdict rule, and endpoints **h1 and h36 — never h18**
-- [ ] ⛔ **`/falsify guard` HOLDS on every new guard** (gap C2) — **blocker**
+- [x] ⛔ **`/falsify guard` ran independently and its 13 survivors are closed** (gap C2)
 - [ ] ⛔ **0.1.8 released; the candidate resolvable from site-packages with no `PYTHONPATH`** (gap C1) — **blocker**
 - [ ] the four `*fullzero*` arm dirs built and single-variable (gap C3)
 - [ ] `preflight_exp02.py` → `PREFLIGHT_OK`; `smoke_exp02.sh` → `SMOKE_OK`

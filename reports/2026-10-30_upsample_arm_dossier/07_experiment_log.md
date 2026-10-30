@@ -115,3 +115,81 @@ header counts are maintained by that skill.
 `gf_phase_signature.py:130` as one of three measured modes, and that measurement **selected the
 arm**. De-registering it would have broken a committed instrument. ⇒ Executing a plan item I had
 come to believe was wrong would have been the same failure in a different direction.
+
+---
+
+## EXP-02b · 2026-10-30 · `/falsify guard` audit · ⛔⛔ FALSIFIED — 13 survivors, all now closed
+
+**An independent audit, and it is the entry this log most needed.** Run in a **clean-context
+subagent**: the auditor was not the author, had no access to this dossier, the ledgers, the commit
+messages or #491, and worked from source code only. All 28 mutation predictions were written before
+the first mutation was applied.
+
+**Verdict as returned: `FALSIFIED`. Guard A `WEAK` (8 survivors), `G-17` `WEAK` (4), `G-24` `WEAK`
+(1). `G-23`, `G-25`, `G-26` `HOLDS`.**
+
+### ⛔⛔ The central finding
+
+> *Every test checks a **type**, a **shape**, or a **parameter count**. Not one checks what the
+> module **computes**.*
+
+⇒ **The defect could be put back verbatim** — zero-stuffing then convolving is mathematically
+identical to `ConvTranspose2d(k=2, s=2)` — with all 12 cases green. ⭐ **Reproduced here before
+acting on it**: `12 passed, 9 deselected`.
+
+⚠️ **The audit's recommended statistic was WRONG and is corrected.** It reported fan-in 1 for the
+honest remedy; measured, it is 4. The discriminating property is **IN-degree** — how many distinct
+inputs one output reads:
+
+| | in-degree per output cell |
+|---|--:|
+| incumbent `ConvTranspose2d(k=2,s=2)` — the defect | **1** |
+| honest `nearest + Conv2d(k=2)` | **max 4** |
+| `nearest + Conv2d(k=1)` — `UpsampleConv1` | **1** |
+| the zero-stuff mutant | **1** ⇒ the defect |
+
+⭐⭐ **And that third row is a distinction the audit missed.** `UpsampleConv1` legitimately has
+in-degree 1 — its claim is *"no phase pattern can form"*, **not** *"it mixes"*. One guard for both
+would have **failed a correct candidate.** ⇒ Two claims, two guards.
+
+### What was fixed, each mutation-verified to kill the survivor it was written for
+
+| survivor | the guard that now catches it |
+|---|---|
+| **U1** zero-stuff reinstates the defect | in-degree must exceed 1 |
+| **U2** `nearest` → `bilinear` | same guard |
+| **U21** `UpsampleConv1` gains a per-phase parameter | phase invariance across the 2×2 block |
+| **U3** drop `kernel_size != stride` | ⭐ the conformance check's **second branch**, which encodes the defect's definition and **had never been executed** |
+| **U4** `_SUPPORTED` widened past `(1, 2)` | assert the tuple, not just that `3` fails |
+| **U5** pad flipped to top/left | impulse alignment |
+| **U6** conv applied before pad | no all-zero border on a positive input |
+| **U7** channel check deleted | assert the raise its own docstring justifies |
+| **B7b** dropout active in eval, mask locked | ⛔ `G-24` is labelled `C-384` *"dropout is disabled"* and **never asserted it** — **16.3% of activations zeroed, forwards bit-identical, PASS printed.** Now **behavioural**: a constant must pass through every `LockedDropout` unchanged |
+| **B2** / **B3** / **B4** / **B5** | ⛔ `G-17`'s three controls were all **isotropic, all-land and lag-1**, so **none** of the estimator's four free dimensions was guarded. Four controls added — and **`B4` destroyed the `ρ(2) − ρ(1)` gap, which is this script's entire verdict** |
+
+⭐ **Thresholds were MEASURED before being written**, not guessed — two gates that could not pass
+have already been written this week (`W-110`, `W-118`): direction **+0.0001** (E–W only gives
++1.0000); lag `d=2` **−1.0000** (hardcoded `d=1` gives +0.0000); mask **+1.0000** (unmasked
++0.0098); floor **−1.0000** (max gives +1.0000).
+
+### ⭐⭐⭐ Re-run verdict: every number reproduces
+
+`G-17` **8/8** controls, `G-24` behavioural for all three modes, 317.8 s. `UpsampleConv2` gap
+**−0.198421**, floor **+0.617487**; control **+1.257220**. ⇒ **The strengthened gates did not change
+the measurement — they made it trustworthy.** `P-20` and `P-21` stand exactly as logged.
+
+### ⚠️ Two notes against the audit, recorded so it is not taken on authority either
+
+1. Its fan-in statistic was wrong (above), and acting on it unmodified would have produced a guard
+   that failed `UpsampleConv1` for doing exactly what it is designed to do.
+2. It flagged `EXPECTED_PARAMS` in this script as the hardcoded tripwire the pytest file explicitly
+   refuses to have. ⚠️ **Declined, with a reason:** in a pytest file a literal is a forward-looking
+   guard that will be "fixed" by editing it; in a measurement script that has **already run**, the
+   literal is a **copy gate against the committed pre-registration** (`W-98` — the anchor is the
+   committed implementation). The pytest file's relational assertions are the live guard; this one
+   is a record. Different purposes, and both are right.
+
+### ⛔ What this entry does not claim
+
+The audit covered the **guards**. It did not run the arm, and it says nothing about whether the
+remedy improves rollout skill — which remains what `PREREG.md` §6 is for.
