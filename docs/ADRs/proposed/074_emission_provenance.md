@@ -101,17 +101,73 @@ them, so that an artifact's identity is a fact on disk rather than an inference.
 
 ### 2.1 The emission manifest
 
-One file per inference run, written by HydraNet into the run's generated-data directory. It declares:
+One file per inference run, written by HydraNet into the run's generated-data directory.
 
-| group | contents |
-|---|---|
-| **quantities** | each quantity emitted by this run, and the directory prefix it was written under |
-| **composition** | `forecast_composition`, `gate_threshold`, `emit_family_core`, `emit_distribution`, `evaluation_mode`, `aggregate_method` |
-| **shape** | `n_posterior_samples` (D), `n_head_samples` (K), `S = D×K`, `time_steps`, grid `H×W`, `level` |
-| **origins** | per emitted origin: the **sequence number** (its `origin_N` directory), the **volume index**, and its **first month** |
-| **horizons** | per origin, the explicit horizon→month map |
-| **identity** | model name, run type, artifact filename, artifact sha256, views-hydranet version, config digest, seeds |
-| **rows** | expected rows per horizon and per origin |
+#### 2.1.1 ⭐ A config and a manifest are not the same claim
+
+The intent-versus-fact split that governs this ADR's own authority (§0) governs the manifest's
+contents too:
+
+| | records | authority |
+|---|---|---|
+| **a config, and its commit** | what *should* have happened — **intent** | the config |
+| **the manifest** | what *did* happen — **fact** | **the code, at the point of use** |
+
+⇒ **Both** are required, and they must be **comparable**, so that a divergence between what was
+declared and what ran is detectable rather than invisible. A manifest that merely restated the
+config would record intent twice and fact not at all.
+
+#### 2.1.2 Why it is not simply a commit identifier
+
+A commit identifier is **corroboration, not identity**:
+
+1. ⛔ **It requires an external lookup** — the right repository, at a revision that may have been
+   rebased or force-pushed. A model's config and the inference code live in **different
+   repositories**, so "the commit" is ambiguous without saying which. That makes the artifact's
+   identity depend on something outside the artifact, which is this ADR's own defect displaced by
+   one step.
+   ⇒ **The test:** *can a reader answer "which quantity is this, under what composition?" holding
+   only the delivered artifact, with no network and no repository?* With a resolved-config
+   snapshot, yes. With a commit identifier alone, no.
+2. ⚠️ **One commit per run is not enforceable.** Usual, but not guaranteed — so the claim is
+   probabilistic where the rest of the manifest is not.
+3. ⛔ **It cannot carry execution facts at all.** Which origins ran, which months each covered, and
+   whether contiguity held are properties of **execution**, present in no config at any revision.
+
+#### 2.1.3 Why it is not the config files either
+
+A model's config is **executable code**, not data: it may compute, branch, and read the
+environment, and the schema supplies defaults for whatever it omits. ⇒ Recording the config *files*
+records **the program, not its output** — and the run consumed the output.
+
+⇒ So the manifest records the **resolved, validated configuration object**: the same object the
+inference path read. It is small enough that curating it would be a false economy, so it is
+recorded **in full** rather than filtered to whichever fields seem important today.
+
+#### 2.1.4 Contents
+
+| group | source | kind |
+|---|---|---|
+| **resolved configuration, in full** — including the composition fields (`forecast_composition`, `gate_threshold`, `emit_family_core`, `emit_distribution`, `evaluation_mode`, `aggregate_method`), the shape fields (`n_posterior_samples`, `n_head_samples`, their product, `time_steps`, grid extent, `level`) and the seeds | the validated config object **in memory** | fact |
+| **declared provenance** — a commit identifier for **each** repository involved, each with an explicit **dirty-tree flag** | version control, at launch | intent |
+| **quantities** — each quantity emitted, and the directory prefix it was written under | the emission path | fact |
+| **origins** — per emitted origin: its sequence number (the directory it occupies), its volume index, and its first month | the run | fact |
+| **horizons** — per origin, the explicit horizon-to-month map | the run | fact |
+| **rows** — expected rows per horizon and per origin | the run | fact |
+| **identity** — model name, run type, artifact filename, artifact digest, package version | the artifacts | fact |
+
+⭐ **The dirty-tree flag is load-bearing.** A commit identifier taken from a modified working tree
+is a false provenance claim. The flag degrades it honestly to *"approximately this revision, plus
+unrecorded edits"* — still useful, no longer a claim of provenance.
+
+#### 2.1.5 ⛔ Implementation constraint, not a style preference
+
+**The manifest's values are taken from the same objects the computation used.** Not by re-reading
+configuration files, not by re-deriving a value, not by recomputing anything.
+
+⇒ A manifest assembled by reading the configs would record intent a second time and fact zero
+times, and would agree with the config **by construction** — destroying the comparability §2.1.1
+requires and making the artifact decorative.
 
 ### 2.2 Horizons and origins are named, never derived
 
@@ -226,6 +282,11 @@ must refuse, not pass*.
   on a real multi-origin run.
 - ⭐ *Red:* a **deliberately falsified manifest field fails the test.** A manifest is only worth
   as much as the test that can catch it lying; without this one the rest is decoration.
+- ⭐ *Red, for §2.1.5:* **mutate the resolved config object after it is built, and the manifest
+  must follow the object, not the file on disk.** This is the only test that can distinguish a
+  manifest recording *fact* from one re-reading *intent* — and a manifest that passes every other
+  check while silently re-reading configs would agree with them by construction, which is the
+  failure §2.1.1 exists to prevent.
 - *Green:* the origin table joins `origin_N` to the volume index and to that origin's first month.
 - *Red:* non-contiguous months in an origin fail the run.
 - *Red:* `steps=[1, 6, 12]` raises at config construction; `steps=list(range(1, 37))` does not.
