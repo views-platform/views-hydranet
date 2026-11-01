@@ -4,27 +4,38 @@
 **Date:** 2026-11-01
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers
-**Builds on:** ADR-003 (authority of declarations over inference) · **Completes:** ADR-032 (authoritative output schema) · **Aligns with:** ADR-008 (observability and explicit failure), ADR-047 (pandas-free prediction output) · **Sibling:** ADR-075 (emission selection)
+**Builds on:** ADR-003 (authority of declarations over inference) · **Leaves intact:** ADR-032 (authoritative output schema — counts in, counts out; this ADR governs a category ADR-032 does not cover) · **Aligns with:** ADR-008 (observability and explicit failure), ADR-047 (pandas-free prediction output) · **Required by:** ADR-075 (emission selection — the change that creates emitted intermediaries)
 
 ## Summary (read this first — self-contained)
 
 When HydraNet finishes an inference run it leaves directories of `.npy` files on disk. Those files
 carry **two** pieces of information about themselves: a month id per row and a grid cell id per row.
-Nothing else. Not which quantity they are (the gated forecast? the gate? the body?), not how that
-quantity was composed, not which forecast horizon a row belongs to, not which origin produced it,
-not which model or which config.
+Nothing else. Not which composition produced them, not which forecast horizon a row belongs to, not
+which origin, not which model or which config. All of that lives in **directory names** and in the
+memory of whoever launched the run.
 
-All of that currently lives in **directory names** and in the memory of whoever launched the run.
+⭐ **To be clear about what is *not* broken.** ADR-032's rule — the output is on the same scale as
+the input, **counts in, counts out** — is intact and remains the rule. Whatever the model does
+internally is invisible outside it, because a prediction is un-transformed before anyone sees it.
+So today's emitted forecast is correctly named and unambiguous as to *what kind of thing it is*.
 
-Three times in three months we have therefore analysed an artifact that was not the thing we
-believed it to be: a cached pull scoped to Africa and the Middle East rather than global land; a
-`lr_*` directory read as the raw body when under `threshold_gate` it is the **gated forecast**; and
-a gate posterior sliced at the first horizon with no record that the other 35 were left behind.
-In every case the bytes were fine. What was missing was any way to ask them what they were.
+**What changes is that we now want intermediate quantities out of the model as diagnostics** —
+things that are not the forecast. The **gate** is an occurrence probability, so its scale
+distinguishes it. The **body** is in counts and is **still not the forecast** — so nothing, neither
+scale nor naming convention, separates the two. That is a new hazard, created by ADR-075, and it is
+why this ADR exists.
+
+Alongside that, provenance gaps that are already costing us: three times in three months we
+analysed an artifact that was not what we believed. A cached pull scoped to Africa and the Middle
+East rather than global land. A gate posterior sliced at the first horizon with no record that the
+other 35 were left behind. And — the instructive one — a `lr_*` directory read as the raw body,
+which was *my* error importing a distinction the emitted output does not yet make, not a failure of
+ADR-032. In every case the bytes were fine. What was missing was any way to ask them what they were.
 
 This ADR requires HydraNet to write **one emission manifest per inference run**, stating what it
-produced, and to **name horizons and origins explicitly instead of letting consumers derive them**.
-It does not change what is computed, what is emitted, or any number we have ever reported.
+produced, and to **record origin and the horizon-to-month map explicitly instead of letting
+consumers derive them**. It does not change what is computed, what is emitted, or any number we
+have ever reported.
 
 ## 1. Context
 
@@ -57,20 +68,44 @@ And the model's own sidecar does not close it. `train/train_model.py:138-144` wr
 not baked in the artifact)"*. So not even the checkpoint can tell you the composition of a forecast
 made from it.
 
-**Assumption that is no longer true.** ADR-032 §2.2 made target names deliberately
+**What ADR-032 settled, and why it is not the gap.** ADR-032 §2.2 makes target names
 state-independent:
 
 > **`lr_` (Linear/Identity):** Signifies ground truth count intent. **This name remains constant
 > even if the underlying data is logged or transformed.**
 
-That was the right call — it is the "Immutable Semantic Law", and it stops a name drifting every
-time a transform changes. But ADR-032 then **never designated where the state lives**. The
-assumption was that intent-only names were sufficient because a human would know the rest. With
-rolling origins, three emit-time axes (ADR-067/068/069), two run-type directory shapes and
-artifacts crossing machines on rented hardware, they are not.
+⭐ **That is not an absence of state-tracking. It is an invariant that makes state-tracking
+unnecessary:** the output is on the same scale as the input. For conflict fatalities, **counts in,
+counts out**. Whatever the model does internally — log transforms, binarisation, normalisation,
+standardisation — is invisible outside the model, because a prediction is un-transformed before it
+reaches a consumer. The name suffices precisely *because* the scale is guaranteed.
 
-⇒ `lr_sb_best` failing to tell you whether composition was applied is **ADR-032 working as
-specified with nothing on the other side of it.** This ADR supplies the other side.
+⇒ **That rule is intact and remains the rule.** This ADR does not amend it, complete it, or fill a
+hole in it. There was no hole.
+
+**What is actually new.** We now want to retrieve **intermediate quantities** from the model as
+diagnostics — things that are *not* the forecast:
+
+| quantity | relation to the forecast | distinguishable by scale? |
+|---|---|---|
+| the **gate** | a binary transformation — an occurrence probability, not counts | ✅ yes, it is not in count space |
+| the **body** | not a transformation at all. It is in counts, and it is **still not the forecast** | ⛔ **no** |
+
+⛔ **The body is the hazard, and it is a new one.** It lives in the same space as the forecast and
+is not the forecast, so neither scale nor ADR-032's naming law separates them — ADR-032 governs
+*the forecast*, and has no reason to say anything about a quantity that is not one.
+
+⇒ So the requirement this ADR answers is **created by ADR-075**, which is what makes
+non-forecast intermediaries exist on disk at all. ADR-032 governs the emitted forecast; **nothing
+governs an emitted intermediary, because until now there were none.** A new category needs its own
+declaration, not an amendment to the law covering a different category.
+
+⚠️ **And this corrects the account of my own error.** I read a `lr_*` directory as the raw body.
+Under ADR-032 it is the **forecast, in counts** — correctly named, exactly as specified. My mistake
+was importing a body-versus-forecast distinction that *does not yet exist* in the emitted output,
+and ADR-032 is not at fault for failing to encode a distinction it was never asked to make. What
+*was* genuinely missing is narrower: **which composition produced that forecast** — a legitimate
+ADR-069 axis that changes a forecast's value without changing what kind of thing it is.
 
 **The repository already forbids the consequence.** ADR-003
 (`docs/ADRs/templates/003_authority_of_declarations_over_inferance.md`):
@@ -85,11 +120,20 @@ Measured against that rule, the current emission boundary is in standing violati
 |---|---|---|
 | **horizon** = `time − min(time) + 1` | re-derived independently at `reports/2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py:60-64`, `scripts/proper_score_audit.py:119-120`, and `views-models/tools/podrun/slice_gate_posterior.py:113` | assumes contiguous months **and** that h=1 is present. No guard, assertion or test anywhere establishes either. |
 | **origin** = position in a sorted list | `inference_orchestrator.py:308` `for i, origin in enumerate(origins)` → `origin_{i}` | `origin_0` is the *earliest* origin, not origin index 0. The real volume index and its month are nowhere in the prediction dirs. The body-mean dump records the **real** index instead (`hydranet_inference.py:1014,1019`), so two artifacts from one run number origins differently and are **not joinable** without re-deriving `get_rolling_origin_indices` (`utils/utils_orchestration.py:7-41`). |
-| **quantity** = a directory prefix | ADR-032 §2.2 | state-independent by law; see above |
+| **composition** = not recorded anywhere | the emit-time axes of ADR-067/068/069 | which composition produced a forecast is absent from the artifact, from the checkpoint sidecar and from the directory name. ⚠️ Note this is **narrower than a quantity ambiguity**: the artifact *is* the forecast in counts, correctly named; what cannot be established is which composition made it |
 
-**Urgency.** Weeks of analysis have been spent on artifacts whose identity was assumed. The next
-experiment adds a third emitted quantity (ADR-075), which makes the prefix→quantity mapping
-genuinely ambiguous rather than merely undeclared.
+✅ **Not in violation today: quantity.** There is one emitted quantity, it is the forecast, and
+ADR-032 names it correctly. Quantity becomes ambiguous only when ADR-075 puts non-forecast
+intermediaries on disk beside it — and the body, being in counts and not a forecast, is the case
+that no existing law separates.
+
+**Urgency.** Two distinct reasons, and only one of them is retrospective:
+1. ⚠️ **Already costing us:** composition, origin and horizon are not recorded, so analysis has
+   been spent on artifacts whose provenance was assumed rather than read.
+2. ⛔ **Prospective, and larger:** ADR-075 introduces emitted intermediaries. From that point the
+   *kind* of thing an array is becomes ambiguous for the first time, and the body is
+   indistinguishable from the forecast by both scale and naming convention. ⇒ This ADR must land
+   **before** ADR-075, not alongside it.
 
 ---
 
@@ -255,7 +299,8 @@ must refuse, not pass*.
       prerequisite for every horizon-indexed readout, including the h36 half of `P-23`.
 - [ ] Three independent re-derivations of `time − min(time) + 1` get one authority to read instead.
 - [ ] A latent config trap (`steps` as a false selector) is closed before it fires.
-- [ ] Completes ADR-032 — intent-only names become safe, because state now lives somewhere.
+- [ ] Makes ADR-075 safe to land. ADR-032's counts-in-counts-out rule keeps the *forecast*
+      unambiguous; this ADR is what keeps an emitted **intermediary** from being mistaken for one.
 
 ### ⚠️ Negative (Costs)
 
