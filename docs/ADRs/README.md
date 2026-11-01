@@ -87,6 +87,8 @@ Architectural decisions specific to the HydraNet system.
 - **[073](proposed/073_emit_time_distribution_split.md)**: ADR-073: Separate the EMITTED distribution family from the TRAINED one
 - **[074](proposed/074_emission_provenance.md)**: ADR-074: Emission provenance — an emitted artifact must declare what it is
 - **[075](proposed/075_emission_selection_config_axis.md)**: ADR-075: Emission selection — a config axis for *which* artifacts a run writes, distinct from composition
+- **[076](proposed/076_datafactory_is_the_data_provider.md)**: ADR-076: views-datafactory is the data provider for HydraNet models
+- **[077](proposed/077_global_land_coverage.md)**: ADR-077: HydraNet models forecast global land coverage
 
 ## [Archive (Historical)](./archive/)
 
