@@ -85,6 +85,8 @@ Architectural decisions specific to the HydraNet system.
 - **[071](proposed/071_violet_visitor_datafactory_provider.md)**: ADR-071: violet_visitor's data provider is views-datafactory (`africa_me_legacy`)
 - **[072](proposed/072_frame_native_input_ingestion.md)**: ADR-072: Frame-Native Input Ingestion (pandas-free `FeatureFrame` input path)
 - **[073](proposed/073_emit_time_distribution_split.md)**: ADR-073: Separate the EMITTED distribution family from the TRAINED one
+- **[074](proposed/074_emission_provenance.md)**: ADR-074: Emission provenance — an emitted artifact must declare what it is
+- **[075](proposed/075_emission_selection_config_axis.md)**: ADR-075: Emission selection — a config axis for *which* artifacts a run writes, distinct from composition
 
 ## [Archive (Historical)](./archive/)
 
