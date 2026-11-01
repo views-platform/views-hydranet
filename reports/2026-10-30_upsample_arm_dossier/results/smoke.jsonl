@@ -1,0 +1,2 @@
+{"arch":"HydraBNUNet06_LSTM4","label":"ctltinyzero_fortytwo","rc":137,"peak_mib":7695,"seconds":356,"cube":false,"ok":0}
+{"arch":"UpsampleConv2","label":"upctwotinyzero_fortytwo","rc":137,"peak_mib":7148,"seconds":1080,"cube":false,"ok":0}
