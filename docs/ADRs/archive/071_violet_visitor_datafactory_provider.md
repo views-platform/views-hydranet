@@ -1,6 +1,31 @@
 # ADR-071: violet_visitor's data provider is views-datafactory (`africa_me_legacy`)
 
-**Status:** Proposed
+> # ⛔ SUPERSEDED — DO NOT READ THIS AS CURRENT
+>
+> **Superseded 2026-11-01 by ADR-076 and ADR-077.** This document is kept as a historical record
+> and is **archived**. Nothing in it describes the system as it is today.
+>
+> **The specific claim most likely to mislead:** this ADR states a spatial scope of
+> `africa_me_legacy` (13,110 cells). **That scope was abandoned fleet-wide on 2026-09-19** in favour
+> of global land. Any reader or agent acting on the scope stated below would reintroduce data that
+> has been deliberately purged.
+>
+> **Why it was superseded.** It was titled after a single model and bundled two unrelated
+> decisions — which data provider HydraNet models use, and which spatial scope they forecast over.
+> A model name and a region setting are **config**, and they change on a far faster clock than an
+> ADR does, so this document went stale within weeks and nothing flagged it.
+>
+> | the decision you are probably looking for | where it lives now |
+> |---|---|
+> | which data provider HydraNet models use | **ADR-076** — views-datafactory is the provider |
+> | which spatial coverage they forecast over | **ADR-077** — global land |
+> | the parity evidence for the first migration | `reports/2026-07-28_datafactory_migration_dossier/` (00–07) — the numbers below are a copy of that dossier's, and it is the authority |
+>
+> **What is still worth reading here:** the record of how the first provider migration was actually
+> justified — the swap seam, the Tier-A parity design, and the four alternatives considered. Those
+> reasons were carried forward into ADR-076 as rules; this is where they were first worked out.
+
+**Status:** Superseded — by ADR-076 (provider) and ADR-077 (coverage), 2026-11-01
 **Date:** 2026-07-28
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers
