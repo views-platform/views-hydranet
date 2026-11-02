@@ -4,8 +4,8 @@
 **Date:** 2026-11-01 (recording a change made 2026-09-19)
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers
-**Requires:** ADR-076 (views-datafactory as the provider)
 **Related:** ADR-074 (an emitted artifact records what it is)
+**Rests on a fact, not an ADR:** every model declares the same data source, and a coverage declaration exists only on that source's descriptor
 
 ## Summary (read this first — self-contained)
 
@@ -80,7 +80,7 @@ noisy.
 **In scope:** the coverage HydraNet models target, and the requirement that a run's coverage be
 declared and verifiable.
 
-**Out of scope:** the data provider, which is ADR-076 and a prerequisite rather than part of this;
+**Out of scope:** which data source a model declares, which is configuration and already settled;
 the consumer deliverable's own cut, which the models repository governs; which models have changed,
 which is configuration; and removing regionally scoped data already on disk, which is an operational
 task.
@@ -159,7 +159,8 @@ carry the decision.
 
 - **Location.** Declared in each model's configuration, counted by the check in §5, and recorded per
   result by ADR-074's manifest.
-- **Sequencing.** ADR-076 is the prerequisite that makes the coverage reachable; ADR-074 is the
+- **Sequencing.** The data source is what makes a coverage declaration possible at all, and it is
+  already in place fleet-wide; ADR-074 is the
   prerequisite for §2.2, since a result cannot declare its coverage until it declares anything.
 - **Evidence.** `reports/2026-11-02_adr_claim_verification/00_CLAIMS.md` §4 holds every factual
   claim in this ADR with its source, including the coverage census and the delivery-cut relation.
@@ -172,7 +173,7 @@ carry the decision.
 ## References
 
 **This repository:** ADR-009 (configuration validation) · ADR-032 (output schema) · ADR-074 (an
-emitted artifact records what it is) · ADR-076 (views-datafactory as the provider).
+emitted artifact records what it is).
 
 **Other repositories** — the contracts this ADR works within:
 

@@ -5,7 +5,7 @@
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers
 **Builds on:** ADR-047 (the output path, already pandas-free), ADR-046 (feature lifecycle), ADR-019 (feature scaler), ADR-060 (static channels)
-**Related:** ADR-076 (the migration bar). This ADR assumes the current data provider, which every model already declares
+**Assumes:** the current data provider, which every model already declares. That is a fact about the configurations, not a dependency on another decision
 
 ## Summary (read this first — self-contained)
 
@@ -70,7 +70,7 @@ own check.
 
 **In scope:** the container on the input path, and the gate that admits it.
 
-**Out of scope:** the provider the data comes from (ADR-076); the output path (ADR-047, already
+**Out of scope:** which data source the input comes from, which is configuration; the output path (ADR-047, already
 done); the diagnostic and audit code that uses pandas off the production path; and any
 reorganisation of the modules involved, which is recorded in the dossier and not decided here.
 
@@ -155,7 +155,7 @@ refactor and the decision lapses rather than being relaxed.
 ## References
 
 **This repository:** ADR-019 (feature scaler) · ADR-046 (feature lifecycle) · ADR-047 (the
-pandas-free output path) · ADR-060 (static channels) · ADR-076 (the provider).
+pandas-free output path) · ADR-060 (static channels).
 
 **Other repositories** — the contracts this ADR works within:
 

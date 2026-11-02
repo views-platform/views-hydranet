@@ -86,7 +86,6 @@ Architectural decisions specific to the HydraNet system.
 - **[053](proposed/053_build_and_package_management_tooling.md)**: Build and Package Management Tooling
 - **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
 - **[073](proposed/073_emit_time_distribution_split.md)**: ADR-073: What a model emits from need not be what it was trained on
-- **[076](proposed/076_provider_migration_parity_bar.md)**: ADR-076: A provider migration must prove decomposed parity on freshly pulled data
 - **[077](proposed/077_global_land_coverage.md)**: ADR-077: HydraNet models forecast global land
 - **[078](proposed/078_horizon_selection_for_emission.md)**: ADR-078: Horizons are selectable for emission, never for computation
 
