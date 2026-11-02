@@ -34,7 +34,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from views_hydranet.infrastructure.coverage import (  # noqa: E402
-    GLOBAL_LAND,
     Declaration,
     collect,
 )
@@ -58,17 +57,37 @@ def render(declarations: list[Declaration]) -> str:
         f"{sum(1 for d in declarations if d.region is None and d.note != 'not declared')} "
         f"unresolved)",
         "",
-        f"HydraNet models — ADR-077 requires {GLOBAL_LAND!r}:",
+        "HydraNet models — ADR-077 asks that they AGREE, not that they match a literal:",
     ]
-    for d in sorted(ours, key=lambda d: (d.is_global_land, d.model)):
-        mark = "  ok " if d.is_global_land else "  ** "
-        lines.append(f"{mark}{d.model:<28} {d.region or 'UNDETERMINED'}  {d.note}".rstrip())
+    # ⛔ Grouped by what is declared, and the majority extent is derived from the fleet rather
+    # than written here. `REGION` is views-models' configuration field; a value named in this
+    # script would be that field hardcoded in another repository, so switching `land` ↔ `land_gaul`
+    # would mean editing and releasing this package to change a setting.
+    ours_by_region: dict[str, list[str]] = {}
+    for d in ours:
+        ours_by_region.setdefault(d.region or f"UNDETERMINED ({d.note})", []).append(d.model)
 
-    exceptions = [d for d in ours if not d.is_global_land]
+    # ⚠️ Ties broken by NAME, so the answer never depends on dict insertion order. A tie means
+    # the fleet is genuinely split and the line below says so either way; what must not happen is
+    # the report naming a different majority on two runs over the same tree.
+    fleet = (
+        min(ours_by_region, key=lambda r: (-len(ours_by_region[r]), r or ""))
+        if ours_by_region
+        else None
+    )
+    for region, models in sorted(ours_by_region.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        mark = "  ok " if region == fleet else "  ** "
+        lines.append(f"{mark}{region:<28} {len(models):>3}  {', '.join(sorted(models))}")
+
+    strays = [m for r, ms in ours_by_region.items() if r != fleet for m in ms]
     lines += [
         "",
-        f"HydraNet extents that are not {GLOBAL_LAND!r}: {len(exceptions)}"
-        + (f" — {', '.join(d.model for d in exceptions)}" if exceptions else ""),
+        f"the fleet declares {fleet!r}"
+        + (
+            f"; {len(strays)} HydraNet(s) do NOT agree — {', '.join(sorted(strays))}"
+            if strays
+            else " and every HydraNet agrees"
+        ),
         "",
         "Other algorithms — reported, not required (ADR-077 section 2.1 permits a narrower",
         "extent for a stated purpose, such as a parity check against a previous backend):",
