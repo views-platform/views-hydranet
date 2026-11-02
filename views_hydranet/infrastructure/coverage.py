@@ -28,8 +28,21 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-#: ADR-077's coverage for subnational models: the 64,818-cell global land mask.
-GLOBAL_LAND = "land"
+# ⛔ There is deliberately NO constant naming the expected extent here, and no predicate asking
+# whether a declaration matches it. `REGION` is a **configuration field in views-models**, and a
+# value this module asserted would be that field hardcoded in a different repository — so flipping
+# a config would require editing, releasing and reinstalling this package. That is not a knob.
+#
+# ⚠️ An earlier version did exactly that: `GLOBAL_LAND = "land"` plus `is_global_land`, with a
+# live-fleet test asserting `region == "land"` for all 17 models. Switching the fleet from `land`
+# to `land_gaul` — two spellings of global land, 64,818 and 64,742 cells, measured — would have
+# turned this repository's suite red on a change that is none of its business.
+#
+# ⇒ What this module reports instead is **what each model declares**, verbatim, and what the
+# consumers assert is **consistency**: that the fleet agrees with itself. That is the real hazard
+# ADR-077 names — one straggler drifting onto a different extent, which is how a model sat on the
+# retired Africa crop for six weeks — and it is indifferent to which extent the fleet is on,
+# including a spelling nobody here has heard of yet.
 
 #: The declared algorithm that makes a model one of ours.
 HYDRANET = "HydraNet"
@@ -56,10 +69,6 @@ class Declaration:
     @property
     def is_ours(self) -> bool:
         return self.algorithm == HYDRANET
-
-    @property
-    def is_global_land(self) -> bool:
-        return self.region == GLOBAL_LAND
 
 
 def read_literal(path: Path, name: str) -> tuple[str | None, str]:
@@ -133,10 +142,9 @@ def declared_coverage_of(model_dir: Path) -> str | None:
     if region is None:
         logger.warning(
             "ADR-077: no declared coverage read for %s (%s). The manifest will record this run's "
-            "coverage as unknown rather than assume %r.",
+            "coverage as unknown rather than assume the extent the rest of the fleet declares.",
             Path(model_dir).name,
             note,
-            GLOBAL_LAND,
         )
     return region
 

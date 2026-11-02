@@ -27,13 +27,17 @@ from pathlib import Path
 import pytest
 
 from views_hydranet.infrastructure.coverage import (
-    GLOBAL_LAND,
     HYDRANET,
     Declaration,
     collect,
     read_algorithm,
     read_literal,
 )
+
+#: A fixture value, and nothing more. ⛔ Not a contract: these tests must not assert which extent
+#: the fleet declares — see `test_every_hydranet_declares_THE_SAME_extent` for why. It is spelled
+#: `land` only because that is what the fleet happens to declare today.
+AN_EXTENT = "land"
 
 # `render` is the CLI's own concern and lives with it, so the script is imported for that one
 # function. ⚠️ Importing it also exercises its C-347 path guard, which is the reason the script
@@ -59,9 +63,9 @@ def _model(tmp_path, name: str, queryset: str, meta: str = '{"algorithm": "Hydra
 def test_a_literal_extent_is_read(tmp_path):
     root = _model(tmp_path, "a_model", 'REGION = "land"\n')
     (found,) = collect(root)
-    assert found.region == GLOBAL_LAND
+    assert found.region == AN_EXTENT
     assert found.algorithm == HYDRANET
-    assert found.is_ours and found.is_global_land
+    assert found.is_ours
 
 
 def test_a_non_literal_extent_is_reported_with_its_expression_not_skipped(tmp_path):
@@ -76,7 +80,6 @@ def test_a_non_literal_extent_is_reported_with_its_expression_not_skipped(tmp_pa
     assert found.region is None
     assert "assigned non-literally" in found.note
     assert "R" in found.note, "the unresolved expression is not reported, so nobody can chase it"
-    assert not found.is_global_land
 
 
 def test_a_model_declaring_no_extent_is_distinguished_from_one_that_cannot_be_read(tmp_path):
@@ -94,7 +97,7 @@ def test_an_unparseable_configuration_does_not_take_the_census_with_it(tmp_path)
 
     found = {d.model: d for d in collect(root)}
     assert "unparseable" in found["broken"].note
-    assert found["fine"].region == GLOBAL_LAND, "a readable model was lost to an unreadable one"
+    assert found["fine"].region == AN_EXTENT, "a readable model was lost to an unreadable one"
 
 
 def test_the_extraction_executes_nothing(tmp_path):
@@ -105,7 +108,7 @@ def test_the_extraction_executes_nothing(tmp_path):
     """
     root = _model(tmp_path, "a_model", 'raise RuntimeError("imported")\nREGION = "land"\n')
     (found,) = collect(root)
-    assert found.region == GLOBAL_LAND
+    assert found.region == AN_EXTENT
 
 
 def test_a_missing_meta_configuration_leaves_the_algorithm_unknown_not_assumed(tmp_path):
@@ -130,7 +133,7 @@ def test_an_annotated_assignment_is_read_too(tmp_path):
         / "config_queryset.py",
         "REGION",
     )
-    assert (value, note) == (GLOBAL_LAND, "")
+    assert (value, note) == (AN_EXTENT, "")
 
 
 # ─── The report names what it found ──────────────────────────────────────────
@@ -140,15 +143,35 @@ def test_the_report_names_a_hydranet_exception_rather_than_only_counting_it():
     """A count tells a reader there is a problem; a name tells them where it is."""
     text = render(
         [
-            Declaration("ours_ok", HYDRANET, GLOBAL_LAND),
+            Declaration("ours_ok", HYDRANET, AN_EXTENT),
+            Declaration("ours_also_ok", HYDRANET, AN_EXTENT),
             Declaration("ours_stale", HYDRANET, "africa_me_legacy"),
             Declaration("theirs", "OtherModel", "land_gaul"),
         ]
     )
     assert "ours_stale" in text
     assert "africa_me_legacy" in text
-    assert "not 'land': 1" in text
+    assert "do NOT agree" in text and "ours_stale" in text.split("do NOT agree")[1]
     assert "theirs" in text, "a non-HydraNet declaration must be reported, not dropped"
+
+
+def test_the_report_does_not_name_an_expected_extent_of_its_own(tmp_path):
+    """⛔ The guard on the guard: no extent may be a literal in this repository.
+
+    `REGION` is views-models' configuration field. The report derives the fleet's extent from the
+    fleet, so switching `land` ↔ `land_gaul` is a config change there and nothing here. This test
+    is what fails if someone reintroduces a constant — it renders a fleet that unanimously
+    declares something this repository has never heard of, and requires the report to call that
+    the fleet rather than an exception.
+    """
+    text = render([Declaration(f"m{i}", HYDRANET, "an_extent_invented_today") for i in range(3)])
+
+    assert "an_extent_invented_today" in text
+    assert "every HydraNet agrees" in text, (
+        f"a unanimous fleet on an unfamiliar extent was reported as a problem, so some extent is "
+        f"still named in this repository:\n{text}"
+    )
+    assert "do NOT agree" not in text
 
 
 # ─── The live fleet ──────────────────────────────────────────────────────────
@@ -162,21 +185,38 @@ def test_the_report_names_a_hydranet_exception_rather_than_only_counting_it():
         "views-models is available."
     ),
 )
-def test_every_hydranet_declares_global_land():
+def test_every_hydranet_declares_THE_SAME_extent():
     """⭐ The assertion the views-models roster test cannot make, because its scope is a list.
 
-    Measured 2026-11-02: 17 of 17 declare `land`; zero exceptions. The ADR's condition for
-    turning the report into an assertion is therefore met for our own models, and this is what
-    would catch the 18th created on a different extent — the nine created after the fleet-wide
-    change are unpinned upstream.
+    ⛔ It asserts **agreement**, not a value, and the distinction is the whole point. `REGION` is
+    a configuration field in views-models. An earlier version of this test asserted
+    `region == "land"` for all 17 models — which made a downstream config value a literal in this
+    repository's suite, so switching the fleet from `land` to `land_gaul` (two spellings of global
+    land, 64,818 and 64,742 cells, measured) would have turned this suite red on a change that is
+    none of its business. A setting you cannot change without releasing a different package is not
+    a setting.
+
+    ⇒ What ADR-077 actually guards against is a **straggler**: one model drifting onto a different
+    extent while the rest move on, which is how a model sat on the retired Africa crop for six
+    weeks. Agreement catches that — and catches it for any extent, including a spelling nobody has
+    heard of yet, which `== "land"` could not.
     """
     ours = [d for d in collect(MODELS_ROOT) if d.is_ours]
 
     assert len(ours) >= 17, f"only {len(ours)} HydraNet declarations found; the census shrank"
-    offenders = {d.model: d.region or d.note for d in ours if not d.is_global_land}
-    assert not offenders, (
-        f"HydraNet models declaring an extent other than {GLOBAL_LAND!r}: {offenders}. "
-        f"ADR-077 sets coverage by what the project has undertaken to produce, not per model."
+    by_region: dict[str | None, list[str]] = {}
+    for d in ours:
+        by_region.setdefault(d.region, []).append(d.model)
+
+    assert len(by_region) == 1, (
+        f"HydraNets declare {len(by_region)} different extents: "
+        f"{ {r: sorted(m) for r, m in by_region.items()} }. ADR-077 sets coverage by what the "
+        f"project has undertaken to produce, so the fleet moves together or not at all — "
+        f"whichever extent it is on."
+    )
+    assert next(iter(by_region)) is not None, (
+        f"every HydraNet agrees, and what they agree on is that no extent could be read: "
+        f"{ {d.model: d.note for d in ours} }"
     )
 
 
@@ -225,7 +265,7 @@ def test_the_report_states_both_numbers(tmp_path):
     """The two counts must be visible separately, or the smaller one is lost."""
     text = render(
         [
-            Declaration("declares", HYDRANET, GLOBAL_LAND),
+            Declaration("declares", HYDRANET, AN_EXTENT),
             Declaration("silent", HYDRANET, None, "not declared"),
         ]
     )
@@ -370,8 +410,8 @@ def test_a_non_string_literal_extent_is_reported_not_returned(tmp_path):
 
     `REGION = None` is an `ast.Constant`, so dropping the type check returns `None` as the declared
     coverage — which is exactly the value that means *could not be read*. The manifest would then
-    record a non-string extent, `is_global_land` would read `False` with no note, and the two
-    distinct findings ADR-077 keeps apart would have collapsed into one.
+    record a non-string extent with no note, and the two distinct findings ADR-077 keeps apart
+    would have collapsed into one.
     """
     for source, shown in (("REGION = None\n", "None"), ("REGION = 0\n", "0")):
         queryset = tmp_path / "config_queryset.py"
