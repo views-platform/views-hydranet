@@ -1,159 +1,110 @@
-# ADR-075: Which quantities a run emits is a config axis, distinct from composition
+# ADR-075: A run can be asked to emit the gate and the body alongside the forecast
 
 **Status:** Proposed
-**Date:** 2026-11-01
+**Date:** 2026-11-02
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers
-**Sibling of:** ADR-069 (composition as a config axis) · **Requires:** ADR-074 (emission provenance)
-**Independent of:** ADR-078 (origin and horizon selection — a separate axis, deliberately not bundled here)
-**Builds on:** ADR-067 (distribution family subsystem), ADR-009 (boundary contracts and configuration validation)
-**Respects:** the standing constraint that no new emitting family is introduced
+**Requires:** ADR-074 (an emitted artifact declares what it is)
+**Related:** ADR-069 (composition as a config axis), ADR-067 (distribution family subsystem)
 
 ## Summary (read this first — self-contained)
 
-A HydraNet cell forecast has two parts: a **body** — how many, if any — and a **gate** — the chance
-of any violence at all. ADR-069 made *how they combine* a configuration setting: the
-**composition**.
+The model produces forecasts. A forecast is made of two parts — a **gate**, the chance that any
+violence occurs in a cell, and a **body**, how many deaths if it does — which can be combined in
+several ways. The combination is the **composition**, and the combined number is what the model
+emits.
 
-What ADR-069 did not make configurable is **which of the resulting quantities a run writes to
-disk**. That is currently an either/or. One composition setting yields the gated forecast; another
-yields the plain body. A single run cannot produce both, because composition is applied before the
-array is populated. The gate is written alongside whichever is chosen, so a run yields two of the
-three quantities and cannot choose which two.
+Neither part can be fully reconstructed from the combined forecast. Composition is applied before
+anything is written, and the common case discards the body wherever the gate is low.
 
-This matters because **the body is not recoverable from the gated forecast.** Under a thresholding
-composition the body is zeroed outright on the overwhelming majority of cells — the information is
-gone, not merely noisy.
+For audit, evaluation, experiments and continuous improvement of the model we need the gate and the
+body **independently**. That is a different thing from getting the forecast out: it is emitting
+**subcomponents of a forecast, for diagnostic purposes.** The subcomponents are not forecasts and
+must never be read as forecasts.
 
-This ADR makes the **set of emitted quantities** a configuration field, and makes it **additive**:
-one run can yield the gated forecast and the body, from the same draws. It is deliberately a
-*separate* setting from composition, because that setting is also read by the autoregressive
-rollout — driving emission from it would silently change every forecast horizon beyond the first.
-
-It changes no default. A configuration that does not set the field emits exactly what it emits
-today.
-
-**Scope note.** Selecting *which origins and which horizons* a run emits is a different axis with a
-different risk profile, and is ADR-078. This ADR carries the hazard; that one carries none, and the
-two are decided separately so that the harmless half does not wait on the careful half.
+This ADR makes the set of emitted quantities a configuration field, so that a single run can produce
+the forecast, the gate and the body together from the same draws. It changes no default: a
+configuration that does not set the field emits exactly what it emits today.
 
 ---
 
 ## 1. Context
 
-**The problem: emission is an either/or, and the body is the casualty.**
+**A subcomponent cannot be recovered from the forecast.** Composition runs inside the inference pass
+and the composed array is what reaches disk. Under the thresholding composition in ordinary use, the
+body is set to zero wherever the gate falls below the threshold, for every draw. Above the threshold
+the body survives untouched, so recovery is possible there and nowhere else — and on a global grid
+the cells above threshold are a small minority. The measured fraction is recorded in the
+blast-radius investigation under `reports/`.
 
-Composition is applied inside the sample-cube construction, before the magnitude array is
-populated. So the array on disk is **already composed**. Under a thresholding composition the mask
-is a deterministic per-cell zero-or-one: cells at or above the threshold pass through untouched,
-cells below it are zeroed for every draw.
+**Diagnostics need the parts, not the whole.** Questions about whether the model is losing cells or
+losing magnitude, whether the gate is calibrated, and whether a composition choice helps or harms,
+are all questions about one part while the other is held still. A combined forecast cannot answer
+them, because every combined readout conflates the two.
 
-Reconstruction is therefore possible only on cells at or above the threshold, which on a real global
-gate posterior is a small minority of the grid. The measurement is recorded in the blast-radius
-investigation under `reports/`.
+**A second inference pass is not a substitute.** Running the model again under a different
+composition yields a different set of dropout draws, so the two outputs are samples of the posterior
+rather than two views of one. Any comparison between them carries that difference as a confound.
 
-The existing body-mean diagnostic argues this case from a *sampling* composition's variance
-inflation. Under the thresholding composition actually in use the loss is **total, not noisy** — the
-conclusion is right and the stated reason does not apply. That docstring should be corrected when
-the file is next touched.
-
-**Assumption that is no longer true.** ADR-069 assumed one composition per run is what a run needs,
-because the composed forecast was the object under study. With the body itself now an object of
-study, a run must be able to emit more than one view of a single inference pass. Paying for a second
-pass is both wasteful and **not comparable**, because dropout draws differ between passes — two
-passes give two samples of the posterior, not two views of one.
-
-**Urgency.** The next experiment needs the body, and the routes available today are a driver script
-that cannot run on rented hardware (§3) or a second inference pass that answers a different
-question.
+**What exists today.** A diagnostic dump of the body's posterior *mean* exists, reachable only by
+setting an attribute on the inference orchestrator from a driver script. The ordinary entry point
+never sets it, so a run launched normally — including every run on rented hardware — produces
+nothing. A mean also cannot support a distributional readout.
 
 ---
 
 ## 2. Decision
 
-**Statement.** *We will make the set of quantities a run emits a first-class configuration field —
-additive, and separate from composition — so that one inference pass can yield every view of itself
-an experiment needs.*
+**Statement.** *We will make the set of quantities a run emits a configuration field, so one
+inference pass can yield the forecast, the gate and the body from the same draws.*
 
-### 2.1 The quantities field
+### 2.1 The field
 
-A configuration field declares which of the **gated forecast**, the **gate** and the **body** are
-written, and therefore which directory prefixes appear. Its default is today's set, so existing
-configurations are byte-identical.
+A configuration field declares which of the **forecast**, the **gate** and the **body** a run
+writes. It is a **set**, so asking for the forecast and the body yields both. Its default is the
+set emitted today.
 
-**Additive, not exclusive.** The field is a **set**. Asking for the gated forecast and the body
-yields both, from one pass, from the same draws — which is the point, and is impossible today.
+### 2.2 Emission is a separate field from composition
 
-### 2.2 Emission is a separate setting from composition, and never touches the feedback path
+The field that selects emission is not the field that selects composition, and the emission field
+does not reach the autoregressive feedback path. Output beyond the first horizon is identical
+whether the emission field is set or not.
 
-The composition setting is read at four places, and two of them are not emission: the scored sample
-cube, the point forecast **fed back** into the rollout, the sampled feedback draw, and a
-consistency check.
+### 2.3 Subcomponents are diagnostics, not targets
 
-Expressing *"also emit the body"* by varying composition would therefore change **what the
-autoregressive rollout feeds back**, and so every horizon beyond the first. The run would complete,
-write correct shapes and correct row counts, and not be the same model. Nothing would report it.
+The gate and the body are emitted outside the pipeline's target system. They are not declared as
+regression or classification targets, and they do not enter the target set handed to evaluation.
 
-**So the quantities field is its own setting. It selects what is written. It does not reach the
-feedback path, and a test asserts that output beyond the first horizon is bit-identical with it set
-and unset.**
+A subcomponent is not a forecast of anything in the world, so no ground truth exists to score it
+against.
 
-This is the one rule in this ADR whose violation corrupts a result rather than failing a run, and it
-is the reason this axis is decided separately from ADR-078's.
+### 2.4 Scope
 
-### 2.3 The body is a diagnostic quantity, never a pipeline target
+**In scope:** the field, its validation, and the model honouring it.
 
-The body is emitted **outside** the target system. It is not added to the regression or
-classification target lists, and it does not enter the combined target set the pipeline hands to
-evaluation.
-
-This is a correctness decision, not a convenience. Evaluation slices ground truth by target name,
-and **there is no observable called "the ungated body."** It is a component of a forecast, not a
-forecast of anything in the world. Declaring it a target is a category error, and four independent
-guards already refuse it: the architectural invariant tying input channels to the regression head
-count, the fleet-wide roster conformance pins, the evaluator's refusal of an undeclared target, and
-the actuals-preparation contract itself.
-
-No new emitting family is introduced. The body is an existing quantity of the existing family —
-already computed on the inference path, and already dumped as a mean by the existing diagnostic.
-Nothing new is fitted, trained or scored.
-
-### 2.4 In-scope / out-of-scope
-
-**In scope:** the quantities field, its validation, and HydraNet honouring it.
-
-**Out of scope:**
-- **Origin and horizon selection.** ADR-078. A different axis, and it cannot corrupt a result.
-- **What comes home.** Transport and archive selection belong to the models repository, which
-  already has a declaration vocabulary for deciding what ships. This ADR does not fork a second
-  selection language; it gives that one something honest to select.
-- **Which models set the field.** A models-repository decision.
-- **The on-disk form of the body artifact.** Implementation, constrained by ADR-074.
-- **Composition semantics.** ADR-069 stands unchanged. No composition value is added or changed.
+**Out of scope:** which origins and horizons a run emits (ADR-078); what is transported off rented
+hardware, which the models repository owns; which models set the field, which is a configuration
+decision; composition semantics, which ADR-069 governs unchanged.
 
 ---
 
 ## 3. Rationale & Integrity Impact
 
-| alternative | why rejected |
+| alternative | why it loses |
 |---|---|
-| **overload the composition setting** | it is read by the rollout feedback (§2.2). Would silently alter every horizon beyond the first while every shape and row count stayed correct. The only option that corrupts rather than fails |
-| **use the orchestrator-attribute route, as the existing diagnostics do** | measured unreachable in production. Every diagnostic on the orchestrator is an attribute defaulting to none, set by a driver script, and the manager sets none of them before running inference — so any run through the ordinary entry point, including every run on rented hardware, writes nothing. A configuration field is forced, not preferred |
-| **declare the body a pipeline target** | category error (§2.3). Correctly refused by four independent guards |
-| **run inference twice, once per composition** | wasteful, and **not comparable**: dropout draws differ between passes, so the two views would be of different posteriors |
-| **reconstruct the body from the gated forecast and the gate** | possible only above the threshold, a small minority of cells (§1) |
-| **a general artifact-selection language in this repository** | machinery that does not earn itself, and it would fork the models repository's existing vocabulary. One declarative field is the least that solves the problem |
+| **select emission with the composition field** | that field is also read by the autoregressive feedback, so using it to choose what is emitted would change what the rollout feeds back, and therefore every horizon beyond the first. Shapes and row counts would stay correct and nothing would report the difference. This is the only alternative that can corrupt a result rather than fail |
+| **set an attribute on the orchestrator, as existing diagnostics do** | unreachable from a configuration. The ordinary entry point sets no such attribute, so a normally launched run writes nothing — which is the situation today |
+| **declare the subcomponents as pipeline targets** | evaluation slices ground truth by target name, and no observable corresponds to a subcomponent. Several independent guards refuse it, correctly |
+| **run inference twice under different compositions** | the two runs draw differently, so the outputs are not two views of one posterior |
+| **reconstruct the body from the forecast and the gate** | possible only where the gate exceeds the threshold, a small minority of cells |
+| **build a general artifact-selection language here** | the models repository already has a declaration vocabulary for deciding what is produced and shipped. A second one would fork it, and one field is enough for this decision |
 
-**Reproducibility.** An experiment needing the body and the gated forecast gets both from **one**
-pass over **one** set of draws, so the comparison is of the same posterior rather than of two
-samples of it. With ADR-074, what was emitted is also recorded.
+**Reproducibility.** A diagnostic comparison between a subcomponent and the forecast is drawn from
+one pass over one set of draws, so the comparison carries no sampling confound.
 
-**Numerical stability.** Unchanged for any configuration that does not set the field, and the
-guarantee is asserted by the §5 invariant rather than assumed.
-
-**Fail-loud.** Validation refuses rather than degrades: a requested quantity the configured family
-cannot produce raises at configuration construction, and the memory preflight raises before
-allocation rather than letting the host terminate the run — a failure already observed on this work.
+**Fail-loud.** A requested quantity the configured distribution family cannot produce is refused
+when the configuration is built. A run whose additional output would not fit in memory is refused
+before allocation rather than terminated during it.
 
 ---
 
@@ -161,67 +112,61 @@ allocation rather than letting the host terminate the run — a failure already 
 
 ### ✅ Positive (Benefits)
 
-- [ ] The body becomes obtainable at all, and obtainable **alongside** the gated forecast from a
-      single pass — the thing that is impossible today.
-- [ ] Emission becomes declarable from an ordinary model configuration, so it works on rented
-      hardware. No driver script, no orchestrator attribute, no never-modify file touched.
-- [ ] The emission-versus-composition confusion is closed by construction rather than by care.
-- [ ] A diagnostic question about the body's own behaviour becomes answerable without retraining.
+- [ ] The gate and the body become available at all, and available together with the forecast from
+      one pass.
+- [ ] Emission is declarable from an ordinary model configuration, so it works wherever a model
+      runs, including rented hardware.
+- [ ] Diagnostic questions about one subcomponent become answerable without retraining.
+- [ ] The distinction between choosing what to emit and choosing how to compose becomes structural
+      rather than a matter of care.
 
 ### ⚠️ Negative (Costs)
 
-- [ ] **Memory and disk.** Emitting the body adds a third cube of the magnitude cube's shape: half
-      again the peak memory, and a substantial per-origin cost on the global grid. Sized in the
-      blast-radius investigation and mitigated by a hard preflight, not by hope.
-- [ ] One more field on a configuration schema that is already large, and it is then on the path of
-      every later change. Accepted: a declarative field with a default, not a guard.
-- [ ] A request that cannot be satisfied now fails at configuration time rather than producing
-      something adjacent. Intended, and louder than today.
-- [ ] Two quantities in count space now exist on disk, one of which is not a forecast. ADR-074 is
-      what keeps them distinguishable, which is why it is a prerequisite rather than a companion.
+- [ ] **Memory and storage.** Each additional quantity is another array of the forecast cube's
+      shape, raising peak memory by a substantial fraction and adding a comparable volume per
+      origin. Sized in the blast-radius investigation and refused by preflight when it will not fit.
+- [ ] Two quantities in the same units now exist on disk, only one of which is a forecast. ADR-074
+      is what keeps them distinguishable, which is why it is a prerequisite.
+- [ ] One more configuration field, on a schema that is already large.
+- [ ] A request that cannot be met now fails when the configuration is built, rather than producing
+      something adjacent to what was asked for.
 
 ---
 
 ## 5. Validation
 
-**Invariants that must remain bit-perfect.**
-- **With the quantities field set and unset, forecast output beyond the first horizon is
-  bit-identical.** This guards §2.2 and is the most important assertion in this ADR.
-- A configuration that does not set the field produces output byte-identical to a pre-ADR baseline
-  at the same seed.
+**Invariants.**
+- Output beyond the first horizon is bit-identical with the emission field set and unset.
+- A configuration that does not set the field produces output byte-identical to a run before this
+  change, at the same seed.
 
 **Tests.**
-- *Red:* a requested quantity the configured family cannot produce raises at configuration
-  construction.
-- *Red:* the cube-fit preflight — already variadic over the shapes it is given — raises **before
-  allocation** when the extra cube does not fit. Assert the raise, not an out-of-memory kill.
-- *Green:* with the body emitted, the body masked by the gate-at-threshold reproduces the gated cube
-  **exactly** on the cells at or above the threshold. This proves the emitted body is the body that
-  was composed, not a second draw.
-- *Green:* ADR-074's manifest records the quantities actually emitted, for every combination tested.
+- *Red:* a requested quantity the configured family cannot produce is refused at configuration time.
+- *Red:* the memory preflight refuses an oversized request before allocating, and the refusal is
+  asserted rather than the resulting failure.
+- *Green:* the emitted body, masked by the gate at the composition's threshold, reproduces the
+  emitted forecast exactly on the cells above threshold. This establishes that the emitted
+  subcomponent is the one the forecast was built from, not an independent draw.
+- *Green:* ADR-074's manifest records which quantities were emitted.
 
-**Honest gap.** None of these tests exists yet, and neither does the emission path they would check.
-This ADR is currently intent with no enforcement, which is stated rather than implied.
+**Not yet enforced.** None of these tests exists, and neither does the emission path. This ADR is
+intent without enforcement until they are written.
 
-**Failure mode that would trigger reconsideration.** If a future emitted quantity cannot be
-expressed as a member of a set — one requiring its own inference pass, or its own loss — then the
-field has become a dispatch mechanism rather than a declaration, and the axis needs rethinking
-rather than extending.
+**What would reopen this.** A quantity that cannot be expressed as a member of a set — one needing
+its own inference pass, or its own loss — would mean the field has become a dispatch mechanism
+rather than a declaration, and the axis would need redesigning rather than extending.
 
 ---
 
 ## 6. Implementation Notes
 
-- **Location.** Field and validator in the configuration contract layer (ADR-009). Honouring it is
-  in the inference path and the orchestrator; the writer is the module ADR-074 introduces.
-- **Ordering.** ADR-074 is a prerequisite. Emitting a third quantity without recording which prefix
-  carries which quantity would make the ambiguity it fixes strictly worse — and the body is the
-  hazard precisely because it shares the forecast's count space while not being the forecast.
-- **Relationship to ADR-078.** Independent. Neither requires the other, and either can land first.
-  They were originally one document; they were split because this axis can corrupt a result and
-  that one cannot, so bundling would have made the harmless decision wait on the careful one.
-- **References.** ADR-067, ADR-068, ADR-069, ADR-074, ADR-078. Cross-repository: the models
-  repository's delivery declaration and its runner contract.
-- **Evidence.** The six-repository blast-radius investigation under `reports/` holds the
-  recoverability arithmetic, the cube sizing, and the measurement that the orchestrator attribute is
-  unreachable in production. Numbers live there, not here.
+- **Location.** The field and its validator belong with the configuration contract (ADR-009). The
+  emission path honours it; the artifact's self-description is written by the module ADR-074
+  introduces.
+- **Ordering.** ADR-074 first. A subcomponent in the forecast's own units, written beside it without
+  anything recording which is which, is worse than not emitting it.
+- **References.** ADR-009, ADR-067, ADR-069, ADR-074, ADR-078. Cross-repository: the models
+  repository's delivery declaration and runner contract.
+- **Evidence.** `reports/2026-11-01_body_output_blast_radius/00_REPORT.md` holds the recoverability
+  arithmetic, the memory sizing, and the finding that the existing diagnostic attribute is
+  unreachable from an ordinary run.

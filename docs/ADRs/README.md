@@ -77,7 +77,7 @@ Architectural decisions specific to the HydraNet system.
 - **[068](active/068_forecast_composition_arm_naming.md)**: ADR-068: A naming convention for forecast-composition arms (`[th_]gated_<body>[core]`)
 - **[069](active/069_forecast_composition_config_axis.md)**: ADR-069: `forecast_composition` — a first-class config axis for how gate + body compose into the emitted forecast
 - **[070](active/070_rollout_feedback_bloom_mitigation.md)**: ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
-- **[074](active/074_emission_provenance.md)**: ADR-074: An emitted artifact must declare what it is
+- **[074](active/074_emission_provenance.md)**: ADR-074: An emitted artifact records what it is
 
 ## [Proposed (Emerging)](./proposed/)
 
@@ -85,9 +85,9 @@ Architectural decisions specific to the HydraNet system.
 - **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
 - **[072](proposed/072_frame_native_input_ingestion.md)**: ADR-072: Frame-Native Input Ingestion (pandas-free `FeatureFrame` input path)
 - **[073](proposed/073_emit_time_distribution_split.md)**: ADR-073: Separate the EMITTED distribution family from the TRAINED one
-- **[075](proposed/075_emitting_the_body_as_a_diagnostic.md)**: ADR-075: Which quantities a run emits is a config axis, distinct from composition
-- **[076](proposed/076_datafactory_is_the_data_provider.md)**: ADR-076: views-datafactory is the data provider for HydraNet models
-- **[077](proposed/077_global_land_coverage.md)**: ADR-077: HydraNet models forecast global land coverage
+- **[075](proposed/075_emitting_the_body_as_a_diagnostic.md)**: ADR-075: A run can be asked to emit the gate and the body alongside the forecast
+- **[076](proposed/076_datafactory_is_the_data_provider.md)**: ADR-076: HydraNet models get their data from views-datafactory
+- **[077](proposed/077_global_land_coverage.md)**: ADR-077: HydraNet models forecast global land
 - **[078](proposed/078_origin_and_horizon_selection.md)**: ADR-078: Origins and horizons are selectable for emission, never for computation
 
 ## [Archive (Historical)](./archive/)

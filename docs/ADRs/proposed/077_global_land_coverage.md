@@ -1,125 +1,107 @@
-# ADR-077: HydraNet models forecast global land coverage
+# ADR-077: HydraNet models forecast global land
 
 **Status:** Proposed
-**Date:** 2026-11-01 (recording a decision taken 2026-09-19)
+**Date:** 2026-11-01 (recording a change made 2026-09-19)
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers
-**Requires:** ADR-076 (views-datafactory as the provider — the prerequisite) · **Supersedes (in part):** ADR-071, which recorded the superseded scope for one model
+**Requires:** ADR-076 (views-datafactory as the provider)
+**Related:** ADR-074 (an emitted artifact records what it is)
 
 ## Summary (read this first — self-contained)
 
-A HydraNet model forecasts over a set of grid cells. Historically that set was **Africa and the
-Middle East**. Since 2026-09-19 it is **global land** — every PRIO-GRID land cell, excluding water.
+A model forecasts over a set of grid cells — its **coverage**. HydraNet coverage was Africa and the
+Middle East. Since 2026-09-19 it is **global land**: every land cell of the grid, excluding water.
 
-This ADR records that decision. It is being written **six weeks after the fact**, which is the
-reason it exists: the change was made fleet-wide in config, and nothing in the architectural record
-said so. The only ADR that mentioned spatial scope at all recorded the *old* value, so for six
-weeks the governance record and the running system disagreed and nothing flagged it.
+The driver is a delivery requirement rather than a preference. The coverage the consumer deliverable
+is cut from is a **subset of global land**, so a model restricted to one region cannot produce it at
+all. The regional coverage was a de-risking stage — a smaller, cheaper grid on which to make the
+architecture work before committing to the full one — and was always meant to be left behind.
 
-The driver is a delivery requirement, not a preference. The consumer deliverable's coverage is a
-**cut of global land**, so a model restricted to Africa and the Middle East cannot produce it at
-all. The regional scope was always a de-risking stage, never the target.
+**Results produced under different coverage are not comparable.** The cell population differs, so
+every statistic pooled over cells is of a different population. The two are also hard to tell apart:
+coverage is visible in a result only as a cell count, which is why a regionally scoped data cache
+survived the change and was reused weeks later as though it were global.
 
-⛔ **Consequence worth stating plainly, because it has already cost us:** any data or result
-produced under the regional scope is **not comparable** to one produced under global land, and the
-two are distinguishable only by cell count. A regionally-scoped cached pull survived the flip and
-was silently reused weeks later.
+---
 
 ## 1. Context
 
-**The problem this ADR fixes is its own absence.** The scope changed across the fleet on
-2026-09-19. The change is recorded in each model's config and in a runbook issue. It was **not**
-recorded in any ADR. The one ADR that named a spatial scope named the superseded one.
+**The coverage changed and was not recorded as a decision.** Each model's configuration states its
+coverage, and a runbook sequenced the change across the fleet. No ADR said so, and the only ADR that
+named a coverage named the superseded one. So the architectural record described a coverage the
+fleet had abandoned, and nothing reported the disagreement.
 
-⇒ So the architectural record asserted a scope the fleet had abandoned, and the divergence went
-unflagged for six weeks. Under ADR-000, that is an unresolved intent-versus-fact divergence: either
-a decision was never implemented, or the code was implemented wrong. Here it is neither — the code
-is right and the record was never written.
+**Why global land.** The consumer deliverable's coverage is produced by cutting a subset out of
+global land. A model covering one region cannot supply that cut. Two outputs depend on the wider
+coverage: the calibration runs used for the maintainer's own analysis, and the forward forecasts
+pooled for delivery.
 
-**Why global land, as recorded at the time.** The consumer delivery's coverage is produced by
-cutting a subset out of global land. A model covering only a region cannot supply that cut.
-Two outputs depend on the wider scope: calibration-partition runs used for the maintainer's own
-analysis, and true forward forecasts pooled by an ensemble and delivered to the consumer.
+**Why a regional coverage existed.** It was the de-risking stage, and that is why nobody wrote an
+ADR when it ended: the change felt like completing a plan rather than taking a decision.
 
-**Why the regional scope existed.** It was the de-risking stage — a smaller, cheaper grid on which
-to make the architecture work locally before committing to the full grid on rented hardware. It was
-always intended to be left behind, which is precisely why nobody wrote an ADR when it was: the
-change felt like completing a plan rather than taking a decision.
+**Coverage is not an ordinary experimental setting.** It was treated as one — low-stakes, freely
+varied. It is not. It determines whether a model can serve the deliverable, and it silently
+determines whether two results may be compared.
 
-⚠️ **OWED — the one part not recoverable from the record.** Whether there is a *scientific*
-rationale in addition to the delivery requirement — for example that training on the global grid
-improves the model, or that a region-restricted grid biased what it learned — is not written down
-anywhere I can find. Simon has it. Until it is added, this ADR claims only the delivery rationale.
-**Stated as a gap rather than guessed at** (ADR-000 R7's spirit applied to rationale).
-
-**Assumption that is no longer true.** It was assumed that scope was a per-model experimental
-setting, low-stakes and freely varied. It is not: scope determines whether a model can serve the
-deliverable at all, and it silently determines whether two results may be compared.
+**Open question, not answered here.** Whether there is a *scientific* reason for the wider coverage
+in addition to the delivery requirement — that training on the global grid improves the model, or
+that a region-restricted grid biased what it learned — is not recorded anywhere. Until it is, this
+ADR rests on the delivery rationale alone.
 
 ---
 
 ## 2. Decision
 
-**Statement.** *We will forecast over global land coverage — every PRIO-GRID land cell — and we
-will treat spatial scope as a declared, verified property of a run rather than an incidental
-config value.*
+**Statement.** *We will forecast over global land, and treat coverage as a declared and verifiable
+property of a run rather than an incidental configuration value.*
 
-### 2.1 The scope rule
+### 2.1 The coverage
 
-**Global land is the coverage for HydraNet models.** Each model declares its coverage in its own
-config; this ADR states what that declaration is expected to say. A regional scope is a
-**de-risking stage**, valid only while explicitly declared as such, and never a target.
+**Global land is the coverage for a HydraNet model.** Each model declares its coverage in its own
+configuration; this ADR states what that declaration is expected to say. A regional coverage is a
+de-risking stage, valid only while declared as one, and never a target.
 
-⇒ This document names no model, and states no cell count. The count is a mechanical consequence of
-the coverage definition and belongs in config and in the tooling that checks it (ADR-000's
-volatility rule).
+This ADR states a coverage, not a cell count. The count follows from the coverage definition and
+belongs with the configuration and the tooling that checks it.
 
-### 2.2 Scope is part of a result's identity
+### 2.2 Coverage is part of a result's identity
 
-A result's coverage must be recoverable from the result, not from recollection of which config ran.
+A result's coverage must be recoverable from the result, not from recollection of which
+configuration produced it. Coverage is therefore among the facts an emitted artifact declares
+(ADR-074).
 
-⇒ Coverage joins the set of facts an emitted artifact declares about itself (ADR-074). A result
-whose coverage cannot be established is a result that cannot be compared.
+### 2.3 Results of different coverage are not comparable
 
-### 2.3 Cross-scope comparison is invalid
+They are of different cell populations, so a pooled statistic from one is not an estimate of the same
+quantity as a pooled statistic from the other. A comparison across coverage is invalid rather than
+noisy.
 
-Results produced under different coverage are **not comparable** — not merely noisier. The cell
-population differs, so every spatially-pooled statistic is of a different population.
-
-⛔ **And the two are distinguishable only by counting cells**, which is why this failed in practice:
-a regionally-scoped cached pull survived the flip, was copied onward by a builder that propagates
-one model's cached data to every arm it builds, and was consumed weeks later as though global. The
-scope was inferable from a row count and from nothing else.
-
-### 2.4 In-scope / out-of-scope
+### 2.4 Scope
 
 **In scope:** the coverage HydraNet models target, and the requirement that a run's coverage be
 declared and verifiable.
 
-**Out of scope:**
-- **The data provider.** ADR-076. It is a prerequisite for this decision, not part of it.
-- **The consumer delivery's own coverage.** That is a cut taken downstream, governed by the
-  delivery declaration in the models repository.
-- **Per-model migration state.** Config, enumerable by the check in §5.
-- **Purging regionally-scoped data already on disk.** An operational task, tracked separately.
+**Out of scope:** the data provider, which is ADR-076 and a prerequisite rather than part of this;
+the consumer deliverable's own cut, which the models repository governs; which models have changed,
+which is configuration; and removing regionally scoped data already on disk, which is an operational
+task.
 
 ---
 
 ## 3. Rationale & Integrity Impact
 
-| alternative | why rejected |
+| alternative | why it loses |
 |---|---|
-| **stay regional and extend only for delivery runs** | the deliverable's coverage is a cut of global land, so delivery runs would use a different population from every calibration run behind them — making the validated model and the served model different objects |
-| **keep both scopes as a supported axis** | doubles every comparison's precondition and makes "is this comparable?" a question asked per artifact. The failure in §2.3 happened with only one scope nominally live |
-| **treat scope as an ordinary experimental knob** | this is the status quo assumption, and it is what let a regional pull propagate silently. Scope decides whether results may be compared at all, which is not a knob |
-| **leave the decision unrecorded, since the configs already say it** | this is what actually happened, and it is the reason this ADR exists. Config states the actual; nothing stated the intent, so the stale copy in the architectural tier had no counterweight |
+| **stay regional and widen only for delivery runs** | the deliverable is cut from global land, so delivery runs would use a different cell population from every calibration run behind them. The validated model and the served model would be different objects |
+| **support both coverages as an ongoing axis** | makes "are these comparable?" a question to be asked of every artifact. The silent reuse described in §2.3 happened with only one coverage nominally live |
+| **treat coverage as an ordinary experimental knob** | the assumption that allowed a regionally scoped cache to propagate unnoticed. Coverage decides whether results may be compared at all, which is not a knob |
+| **leave it unrecorded, since the configurations already say it** | what actually happened, and the reason this ADR exists. A configuration states the actual; nothing stated the intent, so a stale declaration in the architectural record had nothing to contradict it |
 
-**Fortress state.** Reproducibility improves directly: coverage becomes a declared, verifiable
-property of a result instead of a fact about which config happened to run. Combined with ADR-074,
-a result's comparability becomes checkable rather than remembered.
+**Reproducibility.** Coverage becomes a declared, verifiable property of a result rather than a fact
+about which configuration happened to run, so comparability becomes checkable.
 
-**Fail-loud.** §2.2 makes an unverifiable coverage a defect rather than an inconvenience. The check
-in §5 converts "is anything still regional?" from a memory question into an enumeration.
+**Fail-loud.** §2.2 makes an unverifiable coverage a defect rather than an inconvenience, and §5
+turns "is anything still regional?" into a count.
 
 ---
 
@@ -127,66 +109,60 @@ in §5 converts "is anything still regional?" from a memory question into an enu
 
 ### ✅ Positive (Benefits)
 
-- [ ] The fleet's actual coverage is finally stated in the tier that governs it.
-- [ ] Closes a six-week intent-versus-fact divergence, and removes the only ADR text asserting the
-      superseded scope.
-- [ ] Makes cross-scope incomparability an explicit rule rather than a thing learned by being burned.
-- [ ] Gives the provider decision (ADR-076) its stated purpose — the scale-up it was a prerequisite for.
+- [ ] The fleet's coverage is stated in the tier that governs it.
+- [ ] Removes the only architectural text asserting the superseded coverage.
+- [ ] Makes cross-coverage incomparability a stated rule rather than something learned by being
+      caught by it.
+- [ ] Gives the provider decision its stated purpose: the scale it was a prerequisite for.
 
 ### ⚠️ Negative (Costs)
 
-- [ ] **Roughly five times the cells**, hence proportionally more compute, memory and storage per
-      run. Already paid since 2026-09-19; recorded here so the cost is attributed to a decision
-      rather than discovered in a bill.
-- [ ] Results produced before the flip are **not comparable** to results after it. That boundary
-      runs through our own experimental record and is not fixable retroactively.
-- [ ] Regionally-scoped artifacts may still exist on disk and remain valid-looking. Purging them is
-      a separate operational task; this ADR only makes them formally off-target.
-- [ ] The de-risking affordance is lost: there is no longer a sanctioned smaller grid to debug on
-      unless one is explicitly declared as a de-risking stage under §2.1.
+- [ ] **Several times the cells**, and proportionally more compute, memory and storage per run.
+      Already being paid since the change; recorded here so the cost belongs to a decision rather
+      than appearing in a bill.
+- [ ] Results from before the change are **not comparable** to results after it. That boundary runs
+      through the experimental record and cannot be repaired retroactively.
+- [ ] Regionally scoped artifacts may remain on disk and still look valid. This ADR makes them
+      formally off-target; removing them is separate work.
+- [ ] The de-risking affordance is lost. There is no sanctioned smaller grid to debug on unless one
+      is explicitly declared as a de-risking stage under §2.1.
 
 ---
 
 ## 5. Validation
 
 **Invariants.**
-- Coverage is readable from a model's own config, and from an emitted result's own declaration
-  (ADR-074).
-- No ADR states a cell count. This one states the coverage; config and tooling state the counts.
+- Coverage is readable from a model's own configuration, and from an emitted result's own
+  declaration.
+- No ADR states a cell count. This one states the coverage.
 
 **Tests.**
-- ⭐ **Enumeration check:** a test that reads every HydraNet model's declared coverage and reports
-  any that is not global land. ⚠️ **Reports rather than fails** while any de-risking model is
-  legitimately declared — a failing test on an accepted exception gets disabled, and a disabled
-  test is how the divergence returns.
-- *Red:* a result whose declared coverage differs from another's is refused by any comparison tool,
-  rather than pooled.
-- *Beige:* a run whose declared coverage and actual cell population disagree fails loudly, rather
+- *Reporting check:* read every HydraNet model's declared coverage and report each one that is not
+  global land. It **reports rather than fails** while any de-risking model is legitimately declared,
+  because a failing test on an accepted exception gets disabled.
+- *Red:* a result whose declared coverage differs from another's is refused by any comparison tool
+  rather than pooled with it.
+- *Beige:* a run whose declared coverage and actual cell population disagree fails loudly rather
   than proceeding with the population it happens to have.
 
-⚠️ **Honest gap (ADR-000 R7):** none of these tests exists yet. The coverage declaration they would
-check is specified by ADR-074 and is also not yet built. ⇒ **This ADR is, today, intent with no
-enforcement** — exactly the condition that let its predecessor go stale. Stated plainly rather than
-implied, and the dependency is the reason ADR-074 is sequenced first.
+**Not yet enforced.** None of these tests exists, and the coverage declaration they would read is
+specified by ADR-074 and not yet built. This ADR is intent without enforcement, which is the
+condition that let its predecessor go stale — and the reason ADR-074 comes first.
 
-**Failure mode that would trigger reconsideration.** If the deliverable's coverage ever stopped
-being a cut of global land, the delivery rationale would evaporate and only the scientific
-rationale — currently the owed gap in §1 — would remain to carry the decision.
+**What would reopen this.** If the deliverable's coverage ceased to be a cut of global land, the
+delivery rationale would fall away and only the unrecorded scientific rationale would remain to
+carry the decision.
 
 ---
 
 ## 6. Implementation Notes
 
-- **Location.** Declared in each model's config; checked by the enumeration test in §5; recorded
-  per result by ADR-074's emission manifest.
-- **Sequencing.** ADR-076 is the prerequisite (the provider makes the scope reachable); ADR-074 is
-  the prerequisite for §2.2 (a result cannot declare its coverage until it declares anything).
-- **Relationship to ADR-071.** ADR-071 recorded the superseded scope for one model, bundled with
-  the provider decision. It should be marked superseded, not deleted — its parity evidence remains
-  a useful historical record. ⛔ Its scope claim must stop reading as current.
-- **References.** ADR-000 (ADR standard: volatility, intent-vs-fact, R7), ADR-074 (emission
-  provenance), ADR-076 (data provider), ADR-032 (output schema). Cross-repo: the delivery
-  declaration and the pod runner contract in the models repository.
-- **Evidence.** The flip is recorded in each model's queryset config with its date, and in the
-  runbook issue that sequenced it. Cell counts and row counts live there and in the purge record
-  under `reports/`, not here.
+- **Location.** Declared in each model's configuration, counted by the check in §5, and recorded per
+  result by ADR-074's manifest.
+- **Sequencing.** ADR-076 is the prerequisite that makes the coverage reachable; ADR-074 is the
+  prerequisite for §2.2, since a result cannot declare its coverage until it declares anything.
+- **References.** ADR-009, ADR-032, ADR-074, ADR-076. Cross-repository: the models repository's
+  delivery declaration and runner contract.
+- **Evidence.** The change is recorded in each model's configuration with its date, and in the
+  runbook that sequenced it. Cell counts and row counts live there and in the purge record under
+  `reports/`.
