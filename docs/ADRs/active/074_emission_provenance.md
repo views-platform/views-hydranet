@@ -1,7 +1,7 @@
 # ADR-074: An emitted artifact must declare what it is
 
-**Status:** Proposed
-**Date:** 2026-11-01
+**Status:** Accepted
+**Date:** 2026-11-01 (accepted 2026-11-02)
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers · views-frames maintainers
 **Builds on:** ADR-003 (authority of declarations over inference), ADR-008 (observability and explicit failure)
