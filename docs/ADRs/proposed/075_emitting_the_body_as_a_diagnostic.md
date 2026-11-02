@@ -165,8 +165,20 @@ rather than a declaration, and the axis would need redesigning rather than exten
   introduces.
 - **Ordering.** ADR-074 first. A subcomponent in the forecast's own units, written beside it without
   anything recording which is which, is worse than not emitting it.
-- **References.** ADR-009, ADR-067, ADR-069, ADR-074, ADR-078. Cross-repository: the models
-  repository's delivery declaration and runner contract.
 - **Evidence.** `reports/2026-11-01_body_output_blast_radius/00_REPORT.md` holds the recoverability
   arithmetic, the memory sizing, and the finding that the existing diagnostic attribute is
   unreachable from an ordinary run.
+
+---
+
+## References
+
+**This repository:** ADR-009 (configuration validation) · ADR-067 (distribution family subsystem) ·
+ADR-069 (composition as a config axis) · ADR-074 (an emitted artifact records what it is) ·
+ADR-078 (origin and horizon selection).
+
+**Other repositories** — the contracts this ADR works within:
+
+- [views-models ADR-019 — delivery declaration](https://github.com/views-platform/views-models/blob/main/docs/ADRs/019_delivery_declaration.md). The existing vocabulary for declaring what is produced and shipped, which §3 declines to fork.
+- [views-models ADR-024 — pod runner contract](https://github.com/views-platform/views-models/blob/main/docs/ADRs/024_pod_runner_contract.md). What a run on rented hardware guarantees, which is why an emission switch reachable only from a driver script is a dead end.
+- [views-pipeline-core ADR-011 — separation of configs](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/011_seperation_of_configs.md). Where a model's settings live, and so where this field belongs.

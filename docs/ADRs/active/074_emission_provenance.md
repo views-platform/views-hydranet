@@ -207,7 +207,21 @@ forbids. The duplication in §2.5 would then have to be resolved in favour of th
 - **Sequencing.** Before ADR-075 and ADR-078.
 - **Noted, not addressed.** The inference module carries several diagnostics and is large, and the
   package holding it has a generic name. Recorded here, not solved here.
-- **References.** ADR-003, ADR-008, ADR-009, ADR-032, ADR-047, ADR-075, ADR-078. Cross-repository:
-  the prediction-frame metadata and identifier model, and the pipeline's prediction-output layout.
 - **Evidence.** `reports/2026-11-01_body_output_blast_radius/00_REPORT.md` holds the measured basis
   for §1 — the absent fields, the two origin numberings, and the independent horizon derivations.
+
+---
+
+## References
+
+**This repository:** ADR-003 (declarations over inference) · ADR-008 (explicit failure) ·
+ADR-009 (configuration validation) · ADR-032 (output schema) · ADR-047 (prediction output path) ·
+ADR-075 (emitting subcomponents) · ADR-078 (origin and horizon selection).
+
+**Other repositories** — the contracts this ADR works within, named because a reader should not have
+to search for them:
+
+- [views-frames ADR-013 — metadata and identifier model](https://github.com/views-platform/views-frames/blob/main/docs/ADRs/013_metadata_and_identifier_model.md). Defines the required month-and-unit identifier pair, and provides for a further per-row axis as an **optional** identifier added when a consumer needs one. This is the route named in §2.5.
+- [views-frames ADR-020 — metric frame contract home](https://github.com/views-platform/views-frames/blob/main/docs/ADRs/020_metricframe_contract_home.md). Why that layer's header fields must be producer-generic, which is why a composition cannot live there.
+- [views-pipeline-core ADR-013 — prediction naming convention](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/013_prediction_naming_convention.md) and [ADR-022 — output naming convention](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/022_output_naming_convention.md). The directory and file layout this ADR adds a manifest beside.
+- [views-models ADR-025 — a check that cannot see must refuse](https://github.com/views-platform/views-models/blob/main/docs/ADRs/025_a_check_that_cannot_see_must_refuse.md). The principle behind §2.3 refusing rather than publishing a map it cannot stand behind.

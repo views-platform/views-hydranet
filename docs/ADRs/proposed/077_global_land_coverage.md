@@ -161,8 +161,18 @@ carry the decision.
   result by ADR-074's manifest.
 - **Sequencing.** ADR-076 is the prerequisite that makes the coverage reachable; ADR-074 is the
   prerequisite for §2.2, since a result cannot declare its coverage until it declares anything.
-- **References.** ADR-009, ADR-032, ADR-074, ADR-076. Cross-repository: the models repository's
-  delivery declaration and runner contract.
 - **Evidence.** The change is recorded in each model's configuration with its date, and in the
   runbook that sequenced it. Cell counts and row counts live there and in the purge record under
   `reports/`.
+
+---
+
+## References
+
+**This repository:** ADR-009 (configuration validation) · ADR-032 (output schema) · ADR-074 (an
+emitted artifact records what it is) · ADR-076 (views-datafactory as the provider).
+
+**Other repositories** — the contracts this ADR works within:
+
+- [views-models ADR-019 — delivery declaration](https://github.com/views-platform/views-models/blob/main/docs/ADRs/019_delivery_declaration.md). Where the consumer deliverable's own coverage is declared — the cut referred to in §1, and the reason the wider coverage is required.
+- [views-pipeline-core ADR-015 — model-specific input querysets](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/015_model_specific_inputdata_querysets.md). Establishes that coverage is declared per model in its own configuration, which is why this ADR states a coverage and not a cell count.

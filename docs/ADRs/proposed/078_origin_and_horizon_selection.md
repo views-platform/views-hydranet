@@ -168,8 +168,19 @@ would need its own decision rather than a reinterpretation of these fields.
   be declared in the manifest or it cannot be told apart from a partial failure.
 - **Noted, not addressed.** Forecasting runs write no per-origin directory level while other run
   types do, so a per-origin selection means something different between them.
-- **References.** ADR-009, ADR-074, ADR-075. Cross-repository: the models repository's delivery
-  declaration and runner contract.
 - **Evidence.** `reports/2026-11-01_body_output_blast_radius/00_REPORT.md` records that nothing in
   either repository selects targets, origins or horizons, that the origin parameter is test-only,
   and that only the length of the step list is read.
+
+---
+
+## References
+
+**This repository:** ADR-009 (configuration validation) · ADR-074 (an emitted artifact records
+what it is) · ADR-075 (emitting subcomponents).
+
+**Other repositories** — the contracts this ADR works within:
+
+- [views-models ADR-019 — delivery declaration](https://github.com/views-platform/views-models/blob/main/docs/ADRs/019_delivery_declaration.md). The existing vocabulary for declaring what is produced and shipped; a selection made here is what that vocabulary would select from.
+- [views-models ADR-024 — pod runner contract](https://github.com/views-platform/views-models/blob/main/docs/ADRs/024_pod_runner_contract.md). What a run on rented hardware guarantees, and why a selection reachable only from a driver script would be unusable where output volume actually costs.
+- [views-pipeline-core ADR-013 — prediction naming convention](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/013_prediction_naming_convention.md). The per-origin directory layout a selection subsets, and the layout that differs between run types as noted in §6.

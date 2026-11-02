@@ -4,7 +4,8 @@
 **Date:** 2026-11-01
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers
-**Related:** ADR-077 (global land coverage — the change this one makes reachable), ADR-009 (configuration validation)
+**Required by:** ADR-077 (global land coverage — the change this one makes reachable)
+**Related:** ADR-009 (configuration validation)
 
 ## Summary (read this first — self-contained)
 
@@ -155,7 +156,18 @@ remain — making this a consequence of ADR-077 rather than an independent decis
 
 - **Location.** The rule is honoured in each model's configuration and counted by the check in §5.
   The dispatch mechanism it relies on belongs to the pipeline and is not modified.
-- **References.** ADR-009, ADR-032, ADR-077. Cross-repository: the pipeline's data-loader contract
-  and the datafactory consumer contract.
 - **Evidence.** The datafactory migration dossier under `reports/` holds the parity harness, the
   registered falsifiers and the decomposed residual for the first migration.
+
+---
+
+## References
+
+**This repository:** ADR-009 (configuration validation) · ADR-032 (output schema and feature
+naming) · ADR-077 (global land coverage).
+
+**Other repositories** — the contracts this ADR works within:
+
+- [views-pipeline-core ADR-015 — model-specific input querysets](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/015_model_specific_inputdata_querysets.md). Establishes that a model's input declaration lives in that model's own configuration, which is why the provider is configuration rather than architecture and why this ADR states a rule rather than any model's setting.
+- [views-pipeline-core ADR-011 — separation of configs](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/011_seperation_of_configs.md). The configuration boundary the point of change sits on.
+- [views-pipeline-core ADR-023 — input drift detection](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/023_input_drift_detection.md). Adjacent to §2.3: why a stale input is a detectable condition rather than an acceptable one.
