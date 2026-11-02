@@ -20,7 +20,7 @@ architecture work before committing to the full one — and was always meant to 
 **Results produced under different coverage are not comparable.** The cell population differs, so
 every statistic pooled over cells is of a different population. The two are also hard to tell apart:
 coverage is visible in a result only as a cell count, which is why a regionally scoped data cache
-survived the change and was reused weeks later as though it were global.
+can survive such a change and be reused afterwards as though it were current.
 
 ---
 
@@ -39,9 +39,8 @@ pooled for delivery.
 **Why a regional coverage existed.** It was the de-risking stage, and that is why nobody wrote an
 ADR when it ended: the change felt like completing a plan rather than taking a decision.
 
-**Coverage is not an ordinary experimental setting.** It was treated as one — low-stakes, freely
-varied. It is not. It determines whether a model can serve the deliverable, and it silently
-determines whether two results may be compared.
+**Coverage is not an ordinary experimental setting.** It determines whether a model can serve the
+deliverable at all, and it silently determines whether two results may be compared.
 
 **Open question, not answered here.** Whether there is a *scientific* reason for the wider coverage
 in addition to the delivery requirement — that training on the global grid improves the model, or
@@ -95,7 +94,7 @@ task.
 | **stay regional and widen only for delivery runs** | the deliverable is cut from global land, so delivery runs would use a different cell population from every calibration run behind them. The validated model and the served model would be different objects |
 | **support both coverages as an ongoing axis** | makes "are these comparable?" a question to be asked of every artifact. The silent reuse described in §2.3 happened with only one coverage nominally live |
 | **treat coverage as an ordinary experimental knob** | the assumption that allowed a regionally scoped cache to propagate unnoticed. Coverage decides whether results may be compared at all, which is not a knob |
-| **leave it unrecorded, since the configurations already say it** | what actually happened, and the reason this ADR exists. A configuration states the actual; nothing stated the intent, so a stale declaration in the architectural record had nothing to contradict it |
+| **leave it unrecorded, since the configurations already say it** | a configuration states what a model does; nothing would state what it is supposed to do. A stale declaration elsewhere in the architectural record would then have nothing to contradict it |
 
 **Reproducibility.** Coverage becomes a declared, verifiable property of a result rather than a fact
 about which configuration happened to run, so comparability becomes checkable.
@@ -110,7 +109,8 @@ turns "is anything still regional?" into a count.
 ### ✅ Positive (Benefits)
 
 - [ ] The fleet's coverage is stated in the tier that governs it.
-- [ ] Removes the only architectural text asserting the superseded coverage.
+- [ ] States the coverage in the tier that governs it, so a stale declaration elsewhere has
+      something to contradict it.
 - [ ] Makes cross-coverage incomparability a stated rule rather than something learned by being
       caught by it.
 - [ ] Gives the provider decision its stated purpose: the scale it was a prerequisite for.
@@ -161,7 +161,9 @@ carry the decision.
   result by ADR-074's manifest.
 - **Sequencing.** ADR-076 is the prerequisite that makes the coverage reachable; ADR-074 is the
   prerequisite for §2.2, since a result cannot declare its coverage until it declares anything.
-- **Evidence.** The change is recorded in each model's configuration with its date, and in the
+- **Evidence.** `reports/2026-11-02_adr_claim_verification/00_CLAIMS.md` §4 holds every factual
+  claim in this ADR with its source, including the coverage census and the delivery-cut relation.
+  The change is also recorded in each model's configuration with its date, and in the
   runbook that sequenced it. Cell counts and row counts live there and in the purge record under
   `reports/`.
 

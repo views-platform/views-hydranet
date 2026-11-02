@@ -363,7 +363,7 @@ views_hydranet/ingestion/
 - [ADR-012](../active/012_volume_ledger_and_topology.md) — the VolumeHandler **Ledger** (self-describing state).
 - [ADR-032](../active/032_authoritative_output_schema.md) — `lr_`/`by_` target naming.
 - [ADR-046](../active/046_symmetric_feature_lifecycle.md) — the `transformations`/`derivations` config lifecycle.
-- [ADR-076](076_datafactory_is_the_data_provider.md) — sequencing lock: this runs *after* the
+- [ADR-076](076_provider_migration_parity_bar.md) — sequencing lock: this runs *after* the
   provider swap, as a separate byte-identical step.
 
 **Cross-repo** (paths given for discoverability; not relative-linkable from this repo):

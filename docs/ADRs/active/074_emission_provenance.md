@@ -4,7 +4,7 @@
 **Date:** 2026-11-01 (accepted 2026-11-02)
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers · views-frames maintainers
-**Required by:** ADR-075 (emitting subcomponents), ADR-078 (origin and horizon selection)
+**Required by:** ADR-075 (emitting subcomponents), ADR-078 (horizon selection)
 **Related:** ADR-003 (declarations over inference), ADR-032 (output schema), ADR-008 (explicit failure)
 
 ## Summary (read this first — self-contained)
@@ -36,16 +36,25 @@ not stored at all and must be supplied by whoever loads the file.
 Absent from the bytes: the composition settings, the sample widths, the seeds, the model name, the
 artifact digest, any configuration digest, the origin, the origin's first month, and the horizon.
 
-The trained-model sidecar does not close this. It records architecture and seeds, but not the
-settings applied at emission — by design, because one trained model is legitimately evaluated under
-several compositions. Composition belongs to the emission, not to the weights.
+The trained-model sidecar does not close this. It records the architecture, the seeds and one
+sample width consumed at inference, but none of the composition settings — by design, because one
+trained model is legitimately evaluated under several compositions. Composition belongs to the
+emission, not to the weights. Where the sidecar and the manifest would record the same width, the
+manifest defers to it rather than restating it.
 
 **Two coordinates are inferred rather than declared, and both inferences can be wrong silently.**
 
-The horizon is taken as a row's offset from the earliest month present. That assumes an origin's
-months are contiguous and that its first horizon is present. Several consumers derive it
-independently; nothing asserts either premise. A gap in an origin's months would make a given
-horizon a different month in different origins, with correct row counts throughout.
+The horizon is declared on the production evaluation path, which carries a step mapping derived
+from a declared origin and raises on any month outside it. That path is sound and this ADR does not
+disturb it.
+
+But the mapping is not written to disk, so **a reader of the artifact cannot use it** — and neither
+can the tools. Every consumer that reads prediction output directly instead derives the horizon as
+a row's offset from the earliest month present, which assumes an origin's months are contiguous and
+that its first horizon is present. Several do so independently, and the same rule is the documented
+legacy fallback inside the pipeline for when no mapping is supplied. A gap in an origin's months
+would make a given horizon a different month in different origins, with correct row counts
+throughout.
 
 The origin is taken from a directory's position in a sorted list, which is a sequence number rather
 than the origin itself. The origin and its first month appear nowhere in the output, while a
@@ -56,12 +65,26 @@ origins differently, and joining them requires re-deriving how origins were chos
 that inferring them across a component boundary is forbidden, and that where they are missing the
 system must not guess.
 
-**What is not the problem.** ADR-032 fixes output to the scale of the input — counts in, counts out.
-Internal transformations are invisible outside the model because a prediction is returned
-un-transformed. A forecast is therefore correctly named and unambiguous in kind, and that rule is
-unaffected by this one. What ADR-032 does not cover is a quantity that is **not a forecast**:
-ADR-075 introduces such quantities, one of them in the forecast's own units, and nothing today would
-distinguish it from a forecast.
+**What is not the problem: the scale of a forecast.** The output is returned on the scale of the
+input — for fatalities, counts in and counts out — so whatever the model does internally is
+invisible outside it. That rule is governed by ADR-019 and ADR-039, which put the inverse transform
+on the output path, and it is unaffected by this ADR. A forecast's **units** are therefore never in
+doubt.
+
+**What is the problem is everything else about a forecast's identity, and ADR-032 is already
+violated.** ADR-032 is a naming invariant, not a scale rule: it fixes a name to its *intent* and
+says so explicitly — a name holds even if the underlying data has been transformed. Under ADR-003
+the configuration, not the name, is the authority on a column's current state. So a name was never
+meant to carry identity, and nothing else was appointed to.
+
+ADR-032 goes further than a naming rule. Its §3.2 **mandates** that `row`,
+`col` and `c_id` be carried losslessly for geographic traceability. The prediction bytes carry none
+of the three. So ADR-032's identity requirement is not intact — it is unmet today, and a manifest
+is the cheapest way to meet it without reopening the output layout.
+
+**And a second kind of thing is about to exist.** ADR-075 introduces quantities that are **not
+forecasts**, one of them in the forecast's own units. Names describe intent, units no longer
+separate them, and nothing distinguishes them.
 
 ---
 
@@ -84,8 +107,7 @@ One file per run, written into the run's generated-data directory, declaring:
 | the **expected row counts**, per horizon and per origin | the run | fact |
 | **identity** — model name, run type, artifact filename, artifact digest, package version | the artifacts | fact |
 
-The resolved configuration is recorded whole rather than filtered. A filter is a judgement about
-what will matter later.
+The resolved configuration is recorded whole rather than filtered.
 
 ### 2.2 Origin is recorded; horizon follows from it
 
@@ -93,22 +115,14 @@ Origin is the primitive. A horizon is a function of an origin and a month, so bo
 as independent facts about a row. For an artifact holding one origin, the origin is a property of
 the artifact and belongs in its header.
 
-The horizon-to-month map is nevertheless stated in the manifest, because the layer that holds the
-month treats it as an opaque integer and validates only structure. It cannot establish that a
-horizon means the same month across origins, whatever identifiers it carries.
+The horizon-to-month map is nevertheless stated in the manifest.
 
-### 2.3 Contiguity is asserted
-
-A run fails if an origin's months are not contiguous and ascending. A failed assertion fails the
-run, not the reader: it must not be possible to publish a manifest whose horizon map cannot be
-relied on.
-
-### 2.4 The manifest's values come from the objects that produced them
+### 2.3 The manifest's values come from the objects that produced them
 
 Values are taken from the objects the computation used, not by re-reading configuration files, not
 by re-deriving, and not by recomputing.
 
-### 2.5 Scope
+### 2.4 Scope
 
 **In scope:** what a run declares about its own output, and the validation that keeps the
 declaration true.
@@ -137,6 +151,16 @@ pipeline currently does not use.
 | **the trained-model sidecar** | written at training time, while one model is evaluated under several compositions. Identity belongs to the emission |
 | **a lookup from a configuration digest** | needs a registry and a reader with access to it. The artifact still cannot answer for itself |
 
+**Why the resolved configuration is recorded whole rather than filtered.** A filter is a judgement
+about what will matter later, made by whoever writes the filter, and the cost of being wrong is
+discovered by someone else months afterwards. The record is small enough that the judgement is not
+worth making.
+
+**Why the horizon map is stated even though origin determines it.** The layer that holds the month
+treats it as an opaque integer and validates only structure, so it cannot establish that a horizon
+means the same month across origins, whatever identifiers it carries. The map is the only place
+that can state it.
+
 **Reproducibility.** A result becomes traceable to a composition, a sample width, a seed and a model
 digest without consulting anything outside the delivery. Whether two results may be compared becomes
 checkable.
@@ -164,8 +188,9 @@ rather than by discipline.
       worse than none, which is why §5 tests it adversarially.
 - [ ] Information that belongs with the rows is duplicated for now. Accepted rather than blocking on
       another repository's release; §2.5 names the route that removes it.
-- [ ] The contiguity assertion can fail a long run late, which is preferred to a silently wrong
-      horizon.
+- [ ] The manifest states a horizon map but does not enforce that the months behind it are
+      contiguous, so a reader is told what the horizons are and is not told whether the run that
+      produced them was well formed.
 - [ ] A manifest invites being read in place of the code. It records what a run did; it does not
       describe what the code does.
 
@@ -187,7 +212,6 @@ rather than by discipline.
   the only test that separates a manifest recording what happened from one re-reading what was
   asked, and one that re-read would agree with the configuration by construction.
 - *Green:* an artifact's recorded origin joins its directory to that origin's first month.
-- *Red:* non-contiguous months in an origin fail the run.
 - *Beige:* a manifest from an earlier version is readable, or refused with a version message, and
   never silently misread.
 
@@ -207,8 +231,9 @@ forbids. The duplication in §2.5 would then have to be resolved in favour of th
 - **Sequencing.** Before ADR-075 and ADR-078.
 - **Noted, not addressed.** The inference module carries several diagnostics and is large, and the
   package holding it has a generic name. Recorded here, not solved here.
-- **Evidence.** `reports/2026-11-01_body_output_blast_radius/00_REPORT.md` holds the measured basis
-  for §1 — the absent fields, the two origin numberings, and the independent horizon derivations.
+- **Evidence.** `reports/2026-11-02_adr_claim_verification/00_CLAIMS.md` §1 holds every factual
+  claim in this ADR with the source that settles it, including the absent fields, the two origin
+  numberings and the horizon derivations.
 
 ---
 
@@ -216,7 +241,7 @@ forbids. The duplication in §2.5 would then have to be resolved in favour of th
 
 **This repository:** ADR-003 (declarations over inference) · ADR-008 (explicit failure) ·
 ADR-009 (configuration validation) · ADR-032 (output schema) · ADR-047 (prediction output path) ·
-ADR-075 (emitting subcomponents) · ADR-078 (origin and horizon selection).
+ADR-075 (emitting subcomponents) · ADR-078 (horizon selection).
 
 **Other repositories** — the contracts this ADR works within, named because a reader should not have
 to search for them:
