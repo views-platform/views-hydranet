@@ -253,6 +253,14 @@ anomaly, and the refetch brought the floor into agreement with it.
 | `HydraBNUNet06_LSTM4` | `ctltinyzero_fortytwo` | **137** | 7695 MiB | 356 | **none** |
 | `UpsampleConv2` | `upctwotinyzero_fortytwo` | **137** | 7148 MiB | 1080 | **none** |
 
+⚠️ **`results/smoke.jsonl` records `peak_mib` — the GPU — and does NOT record host RAM, which is
+the resource that actually killed both runs.** So the machine-readable artifact of this run carries
+the number that was not the constraint and omits the one that was: `W-123`'s own error, surviving in
+the data rather than only in the conclusion. It is stated here rather than fixed because
+`tools/smoke_exp02.sh` is a **frozen instrument** and editing it after it has reported would make
+its two measurements incomparable. ⇒ The host-RAM figures below come from the kernel log, and an
+`anon_peak_mib` field belongs in the instrument's **next** revision, before it is run again.
+
 `rc=137` is SIGKILL, and the kernel names the cause — **not** CUDA, and **not** a cgroup limit:
 
 ```
@@ -262,12 +270,38 @@ kernel: oom-kill: constraint=CONSTRAINT_NONE ... global_oom
 ```
 
 The second run died the same way at `anon-rss:22040352kB` (~21.0 GiB). Host total is **31 GiB** with
-~9 GiB already resident. Both logs stop at the identical line:
+~9 GiB already resident. ⚠️ **Those two kernel lines come from the system journal, not from either
+committed log** — neither contains the string `anon-rss`. The journal is quoted here and is not an
+artifact of this repository; the `rc=137` in `smoke.jsonl` is the part that is.
 
-> `InferenceOrchestrator: Initiating BACKTEST streaming pass (13 origins)`
+⛔ **Corrected on re-reading the logs, which this entry originally described without opening.** They
+do **not** stop at the BACKTEST line — four logger lines follow it, and origin 1's posterior draw ran
+to completion at **1484/1484**. No `Origin 2/13` line is ever written, in either run. ⇒ The death
+window is **after origin 1's draw finished and before origin 2 began**, not at the start of the pass.
+That is narrower than §5's disclaimer below allows, and it was legible in the committed evidence the
+whole time; the progress bar is `\r`-rewritten on one line, so a reader who stops at the last
+*logger* line sees the pass as never having started.
 
 ⇒ **Training two lessons succeeded; the 13-origin evaluation is what OOMs.** Peak GPU reached 94% of
 the 8188 MiB card but was *not* the killer.
+
+### 3b · ⭐ The cube guard CLEARED this run, and that is a finding about the guard
+
+Both logs carry `assert_cube_fits`' own verdict, four lines after the pass began:
+
+> `cube-fit check: 3.34 GB needed vs 10.37 GB available RAM (headroom 0.85)`
+
+⇒ `disk_guard.assert_cube_fits` — the guard whose whole purpose is to refuse before allocating a
+cube that will not fit — **passed**, and the process then died at **~21 GiB**. It is not broken: it
+sizes the posterior cube it is asked about, and 3.34 GB is right for that cube. But it is **narrower
+than the failure it reads as protecting against**, because the pass's peak is not one cube — and it
+reports *"available RAM"*, which invites exactly the reading that the pass will fit. ⚠️ A guard that
+clears a run which then OOMs is worse than no guard, because its PASS was recorded.
+
+⚠️ Provenance, since it changes how the number is read: both runs imported `views_hydranet` from
+**site-packages** (the 0.1.8 wheel), not from the working tree — visible in every log path. So this
+OOM is in 0.1.8's inference path, which predates epic #500; `emit_horizons` did not exist in the code
+that died, which is consistent with, but not evidence for, the claim that it would not have helped.
 
 ### 4 · ⛔ This overturns this session's own earlier conclusion
 
@@ -297,6 +331,6 @@ selection order.
 
 ⛔ **What this entry does not claim.** It says nothing about the remedy's rollout skill. `P-22`…`P-26`
 remain unsettled, no arm has trained, and the 2-lesson smoke deliberately scores nothing. It also
-does not establish *which* allocation inside the backtest pass dominates the 21 GiB — only that the
-pass as a whole exceeds the box. ⚠️ Sizing a pod on "> 21 GiB" is a floor read off a failure, not a
+does not establish *which* allocation inside the backtest pass dominates the 21 GiB — §3 narrows it
+to one origin's worth of work, which is as far as the evidence goes. ⚠️ Sizing a pod on "> 21 GiB" is a floor read off a failure, not a
 measured requirement; the first pod run should record its own peak.
