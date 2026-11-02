@@ -130,8 +130,30 @@ This is the single rule in this ADR whose violation corrupts a result rather tha
 An autoregressive rollout cannot skip months: horizon 36 exists only because 1…35 were computed.
 
 ⇒ `emit_horizons` and `emit_origins` select what is **written**, never what is **computed**. They
-are not a speed-up, and their documentation must say so — otherwise someone will set
-`emit_horizons=[36]` expecting a short run and get a full one.
+are not a speed-up, and their documentation must say so — otherwise someone will set a single
+horizon expecting a short run and get a full one.
+
+#### 2.3.1 `steps` is a horizon COUNT, not a horizon SELECTOR
+
+`emit_horizons` is the *only* way to select horizons. The `steps` configuration field is not, and
+today it looks as though it is.
+
+Only the **length** of `steps` is ever read — by the training-window slice, by the checksum against
+the declared step count, and by the reproducibility record. The step **values** are read nowhere on
+the inference path, and there is no contiguity check and no value check.
+
+⇒ A configuration declaring a sparse step list passes every gate, rolls out that many
+**consecutive** months, and labels them as though they were the horizons named. Nothing reports it.
+
+**Decision: `steps` must be contiguous ascending from one, or the configuration raises.** A sparse
+set of horizons is expressed with `emit_horizons`, never by relabelling `steps`.
+
+This belongs here rather than with provenance (ADR-074) because it is the same decision as §2.3: a
+field that *appears* to select horizons but only sets their number is the inverse of
+compute-all-emit-some, and the two rules are only coherent stated together.
+
+✅ Latent, not firing: every live configuration declares a contiguous range from one, so **no past
+result is affected.**
 
 ### 2.4 The body is a diagnostic quantity, never a pipeline target
 
