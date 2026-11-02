@@ -175,6 +175,10 @@ def write_manifest(manifest: EmissionManifest, directory: Path | str) -> Path:
     try:
         payload = asdict(manifest)
         _refuse_lossy(manifest.resolved_config)
+        # `allow_nan=False` covers the WHOLE payload, which is why it stays after `_refuse_lossy`
+        # began recursing: the predicate above inspects `resolved_config` only, so every other
+        # field relies on this. No other field holds a float today — that is a fact about the
+        # dataclass right now, not a property of it.
         text = json.dumps(payload, indent=2, sort_keys=True, allow_nan=False)
     except (TypeError, ValueError) as exc:
         # The usual cause is a config value that is not JSON-native — a numpy scalar, a Path, an
@@ -248,7 +252,10 @@ def read_manifest(path: Path | str) -> EmissionManifest:
     with defaults, would report a run it cannot actually describe (ADR-008).
     """
     path = Path(path)
-    payload = json.loads(path.read_text())
+    # `encoding=`, for the same reason the write side names it: on a non-UTF-8 pod the locale
+    # would otherwise decide. The payload is ASCII today (`ensure_ascii=True`), so this changes
+    # nothing now and is what keeps the read and the write one decision rather than two.
+    payload = json.loads(path.read_text(encoding="utf-8"))
 
     version = payload.get("schema_version")
     if version != SCHEMA_VERSION:

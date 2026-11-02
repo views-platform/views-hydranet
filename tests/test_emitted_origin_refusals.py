@@ -17,6 +17,7 @@ horizon that emitted nothing. Stubbing is what makes those reachable at all — 
 test is the real one, called on a real instance.
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -221,4 +222,95 @@ def test_a_second_streaming_run_does_not_inherit_the_first_run_s_origins(env):
     assert len(orch.emitted_origins) == 1, (
         "origins accumulated across two streaming runs; the manifest would list two runs' records "
         "beside one run's directories"
+    )
+
+
+# ─── `_rows_per_horizon_of`'s own refusal, which nothing reached ─────────────
+#
+# ⛔⛔ A second audit, of commit `568a749`, deleted this refusal and left the full suite green at
+# *2532 passed*. `test_a_horizon_the_window_does_not_contain_is_refused` looks like its cover and
+# is not: that one matches `"does not contain"`, which is the **assembler's** refusal, while this
+# one says `"are absent from the window it was forecast over"`. Two different guards, one message
+# apart.
+#
+# ⚠️ And the consequence is not merely a worse diagnostic. With the refusal gone, a mutation that
+# skips unknown months (`if int(month) in month_to_horizon`) stops being dead code: the counter
+# then returns a uniform count over the months it recognised, every refusal above passes, and the
+# manifest records a `rows_per_horizon × emitted_horizons` that **undercounts the rows on disk**.
+# That is the trusted-and-wrong manifest ADR-074 §4 calls worse than no manifest at all.
+
+
+def _frame(months):
+    """The smallest stand-in `_rows_per_horizon_of` reads: one labelled time column."""
+    return SimpleNamespace(index=SimpleNamespace(time=np.asarray(months)))
+
+
+def test_a_month_the_frame_emitted_but_the_window_never_held_is_refused():
+    """⛔ The frame and the window disagree about what this origin is, so neither is the truth."""
+    with pytest.raises(ValueError, match="absent from the window it was forecast over"):
+        InferenceOrchestrator._rows_per_horizon_of(_frame([458, 458, 999]), MONTHS, 457)
+
+
+def test_the_counter_numbers_horizons_from_the_window_s_order():
+    """*Green, and the other half:* the count is per 1-based horizon, in the window's own order."""
+    counts = InferenceOrchestrator._rows_per_horizon_of(
+        _frame([460, 460, 458, 459, 459, 459]), MONTHS, 457
+    )
+
+    assert counts == {1: 1, 2: 3, 3: 2}, (
+        f"counted {counts}; horizon 1 is the window's FIRST month, and each count is the "
+        f"number of rows the frame actually carries for that horizon"
+    )
+
+
+# ─── When two refusals could both fire, the log must name the right one ──────
+
+
+def test_an_origin_that_is_both_ragged_and_short_is_refused_as_ragged(monkeypatch, caplog):
+    """⛔ Reordering the two refusal branches left the full suite green.
+
+    The tests above reach exactly one branch each by construction — `{1: 4, 3: 4}` is uniform but
+    short, `{1: 4, 2: 3, 3: 4}` is complete but ragged. A gap month in a ragged panel is **both**,
+    and nothing pinned which cause gets reported. Swapping the order would then name the missing
+    horizon on a run whose real fault was an incomplete panel, sending a reader to the wrong file.
+
+    ⇒ Uniformity is checked first on purpose: a row count that is not uniform means no single
+    per-horizon number is true of the origin at all, so the completeness question cannot be
+    answered yet.
+    """
+    with caplog.at_level("ERROR"):
+        orch = _record(monkeypatch, emit_horizons=None, per_horizon={1: 4, 3: 3})
+
+    assert orch.emitted_origins == []
+    assert "a different number of rows per horizon" in caplog.text, (
+        "an origin that is both ragged and short was reported as short; the raggedness is the "
+        "finding that makes every other number about it meaningless"
+    )
+    assert "the run selected none" not in caplog.text, (
+        "both refusals reported on one origin, so the log states two causes for one skip"
+    )
+
+
+# ─── The exception tuple's third member ──────────────────────────────────────
+
+
+def test_an_origin_with_no_frames_is_skipped_rather_than_aborting_the_run(monkeypatch, caplog):
+    """⛔ Dropping `StopIteration` from the `except` tuple left the full suite green.
+
+    `next(iter(pf_dict.values()))` raises it on an empty frame dict, and because this method sits
+    between assembling an origin and handing it to the sink, an escaping exception would abort a
+    finished multi-hour run **before** that origin was persisted — the one thing the docstring says
+    it must never do. Unreachable through today's assembler, which is why the arm was credited and
+    untested; the arm is cheaper to keep than the run is to lose.
+    """
+    orch = _orchestrator(None)
+    monkeypatch.setattr(InferenceOrchestrator, "_months_of", staticmethod(lambda _w: MONTHS))
+
+    with caplog.at_level("ERROR"):
+        orch._record_emitted_origin(0, 457, object(), {})
+
+    assert orch.emitted_origins == []
+    assert "could not be recorded" in caplog.text, (
+        "an origin with no frames was not reported as unrecordable, so the manifest is short by "
+        "one with nothing in the log to say why"
     )

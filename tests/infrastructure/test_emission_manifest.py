@@ -265,11 +265,19 @@ def test_a_nested_non_string_key_is_refused_too(tmp_path):
     — was consulted solely to name an offender *after* a failure. For the one case JSON performs
     quietly instead of loudly, nothing asked it. ⇒ The record did not round-trip to the
     configuration the run used, which is the single claim this module makes.
+
+    ⚠️ And again THROUGH A LIST. `{"partitions": [{1: "x"}]}` is the same silent coercion, and a
+    second audit found the dict-in-dict case was the only one asserted — so narrowing
+    `_json_native` to stop recursing into sequences left the suite green while reopening half the
+    hole. Both shapes are one `_json_native` branch apart, and both appear in real configurations.
     """
-    bad = _manifest(resolved_config={"partitions": {1: "x"}})
-    with pytest.raises(TypeError, match="not serialisable without loss"):
-        write_manifest(bad, tmp_path)
-    assert not (tmp_path / MANIFEST_FILENAME).exists()
+    for shape in ({"partitions": {1: "x"}}, {"partitions": [{1: "x"}]}):
+        with pytest.raises(TypeError, match="not serialisable without loss"):
+            write_manifest(_manifest(resolved_config=shape), tmp_path)
+        assert not (tmp_path / MANIFEST_FILENAME).exists(), (
+            f"{shape} was written; JSON coerced its non-string key silently and the record no "
+            f"longer round-trips to the configuration the run used"
+        )
 
 
 def test_a_nested_tuple_is_still_accepted(tmp_path):
@@ -344,26 +352,42 @@ def test_two_runs_that_produced_the_same_record_write_the_same_bytes(tmp_path):
 
 
 def test_the_manifest_is_written_as_utf_8_whatever_the_locale_says(tmp_path, monkeypatch):
-    """⚠️ A wiring assertion, and labelled as one because it cannot be anything else here.
+    """⚠️ A wiring assertion — and the reason given for it was WRONG until a second audit
+    measured it.
 
-    Without `encoding=`, `write_text` uses the locale's encoding. On a non-UTF-8 pod any non-ASCII
-    config value raises `UnicodeEncodeError`, the writer's `except` swallows it, and the manifest
-    silently never appears. This machine's locale **is** UTF-8, so no behavioural test on it can
-    tell the two apart — the honest guard is on the call, and saying so is better than a test that
-    would pass either way.
+    ⛔ The claim used to be that on a non-UTF-8 pod a non-ASCII config value makes `write_text`
+    raise `UnicodeEncodeError` and the manifest silently never appear. It cannot: `json.dumps`
+    defaults to `ensure_ascii=True`, so the payload is **ASCII-only whatever the configuration
+    contains**, and every byte of it is identical under utf-8 and under any ASCII-superset locale.
+    The real `write_manifest` was run under `LC_ALL=C PYTHONUTF8=0` with `{"note": "Ødegård"}` and
+    wrote fine, the value escaped to `\u00d8…`. A guard whose stated reason is false is a guard
+    nobody can correctly maintain, which is why this says so instead.
+
+    ⇒ So the two assertions are a PAIR, and the second is what makes the first load-bearing:
+    `encoding="utf-8"` is correct and untestable *only while* the payload stays ASCII. The day
+    someone sets `ensure_ascii=False` — for a readable manifest, a reasonable wish — the locale
+    starts to matter, and this test is then the thing that already named the coupling.
     """
     seen = {}
+    written = {}
     real = Path.write_text
 
     def capture(self, data, *args, **kwargs):
         if self.name == MANIFEST_FILENAME:
             seen.update(kwargs)
+            written["text"] = data
         return real(self, data, *args, **kwargs)
 
     monkeypatch.setattr(Path, "write_text", capture)
     write_manifest(_manifest(resolved_config={"note": "Ødegård"}), tmp_path)
 
     assert seen.get("encoding") == "utf-8", (
-        f"the manifest was written with {seen.get('encoding')!r}; on a non-UTF-8 locale a "
-        f"non-ASCII config value would make the write raise and the manifest never appear"
+        f"the manifest was written with {seen.get('encoding')!r}; the payload is ASCII today, so "
+        f"this is a statement of intent — see the second assertion for what it is holding"
+    )
+    assert written["text"].isascii(), (
+        "the manifest payload is no longer ASCII-only, so `ensure_ascii` has been turned off and "
+        "the locale now decides whether a non-ASCII config value can be written at all. The "
+        "`encoding=` above has stopped being decoration: write a behavioural test for it under "
+        "`LC_ALL=C PYTHONUTF8=0`, as `test_coverage_declaration.py` does for the read side"
     )

@@ -18,6 +18,9 @@ only run where views-models is checked out is a test that does not run, and the 
 where a regression would be least convenient to discover.
 """
 
+import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -305,30 +308,54 @@ def test_a_whole_census_survives_one_undecodable_descriptor(tmp_path):
     assert found["bad"].note.startswith("unparseable:")
 
 
-def test_the_descriptor_is_read_as_utf_8_whatever_the_locale_says(tmp_path, monkeypatch):
-    """⚠️ A wiring assertion, and labelled as one, for the same reason as the manifest's.
+def test_the_descriptor_is_read_as_utf_8_whatever_the_locale_says(tmp_path):
+    """⭐ Behavioural, in a subprocess, because the locale is process-wide.
 
-    All 17 HydraNet descriptors contain non-ASCII. Without `encoding=`, `read_text` uses the
+    ⚠️ This was a wiring assertion that captured `read_text`'s kwargs, and it was labelled with
+    the claim that no behavioural test was possible on this host. A second audit showed that is
+    false for the READ side: an ASCII locale genuinely changes the answer, and the test runs in
+    0.2 s. The write side is different and stays a wiring assertion — `ensure_ascii=True` makes the
+    manifest payload ASCII, so no locale can change those bytes (see
+    `test_the_manifest_is_written_as_utf_8_whatever_the_locale_says`).
+
+    ⇒ All 17 HydraNet descriptors contain non-ASCII. Without `encoding=`, `read_text` uses the
     locale's encoding, so on a non-UTF-8 pod every coverage read fails and every manifest records
-    `declared_coverage: null`. This machine's locale is UTF-8, so no behavioural test here can tell
-    the two apart — the guard is on the call.
+    `declared_coverage: null` — a field that looks wired and is inert (C-324). This test also walks
+    the `ValueError` arm of the handler in the same breath, since `UnicodeDecodeError` is how a
+    real pod would reach it.
     """
-    seen = {}
-    real = Path.read_text
-
-    def capture(self, *args, **kwargs):
-        if self.name == "config_queryset.py":
-            seen.update(kwargs)
-        return real(self, *args, **kwargs)
-
     queryset = tmp_path / "config_queryset.py"
     queryset.write_text('REGION = "land"  # — an em dash\n', encoding="utf-8")
-    monkeypatch.setattr(Path, "read_text", capture)
 
-    assert read_literal(queryset, "REGION") == ("land", "")
-    assert seen.get("encoding") == "utf-8", (
-        f"the descriptor was read with {seen.get('encoding')!r}; on a non-UTF-8 locale every "
-        f"HydraNet's coverage would fail to read and the manifest would record it as unknown"
+    probe = (
+        "import json, sys;"
+        "from views_hydranet.infrastructure.coverage import read_literal;"
+        "sys.stdout.write(json.dumps(read_literal(sys.argv[1], 'REGION')))"
+    )
+    repo_root = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [sys.executable, "-c", probe, str(queryset)],
+        cwd=repo_root,
+        # ⛔ A minimal environment, because the locale must be the subprocess's own. `PYTHONUTF8=0`
+        # is required as well as `LC_ALL=C`: UTF-8 mode would otherwise override the locale and the
+        # test would pass whatever the code does. `PYTHONPATH` pins the WORKING TREE rather than
+        # the installed wheel — C-347 has fired five times in this repository.
+        env={
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": str(repo_root),
+            "LC_ALL": "C",
+            "LANG": "C",
+            "PYTHONUTF8": "0",
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert json.loads(result.stdout) == ["land", ""], (
+        f"under an ASCII locale the descriptor read as {result.stdout!r}; every HydraNet "
+        f"descriptor contains non-ASCII, so on a non-UTF-8 pod this is every run's coverage — "
+        f"recorded as unknown by a field that reads as wired"
     )
 
 
