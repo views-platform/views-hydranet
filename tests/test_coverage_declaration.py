@@ -349,8 +349,14 @@ def test_the_descriptor_is_read_as_utf_8_whatever_the_locale_says(tmp_path):
         },
         capture_output=True,
         text=True,
-        check=True,
     )
+
+    # ⚠️ NOT `check=True`. A `CalledProcessError`'s message carries only *"returned non-zero
+    # exit status 1"* — the child's stderr sits in `exc.stderr` and is never shown. And a dying
+    # child is the LIKELIEST way this test ever fails: the installed wheel in site-packages is
+    # stale (it has no `views_hydranet.infrastructure` at all), so any slip in the `PYTHONPATH`
+    # pin above surfaces as `ModuleNotFoundError` in a subprocess nobody can see.
+    assert result.returncode == 0, f"the probe died rather than answering:\n{result.stderr}"
 
     assert json.loads(result.stdout) == ["land", ""], (
         f"under an ASCII locale the descriptor read as {result.stdout!r}; every HydraNet "

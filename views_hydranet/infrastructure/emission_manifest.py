@@ -172,6 +172,10 @@ def write_manifest(manifest: EmissionManifest, directory: Path | str) -> Path:
     directory = Path(directory)
     path = directory / MANIFEST_FILENAME
 
+    # ⚠️ Bound BEFORE the try, because `asdict` is inside it: the handler reads `payload` to name
+    # the offending field, and a failure in `asdict` itself would otherwise raise `NameError` from
+    # the error path — replacing a precise diagnostic with a traceback about the diagnostic.
+    payload: dict = {}
     try:
         payload = asdict(manifest)
         _refuse_lossy(manifest.resolved_config)
@@ -190,9 +194,17 @@ def write_manifest(manifest: EmissionManifest, directory: Path | str) -> Path:
             (repr(k) for k, v in manifest.resolved_config.items() if not _json_native(v)),
             key=str,
         )
+        # ⛔ And name the FIELD when the offender is not in `resolved_config` at all. This used
+        # to report only that one dict, so a non-native value anywhere else in the record — an
+        # `np.int64` row count leaking out of the orchestrator's counter, measured — produced
+        # *"none — the problem is elsewhere"* and sent the reader nowhere, while no manifest was
+        # written on any run. The same shape as the NaN diagnostic this message was already fixed
+        # for once: the predicate knew, and nothing asked it about the right object.
+        fields = sorted(k for k, v in payload.items() if not _json_native(v))
         err_msg = (
             f"EmissionManifest is not serialisable without loss: {exc}. "
-            f"Offending resolved_config keys: {offenders or 'none — the problem is elsewhere'}. "
+            f"Offending manifest field(s): {fields or 'none — see the keys below'}. "
+            f"Offending resolved_config keys: {offenders or 'none — it is another field'}. "
             f"Convert them at the call site; this module records what it is given and does not "
             f"coerce, because a silent coercion is a value that no longer matches the run."
         )

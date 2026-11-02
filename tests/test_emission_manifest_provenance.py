@@ -385,15 +385,27 @@ def test_a_gate_target_that_merely_contains_the_forecast_prefix_is_still_a_gate(
     A classification target whose *name* happens to contain `lr_` anywhere — `by_sb_colr_best` —
     would then be labelled `forecast`, and a reader joining the directory to its quantity would
     read the gate as the body. The prefix is a statement about where the name begins.
+
+    ⛔ BOTH prefixes, because fixing only the one an audit named is how this came back. A third
+    audit mutated the **binary** branch the same way and the suite stayed green: `in` there labels
+    `ged_sb_nearby_count` a gate, since `nearby_count` contains `by_`. One property, two branches,
+    one test — and a third target would belong in this same list.
     """
     fake, predictions = _fake_manager(tmp_path, {})
-    _write(fake, _ctx(all_targets=["lr_ged_sb", "by_sb_colr_best"]))
+    _write(
+        fake,
+        _ctx(all_targets=["lr_ged_sb", "by_sb_colr_best", "ged_sb_nearby_count"]),
+    )
 
     quantities = read_manifest(predictions / MANIFEST_FILENAME).quantities
 
     assert quantities["by_sb_colr_best"] == "gate", (
-        f"recorded {quantities}; the prefix was matched anywhere in the name instead of at its "
-        f"start, so a gate target containing `lr_` is labelled as the body's forecast"
+        f"recorded {quantities}; the forecast prefix was matched anywhere in the name instead of "
+        f"at its start, so a gate target containing `lr_` is labelled as the body's forecast"
+    )
+    assert quantities["ged_sb_nearby_count"] == "unrecognised", (
+        f"recorded {quantities}; the gate prefix was matched anywhere in the name, so a target "
+        f"with neither prefix is labelled a gate instead of being reported as unrecognised"
     )
 
 
@@ -416,4 +428,50 @@ def test_the_digest_sidecar_is_recorded_without_its_trailing_newline(tmp_path):
     assert read_manifest(predictions / MANIFEST_FILENAME).artifact_sha256 == "b" * 64, (
         "the digest was recorded with the sidecar's trailing newline, so it compares equal to no "
         "digest anybody will compute"
+    )
+
+
+def test_an_absent_digest_sidecar_is_recorded_as_unknown_not_as_empty(tmp_path):
+    """⛔ `else ""` left the full suite green — and an empty string is not "unknown".
+
+    Three assertions on `artifact_sha256` existed and all three wrote a sidecar first, so the
+    absent case — the common one, since only trained artifacts carry a digest — was never read.
+    `""` reads as *digest known, and it is nothing*, which no comparison can be made against.
+
+    ⚠️ This is the same defect as the git revision's `commit=""`, one field away, and that is
+    how it survived: the fix for the revision was applied where the audit pointed rather than to
+    the property. `None` means unknown, everywhere in this record.
+    """
+    fake, predictions = _fake_manager(tmp_path, {})
+    (tmp_path / "artifacts" / ARTIFACT).with_suffix(".pt.sha256").unlink()
+
+    _write(fake, _ctx())
+
+    assert read_manifest(predictions / MANIFEST_FILENAME).artifact_sha256 is None, (
+        "an absent digest sidecar was recorded as a value rather than as unknown; a reader cannot "
+        "tell 'no digest was written' from 'the digest is the empty string'"
+    )
+
+
+# ─── The provenance block's own failures are the WRITER's two reports ────────
+
+
+def test_a_defect_inside_the_provenance_block_is_reported_as_a_defect(tmp_path, caplog):
+    """⛔ Widening the handler to `except Exception` left the full suite green.
+
+    The two-clause split in `_write_emission_manifest` exists so that a programming error is never
+    reported in the same line as an unwritable disk. `_repo_provenance`'s own handler can defeat
+    that from underneath: with `Exception` caught here, an `AttributeError` in this block is logged
+    as *"could not read version control … the honest reading of 'we do not know'"* and every
+    manifest silently records unknown-and-dirty, which is the honest reading of nothing at all.
+    """
+    fake, _ = _fake_manager(tmp_path, {})
+
+    with patch("subprocess.run", side_effect=AttributeError("a defect, not an environment")):
+        with caplog.at_level("ERROR"):
+            _write(fake, _ctx())
+
+    assert "UNEXPECTED exception" in caplog.text, (
+        "a defect inside the provenance block was absorbed as an environmental failure, so the "
+        "manifest would record unknown-and-dirty on every run with nothing to say why"
     )

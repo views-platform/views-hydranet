@@ -28,6 +28,12 @@ pytest.importorskip("views_pipeline_core")
 import torch  # noqa: E402
 
 from tests.test_emission_manifest_wiring import CFG, TARGETS, S, _df  # noqa: E402
+from views_hydranet.infrastructure.emission_manifest import (  # noqa: E402
+    SCHEMA_VERSION,
+    EmissionManifest,
+    read_manifest,
+    write_manifest,
+)
 from views_hydranet.utils.feature_scaler import FeatureScaler  # noqa: E402
 from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator  # noqa: E402
 from views_hydranet.utils.volume_handler import VolumeHandler  # noqa: E402
@@ -246,9 +252,24 @@ def _frame(months):
 
 
 def test_a_month_the_frame_emitted_but_the_window_never_held_is_refused():
-    """⛔ The frame and the window disagree about what this origin is, so neither is the truth."""
+    """⛔ The frame and the window disagree about what this origin is, so neither is the truth.
+
+    ⚠️ The second assertion pins the DIRECTION, and without it this guard is satisfied by the
+    refusal firing on the opposite condition — a third audit inverted the set difference to
+    `window − frame` and `pytest.raises(match=…)` saw the same message, because the message is
+    built from whatever the subtraction produced. A declared subset emits FEWER months than the
+    window holds, by design (ADR-078), so an inverted refusal would reject every selected run.
+    """
     with pytest.raises(ValueError, match="absent from the window it was forecast over"):
         InferenceOrchestrator._rows_per_horizon_of(_frame([458, 458, 999]), MONTHS, 457)
+
+    assert InferenceOrchestrator._rows_per_horizon_of(_frame([458, 460]), MONTHS, 457) == {
+        1: 1,
+        3: 1,
+    }, (
+        "a frame emitting a strict SUBSET of the window's months was refused; that is what every "
+        "`emit_horizons` run looks like, so the refusal is firing on the inverted condition"
+    )
 
 
 def test_the_counter_numbers_horizons_from_the_window_s_order():
@@ -260,6 +281,54 @@ def test_the_counter_numbers_horizons_from_the_window_s_order():
     assert counts == {1: 1, 2: 3, 3: 2}, (
         f"counted {counts}; horizon 1 is the window's FIRST month, and each count is the "
         f"number of rows the frame actually carries for that horizon"
+    )
+    assert [type(v) for v in counts.values()] == [int, int, int], (
+        f"counted {[type(v).__name__ for v in counts.values()]}; `np.unique` returns `np.int64` "
+        f"and `==` cannot see the difference — see the next test for what it costs"
+    )
+
+
+def test_what_the_recorder_RECORDS_is_what_the_writer_can_WRITE(monkeypatch, tmp_path):
+    """⭐⭐ The seam between the two halves of ADR-074, which no test crossed.
+
+    ⛔ Dropping `int()` from the counter left all 2541 tests green, because `np.int64(4) == 4` and
+    every assertion in the suite compared values. Measured consequence: `write_manifest` then
+    refuses the whole record with *"Object of type int64 is not JSON serializable"* ⇒ **no manifest
+    is written on any run**, the same inert feature this epic already fixed twice. It was invisible
+    because the recorder's tests never wrote a manifest and the writer's tests never used a
+    recorded origin — each half was tested against literals of the other's shape.
+
+    ⇒ This test uses the real recorder's output as the writer's input. It is the only assertion
+    that can see a value which is equal to the right answer and not of the right type.
+    """
+    orch = _orchestrator(None)
+    monkeypatch.setattr(InferenceOrchestrator, "_months_of", staticmethod(lambda _w: MONTHS))
+    orch._record_emitted_origin(
+        0, 457, object(), {"lr_ged_sb": _frame([458, 458, 459, 459, 460, 460])}
+    )
+
+    assert orch.emitted_origins, "the recorder recorded nothing, so the seam is untested"
+
+    written = write_manifest(
+        EmissionManifest(
+            schema_version=SCHEMA_VERSION,
+            run_type="calibration",
+            model_name="a_model",
+            package_version="0.0.0",
+            resolved_config={},
+            quantities={"lr_ged_sb": "forecast"},
+            origins=tuple(orch.emitted_origins),
+            declared_coverage="land",
+            repos=(),
+            artifact_filename="a.pt",
+            artifact_sha256=None,
+        ),
+        tmp_path,
+    )
+
+    assert read_manifest(written).origins == tuple(orch.emitted_origins), (
+        "a record the recorder produced did not round-trip through the writer, so the two halves "
+        "of ADR-074 do not agree about what an origin is"
     )
 
 

@@ -266,18 +266,57 @@ def test_a_nested_non_string_key_is_refused_too(tmp_path):
     quietly instead of loudly, nothing asked it. ⇒ The record did not round-trip to the
     configuration the run used, which is the single claim this module makes.
 
-    ⚠️ And again THROUGH A LIST. `{"partitions": [{1: "x"}]}` is the same silent coercion, and a
-    second audit found the dict-in-dict case was the only one asserted — so narrowing
-    `_json_native` to stop recursing into sequences left the suite green while reopening half the
-    hole. Both shapes are one `_json_native` branch apart, and both appear in real configurations.
+    ⚠️ And again through EVERY container the predicate recurses into. A second audit found only
+    dict-in-dict asserted; a third found that adding dict-in-list still left dict-in-**tuple**
+    open, and a tuple is the one container this module documents as present in every live
+    configuration (`{'train': (121, 530)}`). ⇒ The cases below are the predicate's whole
+    recursion, not the three shapes three audits happened to name. Adding a container to
+    `_json_native` means adding a case here; that is the point of enumerating them in one loop.
     """
-    for shape in ({"partitions": {1: "x"}}, {"partitions": [{1: "x"}]}):
+    for shape in (
+        {"partitions": {1: "x"}},
+        {"partitions": [{1: "x"}]},
+        {"partitions": ({1: "x"},)},
+        {"partitions": [[{1: "x"}]]},
+    ):
         with pytest.raises(TypeError, match="not serialisable without loss"):
             write_manifest(_manifest(resolved_config=shape), tmp_path)
         assert not (tmp_path / MANIFEST_FILENAME).exists(), (
             f"{shape} was written; JSON coerced its non-string key silently and the record no "
             f"longer round-trips to the configuration the run used"
         )
+
+
+def test_the_manifest_is_read_back_as_utf_8_whatever_the_locale_says(tmp_path, monkeypatch):
+    """⚠️ The read side of the pair above, and it had no guard of any kind.
+
+    ⛔ A third audit dropped `encoding="utf-8"` from `read_manifest` and the full suite stayed
+    green — it was the one line of production behaviour its own commit added, and nothing
+    exercised it. The asymmetry is worth naming: on the **coverage** descriptor an ASCII locale
+    genuinely changes the answer, so that guard is behavioural
+    (`test_coverage_declaration.py`). Here it cannot be, for the same reason as the write side:
+    `ensure_ascii=True` keeps the payload ASCII, and every byte of ASCII reads identically under
+    utf-8 and under any ASCII-superset locale.
+
+    ⇒ So read and write are asserted the same way, as a pair with the `isascii` coupling that
+    makes them matter. Two halves of one decision should not be guarded two different ways.
+    """
+    seen = {}
+    real = Path.read_text
+
+    def capture(self, *args, **kwargs):
+        if self.name == MANIFEST_FILENAME:
+            seen.update(kwargs)
+        return real(self, *args, **kwargs)
+
+    written = write_manifest(_manifest(), tmp_path)
+    monkeypatch.setattr(Path, "read_text", capture)
+
+    assert read_manifest(written).run_type == "calibration", "the fixture did not round-trip"
+    assert seen.get("encoding") == "utf-8", (
+        f"the manifest was read with {seen.get('encoding')!r} while it is WRITTEN as utf-8; the "
+        f"payload is ASCII today, so the two agree by accident rather than by decision"
+    )
 
 
 def test_a_nested_tuple_is_still_accepted(tmp_path):
