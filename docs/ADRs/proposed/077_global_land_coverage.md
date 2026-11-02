@@ -9,13 +9,22 @@
 
 ## Summary (read this first — self-contained)
 
-A model forecasts over a set of grid cells — its **coverage**. HydraNet coverage was Africa and the
-Middle East. Since 2026-09-19 it is **global land**: every land cell of the grid, excluding water.
+A model forecasts over a set of grid cells — its **coverage**. Subnational HydraNet coverage was
+Africa, then Africa and the Middle East. It is now **global land**: every land cell of the grid,
+excluding water.
 
-The driver is a delivery requirement rather than a preference. The coverage the consumer deliverable
-is cut from is a **subset of global land**, so a model restricted to one region cannot produce it at
-all. The regional coverage was a de-risking stage — a smaller, cheaper grid on which to make the
-architecture work before committing to the full one — and was always meant to be left behind.
+**Coverage has always been set by what was funded, not by preference.** The original VIEWS ERC
+grants named **Africa** as the spatial extent of the subnational forecast — a choice shaped in
+large part by the hardware, software and compute available in 2017–18. A later, smaller UN ESCWA
+grant extended it to **the Middle East**. More recent grants carry **global coverage as a
+deliverable**. This ADR records the coverage those commitments require.
+
+**The data backend and the coverage are one chain, not two coincidences.** The datafactory was
+built *in order to* make global coverage possible; the older backend could not reach it. So the
+move to the datafactory and the move to global are the same programme at two stages. The
+datafactory deliberately continued to support Africa and the Middle East — largely **as a parity
+check**, to confirm it could reproduce the forecasts the old backend produced on the extent we
+already knew, before the extent itself changed.
 
 **Results produced under different coverage are not comparable.** The cell population differs, so
 every statistic pooled over cells is of a different population. The two are also hard to tell apart:
@@ -26,26 +35,38 @@ can survive such a change and be reused afterwards as though it were current.
 
 ## 1. Context
 
-**The coverage changed and was not recorded as a decision.** Each model's configuration states its
-coverage, and a runbook sequenced the change across the fleet. No ADR said so, and the only ADR that
-named a coverage named the superseded one. So the architectural record described a coverage the
-fleet had abandoned, and nothing reported the disagreement.
+**Coverage is a funded commitment, and it has moved twice.** Africa was the extent the original
+ERC grants named, and the compute available when that work began is part of why. The Middle East
+was added under a later UN ESCWA grant. Global coverage is a deliverable of more recent grants.
+Each step widened what the project had undertaken to produce, so coverage is not a parameter the
+project is free to choose per experiment.
 
-**Why global land.** The consumer deliverable's coverage is produced by cutting a subset out of
-global land. A model covering one region cannot supply that cut. Two outputs depend on the wider
-coverage: the calibration runs used for the maintainer's own analysis, and the forward forecasts
-pooled for delivery.
+**Reaching global required a new data backend, which is why one was built.** The older backend
+could not serve the global extent. The datafactory was built to make it reachable, and a coverage
+declaration exists only on the datafactory's own descriptor — so until a model sources from it,
+coverage cannot be stated at all.
 
-**Why a regional coverage existed.** It was the de-risking stage, and that is why nobody wrote an
-ADR when it ended: the change felt like completing a plan rather than taking a decision.
+⇒ The two moves are therefore sequenced rather than independent: source first, extent second. The
+datafactory kept serving Africa and the Middle East through the first stage on purpose, as the
+**parity check** — reproducing the old backend's forecasts on the extent already known, before the
+extent changed underneath the comparison.
+
+**The change happened and was not recorded as a decision.** Each model's configuration states its
+coverage and a runbook sequenced the change across the fleet, but no ADR said so, and the only ADR
+that named a coverage named the superseded one. So the architectural record described an extent the
+project had already left, and nothing reported the disagreement.
+
+**Why it went unrecorded is itself informative.** Widening an extent the grants had already widened
+reads as completing a plan rather than as taking a decision — which is exactly when a record is
+least likely to be written and most likely to be needed later.
 
 **Coverage is not an ordinary experimental setting.** It determines whether a model can serve the
 deliverable at all, and it silently determines whether two results may be compared.
 
-**Open question, not answered here.** Whether there is a *scientific* reason for the wider coverage
-in addition to the delivery requirement — that training on the global grid improves the model, or
-that a region-restricted grid biased what it learned — is not recorded anywhere. Until it is, this
-ADR rests on the delivery rationale alone.
+**What this ADR does not claim.** The reason for global coverage is a **funded commitment**, not a
+measured finding. Whether training on the global grid also *improves* the model, or whether a
+region-restricted grid biased what it learned, is a separate empirical question that nothing here
+answers and no measurement in the project settles.
 
 ---
 
@@ -56,9 +77,10 @@ property of a run rather than an incidental configuration value.*
 
 ### 2.1 The coverage
 
-**Global land is the coverage for a HydraNet model.** Each model declares its coverage in its own
-configuration; this ADR states what that declaration is expected to say. A regional coverage is a
-de-risking stage, valid only while declared as one, and never a target.
+**Global land is the coverage for a subnational HydraNet model.** Each model declares its coverage
+in its own configuration; this ADR states what that declaration is expected to say. A narrower
+extent is valid only while explicitly declared, and only for a stated purpose — a parity check
+against a previous backend, or a deliberately cheap test bed — never as a default.
 
 This ADR states a coverage, not a cell count. The count follows from the coverage definition and
 belongs with the configuration and the tooling that checks it.
@@ -124,8 +146,8 @@ turns "is anything still regional?" into a count.
       through the experimental record and cannot be repaired retroactively.
 - [ ] Regionally scoped artifacts may remain on disk and still look valid. This ADR makes them
       formally off-target; removing them is separate work.
-- [ ] The de-risking affordance is lost. There is no sanctioned smaller grid to debug on unless one
-      is explicitly declared as a de-risking stage under §2.1.
+- [ ] A narrower extent is no longer available by default, so anything that relied on a smaller
+      grid being cheap — a parity check, a quick local test — must now declare it and say why.
 
 ---
 
@@ -138,7 +160,7 @@ turns "is anything still regional?" into a count.
 
 **Tests.**
 - *Reporting check:* read every HydraNet model's declared coverage and report each one that is not
-  global land. It **reports rather than fails** while any de-risking model is legitimately declared,
+  global land. It **reports rather than fails** while any narrower extent is legitimately declared,
   because a failing test on an accepted exception gets disabled.
 - *Red:* a result whose declared coverage differs from another's is refused by any comparison tool
   rather than pooled with it.
@@ -149,9 +171,10 @@ turns "is anything still regional?" into a count.
 specified by ADR-074 and not yet built. This ADR is intent without enforcement, which is the
 condition that let its predecessor go stale — and the reason ADR-074 comes first.
 
-**What would reopen this.** If the deliverable's coverage ceased to be a cut of global land, the
-delivery rationale would fall away and only the unrecorded scientific rationale would remain to
-carry the decision.
+**What would reopen this.** Coverage follows what has been undertaken, so a change in what is
+funded is what would move it — in either direction. A narrower extent returning as a commitment
+would be a new decision rather than a relaxation of this one, and would carry the same requirement
+that it be declared rather than assumed.
 
 ---
 
