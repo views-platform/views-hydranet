@@ -2225,10 +2225,21 @@ expansion of the paper's evidence base currently available.
 >   ⛔ magnitude calibration **0.237 / 0.293 / 0.356** ⇒ **the quantity the programme most wants to
 >   move is measured by its three least resolvable columns.**
 > * ⛔⛔ **The remaining 4 are UNMEASURABLE, not unmeasured.** They are the only columns that read
->   the ensemble beyond its mean, so their noise floor needs real `truncated_nb` draws — and
->   **#441** is open, with `sample()` vs `mean()` differing **54×** and *"failing on 99% of the
->   grid"*. ⇒ **The 4 columns that can SEE dispersion are exactly the 4 whose noise cannot be
->   measured.** For the paper this is a structural statement about the battery, not a to-do.
+>   the ensemble beyond its mean, so measuring them needs draws whose **dispersion** is
+>   trustworthy — and **#441** is open, with `sample()` vs `mean()` differing **54×** and
+>   *"failing on 99% of the grid"*. ⇒ **The 4 columns that can SEE dispersion are exactly the 4
+>   whose noise cannot be measured.** For the paper this is a structural statement about the
+>   battery, not a to-do.
+>
+>   ⚠️ **The binding constraint is the SAMPLER, not a shortage of replicates, and an earlier
+>   wording of this bullet invited the opposite reading** — it said the floor *"needs real seed
+>   replicates"* in the same breath as #441. The three replicates exist (M75) and measured the
+>   other 16; what is missing is a `truncated_nb` draw whose spread means what it says. ⇒ The
+>   corollary, since it was asked across a repository boundary on 2026-11-02 and the answer is not
+>   obvious: **replicates from a DIFFERENT generator cannot fill these four cells.** They would
+>   measure that generator's draw noise, and printing it here as this battery's floor is C-351
+>   with the population unnamed — a precise number from the wrong population, which is harder to
+>   retract than a blank.
 > * ⛔ **Two columns saturate** under expectation composition (`AFSS`, `act_freq` at exactly 1.0),
 >   so a σ̂ of 0 there is a **ceiling, not stability** — the C-376 shape, caught by a gate added
 >   after the first run would have reported them as the most stable columns.
