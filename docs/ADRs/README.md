@@ -80,14 +80,14 @@ Architectural decisions specific to the HydraNet system.
 - **[072](active/072_frame_native_input_ingestion.md)**: ADR-072: Input data enters the model as a frame, not as a pandas DataFrame
 - **[074](active/074_emission_provenance.md)**: ADR-074: An emitted artifact records what it is
 - **[075](active/075_emitting_the_body_as_a_diagnostic.md)**: ADR-075: A run can be asked to emit the body, which is otherwise unrecoverable
+- **[077](active/077_global_land_coverage.md)**: ADR-077: HydraNet models forecast global land
+- **[078](active/078_horizon_selection_for_emission.md)**: ADR-078: Horizons are selectable for emission, never for computation
 
 ## [Proposed (Emerging)](./proposed/)
 
 - **[053](proposed/053_build_and_package_management_tooling.md)**: Build and Package Management Tooling
 - **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
 - **[073](proposed/073_emit_time_distribution_split.md)**: ADR-073: What a model emits from need not be what it was trained on
-- **[077](proposed/077_global_land_coverage.md)**: ADR-077: HydraNet models forecast global land
-- **[078](proposed/078_horizon_selection_for_emission.md)**: ADR-078: Horizons are selectable for emission, never for computation
 
 ## [Archive (Historical)](./archive/)
 

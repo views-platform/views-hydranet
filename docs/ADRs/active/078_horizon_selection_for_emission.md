@@ -1,7 +1,7 @@
 # ADR-078: Horizons are selectable for emission, never for computation
 
-**Status:** Proposed
-**Date:** 2026-11-02
+**Status:** Accepted
+**Date:** 2026-11-02 · accepted 2026-11-02
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers
 **Requires:** ADR-074 (an emitted artifact records what it is)

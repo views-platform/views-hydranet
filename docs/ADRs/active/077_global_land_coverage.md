@@ -1,7 +1,7 @@
 # ADR-077: HydraNet models forecast global land
 
-**Status:** Proposed
-**Date:** 2026-11-01 (recording a change made 2026-09-19)
+**Status:** Accepted
+**Date:** 2026-11-01 (recording a change made 2026-09-19) · accepted 2026-11-02
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers · views-models maintainers
 **Related:** ADR-074 (an emitted artifact records what it is)
