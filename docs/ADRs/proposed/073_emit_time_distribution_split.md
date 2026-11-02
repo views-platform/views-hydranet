@@ -1,10 +1,38 @@
-# ADR-073: Separate the EMITTED distribution family from the TRAINED one
+# ADR-073: What a model emits from need not be what it was trained on
 
-**Status:** Proposed — ⛔ **NOT ADOPTED.** The capability ships default-off; the decision below
-is **not taken**, and `emit_distribution` must not be set in a roster config.
-**Date:** 2026-10-21 · **Verdict added:** 2026-10-22
+**Status:** Proposed — the axis is **open**; the one arm measured so far is **not taken**. The
+capability ships default-off and must not be set in a roster config until an arm is chosen.
+**Date:** 2026-10-21 · **Verdict added:** 2026-10-22 · **Rescoped:** 2026-11-02
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** views-hydranet contributors; views-models roster owners
+
+## Summary (read this first — self-contained)
+
+A HydraNet model has one setting that picks a distribution family, and that family does **two
+jobs**: it shapes the training loss, and it produces the emitted draw. This ADR is about whether
+those two jobs should be separable — whether a model can be **trained on one distribution and
+emitted from another**.
+
+**The capability exists.** It was built, it is shipped, and it is **off by default**: a
+configuration that does not set it behaves exactly as before, bit for bit. Switching it on is
+refused unless the two families have the same number of parameters, which admits exactly one pair
+today.
+
+**One arm has been measured and is not worth taking.** The arm was: train on the plain negative
+binomial, emit **zero-truncated** draws — so the gate decides *whether* violence occurs and the
+body only answers *how many, given some*, instead of the body also having to produce its own zeros.
+Measured, that trade loses more on the quiet cells than it gains on the event cells. §0 carries
+the verdict and three corrections to the numbers it leads with.
+
+⚠️ **The axis is not closed, and that distinction is the point of this document.** What was
+rejected is one parametric swap. What remains open is the general question: *should the head used
+for training be the head used at inference?* A concrete route that would reopen it is in §5 — train
+the regression heads on a plain squared-error loss, take the ranking from that, and attach an
+**empirical** predictive distribution drawn from past outcomes at inference. That is the same axis
+and a completely different arm, and it would need its own experiment.
+
+⇒ So: a built switch, one arm measured and declined, and a live direction. Nothing here is a
+decision to adopt, and nothing here forecloses the axis.
 
 ---
 
@@ -67,7 +95,7 @@ are what the verdict below rests on. **~99.7% of that gain comes from the
 background (0.000260 vs 0.000266) and beats it on the conditional law where events occur
 (**10.831 vs 14.589**, −25.7%).
 
-⇒ **Truncation is strictly dominated.** It buys its event-cell gain (14.589 -> 12.034) by *paying*
+⇒ **This arm is dominated.** Truncated *emission* is dominated — which closes that parametric swap, not the train-versus-emit axis itself. It buys its event-cell gain (14.589 -> 12.034) by *paying*
 13.5x on the background (0.000463 -> 0.006274). The family-free fit takes a larger event-cell gain
 at **no background cost**. The live question is therefore not which family to emit from — it is
 that a two-parameter negative binomial cannot represent the conditional law the trunk already ranks
@@ -230,7 +258,30 @@ their meanings are untouched.
 
 ---
 
-## 5. ⛔ The open question this ADR does NOT answer
+## 5. What would bring this back
+
+The axis is live. The arm measured in §0 and §4 is a **parametric swap** — one named family
+exchanged for another with the same parameter count — and that is the narrowest version of the
+question. A wider arm is plausible and has not been tried:
+
+**Train the regression heads on a plain squared-error loss, take the ranking that gives, and attach
+an empirical predictive distribution at inference — draws taken from past outcomes rather than from
+a fitted parametric family.**
+
+That differentiates the training head from the inference head completely, rather than swapping one
+family for another, and none of §0's measurement bears on it: the dominance result is about
+truncated *parametric* emission, and an empirical predictive distribution is not a member of the
+family registry at all.
+
+⚠️ It would need its own experiment, and two things this ADR already established would constrain
+it. The parameter-count guard that makes the current switch safe does not apply to a
+non-parametric emitter, so the switch would need a different admissibility rule. And whatever the
+rollout feeds back would have to be decided explicitly rather than inherited from a default — see
+the note below, which is the trap this ADR walked into once.
+
+⇒ Until such an arm is designed, nothing is set and the capability stays off.
+
+## 5a. ⛔ The question about feedback, and the default that was hiding in it
 
 ⛔ **IT WAS NOT OPEN — see §0.** The code already defaults the fed-back draw to the **emitted**
 family, so adopting this ADR would have fed truncated draws through all 36 rollout steps without a
