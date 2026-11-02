@@ -157,7 +157,32 @@ than quietly emitting less than was asked for.
 - *Green:* ADR-074's manifest records which horizons were emitted, so a subset is declared rather
   than inferred from which files happen to be present.
 
-**Not yet enforced.** None of these tests exists, and neither does the field.
+**Enforced as of 2026-11-02.** The field exists, defaults to every horizon, and is honoured where
+rows are assembled.
+
+| test above | where it lives |
+|---|---|
+| a subset's rows match the full run exactly | `tests/test_emit_horizons_reach_the_frame.py` |
+| a step list that is not a contiguous count is refused | `tests/test_emit_horizons.py` |
+| a horizon outside the run's range is refused | `tests/test_emit_horizons.py` at configuration time, and `tests/test_emit_horizons_reach_the_frame.py` at the window |
+| the manifest records which horizons were emitted | `tests/test_emit_horizons_reach_the_frame.py` |
+
+Two further tests exist that this ADR did not ask for, and both guard §2.2 rather than §2.1. One
+asserts that the volume handed to the assembler still carries every horizon on a subset run, so an
+optimisation that shortened the rollout would fail rather than merely contradict the documentation.
+The other asserts that the manifest's record of the emitted subset is taken from the written frame
+and not from the configuration, by making the write ignore the selection while the configuration
+still asks for one horizon.
+
+**Still not enforced.** The invariant that an unset field produces output byte-identical to a run
+before this change is **not verified**, and neither is bit-identity on a real rollout. Both need a
+trained model and a real run. What the tests establish is narrower and should be read as such: the
+selection is applied below the rollout, and the rows that survive it are unchanged.
+
+**A caution that belongs here rather than in a note.** The test file's own heading records that a
+mocked model cannot establish that a real rollout computed every month, because the rollout happens
+inside the model. The structural assertion above is what stands in for it, and it is not the same
+claim.
 
 **What would reopen this.** A need to shorten a *run* rather than its output — a cheap preflight at
 one horizon, say — would make §2.2 the wrong constraint for that use and would need its own

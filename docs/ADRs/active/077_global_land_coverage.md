@@ -167,9 +167,31 @@ turns "is anything still regional?" into a count.
 - *Beige:* a run whose declared coverage and actual cell population disagree fails loudly rather
   than proceeding with the population it happens to have.
 
-**Not yet enforced.** None of these tests exists, and the coverage declaration they would read is
-specified by ADR-074 and not yet built. This ADR is intent without enforcement, which is the
-condition that let its predecessor go stale — and the reason ADR-074 comes first.
+**Partly enforced as of 2026-11-02.** ADR-074's manifest exists and records each run's declared
+coverage, so a result now carries its own extent.
+
+The reporting check is `scripts/coverage_report.py`, with the reader it shares with the manifest
+tested in `tests/test_coverage_declaration.py`. It is scoped by the configurations present on disk
+rather than by a roster, and it reads them without executing them, so one unreadable model cannot
+end the census. A coverage that cannot be resolved to a declaration is reported as unresolved with
+its source expression, never as absent.
+
+One part of it is stronger than this ADR asked for: the check **asserts** that every model of our
+own algorithm declares global land, because the condition stated above is met — every such model
+declares it and the exception count is zero. The remaining declarations are reported, not required.
+
+**Still not enforced.** Two of the three tests above.
+
+- No comparison tool reads the recorded coverage, so nothing yet refuses to pool results of
+  differing extent. The declaration is available to such a tool; none consumes it.
+- A run whose declared coverage and actual cell population disagree does **not** fail. Both numbers
+  are now recorded side by side in the manifest — the declaration, and the measured per-horizon row
+  count — so a disagreement is visible to a reader. Nothing acts on it.
+
+**And a limit of the reporting check itself.** It reads a declaration; it cannot tell whether a
+declared extent is the one the project undertook to produce, or whether a narrower one has a stated
+purpose. Both remain judgements for a reader, which is why the check names what it finds rather
+than ruling on it.
 
 **What would reopen this.** Coverage follows what has been undertaken, so a change in what is
 funded is what would move it — in either direction. A narrower extent returning as a commitment

@@ -9,6 +9,7 @@ both callers route through it.
 
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
@@ -73,6 +74,25 @@ class TestGreenAdr039PipelineMethodExists:
 # ---------------------------------------------------------------------------
 
 
+def _readable_window_mock(n_steps: int = 1, first_month: int = 100):
+    """A window mock `_months_of` can read (ADR-074).
+
+    These parity tests mock the shared pipeline to assert that both loops call it. The orchestrator
+    now also records what each origin emitted, which means reading the window's time channel — so
+    the mock must be readable. It is given a real array rather than a MagicMock because the
+    recorder refuses a window it cannot verify, which is deliberate: a manifest it could not stand
+    behind should not be written.
+    """
+    window = MagicMock()
+    window.channel_map = ("month_id", "priogrid_gid")
+    window.time_col = "month_id"
+    window.get_axis_idx.return_value = 0
+    window.data = np.stack(
+        [np.full((1, 1, 2), float(first_month + k)) for k in range(n_steps)], axis=0
+    )
+    return window
+
+
 class TestGreenAdr039PipelineParity:
     """
     After the refactor, all three public methods must delegate Steps 1-5
@@ -86,11 +106,11 @@ class TestGreenAdr039PipelineParity:
             pytest.skip("_run_inference_pipeline not yet implemented")
 
         mock_pred = MagicMock()
-        mock_window = MagicMock()
+        mock_window = _readable_window_mock()
         mock_assembler_cls = MagicMock()
-        mock_assembler_cls.return_value.assemble_evaluation.return_value = {
-            "lr_ged_sb": MagicMock()
-        }
+        _frame = MagicMock()
+        _frame.n_rows = 2
+        mock_assembler_cls.return_value.assemble_evaluation.return_value = {"lr_ged_sb": _frame}
 
         with (
             patch.object(orch, "_run_inference_pipeline", return_value=(mock_pred, mock_window)),
@@ -118,11 +138,11 @@ class TestGreenAdr039PipelineParity:
             pytest.skip("_run_inference_pipeline not yet implemented")
 
         mock_pred = MagicMock()
-        mock_window = MagicMock()
+        mock_window = _readable_window_mock()
         mock_assembler_cls = MagicMock()
-        mock_assembler_cls.return_value.assemble_evaluation.return_value = {
-            "lr_ged_sb": MagicMock()
-        }
+        _frame = MagicMock()
+        _frame.n_rows = 2
+        mock_assembler_cls.return_value.assemble_evaluation.return_value = {"lr_ged_sb": _frame}
 
         with (
             patch.object(orch, "_run_inference_pipeline", return_value=(mock_pred, mock_window)),

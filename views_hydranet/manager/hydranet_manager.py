@@ -8,7 +8,10 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 
 import gc
 import logging
+import subprocess
 from datetime import datetime
+from importlib.metadata import version
+from pathlib import Path
 from typing import Any, Callable, NamedTuple
 
 import pandas as pd
@@ -18,6 +21,13 @@ from views_pipeline_core.managers.model import (
     ModelPathManager,
 )
 
+from views_hydranet.infrastructure.coverage import declared_coverage_of
+from views_hydranet.infrastructure.emission_manifest import (
+    SCHEMA_VERSION,
+    EmissionManifest,
+    RepoProvenance,
+    write_manifest,
+)
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
 from views_hydranet.train.train_model import train_model_artifact
 from views_hydranet.utils.config_initializer import ConfigInitializer
@@ -294,7 +304,15 @@ class HydranetManager(ForecastingModelManager):
         Parameters
         ----------
         eval_type : str
-            Label for device logging (e.g. "calibration", "forecasting").
+            Label for device logging, and **only** that — it is never used to resolve a path, name
+            a directory or pick a partition.
+            ⚠️ Its real values are the CLI's `standard` / `complete` / `live`, not the partition.
+            An earlier version of this line gave the examples *"calibration", "forecasting"*, which
+            are **run types** and are what `self.configs["run_type"]` holds. That wrong example is
+            what made it plausible to thread this value into the ADR-074 manifest, where it
+            produced a record of a partition the run did not have — see
+            `_write_emission_manifest`. On the forecast path the caller does pass `"forecasting"`,
+            which is why the two were never obviously different.
         model : torch.nn.Module
             Trained model — loaded from disk via ``_load_model_artifact()``
             or received in-memory from ``_execute_model_sweeping()``.
@@ -360,6 +378,127 @@ class HydranetManager(ForecastingModelManager):
             orchestrator=orchestrator,
         )
 
+    def _repo_provenance(self) -> tuple[RepoProvenance, ...]:
+        """What version control says about each repository involved, with a dirty flag.
+
+        A commit identifier taken from a modified working tree is a false provenance claim, so the
+        flag is recorded beside it rather than folded into the string (ADR-074 section 2.1). A
+        repository that cannot be read at all is recorded as unknown rather than omitted: a missing
+        entry is indistinguishable from a repository that was never involved.
+        """
+        import views_hydranet
+
+        repos: list[RepoProvenance] = []
+        for name, anchor in (
+            ("views-hydranet", Path(views_hydranet.__file__).resolve().parent),
+            ("views-models", self._model_path.models),
+        ):
+            commit, dirty = None, True
+            try:
+                commit = subprocess.run(
+                    ["git", "-C", str(anchor), "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    check=True,
+                ).stdout.strip()
+                dirty = bool(
+                    subprocess.run(
+                        ["git", "-C", str(anchor), "status", "--porcelain"],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                        check=True,
+                    ).stdout.strip()
+                )
+            except (subprocess.SubprocessError, OSError) as exc:
+                logger.warning(
+                    "ADR-074: could not read version control for %s at %s (%s). Recording it as "
+                    "unknown and dirty, which is the honest reading of 'we do not know'.",
+                    name,
+                    anchor,
+                    exc,
+                )
+            repos.append(RepoProvenance(name=name, commit=commit, dirty=dirty))
+        return tuple(repos)
+
+    def _write_emission_manifest(
+        self,
+        ctx: "_EvaluationContext",
+        run_type: str,
+        artifact_name: str | None,
+        *,
+        directory_must_exist: bool = True,
+    ) -> None:
+        """Write the ADR-074 manifest for the run that has just finished.
+
+        ⛔ Every value comes from an object this run used — the configuration dict the orchestrator
+        was constructed with, and the origin records the orchestrator built as it emitted. Nothing
+        here re-reads a configuration file or re-derives a month, because a manifest assembled that
+        way would agree with the configuration by construction and could not be compared against it
+        (ADR-074 section 2.3).
+
+        ⛔ ``run_type`` is the PARTITION — `calibration`, `validation`, `forecasting`. It is NOT
+        the CLI's ``eval_type``, which is `standard`/`complete`/`live` and is only a label for
+        logging. Passing the latter is the defect this signature now documents: the artifact would
+        resolve to nothing and the directory derivation would name a path that never exists, so the
+        manifest silently never appeared while every test stayed green — this repository registers
+        that shape as C-324, "inert but tested". The caller takes it from
+        ``self.configs["run_type"]``.
+
+        ``directory_must_exist`` is False on the FORECAST path alone, where the predictions
+        directory is created by the pipeline's ``save_pf`` *after* this method's caller returns.
+        The derivation is still checked, just differently: this method builds the path with the
+        same formula the pipeline uses — ``predictions_{run_type}_{artifact.stem[-15:]}`` from
+        ``resolve_artifact_path(run_type, artifact_name)`` — so once that artifact resolves, the
+        path is right by construction and creating it early is harmless.
+
+        A failure to write the manifest does not fail the run. The predictions are the deliverable
+        and they are already on disk; losing their description is worse than losing nothing, but it
+        is not worth discarding a completed run over.
+        """
+        try:
+            artifact = self._model_path.resolve_artifact_path(run_type, artifact_name)
+            directory = self._model_path.data_generated / (
+                f"predictions_{run_type}_{artifact.stem[-15:]}"
+            )
+            if directory_must_exist and not directory.exists():
+                # The predictions directory is named by the pipeline, not here. If the convention
+                # has moved, say so loudly rather than writing a manifest where nothing reads it.
+                logger.error(
+                    "ADR-074: expected the predictions directory at %s and it does not exist. The "
+                    "naming convention has moved; the manifest was NOT written. Fix the "
+                    "derivation rather than writing it where a reader will not look.",
+                    directory,
+                )
+                return
+
+            sha_path = artifact.with_suffix(".pt.sha256")
+            manifest = EmissionManifest(
+                schema_version=SCHEMA_VERSION,
+                run_type=run_type,
+                model_name=self._model_path.model_name,
+                package_version=version("views-hydranet"),
+                resolved_config=dict(self.configs),
+                quantities={
+                    "forecast": "lr_",
+                    "gate": "by_",
+                },
+                origins=tuple(ctx.orchestrator.emitted_origins),
+                # ADR-077 section 2.2: the extent this model declares, read without importing its
+                # configuration. None if it does not state one — recorded as unknown rather than
+                # assumed, because a manifest that filled the blank with the expected answer would
+                # be the re-read ADR-074 section 2.3 forbids.
+                declared_coverage=declared_coverage_of(self._model_path.model_dir),
+                repos=self._repo_provenance(),
+                artifact_filename=artifact.name,
+                artifact_sha256=(sha_path.read_text().strip() if sha_path.exists() else None),
+            )
+            path = write_manifest(manifest, directory)
+            logger.info("ADR-074: emission manifest written to %s", path)
+        except Exception as exc:  # noqa: BLE001 — see the docstring: never fail a finished run
+            logger.error("ADR-074: failed to write the emission manifest (%s)", exc)
+
     def _evaluate_model_artifact(
         self, eval_type: str, artifact_name: str | None = None
     ) -> "dict[str, list[PredictionFrame]]":
@@ -378,6 +517,12 @@ class HydranetManager(ForecastingModelManager):
             f"✅ HydranetManager: Evaluation complete — "
             f"{len(list_pf_dicts)} origin(s), {len(result)} targets."
         )
+        # ⛔ No ADR-074 manifest here, deliberately. This batch path is unreachable in production:
+        # pipeline-core only calls it on the DataFrame branch, and every HydraNet declares
+        # `prediction_format: prediction_frame`, so the streaming override below is always taken.
+        # That branch also never creates `predictions_{run_type}_{ts}`, so a manifest written from
+        # here would have nowhere to go. A call that cannot run is worse than no call: it looks
+        # wired.
         return result
 
     def _evaluate_model_artifact_streaming(
@@ -408,6 +553,8 @@ class HydranetManager(ForecastingModelManager):
             all_targets=ctx.all_targets,
             origin_sink=origin_sink,
         )
+        # ADR-074. `self.configs["run_type"]`, NOT `eval_type` — see the writer's docstring.
+        self._write_emission_manifest(ctx, self.configs["run_type"], artifact_name)
 
     def _forecast_model_artifact(
         self, artifact_name: str | None = None
@@ -421,6 +568,13 @@ class HydranetManager(ForecastingModelManager):
         )
         result: dict[str, PredictionFrame] = {t: list_pf_dicts[0][t] for t in ctx.all_targets}
         logger.info(f"✅ HydranetManager: Forecast complete — {len(result)} targets.")
+        # ⚠️ `directory_must_exist=False`: the pipeline's `save_pf` creates
+        # `predictions_forecasting_{ts}` only after this method returns, so the directory cannot be
+        # there yet. The derivation is still verified — the path is built from the same formula the
+        # pipeline uses — and the manifest lands where the frames are about to.
+        self._write_emission_manifest(
+            ctx, "forecasting", artifact_name, directory_must_exist=False
+        )
         return result
 
     def _evaluate_sweep(self, eval_type: str, model: Any) -> "dict[str, list[PredictionFrame]]":

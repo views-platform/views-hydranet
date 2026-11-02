@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 import numpy as np
 import torch
 
+from views_hydranet.infrastructure.emission_manifest import OriginRecord
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
@@ -108,6 +109,113 @@ class InferenceOrchestrator:
         # measure which one the emitted field follows. See HydraNetInference._roll_driver.
         self.per_step_roll: Optional[str] = None
         self.inference: Optional[HydraNetInference] = None
+        # ADR-074: what this run actually emitted, recorded as it is emitted rather than
+        # reconstructed afterwards. The manager reads this to write the emission manifest.
+        # Populated in both prediction loops; empty until a run has produced something.
+        self.emitted_origins: List[OriginRecord] = []
+        # ADR-078: the 1-based horizons this run WRITES. None = all of them. Read from the config
+        # rather than defaulted here, because `HydraNetConfig` owns the default and the range
+        # check — a shadow default in this layer would mean a schema change silently failed to
+        # reach the one place that acts on it.
+        # ⛔ Selection reaches the ASSEMBLER only. Nothing above it changes: the rollout runs to
+        # full depth, because the twelfth horizon exists only if the first eleven were computed
+        # (ADR-078 §2.2). This field makes the output smaller, never the run shorter.
+        self.emit_horizons: Optional[List[int]] = config.get("emit_horizons")
+
+    @staticmethod
+    def _months_of(window: VolumeHandler) -> tuple:
+        """The month of each time step in *window*, in horizon order (ADR-074 section 2.2).
+
+        Read from the window the run actually used, via the labelled time axis and the named time
+        channel — not by assuming an axis position. This repository's worst incidents came from
+        code that guessed which axis was time and drifted silently when the data changed shape.
+
+        A month is a property of a time step, not of a cell, so the value must be constant across
+        the spatial axes at a given step. That is asserted rather than assumed: if it is ever
+        false the volume is malformed, and a manifest built from it would be confidently wrong.
+        """
+        t_axis = window.get_axis_idx("T")
+        m_idx = window.channel_map.index(window.time_col)
+        times = np.asarray(window.data)[..., m_idx]
+
+        months = []
+        for step in range(times.shape[t_axis]):
+            plane = np.take(times, step, axis=t_axis)
+            first = plane.flat[0]
+            if not np.all(plane == first):
+                err_msg = (
+                    f"ADR-074: the time channel is not constant across the spatial axes at step "
+                    f"{step} — a month must be a property of a time step, not of a cell. The "
+                    f"volume is malformed and any horizon-to-month map built from it would be "
+                    f"wrong. Refusing to record it."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+            months.append(int(first))
+        return tuple(months)
+
+    def _record_emitted_origin(
+        self,
+        sequence_number: int,
+        origin: int,
+        window: VolumeHandler,
+        pf_dict: Dict[str, "PredictionFrame"],
+    ) -> None:
+        """Record one origin's identity for the ADR-074 manifest, from what was just emitted.
+
+        ``sequence_number`` is the position this origin occupies in the output — the number its
+        directory gets. ``origin`` is the origin itself. Both are recorded because only the first
+        reaches disk today, which is why two artifacts of one run cannot currently be joined.
+        """
+        months = self._months_of(window)
+        any_frame = next(iter(pf_dict.values()))
+        n_rows = int(any_frame.n_rows)
+        emitted = self._emitted_horizons_of(any_frame, months, origin)
+
+        if emitted and n_rows % len(emitted):
+            err_msg = (
+                f"ADR-074: origin {origin} emitted {n_rows} rows over {len(emitted)} emitted "
+                f"horizons, which does not divide. A per-horizon row count recorded from this "
+                f"would be a rounded number presented as an exact one. Refusing to record it."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        self.emitted_origins.append(
+            OriginRecord(
+                sequence_number=sequence_number,
+                origin_index=origin,
+                first_month=months[0] if months else -1,
+                horizon_months=months,
+                emitted_horizons=emitted,
+                rows_per_horizon=n_rows // len(emitted) if emitted else 0,
+            )
+        )
+
+    @staticmethod
+    def _emitted_horizons_of(frame: "PredictionFrame", months: tuple, origin: int) -> tuple:
+        """Which 1-based horizons this frame actually contains (ADR-078), measured not assumed.
+
+        ⭐ Read from the emitted frame's own time index and matched against the window's months —
+        **never** from `self.emit_horizons`. A manifest assembled from the configuration would
+        agree with the configuration by construction, and would therefore report the requested
+        subset even on a run that wrote something else. That is precisely the comparison ADR-074
+        §2.3 exists to keep possible.
+
+        A month in the frame that the window does not contain means the two disagree about what
+        this origin is, so it is refused rather than dropped.
+        """
+        present = {int(m) for m in np.asarray(frame.index.time)}
+        unknown = sorted(present - set(months))
+        if unknown:
+            err_msg = (
+                f"ADR-074: origin {origin} emitted rows for month(s) {unknown}, which are absent "
+                f"from the window it was forecast over ({months}). The frame and the window "
+                f"disagree about what this origin is; refusing to record either as the truth."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return tuple(i + 1 for i, m in enumerate(months) if m in present)
 
     def _run_inference_pipeline(
         self,
@@ -226,6 +334,7 @@ class InferenceOrchestrator:
         # Kept so a diagnostic driver can read `inference.feedback_field_stats` after the run —
         # the per-step record of the field each arm ACTUALLY fed. Production ignores it.
         self.inference = inference
+        self.emitted_origins = []
         assembler = PredictionFrameAssembler()
         list_pf_dicts: List[Dict[str, "PredictionFrame"]] = []
 
@@ -246,8 +355,12 @@ class InferenceOrchestrator:
                 history=window_handler,
                 start_idx=0,
                 all_targets=all_targets,
+                emit_horizons=self.emit_horizons,
             )
             list_pf_dicts.append(pf_dict)
+
+            # ADR-074: record what was emitted, before the window it came from is freed.
+            self._record_emitted_origin(i, origin, window_handler, pf_dict)
 
             # Explicit per-origin memory release
             del pred_handler, window_handler
@@ -303,6 +416,7 @@ class InferenceOrchestrator:
         # Kept so a diagnostic driver can read `inference.feedback_field_stats` after the run —
         # the per-step record of the field each arm ACTUALLY fed. Production ignores it.
         self.inference = inference
+        self.emitted_origins = []
         assembler = PredictionFrameAssembler()
 
         for i, origin in enumerate(origins):
@@ -322,7 +436,11 @@ class InferenceOrchestrator:
                 history=window_handler,
                 start_idx=0,
                 all_targets=all_targets,
+                emit_horizons=self.emit_horizons,
             )
+
+            # ADR-074: record what was emitted, before the window it came from is freed.
+            self._record_emitted_origin(i, origin, window_handler, pf_dict)
 
             # Free inference objects before sink
             del pred_handler, window_handler

@@ -215,7 +215,41 @@ rather than by discipline.
 - *Beige:* a manifest from an earlier version is readable, or refused with a version message, and
   never silently misread.
 
-**Not yet enforced.** None of these tests exists, and neither does the manifest.
+**Enforced as of 2026-11-02.** The manifest exists, and each test above is named below. The
+record and its writer are tested in isolation, from literals, with no model and no run; the
+provenance tests run the real inference path against a stand-in model.
+
+| test above | where it lives |
+|---|---|
+| every field agrees with the configuration and the artifacts | `tests/test_emission_manifest_adversarial.py` |
+| a falsified field fails | `tests/test_emission_manifest_adversarial.py` |
+| altering the configuration object changes the manifest | `tests/test_emission_manifest_adversarial.py`, with a second test showing that assertion failing against a premature snapshot |
+| a recorded origin joins its directory to its first month | `tests/test_emission_manifest_adversarial.py` and `tests/test_emission_manifest_wiring.py` |
+| an earlier version is readable or refused | `tests/infrastructure/test_emission_manifest.py` |
+| the manifest is written for the run's own partition | `tests/test_emission_manifest_run_type.py` |
+
+**That last test is not one this section originally asked for, and it is the most important one
+here.** The manifest first shipped describing a partition the run did not have, because the value
+threaded into it was a logging label rather than the partition. Nothing failed: the artifact
+resolved to nothing, the derived directory named a path that never exists, and the clause that
+keeps a finished run from being discarded absorbed the difference. Every test of the day passed a
+label that happened to equal the partition, so the two were never distinguishable. ⇒ The test now
+makes them differ on purpose, across every legal value of the label.
+
+**Still not enforced.** Two things, and both are gaps in evidence rather than in intent.
+
+- The invariant that prediction arrays stay byte-identical at the same seed is **not verified**. It
+  needs a trained model and a real run, which no test here performs; the tests establish only that
+  the manifest is additive by construction, which is weaker.
+- The version test covers **refusal** of an unknown version, not **reading** an older one. No
+  earlier version has ever been written, so there is nothing to read; if one is ever published,
+  that half becomes real work rather than a formality.
+
+**Also unverified by anything here.** The horizon-to-month map is asserted to be per-origin and
+correct for that origin, but not asserted to have been *read* rather than computed: a volume's
+time axis is always a dense range from its observed minimum, so arithmetic on the origin and a
+read of the window are indistinguishable in their results. What stands in for that is structural —
+the module cannot import a configuration loader or a subprocess, which is itself asserted.
 
 **What would reopen this.** If the manifest and the prediction-frame identifiers ever disagreed
 about a row's horizon or origin, this ADR would have created a second source of truth, which ADR-003

@@ -22,7 +22,7 @@ The lifecycle tests are the long-term regression contract.
 import gc
 import inspect
 import weakref
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
 import torch
@@ -516,9 +516,23 @@ class TestGreenStreamingEvalInterface:
             emitted_indices.append(i)
             emitted_dicts.append(pf_dict)
 
+        # ADR-074: the streaming path now reads `self.configs["run_type"]` to write the emission
+        # manifest for the run's own PARTITION — the first positional argument is the CLI's
+        # `eval_type` (`standard`/`complete`/`live`) and is only a logging label, so it cannot be
+        # used for that. `manager` here is a bare `object.__new__`, which has no `_config_manager`
+        # and therefore no `configs`, so the property is supplied for the duration of the call.
+        # ⚠️ The test is adjusted rather than the code: reading `configs` for `run_type` is what
+        # pipeline-core itself does (`managers/model/model.py:1817`), and `run_type` is one of its
+        # `_SAFETY_CRITICAL_KEYS`, set from `args.run_type` at the highest merge priority.
         with (
             patch.object(HydranetManager, "_load_model_artifact", return_value=MagicMock()),
             patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx),
+            patch.object(
+                HydranetManager,
+                "configs",
+                new_callable=PropertyMock,
+                return_value={"run_type": "calibration"},
+            ),
         ):
             manager._evaluate_model_artifact_streaming("calibration", None, sink)
 
@@ -589,6 +603,14 @@ class TestGreenStreamingEvalInterface:
         with (
             patch.object(HydranetManager, "_load_model_artifact", return_value=MagicMock()),
             patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx),
+            # ADR-074, as in `_run_streaming` above: the method reads `configs["run_type"]` for the
+            # manifest, and this manager is a bare `object.__new__` with no `_config_manager`.
+            patch.object(
+                HydranetManager,
+                "configs",
+                new_callable=PropertyMock,
+                return_value={"run_type": "calibration"},
+            ),
         ):
             manager._evaluate_model_artifact_streaming("calibration", None, sink_with_weakref)
 

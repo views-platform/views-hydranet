@@ -248,6 +248,21 @@ class HydraNetConfig(BaseModel):
     # SWALLOW this key on a package that predates it, and the arm would run byte-identical to its
     # control and look like a clean null — the W-22 trap, which cost one confounded run already.
     emit_distribution: str | None = Field(default=None)
+    # ADR-078: which HORIZONS the run WRITES. 1-based and positional — 1 is the first
+    # forecast month, `time_steps` the last. None (default) = all of them, so every existing
+    # config emits exactly what it emits today.
+    # ⛔ This selects EMISSION, never COMPUTATION. A rollout cannot skip months (horizon 12
+    # exists only because 1..11 were computed), so asking for two horizons does NOT shorten the
+    # run — it shortens the OUTPUT. The name says `emit_` for that reason (ADR-078 §2.1): the
+    # field beside it, `steps`, already looks like a horizon selector and is not (only its
+    # LENGTH is read), and expecting a speed-up is this field's single most likely misuse.
+    emit_horizons: list[int] | None = Field(
+        default=None,
+        description=(
+            "ADR-078: 1-based horizons to EMIT; None = all. Selects what is written, not what "
+            "is computed — a subset does not shorten the run, only its output."
+        ),
+    )
     # The per-task loss trajectory sink (#398). READ by `training_engine.py:1661` via
     # `config.get(...)`, and until 2026-10-21 NOT declared here — so it rode on `extra="allow"`
     # like any foreign key. ⛔ That made it unverifiable: a pod pre-flight could not confirm the
@@ -1096,6 +1111,96 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_steps_are_contiguous(self) -> "HydraNetConfig":
+        """ADR-078 §2.3: `steps` is a COUNT, not a selector, so it must say so.
+
+        Inside this repository only the list's LENGTH is read — by the training-window slice, by
+        the checksum below, and by the reproducibility record. The VALUES are read nowhere on the
+        inference path, so a sparse list produces that many CONSECUTIVE horizons rather than the
+        ones it names.
+
+        ⚠️ The trap is narrower than it looks, and the difference is worth stating rather than
+        overclaiming: on an EVALUATION run pipeline-core builds its month-to-step mapping from the
+        declared values and raises on any predicted month outside it, so a sparse list fails
+        loudly there. On a FORECASTING run that check is not called, so the mismatch stands. ⇒ The
+        values are read across the repository boundary even though they are not read here, which
+        is why this validator protects a contract that is not ours and the message below is
+        careful rather than terse.
+
+        ✅ Latent, not firing: every configuration in views-models declares `1..36` (134 of 134,
+        checked rather than assumed), so no past result is affected.
+        """
+        if not self.steps:
+            err_msg = (
+                "steps is empty, so the run declares no horizons to forecast. It is the COUNT of "
+                "rollout steps (ADR-078 §2.3), and a count of zero has nothing to produce."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        expected = list(range(1, len(self.steps) + 1))
+        if self.steps != expected:
+            err_msg = (
+                f"steps={self.steps} is not contiguous and ascending from 1. Only its LENGTH is "
+                f"read here, so a sparse or reordered list produces {len(self.steps)} CONSECUTIVE "
+                f"horizons ({expected}) rather than the ones it names — and on a forecasting run "
+                f"nothing downstream catches the mismatch. `steps` is a COUNT of rollout steps, "
+                f"not a selector (ADR-078 section 2.3).\n"
+                f"⇒ To EMIT a sparse set of horizons, declare `steps={expected}` and set "
+                f"`emit_horizons` to the horizons you want written — that field selects output "
+                f"and is honoured at the write point."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_emit_horizons(self) -> "HydraNetConfig":
+        """ADR-078 §2.1: refuse a horizon the run does not produce, at construction.
+
+        The alternative is emitting fewer artifacts than were asked for and discovering it during
+        analysis, when the only evidence left is a missing directory — indistinguishable from a
+        partial failure. Duplicates and a descending order are refused for the same reason: both
+        describe an emission the writer cannot carry out, and silently normalising them would make
+        the manifest disagree with the field that produced it (ADR-074).
+
+        ⛔ Range is `1..time_steps`, which the checksum law ties to `len(steps)`. This validator
+        says nothing about whether the selection is contiguous — it need not be; that constraint
+        belongs to `steps`, which is a count rather than a selector (ADR-078 §2.3).
+        """
+        if self.emit_horizons is None:
+            return self
+
+        if not self.emit_horizons:
+            err_msg = (
+                "emit_horizons is an empty list, which asks for a run that writes nothing. Omit "
+                "the field to emit every horizon (ADR-078 §2.1)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        out_of_range = [h for h in self.emit_horizons if h < 1 or h > self.time_steps]
+        if out_of_range:
+            err_msg = (
+                f"emit_horizons={self.emit_horizons} names horizon(s) {out_of_range} that this "
+                f"run does not produce: horizons are 1-based and this run rolls out "
+                f"{self.time_steps} of them (1..{self.time_steps}). Refusing rather than "
+                "emitting fewer artifacts than were requested (ADR-078 §2.1)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        if sorted(set(self.emit_horizons)) != self.emit_horizons:
+            err_msg = (
+                f"emit_horizons={self.emit_horizons} must be ascending and without duplicates. "
+                "Reordering it here would leave the recorded selection disagreeing with the one "
+                "that was declared (ADR-074)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")

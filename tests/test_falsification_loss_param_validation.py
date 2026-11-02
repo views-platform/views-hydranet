@@ -38,7 +38,8 @@ class TestF5_CICFieldCountDrift:
         # +freeze_recurrent_weight -> 98
         # C-184 mitigation promoted out of a shadow default: +bn_recalibrate -> 99
         # #377: +require_cuda -> 100
-        CIC_CLAIMED_COUNT = 104
+        # ADR-078 / Epic #500 S4: +emit_horizons -> 105
+        CIC_CLAIMED_COUNT = 105
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "
