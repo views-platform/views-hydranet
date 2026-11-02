@@ -1,11 +1,11 @@
 # ADR-072: Input data enters the model as a frame, not as a pandas DataFrame
 
-**Status:** Proposed
-**Date:** 2026-08-13 (rewritten 2026-11-02)
+**Status:** Accepted
+**Date:** 2026-08-13 (rewritten and accepted 2026-11-02)
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers
 **Builds on:** ADR-047 (the output path, already pandas-free), ADR-046 (feature lifecycle), ADR-019 (feature scaler), ADR-060 (static channels)
-**Related:** ADR-076 (the provider, which this assumes settled)
+**Related:** ADR-076 (the migration bar). This ADR assumes the current data provider, which every model already declares
 
 ## Summary (read this first — self-contained)
 
@@ -137,6 +137,10 @@ refactor and the decision lapses rather than being relaxed.
 
 ## 6. Implementation Notes
 
+- **Status of the work.** The decision is taken: the input path goes pandas-free. **The work is
+  not scheduled**, and nothing below is built. An accepted ADR states what the code owes, not what
+  it currently does, and the parity gate in §2.2 is the precondition for *deleting* pandas rather
+  than for taking the decision.
 - **Location.** A new constructor on the volume builder, taking a frame; the fetch, transform and
   validate steps swap their container. The volume-write loop itself does not change.
 - **Noted, not addressed.** The module layout, the size of the volume builder, and the one pandas
