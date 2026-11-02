@@ -253,3 +253,101 @@ def test_a_non_utf8_default_encoding_cannot_break_the_read(tmp_path):
     )
     (found,) = collect(tmp_path)
     assert found.region == "land"
+
+
+# ─── What the test above cannot see ─────────────────────────────────────────
+#
+# ⛔ `test_a_non_utf8_default_encoding_cannot_break_the_read` is DECORATIVE: it writes valid UTF-8
+# and reads it with `encoding="utf-8"`, so no decode error is ever raised. It is named after a
+# defect it cannot reproduce — both halves of it. A guard audit removed `ValueError` from the
+# handler and then the `encoding=` argument itself, and the suite stayed green at *2504 passed*.
+
+
+def test_an_undecodable_configuration_is_reported_rather_than_raised(tmp_path):
+    """⛔ `UnicodeDecodeError` subclasses `ValueError`, NOT `OSError`.
+
+    So with `ValueError` absent from the handler it escapes `read_literal` entirely, lands in the
+    emission manifest writer's own `except`, and the whole ADR-077 coverage field silently records
+    nothing — reported in a line indistinguishable from an unwritable disk.
+
+    ⇒ The bytes here are invalid UTF-8 (`0xE9` alone is a complete latin-1 `é` and an illegal UTF-8
+    sequence), which is what makes the decode actually fail instead of merely being non-ASCII.
+    """
+    queryset = tmp_path / "config_queryset.py"
+    queryset.write_bytes(b'REGION = "caf\xe9"\n')
+
+    region, note = read_literal(queryset, "REGION")
+
+    assert region is None
+    assert note.startswith("unparseable:"), (
+        f"got {note!r}; an undecodable descriptor must be reported as unreadable, not allowed to "
+        f"escape into a caller that will report it as something else"
+    )
+
+
+def test_a_whole_census_survives_one_undecodable_descriptor(tmp_path):
+    """⭐ The reason the handler is there at all: one bad file must not take the census with it.
+
+    A straggler survives by being skipped, and a census that dies on its first unreadable model
+    reports nothing about the other sixteen.
+    """
+    good = tmp_path / "models" / "good" / "configs"
+    good.mkdir(parents=True)
+    (good / "config_queryset.py").write_text('REGION = "land"\n', encoding="utf-8")
+    bad = tmp_path / "models" / "bad" / "configs"
+    bad.mkdir(parents=True)
+    (bad / "config_queryset.py").write_bytes(b'REGION = "caf\xe9"\n')
+
+    found = {d.model: d for d in collect(tmp_path)}
+
+    assert found["good"].region == "land"
+    assert found["bad"].region is None
+    assert found["bad"].note.startswith("unparseable:")
+
+
+def test_the_descriptor_is_read_as_utf_8_whatever_the_locale_says(tmp_path, monkeypatch):
+    """⚠️ A wiring assertion, and labelled as one, for the same reason as the manifest's.
+
+    All 17 HydraNet descriptors contain non-ASCII. Without `encoding=`, `read_text` uses the
+    locale's encoding, so on a non-UTF-8 pod every coverage read fails and every manifest records
+    `declared_coverage: null`. This machine's locale is UTF-8, so no behavioural test here can tell
+    the two apart — the guard is on the call.
+    """
+    seen = {}
+    real = Path.read_text
+
+    def capture(self, *args, **kwargs):
+        if self.name == "config_queryset.py":
+            seen.update(kwargs)
+        return real(self, *args, **kwargs)
+
+    queryset = tmp_path / "config_queryset.py"
+    queryset.write_text('REGION = "land"  # — an em dash\n', encoding="utf-8")
+    monkeypatch.setattr(Path, "read_text", capture)
+
+    assert read_literal(queryset, "REGION") == ("land", "")
+    assert seen.get("encoding") == "utf-8", (
+        f"the descriptor was read with {seen.get('encoding')!r}; on a non-UTF-8 locale every "
+        f"HydraNet's coverage would fail to read and the manifest would record it as unknown"
+    )
+
+
+def test_a_non_string_literal_extent_is_reported_not_returned(tmp_path):
+    """⛔ `isinstance(value.value, str)` is load-bearing, and nothing tested it.
+
+    `REGION = None` is an `ast.Constant`, so dropping the type check returns `None` as the declared
+    coverage — which is exactly the value that means *could not be read*. The manifest would then
+    record a non-string extent, `is_global_land` would read `False` with no note, and the two
+    distinct findings ADR-077 keeps apart would have collapsed into one.
+    """
+    for source, shown in (("REGION = None\n", "None"), ("REGION = 0\n", "0")):
+        queryset = tmp_path / "config_queryset.py"
+        queryset.write_text(source, encoding="utf-8")
+
+        region, note = read_literal(queryset, "REGION")
+
+        assert region is None
+        assert note == f"assigned non-literally: {shown}", (
+            f"{source.strip()!r} yielded {note!r}; a non-string constant must be reported as "
+            f"unresolved, not returned as the extent"
+        )

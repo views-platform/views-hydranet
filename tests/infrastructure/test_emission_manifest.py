@@ -10,6 +10,7 @@ round-trip passing says the writer works; it says nothing about whether the valu
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -225,3 +226,144 @@ def test_a_refusal_leaves_no_directory_behind(tmp_path):
     with pytest.raises(TypeError):
         write_manifest(_manifest(resolved_config={"bad": object()}), target)
     assert not target.exists(), "a refused write still created its output directory"
+
+
+# ─── The lossy cases a guard audit found unguarded ──────────────────────────
+#
+# ⛔ Each of the five below was a mutation that left the whole suite green at *2504 passed*. Three
+# were WEAK guards — a test existed and could not see the thing it was named after — and one,
+# `_refuse_lossy`'s recursion, was a hole in production rather than only in the tests: `json.dumps`
+# coerces a NESTED non-string key silently, so nothing ever raised and nothing ever noticed.
+
+
+def test_the_nan_s_own_key_is_named_in_the_refusal(tmp_path):
+    """⛔ `test_a_nan_is_refused...` above is WEAK: it matches a message `allow_nan=False` produces
+    on its own, so making `_json_native` accept NaN again leaves it green.
+
+    What the predicate is actually for is NAMING the key. While it answered `True` for non-finite
+    floats the write still failed — and the diagnostic read *"none — the problem is elsewhere"*,
+    pointing the caller nowhere. The offender list is the whole value of the refusal; the refusal
+    itself would happen regardless.
+    """
+    bad = _manifest(resolved_config={"loss_reg_a": float("nan"), "fine": 2})
+    with pytest.raises(TypeError) as exc:
+        write_manifest(bad, tmp_path)
+
+    assert "loss_reg_a" in str(exc.value), (
+        f"the refusal does not name the offending key: {exc.value}. A caller has to fix one "
+        f"specific key and the type alone does not say which"
+    )
+    assert "none — the problem is elsewhere" not in str(exc.value)
+
+
+def test_a_nested_non_string_key_is_refused_too(tmp_path):
+    """⛔⛔ Not a weak test — a hole in the writer, found by mutating the predicate.
+
+    `json.dumps({"partitions": {1: "x"}}, sort_keys=True)` writes `{"partitions": {"1": "x"}}` and
+    raises **nothing**: the inner keys are all of one type, so sorting is happy, and the coercion
+    is silent. `_refuse_lossy` checked only the top level, and `_json_native` — which knew the rule
+    — was consulted solely to name an offender *after* a failure. For the one case JSON performs
+    quietly instead of loudly, nothing asked it. ⇒ The record did not round-trip to the
+    configuration the run used, which is the single claim this module makes.
+    """
+    bad = _manifest(resolved_config={"partitions": {1: "x"}})
+    with pytest.raises(TypeError, match="not serialisable without loss"):
+        write_manifest(bad, tmp_path)
+    assert not (tmp_path / MANIFEST_FILENAME).exists()
+
+
+def test_a_nested_tuple_is_still_accepted(tmp_path):
+    """*Green, and it is the guard on the fix.*
+
+    The first draft of `_refuse_lossy` refused tuples and would have killed the feature on every
+    live run, because pipeline-core's partition bounds are tuples. Recursing must not reintroduce
+    that: `{'partitions': {'train': (121, 530)}}` is the shape every real configuration carries.
+    """
+    path = write_manifest(
+        _manifest(resolved_config={"partitions": {"train": (121, 530), "test": (531, 540)}}),
+        tmp_path,
+    )
+    assert read_manifest(path).resolved_config["partitions"]["train"] == [121, 530]
+
+
+def test_a_failure_inside_asdict_still_gets_the_explaining_message(tmp_path):
+    """⚠️ `asdict` recurses the whole record and deep-copies every value, so it can raise too.
+
+    Outside the guarded region that failure bypassed every message below it, and the caller got
+    whatever the copy raised. Moving it inside the `try` was the fix; this is what notices if it
+    moves back out.
+    """
+
+    class RefusesToBeCopied:
+        def __deepcopy__(self, _memo):
+            raise TypeError("this value cannot be copied")
+
+    bad = _manifest(resolved_config={"exotic": RefusesToBeCopied()})
+    with pytest.raises(TypeError, match="not serialisable without loss"):
+        write_manifest(bad, tmp_path)
+    assert not (tmp_path / MANIFEST_FILENAME).exists()
+
+
+def test_horizon_zero_is_refused_as_firmly_as_a_horizon_past_the_end(tmp_path):
+    """⛔ `test_a_horizon_outside_the_map...` tests the UPPER bound only, so `h < 1` → `h < 0`
+    survived — and horizon 0 does not exist, because horizons are 1-based.
+
+    It has no month in the map, so the pair is unreadable, while the record looks complete.
+    """
+    with pytest.raises(ValueError, match="absent from a horizon_months map"):
+        OriginRecord(
+            sequence_number=0,
+            origin_index=457,
+            first_month=458,
+            horizon_months=(458, 459),
+            emitted_horizons=(0,),
+            rows_per_horizon=4,
+        )
+
+
+def test_two_runs_that_produced_the_same_record_write_the_same_bytes(tmp_path):
+    """⛔ `test_the_written_form_is_stable` builds both manifests from the SAME literal dict, so
+    their insertion order already matches and `sort_keys=False` survives it.
+
+    A dict's iteration order is its insertion order, and two runs can reach the same configuration
+    by different routes — a merge of five sources, in pipeline-core's case. If the bytes depend on
+    that, the manifest stops being a thing one can compare, which is the stated reason the stable
+    form is required at all.
+    """
+    one = {"alpha": 1, "beta": 2, "gamma": 3}
+    other = {"gamma": 3, "alpha": 1, "beta": 2}
+    assert list(one) != list(other), "the fixture must differ in insertion order"
+
+    first = write_manifest(_manifest(resolved_config=one), tmp_path / "first")
+    second = write_manifest(_manifest(resolved_config=other), tmp_path / "second")
+
+    assert first.read_text(encoding="utf-8") == second.read_text(encoding="utf-8"), (
+        "the same record written twice produced different bytes; the written form depends on the "
+        "order the configuration happened to be built in"
+    )
+
+
+def test_the_manifest_is_written_as_utf_8_whatever_the_locale_says(tmp_path, monkeypatch):
+    """⚠️ A wiring assertion, and labelled as one because it cannot be anything else here.
+
+    Without `encoding=`, `write_text` uses the locale's encoding. On a non-UTF-8 pod any non-ASCII
+    config value raises `UnicodeEncodeError`, the writer's `except` swallows it, and the manifest
+    silently never appears. This machine's locale **is** UTF-8, so no behavioural test on it can
+    tell the two apart — the honest guard is on the call, and saying so is better than a test that
+    would pass either way.
+    """
+    seen = {}
+    real = Path.write_text
+
+    def capture(self, data, *args, **kwargs):
+        if self.name == MANIFEST_FILENAME:
+            seen.update(kwargs)
+        return real(self, data, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", capture)
+    write_manifest(_manifest(resolved_config={"note": "Ødegård"}), tmp_path)
+
+    assert seen.get("encoding") == "utf-8", (
+        f"the manifest was written with {seen.get('encoding')!r}; on a non-UTF-8 locale a "
+        f"non-ASCII config value would make the write raise and the manifest never appear"
+    )

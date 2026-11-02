@@ -216,8 +216,29 @@ def _refuse_lossy(resolved_config: dict) -> None:
         )
         logger.error(err_msg)
         raise TypeError(err_msg)
+
+    # ⛔ And again at EVERY DEPTH, which the check above cannot see. `json.dumps` coerces a nested
+    # non-string key exactly as silently as a top-level one — `{"partitions": {1: "x"}}` is written
+    # as `{"partitions": {"1": "x"}}` and raises **nothing**, with `sort_keys=True` perfectly happy
+    # because the inner keys are of one type. So the refusal never fired and the record did not
+    # round-trip, which is the one thing this module claims it does.
+    # ⚠️ `_json_native` already knew the rule. It was only ever consulted to NAME an offender in
+    # the handler *after* a failure, never to cause one — so for the single case json performs
+    # silently rather than loudly, nothing asked it. A guard mutation audit found it: the predicate
+    # could be made to accept nested non-string keys with the whole suite green.
+    lossy_values = sorted(
+        (repr(k) for k, v in resolved_config.items() if not _json_native(v)), key=str
+    )
+    if lossy_values:
+        err_msg = (
+            f"resolved_config key(s) {lossy_values} hold values JSON cannot write without loss — "
+            f"a non-finite float, or a nested non-string dict key, which JSON coerces silently. "
+            f"Convert them at the call site; this module records what it is given"
+        )
+        logger.error(err_msg)
+        raise TypeError(err_msg)
     # ⚠️ Tuples are deliberately NOT refused here — see the caller's docstring. They become lists,
-    # and every live configuration contains them.
+    # and every live configuration contains them, so `_json_native` accepts them too.
 
 
 def read_manifest(path: Path | str) -> EmissionManifest:

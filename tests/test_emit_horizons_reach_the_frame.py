@@ -154,6 +154,15 @@ def test_only_the_selected_horizons_appear(env):
     origins = _origins(env)
     frames, orch = _run(env, origins, [1, 2])
 
+    # ⛔ Non-vacuity first. Every loop below iterates `emitted_origins`, so an empty list
+    # passes every assertion in it without running one. `_record_emitted_origin` is designed
+    # to SKIP rather than raise, so any defect that stops it recording produces exactly that
+    # empty list — a guard audit deleted three of its refusal branches with the suite green.
+    assert len(orch.emitted_origins) == len(frames), (
+        f"{len(frames)} origins emitted but {len(orch.emitted_origins)} recorded; the "
+        f"loop below would pass vacuously"
+    )
+
     for frame_dict, recorded in zip(frames, orch.emitted_origins):
         months = sorted({int(m) for m in np.asarray(frame_dict[TARGETS[0]].index.time)})
         assert months == list(recorded.horizon_months[:2])
@@ -163,6 +172,8 @@ def test_the_default_emits_every_horizon(env):
     """*Green:* a run that sets nothing is unchanged — the whole-window row count is unaffected."""
     origins = _origins(env)
     frames, orch = _run(env, origins, None)
+
+    assert len(orch.emitted_origins) == len(frames), "nothing was recorded to check"
 
     for frame_dict, recorded in zip(frames, orch.emitted_origins):
         assert recorded.emitted_horizons == tuple(range(1, CFG["time_steps"] + 1))
@@ -180,6 +191,17 @@ def test_the_record_declares_the_subset_and_keeps_the_full_horizon_map(env):
     emitted set shrinks.
     """
     _, orch = _run(env, _origins(env), [2])
+
+    # ⛔ Non-vacuity first. Every loop below iterates `emitted_origins`, so an empty list
+    # passes every assertion in it without running one. `_record_emitted_origin` is designed
+    # to SKIP rather than raise, so any defect that stops it recording produces exactly that
+    # empty list — a guard audit deleted three of its refusal branches with the suite green.
+    # ⇒ And note what an INVERTED completeness check would do here specifically: every
+    # legitimate subset run would record nothing, which without this line reads as a pass.
+    assert orch.emitted_origins, (
+        "a declared subset recorded NO origins — the manifest would show `origins: []` "
+        "beside real prediction directories"
+    )
 
     for recorded in orch.emitted_origins:
         assert recorded.emitted_horizons == (2,)
@@ -210,6 +232,8 @@ def test_the_recorded_subset_is_measured_from_the_frame_not_from_the_config(env)
         )
 
     _, orch = _run(env, _origins(env), [2], assembler_patch=ignore_the_selection)
+
+    assert orch.emitted_origins, "nothing was recorded, so the loop below proves nothing"
 
     for recorded in orch.emitted_origins:
         assert recorded.emitted_horizons == tuple(range(1, CFG["time_steps"] + 1)), (
