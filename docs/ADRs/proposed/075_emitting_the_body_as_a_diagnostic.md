@@ -112,7 +112,7 @@ wanted — a bulk or a tail of a distribution, for instance — without a furthe
 naming. Adding one is still a decision about whether to emit it; this ADR only fixes the shape of
 the name.
 
-⚠️ One possibility the namespace permits and this ADR does **not** propose: the gate is currently a
+One possibility the namespace permits and this ADR does **not** propose: the gate is currently a
 declared target with its own ground truth, and correctly so. If it ever stopped being scored as a
 target it could move into this namespace instead. That is a long way off, is not planned, and would
 need its own decision.
