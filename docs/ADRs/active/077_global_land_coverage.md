@@ -177,8 +177,24 @@ end the census. A coverage that cannot be resolved to a declaration is reported 
 its source expression, never as absent.
 
 One part of it is stronger than this ADR asked for: the check **asserts** that every model of our
-own algorithm declares global land, because the condition stated above is met — every such model
-declares it and the exception count is zero. The remaining declarations are reported, not required.
+own algorithm declares **the same** extent as every other, because the condition stated above is
+met — all 17 agree and the exception count is zero. The remaining declarations are reported, not
+required.
+
+⛔ **It asserts agreement, not a value, and the distinction is deliberate.** `REGION` is a
+configuration field in views-models. An earlier version of the check named `"land"` as a constant
+here and asserted it per model — which made a downstream setting a literal in this repository, so
+moving the fleet to `land_gaul` (the GAUL-boundary spelling of global land: **64,742** cells against
+`land`'s **64,818**, a strict subset, measured through
+`datafactory_query.regions.load_region_pgids`) would have turned this repository's suite red on a
+change that is none of its business. A setting that cannot be changed without releasing a different
+package is not a setting.
+
+⇒ Agreement is also the stronger guard for what this ADR is actually about. The hazard is a
+**straggler** — one model left on a retired extent while the rest move on, which is how a model sat
+on the Africa crop for six weeks — and agreement catches that on any extent, including a spelling
+this repository has never seen. ⚠️ What it does **not** do is decide which extent the project has
+undertaken; that decision is this ADR's §2.1, and it is made here rather than in a predicate.
 
 **Still not enforced.** Two of the three tests above.
 
