@@ -113,6 +113,7 @@ Architectural decisions specific to the HydraNet system.
 - **[050](archive/050_hurdle_loss_architecture.md)**: Hurdle-Decomposed Loss Architecture for Zero-Inflated Conflict Data
 - **[066](archive/066_output_distribution_decomposition.md)**: ADR-066: Rename `output_distribution` to a readable `body` setting (and finally make ZINB nameable)
 - **[071](archive/071_violet_visitor_datafactory_provider.md)**: ADR-071: violet_visitor's data provider is views-datafactory (`africa_me_legacy`)
+- **[076](archive/076_MOVED_provider_migration_parity_bar.md)**: ADR-076: Moved — the provider-migration parity bar is pipeline-core's
 - **[023](archive/proposed_023_scalable_reconstruction_polars.md)**: Scalable Spatiotemporal Reconstruction via Polars Bridge
 
 ---
