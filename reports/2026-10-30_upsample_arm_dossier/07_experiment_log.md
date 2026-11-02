@@ -193,3 +193,144 @@ the measurement — they made it trustworthy.** `P-20` and `P-21` stand exactly 
 
 The audit covered the **guards**. It did not run the arm, and it says nothing about whether the
 remedy improves rollout skill — which remains what `PREREG.md` §6 is for.
+
+---
+
+## 2026-11-01 · THE REFETCH, AND THE SMOKE GATE REFUSING — `P-30` FALSIFIED, local routing CLOSED
+
+**Pre-registration:** `PREREG.md` §13 (amendment 4) for the refetch and `P-30`; §10b for the smoke
+gate. **Driver:** the declared refetch via the pipeline's own `ViewsDataLoader.get_data`
+(`use_saved=False`), then `tools/smoke_exp02.sh` unmodified. **Artifacts:** `results/smoke.jsonl`,
+`results/smoke_ctltinyzero_fortytwo.log`, `results/smoke_upctwotinyzero_fortytwo.log`. **No
+`SMOKE_OK` sentinel was written.**
+
+### 1 · The five numbers §13d required, recorded as required
+
+| | cached (2026-09-19 14:56) | fresh (2026-11-01 02:36) |
+|---|---|---|
+| fetch timestamp | `20260919_145620` | **`20261101_023645`** |
+| rows | 5,034,240 | **24,890,112** |
+| cells (rows / 384) | 13,110 | **64,818** |
+| `month_first` / `month_last` | 121 / 504 | **121 / 504** |
+| `queryset_digest` | `b595ff4d…` | **`b32a221b…`** |
+| `level` | pgm | **pgm** |
+
+⇒ The fresh digest equals the digest recomputed from `config_queryset.py`, so **`C-61` is satisfied**
+and the refusal is cleared honestly rather than bypassed.
+
+### 2 · ⛔ `P-30` IS FALSIFIED — four of five values held, the row count did not
+
+`P-30` predicted *"the same `level`, `month_first`, `month_last` and row count … so the vintage
+change is in cell values only."* Level, both months and the column set held. **The row count moved
+by 4.944×.** ⇒ This is a **shape** change, not a vintage change, and §13d's pre-committed
+consequences therefore fire in full:
+
+| | consequence, as pre-committed |
+|---|---|
+| ⛔ EXP-01 absolute cross-reference | degrades from *indicative* to **VOID**, not merely weakened |
+| ⛔ `P-27` | **unevaluable.** Its ±0.010 band around AP@h18 0.3298/0.3318 was measured on a different population — `C-351` exactly |
+| ✅ `P-23` | **untouched.** All four runs still take the same pull, the same commit, the same box |
+
+⭐ **The error inside `P-30` was a factual misreading, and it was mine.** The prediction's own
+reasoning asserted *"5,034,240 / 384 is exactly 13,110, which is global land rather than the
+Africa+ME crop."* Measured today from the two files' own `row`/`col` columns:
+
+| | cells | longitude | latitude | ⇒ |
+|---|---|---|---|---|
+| cached | 13,110 | −25.2 … +63.2 | −46.8 … +42.2 | **Africa + Middle East** |
+| fresh | 64,818 | −179.8 … +179.8 | −55.8 … +83.2 | **the globe** |
+
+13,110 is the crop; **64,818** is global land. ⚠️ Logged as **`W-122`**.
+
+⭐ **It failed toward correctness.** `views-models/tools/podrun/slice_gate_posterior.py:48` hardcodes
+`EXPECTED_ROWS = 64818`, so the production tooling already assumed global — the cached pull was the
+anomaly, and the refetch brought the floor into agreement with it.
+
+### 3 · ⛔⛔ SMOKE FAILED — both arms OOM-killed in the BACKTEST pass, on HOST RAM
+
+| arch | label | rc | peak GPU | seconds | cube |
+|---|---|---|---|---|---|
+| `HydraBNUNet06_LSTM4` | `ctltinyzero_fortytwo` | **137** | 7695 MiB | 356 | **none** |
+| `UpsampleConv2` | `upctwotinyzero_fortytwo` | **137** | 7148 MiB | 1080 | **none** |
+
+⚠️ **`results/smoke.jsonl` records `peak_mib` — the GPU — and does NOT record host RAM, which is
+the resource that actually killed both runs.** So the machine-readable artifact of this run carries
+the number that was not the constraint and omits the one that was: `W-123`'s own error, surviving in
+the data rather than only in the conclusion. It is stated here rather than fixed because
+`tools/smoke_exp02.sh` is a **frozen instrument** and editing it after it has reported would make
+its two measurements incomparable. ⇒ The host-RAM figures below come from the kernel log, and an
+`anon_peak_mib` field belongs in the instrument's **next** revision, before it is run again.
+
+`rc=137` is SIGKILL, and the kernel names the cause — **not** CUDA, and **not** a cgroup limit:
+
+```
+kernel: Out of memory: Killed process 764682 (python)
+        total-vm:45888452kB  anon-rss:21866476kB   <- ~20.9 GiB resident
+kernel: oom-kill: constraint=CONSTRAINT_NONE ... global_oom
+```
+
+The second run died the same way at `anon-rss:22040352kB` (~21.0 GiB). Host total is **31 GiB** with
+~9 GiB already resident. ⚠️ **Those two kernel lines come from the system journal, not from either
+committed log** — neither contains the string `anon-rss`. The journal is quoted here and is not an
+artifact of this repository; the `rc=137` in `smoke.jsonl` is the part that is.
+
+⛔ **Corrected on re-reading the logs, which this entry originally described without opening.** They
+do **not** stop at the BACKTEST line — four logger lines follow it, and origin 1's posterior draw ran
+to completion at **1484/1484**. No `Origin 2/13` line is ever written, in either run. ⇒ The death
+window is **after origin 1's draw finished and before origin 2 began**, not at the start of the pass.
+That is narrower than §5's disclaimer below allows, and it was legible in the committed evidence the
+whole time; the progress bar is `\r`-rewritten on one line, so a reader who stops at the last
+*logger* line sees the pass as never having started.
+
+⇒ **Training two lessons succeeded; the 13-origin evaluation is what OOMs.** Peak GPU reached 94% of
+the 8188 MiB card but was *not* the killer.
+
+### 3b · ⭐ The cube guard CLEARED this run, and that is a finding about the guard
+
+Both logs carry `assert_cube_fits`' own verdict, four lines after the pass began:
+
+> `cube-fit check: 3.34 GB needed vs 10.37 GB available RAM (headroom 0.85)`
+
+⇒ `disk_guard.assert_cube_fits` — the guard whose whole purpose is to refuse before allocating a
+cube that will not fit — **passed**, and the process then died at **~21 GiB**. It is not broken: it
+sizes the posterior cube it is asked about, and 3.34 GB is right for that cube. But it is **narrower
+than the failure it reads as protecting against**, because the pass's peak is not one cube — and it
+reports *"available RAM"*, which invites exactly the reading that the pass will fit. ⚠️ A guard that
+clears a run which then OOMs is worse than no guard, because its PASS was recorded.
+
+⚠️ Provenance, since it changes how the number is read: both runs imported `views_hydranet` from
+**site-packages** (the 0.1.8 wheel), not from the working tree — visible in every log path. So this
+OOM is in 0.1.8's inference path, which predates epic #500; `emit_horizons` did not exist in the code
+that died, which is consistent with, but not evidence for, the claim that it would not have helped.
+
+### 4 · ⛔ This overturns this session's own earlier conclusion
+
+A scratch measurement of the network alone gave a worst peak of **0.57 GiB** across both
+architectures at 360×720, and I reported *"memory is not the problem, at either end."* The real
+pipeline used **~21 GiB** — **37× more** — and the gap is exactly the term that measurement
+excluded. ⚠️ Its own printed footer said *"network only — excludes the data volume in host RAM, the
+NB sampling draw, disk writes and scoring."* ⇒ **The caveat was stated and then overridden in the
+conclusion**, which is the whole error; measuring the GPU licenses a claim about the GPU, not about
+*memory*. Logged as **`W-123`**.
+
+⭐ **Simon's standing objection was right and had been right since the start of the programme** —
+*"my machine cannot run PGM models, e.g. hydranet, on global scale with this amount of samples"* —
+and so was his correction that inference, not training, is the expensive end. The OOM is in
+inference.
+
+### 5 · What this settles, and what it does not
+
+✅ **The gate worked.** `smoke_exp02.sh` wrote no sentinel, so `launch_exp02.sh` **refuses**; the
+queue cannot be started by accident. This is the gate doing the job §10b describes — the only
+honest memory measurement in the programme — and it earned its place by refusing.
+
+✅ **Local routing is CLOSED on measurement**, not on assumption: 4 arms × an evaluation that needs
+>21 GiB resident cannot run on a 31 GiB box. ⇒ The pod route is the only route, and it must be sized
+on **host RAM** first (≥32 GiB, realistically more) with ~8 GiB of GPU — the opposite of the usual
+selection order.
+
+⛔ **What this entry does not claim.** It says nothing about the remedy's rollout skill. `P-22`…`P-26`
+remain unsettled, no arm has trained, and the 2-lesson smoke deliberately scores nothing. It also
+does not establish *which* allocation inside the backtest pass dominates the 21 GiB — §3 narrows it
+to one origin's worth of work, which is as far as the evidence goes. ⚠️ Sizing a pod on "> 21 GiB" is a floor read off a failure, not a
+measured requirement; the first pod run should record its own peak.

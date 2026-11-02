@@ -37,6 +37,7 @@ class PredictionFrameAssembler:
         history: "VolumeHandler",
         start_idx: int,
         all_targets: List[str],
+        emit_horizons: List[int] | None = None,
     ) -> Dict[str, Any]:
         """
         Convert predictions to a dict of PredictionFrames by slicing a history
@@ -54,6 +55,15 @@ class PredictionFrameAssembler:
         all_targets : List[str]
             Target names (the assembler looks up `pred_{target}` in
             `signal.channel_map`).
+        emit_horizons : List[int] | None
+            ADR-078: the 1-based horizons to WRITE; None (default) writes all of them, which is
+            what every call did before this parameter existed.
+
+            ⛔ This restricts the OUTPUT, never the computation. `signal` arrives already rolled
+            out to its full depth — a rollout cannot skip months — so a subset here drops rows
+            that were computed anyway. It does not make the run shorter, and the bit-identity
+            test in `tests/test_emit_horizons_reach_the_frame.py` is what keeps that true rather
+            than merely stated.
 
         Returns
         -------
@@ -77,13 +87,22 @@ class PredictionFrameAssembler:
             raise ValueError(err_msg)
 
         provider_slice = history.slice_time(start_idx, start_idx + duration)
-        return self._reconstruct_as_pf_dict(signal, provider_slice, all_targets, PredictionFrame)
+        return self._reconstruct_as_pf_dict(
+            signal, provider_slice, all_targets, PredictionFrame, emit_horizons
+        )
 
     def _valid_cell_indices(
-        self, signal: "VolumeHandler", provider: "VolumeHandler"
+        self,
+        signal: "VolumeHandler",
+        provider: "VolumeHandler",
+        emit_horizons: List[int] | None = None,
     ) -> Tuple[np.ndarray, Tuple, np.ndarray, np.ndarray]:
         """
         Shared geometry for the PredictionFrame output path.
+
+        `emit_horizons` (ADR-078) narrows the T axis of the validity mask, so only the selected
+        horizons produce rows. It is applied here, to the mask, rather than by filtering rows
+        afterwards: the rows that are not wanted are then never built.
 
         Returns (temp_data, indices, time_flat, unit_flat) where:
         - temp_data  : signal.data after transpose + North-Up flip  [H, W, T, C, (S)]
@@ -148,6 +167,24 @@ class PredictionFrameAssembler:
         time_idx = provider.channel_map.index(provider.time_col)
 
         mask = p_data[:, :, :, pg_idx] > 0
+
+        # 3b. ADR-078: restrict the T axis to the declared horizons.
+        if emit_horizons is not None:
+            n_steps = mask.shape[2]
+            outside = [h for h in emit_horizons if h < 1 or h > n_steps]
+            if outside:
+                err_msg = (
+                    f"ADR-078: emit_horizons={list(emit_horizons)} names horizon(s) {outside} "
+                    f"that this window does not contain — it spans {n_steps} horizon(s) "
+                    f"(1..{n_steps}). Refusing rather than writing fewer artifacts than were "
+                    f"requested, which on disk is indistinguishable from a partial failure."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+            keep = np.zeros(n_steps, dtype=bool)
+            keep[[h - 1 for h in emit_horizons]] = True
+            mask = mask & keep[None, None, :]
+
         indices = np.where(mask)
 
         time_flat = p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32)
@@ -161,6 +198,7 @@ class PredictionFrameAssembler:
         provider: "VolumeHandler",
         all_targets: List[str],
         PredictionFrame: Any,
+        emit_horizons: List[int] | None = None,
     ) -> Dict[str, Any]:
         """
         Core PredictionFrame assembly. Applies spatial geometry (transpose,
@@ -171,7 +209,9 @@ class PredictionFrameAssembler:
         # identifiers dict (pipeline-core #188 / 3.0.0). hydranet is grid-based → SpatialLevel.PGM.
         from views_frames import SpatialLevel, SpatioTemporalIndex
 
-        temp_data, indices, time_flat, unit_flat = self._valid_cell_indices(signal, provider)
+        temp_data, indices, time_flat, unit_flat = self._valid_cell_indices(
+            signal, provider, emit_horizons
+        )
         has_samples = "S" in signal.axes
         # Index is identical across targets (shared time_flat/unit_flat) — build once.
         index = SpatioTemporalIndex(time=time_flat, unit=unit_flat, level=SpatialLevel.PGM)

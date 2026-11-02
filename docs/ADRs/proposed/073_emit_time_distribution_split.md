@@ -1,10 +1,38 @@
-# ADR-073: Separate the EMITTED distribution family from the TRAINED one
+# ADR-073: What a model emits from need not be what it was trained on
 
-**Status:** Proposed — ⛔ **NOT ADOPTED.** The capability ships default-off; the decision below
-is **not taken**, and `emit_distribution` must not be set in a roster config.
-**Date:** 2026-10-21 · **Verdict added:** 2026-10-22
+**Status:** Proposed — the axis is **open**; the one arm measured so far is **not taken**. The
+capability ships default-off and must not be set in a roster config until an arm is chosen.
+**Date:** 2026-10-21 · **Verdict added:** 2026-10-22 · **Rescoped:** 2026-11-02
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** views-hydranet contributors; views-models roster owners
+
+## Summary (read this first — self-contained)
+
+A HydraNet model has one setting that picks a distribution family, and that family does **two
+jobs**: it shapes the training loss, and it produces the emitted draw. This ADR is about whether
+those two jobs should be separable — whether a model can be **trained on one distribution and
+emitted from another**.
+
+**The capability exists.** It was built, it is shipped, and it is **off by default**: a
+configuration that does not set it behaves exactly as before, bit for bit. Switching it on is
+refused unless the two families have the same number of parameters, which admits exactly one pair
+today.
+
+**One arm has been measured and is not worth taking.** The arm was: train on the plain negative
+binomial, emit **zero-truncated** draws — so the gate decides *whether* violence occurs and the
+body only answers *how many, given some*, instead of the body also having to produce its own zeros.
+Measured, that trade loses more on the quiet cells than it gains on the event cells. §0 carries
+the verdict and three corrections to the numbers it leads with.
+
+⚠️ **The axis is not closed, and that distinction is the point of this document.** What was
+rejected is one parametric swap. What remains open is the general question: *should the head used
+for training be the head used at inference?* A concrete route that would reopen it is in §5 — train
+the regression heads on a plain squared-error loss, take the ranking from that, and attach an
+**empirical** predictive distribution drawn from past outcomes at inference. That is the same axis
+and a completely different arm, and it would need its own experiment.
+
+⇒ So: a built switch, one arm measured and declined, and a live direction. Nothing here is a
+decision to adopt, and nothing here forecloses the axis.
 
 ---
 
@@ -39,15 +67,35 @@ makes it. In summary:
 
 **And the decisive measurement this ADR could not have known.** A **family-free** conditional CDF,
 conditioned on nothing but the model's own `gate x mu` index and fitted on months 421–456, scores
-**0.039327** out of sample on the same 842,634 cell-months with the same m=16 plug-in estimator —
-**−17.6%** against the best parametric cell in §4.3's 2x2 and **−22.5%** against what ships today.
-Bin count **swept**: it loses below 250 bins, crosses around 1,000, peaks at 8,000 and turns back
-down, so the optimum is out-of-sample and not an overfit. **~99.7% of that gain comes from the
+**0.039327** out of sample on the same 842,634 cell-months — **−14.55%** against the best
+parametric cell in §4.3's 2x2 (0.046023) and **−22.5%** against what ships today.
+
+⛔ **THREE CORRECTIONS TO THE LINE ABOVE, 2026-11-02.** The direction survives all three; the
+numbers and the estimator do not.
+
+1. **The anti-overfit argument is withdrawn.** It read: *"bin count swept: it loses below 250
+   bins, crosses around 1,000, peaks at 8,000 and turns back down, so the optimum is out-of-sample
+   and not an overfit."* **M68 withdrew it on 2026-10-27** (`RESULTS_LEDGER.md:425-426`): the
+   turnover is the plug-in estimator's own bias, which grows as equal-count bins shrink, and under
+   the fair estimator the curve never turns over. ⇒ **Nothing in this document now argues that the
+   optimum is not an overfit.**
+2. **The percentage was wrong.** It read −17.6%, which holds only against 0.047741 — truncation
+   alone, which is not the best cell. Against the best cell the figure is **−14.55%**; the
+   independent reproduction records −14.9% plug-in and −15.3% fair (`RESULTS_LEDGER.md:426`).
+3. **The estimator size was wrong, and the figure is unreproduced.** It read *"the same m=16
+   plug-in estimator"*; the implied m is **155** (`PREDICTION_LEDGER.md:386`, R-43). And
+   `PREDICTION_LEDGER.md:307` (W-98) records that **0.039327 has never been produced by any
+   implementation** — the lifted scorer returns different values and the published trio fails its
+   own background/event identity (R-42).
+
+⇒ ⚠️ **Treat the family-free comparison as a direction, not a measurement.** The two findings that
+do not depend on it — the placement inversion and the estimator dependence — are intact, and they
+are what the verdict below rests on. **~99.7% of that gain comes from the
 1.36% of cells where it forecasts anything at all** — it matches the delivered model on the quiet
 background (0.000260 vs 0.000266) and beats it on the conditional law where events occur
 (**10.831 vs 14.589**, −25.7%).
 
-⇒ **Truncation is strictly dominated.** It buys its event-cell gain (14.589 -> 12.034) by *paying*
+⇒ **This arm is dominated.** Truncated *emission* is dominated — which closes that parametric swap, not the train-versus-emit axis itself. It buys its event-cell gain (14.589 -> 12.034) by *paying*
 13.5x on the background (0.000463 -> 0.006274). The family-free fit takes a larger event-cell gain
 at **no background cost**. The live question is therefore not which family to emit from — it is
 that a two-parameter negative binomial cannot represent the conditional law the trunk already ranks
@@ -82,7 +130,7 @@ occurrence while the calibrated half is discarded.
 
 **Assumption no longer true.** `output_distribution` has always been treated as one choice. It is
 two: it selects the family for the **training loss** (`utils/utils.py:186-199`) *and* for the
-**emit-time draw** (`utils/hydranet_inference.py:270`). Nothing requires them to be the same, and
+**emit-time draw** (`utils/hydranet_inference.py:278-280`). Nothing requires them to be the same, and
 the combination that the evidence favours — train as `nb`, emit zero-truncated — is unreachable
 because they share one key.
 
@@ -186,11 +234,22 @@ improper (Lerch et al. **C-79/C-80**) — legitimate as a diagnostic, never as a
 
 ### Relationship to ADR-068 and ADR-069
 
-**ADR-068 (`emit_family_core`) is not subsumed and must not be folded in.** It answers a different
-question: *which part of one family's own distribution to emit* (the π-stripped bulk of a
-self-zeroed family), and it applies only where there is a structural π to strip. This ADR answers
-*which family to emit from at all*. They compose — `emit_family_core` continues to select
-`mean_core`/`sample_core` on whichever family `emit_distribution` resolves to.
+⛔ **CORRECTED 2026-11-02.** This section previously defended `emit_family_core` as a live,
+composable flag and attributed it to ADR-068. Both are wrong:
+
+- **ADR-069 (Active) decided to retire it** — *"Retire `emit_family_core` — the inference flag for
+  the KILLED gated_ZINBcore arm (dead code)"*. This document cannot assert its continued life
+  without reopening that decision, and does not.
+- **`emit_family_core` appears nowhere in ADR-068**, which is a naming-convention ADR. It defines
+  the word *core*; it does not introduce the flag.
+
+⚠️ The flag is nonetheless still present in the code, so **ADR-069's retirement was never
+executed**. That is a code-versus-ADR divergence, recorded as an issue, and not a reason to treat
+the flag as intended design.
+
+The distinction this section was reaching for still holds and does not need the flag: *which part
+of one family's distribution to emit* is a different question from *which family to emit from at
+all*.
 
 **ADR-069 is amended in one respect only.** Its composition rules are statements about the draws the
 gate multiplies, which is the **emitting** family's business. They are re-pointed accordingly, with
@@ -199,7 +258,30 @@ their meanings are untouched.
 
 ---
 
-## 5. ⛔ The open question this ADR does NOT answer
+## 5. What would bring this back
+
+The axis is live. The arm measured in §0 and §4 is a **parametric swap** — one named family
+exchanged for another with the same parameter count — and that is the narrowest version of the
+question. A wider arm is plausible and has not been tried:
+
+**Train the regression heads on a plain squared-error loss, take the ranking that gives, and attach
+an empirical predictive distribution at inference — draws taken from past outcomes rather than from
+a fitted parametric family.**
+
+That differentiates the training head from the inference head completely, rather than swapping one
+family for another, and none of §0's measurement bears on it: the dominance result is about
+truncated *parametric* emission, and an empirical predictive distribution is not a member of the
+family registry at all.
+
+⚠️ It would need its own experiment, and two things this ADR already established would constrain
+it. The parameter-count guard that makes the current switch safe does not apply to a
+non-parametric emitter, so the switch would need a different admissibility rule. And whatever the
+rollout feeds back would have to be decided explicitly rather than inherited from a default — see
+the note below, which is the trap this ADR walked into once.
+
+⇒ Until such an arm is designed, nothing is set and the capability stays off.
+
+## 5a. ⛔ The question about feedback, and the default that was hiding in it
 
 ⛔ **IT WAS NOT OPEN — see §0.** The code already defaults the fed-back draw to the **emitted**
 family, so adopting this ADR would have fed truncated draws through all 36 rollout steps without a
@@ -210,11 +292,11 @@ registered as a risk instead.
 
 **Whether the autoregressive feedback follows the emitted family or the trained one.**
 
-`hydranet_inference.py:1052` resolves the fed-back draw from the same `self._family`, so a naive
+`hydranet_inference.py:1109` resolves the fed-back draw from the same `self._family`, so a naive
 implementation changes the rollout as a side effect of changing emission. Two recorded positions
 conflict:
 
-- **Coherence (C-234, `hydranet_inference.py:1054-1058`):** *"Feeding back the self-zeroed body
+- **Coherence (C-234, `hydranet_inference.py:1115-1116`):** *"Feeding back the self-zeroed body
   while emitting the core makes the rollout incoherent (h≥2 on a history the model never emitted)."*
   By this principle the feedback **must** follow the emitted family.
 - **The bloom record (M45, `RESULTS_LEDGER.md:403`, 4 seeds):** `truncated_nb` moved step-1
@@ -265,10 +347,10 @@ its estimator. Recorded against #436.
 ## 7. Implementation Notes
 
 - **Location.** `distributions/registry.py` (`FAMILY_N_PARAMS`), `utils/config_initializer.py`
-  (field + validators, including the ADR-069 re-point), `utils/hydranet_inference.py:270` (the
+  (field + validators, including the ADR-069 re-point), `utils/hydranet_inference.py:278-280` (the
   single seam — every other `self._family` use is already emit-side).
 - **References.** Epic #428; tracking #440; stories #429–#439.
   `reports/2026-10-21_emit_time_split_prereg.md` (prediction, falsifiers, outcome);
-  `reports/2026-10-13_composition_arm_outcome/OUTCOME.md:77-84` (where this was first named);
+  `reports/2026-10-13_composition_arm_outcome/OUTCOME.md:85-90` (where this was first named);
   #396 (the under-firing diagnosis this answers a piece of); views-models#590 (the decision to stop
   *training* on `truncated_nb`).

@@ -20,6 +20,9 @@ restating a committed pre-registration is how two documents come to disagree abo
 | §7 | the gates |
 | §8 | limits — n=2, **no σ̂, no significance claimed**, `sb` only |
 | §10 | amendment 1: the control is **re-run**, three sibling tools, the `_ARCH_TAG` addition, queue order, and **`P-27`** |
+| §11 | amendment 2: two confounds an independent review found — one fixed, one declared |
+| §12 | amendment 3: the `k=2` remedy padded with **zeros**, measured as an edge defect (interior 2.0000, last row 1.0000, corner 0.5000); `padding_mode="replicate"`, and **`P-28`** / **`P-29`** |
+| §13 | ⭐ amendment 4: **the refetch, declared before the pull** — the digest mismatch measured, the vintage consequence conceded, and **`P-30`** |
 
 ## Endpoints, restated because they are the one thing most likely to be got wrong
 
@@ -36,20 +39,30 @@ happening' for a pattern that is unmistakable at h1 and h36."*
 | `P-28` the padding fix moves `UpsampleConv2`'s gap less than the 0.0094 `P-21` margin | ✅ **HELD, Δ = −0.000107**, declared sign correct; point estimate 10× pessimistic — `R-59` |
 | `P-29` `UpsampleConv1`'s gap unchanged to within 1e-6 | ✅ **HELD exactly, Δ = 0.000000** — `R-60` |
 | `P-22`…`P-27` | 🔵 OPEN — `O-3` |
+| `P-30` the refetched pull's shape is unchanged (`pgm`, 121, 504, 5,034,240 rows) | 🔵 OPEN — settles in `07` with the first arm's entry |
 | `S-1`, `S-2` | 🔵 `S-1` open; `S-2` conceded |
 
-## ⚠️ OWED BEFORE THE QUEUE: the refetch declaration
+## ✅ DECLARED BEFORE THE QUEUE: the refetch — `PREREG.md` §13 (amendment 4)
 
-The cached datafactory pull is from **2026-09-19** and its queryset digest no longer matches, so
-`C-61` refuses it. A refetch is required, and it **changes the data vintage relative to EXP-01's
-August arms**.
+⇒ **This is no longer owed.** It was written on 2026-10-30, before any pull, and it is measured
+rather than asserted:
 
-⇒ ⛔ **This must be declared here, as an amendment, BEFORE the queue runs**, with:
-- the pull date and row count recorded;
-- the consequence that **`P-27` then has two possible causes if it fails** — code drift *or* data
-  vintage — which this design **cannot separate**;
-- ⇒ therefore every cross-reference to EXP-01's **absolute** numbers is **indicative**, while
-  arm-vs-control stays valid because both run on the same pull, the same commit and the same box.
+| | |
+|---|---|
+| the cache | `violet_visitor/data/raw/calibration_datafactory_df.parquet`, **2026-09-19 14:56:20**, **5,034,240 rows × 8 cols** = 13,110 cells × 384 months, `pgm`, months **121–504** |
+| why `C-61` refuses it | cached digest `b595ff4d…` vs the digest recomputed today from `config_queryset.py` `b32a221b…` — ⇒ **mismatch**, measured, not repeated from an earlier note |
+| the decision | **one deliberate, logged refetch.** `-sa` stays unconditional; the reverted `SMOKE_REFETCH=1` is not coming back |
+| ⛔ the conceded cost | **`P-27` gains a second possible cause** — code drift *or* data vintage — and this design **cannot separate them**. Every cross-reference to EXP-01's **absolute** numbers drops to *indicative* |
+| ✅ what survives intact | **arm-vs-control**, because all four runs take the same pull, the same commit and the same box. `P-23` is untouched |
+| the new prediction | **`P-30`** — the refetch changes *values*, not *shape* |
 
-⛔ **It is a logged decision, never a flag on a gate.** An earlier version of `smoke_exp02.sh`
-carried a `SMOKE_REFETCH=1` escape; it is gone (`07`'s postmortem).
+⚠️ **What the digest mismatch does not establish:** whether the queryset changed, one of its inputs
+changed, or `views-pipeline-core`'s digest function changed between the pull and the installed
+**3.3.4**. All three produce the same refusal and the same decision; §13a says so rather than
+picking one.
+
+⛔ **The recording requirement is the part that can still fail.** The new pull's fetch timestamp,
+row count, `month_first`/`month_last` and `queryset_digest` must land in `07_experiment_log.md` **in
+the same entry as the first arm**. A queue that runs without those five numbers has undeclared data
+provenance — the `C-347` family — and the declaration above would then be a promise rather than a
+record.

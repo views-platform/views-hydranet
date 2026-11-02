@@ -70,7 +70,31 @@ against the installed package.
 - [x] ⛔ **`/falsify guard` in a clean-context subagent — FALSIFIED, 13 survivors, all closed and
       mutation-verified; the instrument re-run and every number reproduced** (`07` EXP-02b)
 - [ ] ⛔ **release 0.1.8** via the rehearsal path; review the 0.1.6/0.1.7 content that ships with it
-- [ ] build the four `*fullzero*` arm dirs, then `preflight_exp02.py` → `smoke_exp02.sh` → `launch_exp02.sh`
+- [ ] ⛔⛔ **THE FOUR ARMS — PINNED 2026-11-02, displaced twice, must not be displaced again**
+
+      | arm | seed | built | trained |
+      |---|---|---|---|
+      | control | 42 | ⛔ no | ⛔ no |
+      | control | 43 | ⛔ no | ⛔ no |
+      | `UpsampleConv2` | 42 | ⛔ no | ⛔ no |
+      | `UpsampleConv2` | 43 | ⛔ no | ⛔ no |
+
+      ⚠️ **What exists under a `tinyzero` name in views-models is 2-lesson SMOKE leftover, not the
+      experiment.** Smoke trained and was then OOM-killed at inference on host RAM. Two arm
+      directories (`ctltinyzero_fortytwo`, `upctwotinyzero_fortytwo`) are visible to the fleet
+      census and are **not** these four.
+
+      Sequence: build the four `*fullzero*` arm dirs → `preflight_exp02.py` → `smoke_exp02.sh` →
+      `launch_exp02.sh`.
+
+      ⛔ **What blocks the read-out, not the run:** EXP-02's primary endpoints are **h1 and h36**
+      and `P-23` (*"THE ONE THAT MATTERS"*) is ΔAP positive at h1, negative at h36, both seeds. AP
+      comes from the **gate**, and the gate is transported home at **h1 only**. ⇒ `P-23` is
+      **unevaluable** until views-models#665 lands. The hydranet side is done (epic #500: ADR-074
+      manifest, ADR-078 `emit_horizons`); the transport is not ours.
+
+      ⚠️ If #665 is not actioned, the honest report is **"`P-23` could not be read"** — *not* that
+      the arm failed. Those are different results and must not be conflated.
 - [ ] ⚠️ route `C7-6`/`C7-7` through `register-risk` (do not hand-edit the register)
 - [ ] ⚠️ fetch Odena et al. 2016 — `01` §gaps
 - [ ] ⚠️ EXP-02 needs its own read-out: `verify_bakeoff.py:118` derives completion from EXP-01's

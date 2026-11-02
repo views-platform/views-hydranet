@@ -460,6 +460,75 @@ myself **first**.
 
 ---
 
+## 13 · ⛔⛔ AMENDMENT 4, 2026-10-30 — THE REFETCH, declared BEFORE the pull
+
+⛔ **This is the declaration `05_analysis_plan` said was owed before the queue.** It is written
+while the cached pull is still the only pull that exists, so nothing here is chosen after seeing a
+number.
+
+### 13a · The refusal is real, and I measured it rather than repeating it
+
+| | measured |
+|---|---|
+| cached calibration pull | `violet_visitor/data/raw/calibration_datafactory_df.parquet`, **2026-09-19 14:56:20** (`calibration_data_fetch_log.txt` — `20260919_145620`) |
+| its shape | **5,034,240 rows × 8 columns** = 13,110 cells × 384 months, `level: pgm`, `month_first: 121`, `month_last: 504` |
+| validation sibling | 2026-09-08 10:34, `month_last: 552`, same digest |
+| cached `queryset_digest` | `b595ff4db10a9a0651995e4aba7f796644dd72830527fd67d15d65b4d49c3f5f` |
+| digest recomputed today from `violet_visitor/configs/config_queryset.py` | `b32a221b70e5255d3d85e683b483d9398ae08ed3b5e9d1be71c6e8f7aa13422c` |
+| ⇒ | **MISMATCH. `C-61` refuses the cache, and it is right to.** |
+
+⭐ `violet_visitor` is the **floor** `make_arch_arm.py` copies (`_FLOOR`, `:64`), and it copies
+`data/raw` into every arm so no arm fetches mid-sweep (`:210-213`). ⇒ This one cache is the input to
+all four runs, which is why one refetch settles the whole queue.
+
+⚠️ **What the mismatch does NOT tell me, stated so it is not later read as more than it is.** A
+digest mismatch has three possible causes and this measurement separates none of them: the queryset
+specification changed; one of its inputs changed through a sibling config; or
+`views-pipeline-core`'s digest function changed between the pull and the installed **3.3.4**. For
+the gate they are identical — all three mean the cache cannot be trusted to match this config.
+`config_queryset.py` was last committed `455b9674`, **the pull's own date**, and three later commits
+touched that directory (`37c4fca2` whole-raster volume and offsets, `1b9cebca` 300 lessons,
+`ea78fb0d` a dead `h_init` key). ⛔ I am not going to diagnose which; the decision below is the same
+either way, and guessing would be the `W-72` failure mode.
+
+### 13b · The decision, and it is a decision — never a flag
+
+⇒ **The queue runs on a deliberate, logged refetch.** `smoke_exp02.sh` and the queue keep `-sa`
+unconditionally; the refetch is one declared pull, recorded here, not a switch on a gate.
+
+⛔ An earlier `smoke_exp02.sh` carried `SMOKE_REFETCH=1` to drop `--saved` and make this refusal go
+away. It is gone (`e64ba3f`), and `C-61`'s own words are why: *"without this check the cache would
+have been served and the run would have used data that does not match its own configuration, with
+no error anywhere."*
+
+### 13c · ⛔ The consequence, conceded in advance
+
+**The refetched pull is a different data vintage from EXP-01's August arms.** Therefore:
+
+| | |
+|---|---|
+| ⛔ **`P-27` acquires a second possible cause** | It predicts the re-run control reproduces AP@h18 **0.3298** / **0.3318** to ±0.010. If it fails, the cause is **code drift *or* data vintage, and this design cannot separate them.** ⇒ A `P-27` failure is no longer evidence that the code moved. It is evidence that *something* moved. |
+| ⚠️ **Every cross-reference to EXP-01's ABSOLUTE numbers becomes indicative** | Including §1's 12/12 gradient as a quantitative anchor. The *sign* pattern it supplies is unaffected, because that is a within-experiment contrast. |
+| ✅ **Arm-vs-control stays fully valid** | All four runs take the **same pull, the same commit, the same box**. The intervention is still one variable. ⇒ `P-23`, the prediction that matters, is untouched. |
+
+⭐ This is the honest version of a trade I could have hidden: the refetch costs me `P-27`'s
+diagnostic power and costs the EXP-01 absolute comparison, and it buys data that matches the config.
+The alternative — serving a cache the gate refuses — costs correctness, which is not a trade.
+
+### 13d · A new prediction, registered against this amendment
+
+| | prediction | why it is risky |
+|---|---|---|
+| **`P-30`** | The refetched calibration pull has the **same** `level`, `month_first`, `month_last` and row count as the cached one — `pgm`, `121`, `504`, **5,034,240** — so the vintage change is in cell *values* only | ⛔ If any of the four moves, the change is a **shape** change, not a vintage change: the EXP-01 absolute cross-reference degrades from *indicative* to **void**, and `P-27`'s ±0.010 band stops meaning anything because it would be measured over a different population (`C-351`). ⚠️ `37c4fca2` changed the volume to the whole PRIO-GRID raster *after* this pull, and I am predicting the pull already reflects it — 5,034,240 / 384 = exactly 13,110 cells, which is global land, not the Africa+ME crop. If I have that wrong, `P-30` fails and it fails loudly. |
+
+⛔ **Recording requirement, so this cannot be quietly skipped.** When the refetch runs, the new
+pull's fetch timestamp, row count, `month_first`/`month_last` and `queryset_digest` are written into
+`07_experiment_log.md` **in the same entry** that logs the first arm, and `P-30` is settled there
+against the four values above. A queue that runs without those five numbers recorded is a queue
+whose data provenance is undeclared, which is the `C-347` family.
+
+---
+
 ## 9 · Attribution
 
 Predictions **S-1** and **S-2** are **Simon's**, quoted verbatim, and are logged as his in

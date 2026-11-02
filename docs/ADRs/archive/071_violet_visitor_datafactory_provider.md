@@ -1,6 +1,49 @@
 # ADR-071: violet_visitor's data provider is views-datafactory (`africa_me_legacy`)
 
-**Status:** Proposed
+> # ⛔ SUPERSEDED — DO NOT READ THIS AS CURRENT
+>
+> **Superseded 2026-11-01.** This document is kept as a historical record
+> and is **archived**. Nothing in it describes the system as it is today.
+>
+> **The specific claim most likely to mislead:** this ADR states a spatial scope of
+> `africa_me_legacy` (13,110 cells). **That scope was abandoned fleet-wide on 2026-09-19** in favour
+> of global land. Any reader or agent acting on the scope stated below would reintroduce data that
+> has been deliberately purged.
+>
+> **The history, because this document is where a reader looking for it will land.** Coverage was
+> never an engineering choice. The original VIEWS ERC grants named **Africa** as the spatial extent
+> of the subnational forecast — shaped in large part by the hardware and compute available in
+> 2017–18. A later, smaller **UN ESCWA** grant extended it to the **Middle East**. More recent
+> grants carry **global coverage as a deliverable**.
+>
+> The datafactory was built **in order to** make global reachable; the older backend could not
+> serve it. So the move to the datafactory and the move to global are **one programme at two
+> stages**, and the datafactory deliberately kept serving Africa and the Middle East through the
+> first stage — largely as the **parity check**, reproducing the old backend's forecasts on the
+> extent already known, before the extent itself changed.
+>
+> ⇒ **So the two decisions in this document were sequenced on purpose, not bundled by accident.**
+> Migrating the source at the old extent and *then* widening the extent is the right order: it
+> keeps the comparison honest, because only one thing moves at a time. An earlier version of this
+> banner called them "two unrelated decisions", which was wrong and unfair to this document.
+>
+> **What was actually wrong with it.** Its title named a single model and its decision stated a
+> region — a model name and a region setting are **configuration**, and they change on a far
+> faster clock than an ADR does. So it went stale within weeks and nothing flagged it. The fault
+> was the volatility of what it recorded, not the pairing of what it decided.
+>
+> | the thing you are probably looking for | where it is now |
+> |---|---|
+> | which data source models use | **configuration.** Every model declares it, and the migration is complete — there is no live decision to find |
+> | the bar a future source change must clear | **[views-pipeline-core#585](https://github.com/views-platform/views-pipeline-core/issues/585)** — it is not an engine concern, so it was proposed there |
+> | which spatial coverage models forecast over | **ADR-077** — global land |
+> | the parity evidence for this migration | `reports/2026-07-28_datafactory_migration_dossier/` (00–07), which is the authority; the numbers below are a copy |
+>
+> **What is still worth reading here:** how the first source migration was actually justified — the
+> swap seam, the parity design, and the four alternatives considered. Those reasons were carried
+> forward; this is where they were worked out.
+
+**Status:** Superseded — its coverage decision by ADR-077; its source decision completed and now a fact of the configurations, 2026-11-01
 **Date:** 2026-07-28
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers

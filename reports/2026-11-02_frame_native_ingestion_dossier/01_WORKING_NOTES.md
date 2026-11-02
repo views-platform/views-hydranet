@@ -7,7 +7,7 @@
 | Status      | **Proposed** |
 | Author      | Simon Polichinel von der Maase (decider) · drafted by Claude for maintainer review |
 | Date        | 2026-08-13 |
-| Builds on   | ADR-047 (pandas-free **output** path), ADR-046 (feature lifecycle), ADR-010/012 (spatiotemporal representation / the volume), ADR-019 (FeatureScaler), ADR-032 (target naming), ADR-060 (static channels), ADR-071 (violet datafactory provider — which schedules this work as its step "S9") |
+| Builds on   | ADR-047 (pandas-free **output** path), ADR-046 (feature lifecycle), ADR-010/012 (spatiotemporal representation / the volume), ADR-019 (FeatureScaler), ADR-032 (target naming), ADR-060 (static channels), ADR-076 (views-datafactory is the provider; supersedes ADR-071, which scheduled this work) |
 | Amends-scope | (1) ADR-047 §2's "Input path is out-of-scope" clause; (2) **ADR-019**'s DataFrame-based *forward* FeatureScaler contract (`fit_transform`/`inverse_transform`), which this moves to `FeatureFrame` (ADR-019 Role 4 `inverse_transform_volume` is unchanged — already numpy). Both ADRs (and the FeatureScaler CIC) must be amended in lockstep when this ships. |
 
 > **This is a proposal, not an accepted decision.** It was drafted by an AI agent. Every factual claim
@@ -46,7 +46,7 @@ So pandas today lives **only on the input half** — the table-assembly step bet
 This ADR removes it from there too, making the whole pipeline numpy/`views-frames`-native end to end.
 
 *"v2"* below means the current data foundation: targets and covariates sourced from **views-datafactory**
-(as opposed to the retired *v1* viewser-sourced foundation). See ADR-071.
+(as opposed to the retired *v1* viewser-sourced foundation). See ADR-076.
 
 ## 2. Vocabulary (defined once, used throughout)
 
@@ -203,7 +203,7 @@ channels too (ADR-060 **I5**: with statics disabled the pipeline stays bit-ident
 and the hot-path `DataSniffer` gates (`sniff_ingestion`, `sniff_forecast_alignment`).
 
 **Out of scope (do not entangle):**
-- **The provider swap** (viewser→datafactory) — that is ADR-071; this ADR assumes v2 data already lands.
+- **The provider swap** (viewser→datafactory) — that is ADR-076; this ADR assumes v2 data already lands.
 - **Column-name-as-role coupling** (register C-173/C-174): the fact that a channel's *role* is inferred
   from its column *name*. Swapping containers neither fixes nor worsens it; it is a separate refactor.
 - **Diagnostic/audit-only pandas:** `DataSniffer.sniff_pure_state_parity` (a DataFrame differ using
@@ -216,7 +216,7 @@ and the hot-path `DataSniffer` gates (`sniff_ingestion`, `sniff_forecast_alignme
 **The governing gate (plain terms):** for the same v2 inputs, the frame-native path must produce a volume
 tensor — and therefore predictions — **bit-for-bit identical** to today's pandas path (or within a
 *pre-registered* float tolerance, target zero). **Pandas is not deleted until that proof passes.** Same
-discipline as ADR-071's clean-cut and the datafactory-dossier P4 gate.
+discipline as ADR-076's cutover bar and the datafactory-dossier P4 gate.
 
 **Structural invariants.**
 - **Zero-Magic:** grid coordinates and channel order come from config + the `SpatioTemporalIndex`, never
@@ -304,7 +304,7 @@ smuggled into the parity-gated scope.
   nothing**. This ADR touches the ingestion modules *together* (a CCP instinct) but does not move them; the
   reorg is §9.3.
 - **REP (Reuse/Release Equivalence).** The reused pieces (`views-frames`, `views-datafactory` adapters,
-  pipeline-core `feature_frame_path`) are released and *pinned* separately; the parity gate + ADR-071's
+  pipeline-core `feature_frame_path`) are released and *pinned* separately; the parity gate + ADR-076's
   sequencing lock are what keep them released together, and views-models must bump its pipeline-core pin
   (already seen at `==3.0.0`).
 
@@ -363,7 +363,7 @@ views_hydranet/ingestion/
 - [ADR-012](../active/012_volume_ledger_and_topology.md) — the VolumeHandler **Ledger** (self-describing state).
 - [ADR-032](../active/032_authoritative_output_schema.md) — `lr_`/`by_` target naming.
 - [ADR-046](../active/046_symmetric_feature_lifecycle.md) — the `transformations`/`derivations` config lifecycle.
-- [ADR-071](071_violet_visitor_datafactory_provider.md) §S9 — sequencing lock: this runs *after* the
+- [ADR-076](076_provider_migration_parity_bar.md) — sequencing lock: this runs *after* the
   provider swap, as a separate byte-identical step.
 
 **Cross-repo** (paths given for discoverability; not relative-linkable from this repo):
