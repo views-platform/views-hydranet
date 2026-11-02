@@ -175,3 +175,81 @@ def test_every_hydranet_declares_global_land():
         f"HydraNet models declaring an extent other than {GLOBAL_LAND!r}: {offenders}. "
         f"ADR-077 sets coverage by what the project has undertaken to produce, not per model."
     )
+
+
+# ─── The census counts, and what it scans ────────────────────────────────────
+
+
+def test_every_tree_that_can_hold_a_descriptor_is_scanned(tmp_path):
+    """⛔ Scanning `models/` alone gave the census a blind spot of its own shape.
+
+    A postprocessor declares an extent exactly as a model does, and `postprocessors/`,
+    `extractors/` and `ensembles/` were all invisible — so the check built to catch a straggler
+    could not see three whole directories' worth of them.
+    """
+    for tree in ("models", "postprocessors", "extractors", "ensembles"):
+        configs = tmp_path / tree / f"a_{tree}" / "configs"
+        configs.mkdir(parents=True)
+        (configs / "config_queryset.py").write_text('REGION = "land"\n')
+
+    found = {d.model for d in collect(tmp_path)}
+    assert found == {"a_models", "a_postprocessors", "a_extractors", "a_ensembles"}, (
+        f"the census missed a tree: {found}"
+    )
+
+
+def test_rows_are_not_the_same_thing_as_declarations(tmp_path):
+    """⚠️ A descriptor with no `REGION` is still a row, and must not be counted as a declaration.
+
+    The report printed the row count under the words "configurations declaring an extent" — 142
+    against an actual 59. A viewser-path model has no extent to declare, and recording it as
+    present-but-silent is a different fact from it not existing.
+    """
+    (tmp_path / "models" / "declares" / "configs").mkdir(parents=True)
+    (tmp_path / "models" / "declares" / "configs" / "config_queryset.py").write_text(
+        'REGION = "land"\n'
+    )
+    (tmp_path / "models" / "silent" / "configs").mkdir(parents=True)
+    (tmp_path / "models" / "silent" / "configs" / "config_queryset.py").write_text("X = 1\n")
+
+    rows = collect(tmp_path)
+    assert len(rows) == 2, "a descriptor without an extent must still be reported"
+    assert sum(1 for d in rows if d.region) == 1
+    assert sum(1 for d in rows if d.note == "not declared") == 1
+
+
+def test_the_report_states_both_numbers(tmp_path):
+    """The two counts must be visible separately, or the smaller one is lost."""
+    text = render(
+        [
+            Declaration("declares", HYDRANET, GLOBAL_LAND),
+            Declaration("silent", HYDRANET, None, "not declared"),
+        ]
+    )
+    assert "descriptors found: 2" in text
+    assert "declaring an extent: 1" in text
+
+
+def test_the_last_assignment_wins_as_python_does(tmp_path):
+    """A module re-binding the name keeps the LAST value at import time."""
+    configs = tmp_path / "models" / "m" / "configs"
+    configs.mkdir(parents=True)
+    (configs / "config_queryset.py").write_text('REGION = "land"\nREGION = "land_gaul"\n')
+    (found,) = collect(tmp_path)
+    assert found.region == "land_gaul", "the census read the first binding, not the effective one"
+
+
+def test_a_non_utf8_default_encoding_cannot_break_the_read(tmp_path):
+    """⚠️ All 17 HydraNet descriptors contain non-ASCII, and `UnicodeDecodeError` is a ValueError.
+
+    Without an explicit encoding it escaped the handlers (which caught only OSError and
+    SyntaxError), landed in the manifest writer's own except, and the whole feature logged a
+    failure indistinguishable from an environmental fault on every run.
+    """
+    configs = tmp_path / "models" / "m" / "configs"
+    configs.mkdir(parents=True)
+    (configs / "config_queryset.py").write_text(
+        '# an em dash — and an arrow ⇒ in a comment\nREGION = "land"\n', encoding="utf-8"
+    )
+    (found,) = collect(tmp_path)
+    assert found.region == "land"

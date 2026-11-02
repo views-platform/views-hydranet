@@ -135,12 +135,32 @@ class InferenceOrchestrator:
         false the volume is malformed, and a manifest built from it would be confidently wrong.
         """
         t_axis = window.get_axis_idx("T")
+        # ⛔ Resolve the CHANNEL axis by label too. This used to be `[..., m_idx]`, which assumed
+        # the channel axis was last — contradicting the paragraph above, and wrong for any permuted
+        # volume. The prediction handler in the same loop carries `S` after `C`, so on that one it
+        # would have indexed samples and then raised the misleading "not constant across the
+        # spatial axes".
+        c_axis = window.get_axis_idx("C")
+        data = window.data
+        if torch.is_tensor(data):
+            # The assembler guards this and this did not; a torch-backed window on CUDA raises
+            # inside `np.asarray`.
+            data = data.detach().cpu().numpy()
+        arr = np.asarray(data)
         m_idx = window.channel_map.index(window.time_col)
-        times = np.asarray(window.data)[..., m_idx]
 
         months = []
-        for step in range(times.shape[t_axis]):
-            plane = np.take(times, step, axis=t_axis)
+        for step in range(arr.shape[t_axis]):
+            # ⚠️ One index tuple, so this is basic slicing and therefore a VIEW. The previous
+            # version called `np.take`, which COPIES: measured at 38.4 MB per call and ~1.34 GB per
+            # origin on a global window — inside the loop whose entire purpose is to keep memory
+            # bounded. Selecting both axes at once also avoids reasoning about how an intermediate
+            # `take` shifts the axes after it, which is the kind of index arithmetic that produced
+            # this repository's worst incidents.
+            index: list = [slice(None)] * arr.ndim
+            index[c_axis] = m_idx
+            index[t_axis] = step
+            plane = arr[tuple(index)]
             first = plane.flat[0]
             if not np.all(plane == first):
                 err_msg = (
@@ -166,20 +186,68 @@ class InferenceOrchestrator:
         ``sequence_number`` is the position this origin occupies in the output — the number its
         directory gets. ``origin`` is the origin itself. Both are recorded because only the first
         reaches disk today, which is why two artifacts of one run cannot currently be joined.
-        """
-        months = self._months_of(window)
-        any_frame = next(iter(pf_dict.values()))
-        n_rows = int(any_frame.n_rows)
-        emitted = self._emitted_horizons_of(any_frame, months, origin)
 
-        if emitted and n_rows % len(emitted):
-            err_msg = (
-                f"ADR-074: origin {origin} emitted {n_rows} rows over {len(emitted)} emitted "
-                f"horizons, which does not divide. A per-horizon row count recorded from this "
-                f"would be a rounded number presented as an exact one. Refusing to record it."
+        ⛔ **This method never raises.** It is bookkeeping that runs between assembling an origin's
+        frames and handing them to the sink, so a refusal here would abort a finished multi-hour
+        run *before* that origin was persisted — leaving the earlier origins on disk and this one
+        written nowhere. That inverts the policy the manifest writer exists to enforce: a run is
+        never discarded over its own description. Anything unrecordable is logged and the origin is
+        skipped, which the manifest then shows as a missing record rather than a wrong one.
+        """
+        try:
+            months = self._months_of(window)
+            any_frame = next(iter(pf_dict.values()))
+            per_horizon = self._rows_per_horizon_of(any_frame, months, origin)
+        except (ValueError, KeyError, StopIteration) as exc:
+            # ⚠️ Narrow on purpose. These three are the failures the helpers raise for data they
+            # cannot describe. Anything else — an `AttributeError` from a frame without an index,
+            # say — is a defect in this method and must propagate rather than be absorbed.
+            # ⚠️ And the gap is DETECTABLE, not flagged: the manifest's `origins` will be shorter
+            # than the number of `origin_*` directories on disk. Said precisely because "visible"
+            # on its own would invite a reader to assume something announces it. Nothing does.
+            logger.error(
+                "ADR-074: origin %s (sequence %s) could not be recorded (%s). The run continues "
+                "and its predictions are unaffected. ⇒ The manifest will list FEWER origins than "
+                "there are origin_* directories beside it; that mismatch is the only signal, so "
+                "compare the two rather than trusting the count.",
+                origin,
+                sequence_number,
+                exc,
             )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+            return
+
+        emitted = tuple(sorted(per_horizon))
+        # ⚠️ Every emitted horizon must have the SAME row count, not merely a total that divides.
+        # The earlier check tested divisibility, which 3 horizons of 9/8/7 cells pass — recording
+        # 8 as an exact per-horizon count for a run where no horizon had 8. Its own message said
+        # "a rounded number presented as an exact one", which is what it then produced.
+        counts = {per_horizon[h] for h in emitted}
+        if len(counts) > 1:
+            logger.error(
+                "ADR-074: origin %s emitted a different number of rows per horizon (%s), so no "
+                "single per-horizon count is true of it. Recording nothing for this origin rather "
+                "than a mean presented as exact. The input panel is probably incomplete.",
+                origin,
+                {h: per_horizon[h] for h in emitted},
+            )
+            return
+
+        # ⚠️ A horizon that emitted NO rows is absent from `per_horizon`, so with no selection in
+        # force the emitted set would silently read as a deliberate subset — the one confusion
+        # ADR-074 exists to prevent. A gap month in the input panel does exactly this: `from_df`
+        # builds a dense month range and zero-fills the gap, so the validity mask is all-False for
+        # that step.
+        if self.emit_horizons is None and emitted != tuple(range(1, len(months) + 1)):
+            logger.error(
+                "ADR-074: origin %s emitted horizons %s but the run selected none, so every one "
+                "of its %s horizons was expected. Recording nothing rather than a subset nobody "
+                "asked for, which a reader could not tell from a declared selection. A horizon "
+                "emitting zero rows usually means a month missing from the input panel.",
+                origin,
+                emitted,
+                len(months),
+            )
+            return
 
         self.emitted_origins.append(
             OriginRecord(
@@ -188,25 +256,28 @@ class InferenceOrchestrator:
                 first_month=months[0] if months else -1,
                 horizon_months=months,
                 emitted_horizons=emitted,
-                rows_per_horizon=n_rows // len(emitted) if emitted else 0,
+                rows_per_horizon=counts.pop() if counts else 0,
             )
         )
 
     @staticmethod
-    def _emitted_horizons_of(frame: "PredictionFrame", months: tuple, origin: int) -> tuple:
-        """Which 1-based horizons this frame actually contains (ADR-078), measured not assumed.
+    def _rows_per_horizon_of(
+        frame: "PredictionFrame", months: tuple, origin: int
+    ) -> "Dict[int, int]":
+        """How many rows each 1-based horizon contributed, measured from the emitted frame.
 
-        ⭐ Read from the emitted frame's own time index and matched against the window's months —
-        **never** from `self.emit_horizons`. A manifest assembled from the configuration would
-        agree with the configuration by construction, and would therefore report the requested
-        subset even on a run that wrote something else. That is precisely the comparison ADR-074
-        §2.3 exists to keep possible.
+        ⭐ Read from the frame's own time index and matched against the window's months — **never**
+        from `self.emit_horizons`. A record assembled from the configuration would agree with the
+        configuration by construction, and would report the requested subset even on a run that
+        wrote something else. That is the comparison ADR-074 §2.3 exists to keep possible.
 
         A month in the frame that the window does not contain means the two disagree about what
-        this origin is, so it is refused rather than dropped.
+        this origin is, so it raises — and the caller turns that into a skipped origin.
         """
-        present = {int(m) for m in np.asarray(frame.index.time)}
-        unknown = sorted(present - set(months))
+        times = np.asarray(frame.index.time)
+        month_to_horizon = {m: i + 1 for i, m in enumerate(months)}
+
+        unknown = sorted({int(m) for m in times} - set(month_to_horizon))
         if unknown:
             err_msg = (
                 f"ADR-074: origin {origin} emitted rows for month(s) {unknown}, which are absent "
@@ -215,7 +286,11 @@ class InferenceOrchestrator:
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        return tuple(i + 1 for i, m in enumerate(months) if m in present)
+
+        counts: Dict[int, int] = {}
+        for month, count in zip(*np.unique(times, return_counts=True)):
+            counts[month_to_horizon[int(month)]] = int(count)
+        return counts
 
     def _run_inference_pipeline(
         self,

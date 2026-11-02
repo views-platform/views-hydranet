@@ -1174,6 +1174,27 @@ class HydraNetConfig(BaseModel):
         if self.emit_horizons is None:
             return self
 
+        # ⛔ Forecasting only. ADR-078 §2.2 says selection applies to output and not to
+        # computation, and that is true of the ROLLOUT — but on the PredictionFrame path the
+        # emitted frames ARE the metric input: pipeline-core reloads exactly what was written and
+        # scores it. The only temporal guard there is subset-tolerant (it raises on months outside
+        # the mapping, never on months missing from the frame), so a subset on an evaluation run
+        # would compute CRPS, AP and Brier over 2 of 36 horizons, log them to the usual place
+        # under the model's usual name, and warn about nothing. ⇒ The claim "selects emission, not
+        # computation" holds for the rollout and fails for the evaluation of record, which is the
+        # ruler every result in this repository is read against.
+        if self.run_type != "forecasting":
+            err_msg = (
+                f"emit_horizons is set on a {self.run_type!r} run. It is permitted on "
+                f"'forecasting' only: on an evaluation run the emitted frames are what gets "
+                f"SCORED, so a horizon subset would silently narrow CRPS/AP/Brier to the horizons "
+                f"it kept and report them as the run's metrics. Nothing downstream warns. ⇒ Emit "
+                f"every horizon when scoring; select horizons only when the output is the "
+                f"deliverable (ADR-078 §2.2)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
         if not self.emit_horizons:
             err_msg = (
                 "emit_horizons is an empty list, which asks for a run that writes nothing. Omit "

@@ -69,11 +69,21 @@ def read_literal(path: Path, name: str) -> tuple[str | None, str]:
     so a caller can report it rather than treat it as absent.
     """
     try:
-        tree = ast.parse(Path(path).read_text())
-    except (OSError, SyntaxError) as exc:
+        tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, ValueError) as exc:
+        # ⚠️ `ValueError` is not decoration: `UnicodeDecodeError` subclasses it, not OSError,
+        # so without it a decoding failure escapes this handler, lands in the manifest
+        # writer's own except, and the whole feature silently writes nothing — reported in a
+        # form indistinguishable from an environmental fault. All 17 HydraNet queryset files
+        # contain non-ASCII, so `encoding="utf-8"` above is what actually prevents it; this
+        # is the belt behind that brace.
         return None, f"unparseable: {exc}"
 
-    for node in tree.body:
+    # ⚠️ Iterate in REVERSE: a module re-assigning the name keeps the LAST binding at import time,
+    # so returning the first match would report a value the module does not actually have. Nothing
+    # in the fleet re-assigns `REGION` today, which is exactly why reading it the wrong way round
+    # was invisible.
+    for node in reversed(tree.body):
         targets = (
             node.targets
             if isinstance(node, ast.Assign)
@@ -93,8 +103,8 @@ def read_literal(path: Path, name: str) -> tuple[str | None, str]:
 def read_algorithm(meta_path: Path) -> str | None:
     """The declared algorithm, read from a dict literal in the meta configuration."""
     try:
-        tree = ast.parse(Path(meta_path).read_text())
-    except (OSError, SyntaxError):
+        tree = ast.parse(Path(meta_path).read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, ValueError):
         return None
 
     for node in ast.walk(tree):
@@ -131,22 +141,37 @@ def declared_coverage_of(model_dir: Path) -> str | None:
     return region
 
 
+#: Every top-level directory that can hold something with a datafactory descriptor. ⚠️ Scanning
+#: `models/` alone missed `postprocessors/`, `extractors/` and `ensembles/` — and a postprocessor
+#: declares an extent exactly as a model does, so the census had a blind spot of precisely the
+#: shape it exists to remove. Listed explicitly rather than globbed from the root so that a new
+#: top-level directory is a visible omission rather than a silent one.
+SCANNED_TREES = ("models", "postprocessors", "extractors", "ensembles")
+
+
 def collect(models_root: Path) -> list[Declaration]:
-    """Every model under *models_root* that has a datafactory descriptor, in name order.
+    """Everything under *models_root* that has a datafactory descriptor, in name order.
 
     Scoped by what is on disk, never by a roster: a guard whose scope is a hand-maintained list
     cannot see a straggler by construction.
+
+    ⚠️ A `Declaration` is returned for every descriptor found, including those that declare **no**
+    extent — a viewser-path model has no `REGION` at all, and recording it as present-but-silent is
+    a different fact from not existing. ⇒ Counting rows here is NOT counting declarations; use
+    `region is not None`. The report used to print the row count under the words "configurations
+    declaring an extent", which overstated it by 142 against 59.
     """
     found = []
-    for queryset in sorted(Path(models_root).glob("models/*/configs/config_queryset.py")):
-        model_dir = queryset.parent.parent
-        region, note = read_literal(queryset, REGION_KEY)
-        found.append(
-            Declaration(
-                model=model_dir.name,
-                algorithm=read_algorithm(model_dir / "configs" / "config_meta.py"),
-                region=region,
-                note=note,
+    for tree in SCANNED_TREES:
+        for queryset in sorted(Path(models_root).glob(f"{tree}/*/configs/config_queryset.py")):
+            model_dir = queryset.parent.parent
+            region, note = read_literal(queryset, REGION_KEY)
+            found.append(
+                Declaration(
+                    model=model_dir.name,
+                    algorithm=read_algorithm(model_dir / "configs" / "config_meta.py"),
+                    region=region,
+                    note=note,
+                )
             )
-        )
-    return found
+    return sorted(found, key=lambda d: d.model)

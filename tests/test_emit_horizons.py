@@ -22,6 +22,17 @@ def _cfg(valid_config_dict, **overrides):
     return cfg
 
 
+def _forecasting(valid_config_dict, **overrides):
+    """A config on the one run type where `emit_horizons` is permitted.
+
+    ⛔ The fixture is `run_type="validation"`, and a horizon subset is refused there: on an
+    evaluation run the emitted frames ARE the metric input, so a subset would narrow CRPS/AP/Brier
+    to the horizons it kept and report them as the run's metrics. Every test below that exercises
+    a *legal* selection therefore has to say `forecasting` out loud, which is the point.
+    """
+    return _cfg(valid_config_dict, run_type="forecasting", **overrides)
+
+
 # ─── The field exists and defaults to every horizon ──────────────────────────
 
 
@@ -48,7 +59,7 @@ def test_the_field_is_declared_not_swallowed_by_extra_allow(valid_config_dict):
 
 def test_a_valid_subset_is_accepted_and_kept_as_declared(valid_config_dict):
     """The two horizons EXP-02's endpoints need (h1 and h36) are a legal selection."""
-    cfg = _cfg(valid_config_dict, emit_horizons=[1, 36])
+    cfg = _forecasting(valid_config_dict, emit_horizons=[1, 36])
     assert HydraNetConfig(**cfg).emit_horizons == [1, 36]
 
 
@@ -62,14 +73,14 @@ def test_a_horizon_the_run_does_not_produce_is_refused(valid_config_dict, horizo
     The alternative leaves a missing directory as the only evidence, and that is
     indistinguishable from a partial failure.
     """
-    cfg = _cfg(valid_config_dict, emit_horizons=horizons)
+    cfg = _forecasting(valid_config_dict, emit_horizons=horizons)
     with pytest.raises(ValidationError, match="does not produce"):
         HydraNetConfig(**cfg)
 
 
 def test_the_refusal_names_the_offending_horizons_and_the_range(valid_config_dict):
     """A message that says only "invalid" sends the reader back to the source to find out why."""
-    cfg = _cfg(valid_config_dict, emit_horizons=[1, 40])
+    cfg = _forecasting(valid_config_dict, emit_horizons=[1, 40])
     with pytest.raises(ValidationError) as exc:
         HydraNetConfig(**cfg)
 
@@ -80,7 +91,7 @@ def test_the_refusal_names_the_offending_horizons_and_the_range(valid_config_dic
 
 def test_an_empty_selection_is_refused(valid_config_dict):
     """Asking for a run that writes nothing is a mistake, not a configuration."""
-    cfg = _cfg(valid_config_dict, emit_horizons=[])
+    cfg = _forecasting(valid_config_dict, emit_horizons=[])
     with pytest.raises(ValidationError, match="writes nothing"):
         HydraNetConfig(**cfg)
 
@@ -92,7 +103,7 @@ def test_duplicates_and_descending_order_are_refused(valid_config_dict, horizons
     Normalising them silently is the tempting alternative and the wrong one: the manifest would
     then record a selection the configuration does not contain (ADR-074).
     """
-    cfg = _cfg(valid_config_dict, emit_horizons=horizons)
+    cfg = _forecasting(valid_config_dict, emit_horizons=horizons)
     with pytest.raises(ValidationError, match="ascending and without duplicates"):
         HydraNetConfig(**cfg)
 
@@ -107,7 +118,7 @@ def test_a_sparse_selection_is_legal_because_it_selects_output_not_computation(v
     This field names the horizons an analysis reads, and those are routinely the first and the
     last. Refusing a gap here would reintroduce the very thing the field exists to provide.
     """
-    cfg = _cfg(valid_config_dict, emit_horizons=[1, 18, 36])
+    cfg = _forecasting(valid_config_dict, emit_horizons=[1, 18, 36])
     assert HydraNetConfig(**cfg).emit_horizons == [1, 18, 36]
 
 
@@ -169,3 +180,49 @@ def test_an_empty_step_list_is_refused(valid_config_dict):
     cfg = _cfg(valid_config_dict, steps=[], time_steps=0)
     with pytest.raises(ValidationError, match="declares no horizons"):
         HydraNetConfig(**cfg)
+
+
+# ─── Forecasting only, because the frames are the metric input ───────────────
+
+
+@pytest.mark.parametrize("run_type", ["calibration", "validation"])
+def test_a_horizon_subset_is_refused_on_a_scoring_run(valid_config_dict, run_type):
+    """⭐⭐ ADR-078 §2.2 holds for the rollout and FAILS for the evaluation of record.
+
+    On the PredictionFrame path the emitted frames are not merely output — pipeline-core reloads
+    exactly what was written and scores it. The only temporal guard there is subset-tolerant: it
+    raises on a month outside the step mapping and says nothing about a month missing from the
+    frame. ⇒ A subset on a scoring run would compute CRPS, AP and Brier over the horizons it kept,
+    log them under the model's usual name, and warn about nothing — a metric-integrity defect on
+    the one ruler every result here is read against.
+    """
+    cfg = _cfg(valid_config_dict, run_type=run_type, emit_horizons=[1, 36])
+    with pytest.raises(ValidationError, match="permitted on 'forecasting' only"):
+        HydraNetConfig(**cfg)
+
+
+def test_the_scoring_refusal_says_what_would_have_gone_wrong(valid_config_dict):
+    """A refusal that only says "not allowed" invites someone to delete the validator."""
+    cfg = _cfg(valid_config_dict, run_type="calibration", emit_horizons=[1, 36])
+    with pytest.raises(ValidationError) as exc:
+        HydraNetConfig(**cfg)
+
+    message = str(exc.value)
+    assert "SCORED" in message, "the message does not say why a scoring run is different"
+    assert "'calibration'" in message, "the message does not name the run type it refused"
+
+
+def test_forecasting_runs_are_unaffected(valid_config_dict):
+    """*Green:* the run type the field exists for still accepts it."""
+    cfg = _forecasting(valid_config_dict, emit_horizons=[1, 36])
+    assert HydraNetConfig(**cfg).emit_horizons == [1, 36]
+
+
+@pytest.mark.parametrize("run_type", ["calibration", "validation", "forecasting"])
+def test_omitting_the_field_is_legal_on_every_run_type(valid_config_dict, run_type):
+    """⛔ The restriction must not touch a config that does not set the field.
+
+    Every existing configuration is in this case, so if this fails the whole fleet fails.
+    """
+    cfg = _cfg(valid_config_dict, run_type=run_type)
+    assert HydraNetConfig(**cfg).emit_horizons is None

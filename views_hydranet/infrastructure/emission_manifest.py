@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -106,8 +107,15 @@ class EmissionManifest:
     filter would be a judgement about what matters later, made by whoever wrote the filter, and the
     cost of being wrong is paid by someone else months afterwards (ADR-074 §3).
 
-    ``quantities`` maps each emitted quantity to the directory prefix it was written under, so a
-    reader can tell which arrays are which without knowing the naming convention.
+    ``quantities`` maps each emitted TARGET NAME to its quantity — `"forecast"`, `"gate"`, or
+    `"unrecognised"`. The target name is the key because that is what a reader is holding:
+    pipeline-core writes one directory per target, named by the target.
+
+    ⚠️ It used to be the other way round, two fixed entries mapping a quantity to a *prefix*, and
+    that was wrong three ways: the prefixes matched no directory on disk, the literal asserted a
+    gate even for an arm declaring no classification targets — so "never requested" could not be
+    told from "failed to write" — and it would have gone on omitting any later quantity. It is now
+    derived from the targets the run actually emitted.
 
     ``declared_coverage`` is the spatial extent the model's configuration declares (ADR-077 §2.2),
     so a **result** carries its own coverage rather than requiring a reader to find the
@@ -133,22 +141,53 @@ class EmissionManifest:
 def write_manifest(manifest: EmissionManifest, directory: Path | str) -> Path:
     """Write *manifest* into *directory* and return the path written.
 
-    The only I/O this module performs. Raises rather than writing a partial or lossy record.
+    The only I/O this module performs. ⛔ **Raises rather than writing a lossy record** — and the
+    emphasis is on *lossy*, because `json.dumps` is happy to write several things that are not what
+    it was given, and silently:
+
+    - a non-string dict key becomes a string (``{1: "x"}`` → ``{"1": "x"}``), so a config keyed by
+      anything but strings round-trips to a different object;
+    - ``NaN`` / ``Infinity`` are emitted as bare tokens that are **not valid JSON**, so a strict
+      reader in any other language rejects the file;
+    - mixed key types make ``sort_keys=True`` raise ``TypeError``, which the handler then met by
+      calling ``sorted()`` on the offending keys and raising a **second** ``TypeError`` — losing
+      the diagnostic entirely.
+
+    Each of those turns "records what the run used" into "records something adjacent to it", which
+    is the one thing this module exists not to do. They are refused up front instead.
+
+    ⚠️ **One lossy transformation is ACCEPTED, and saying so is the point.** A tuple is written as
+    a JSON list, so a reader cannot tell one from the other. That is not refused, because
+    pipeline-core's partition bounds genuinely are tuples — ``{'train': (121, 530)}`` — and every
+    real configuration carries them. Refusing would mean the manifest never writes on any live run,
+    which is the inert-feature defect this module was already caught in once. ⇒ The flattening is
+    harmless for this record's purpose (a bound reads the same either way) and is documented rather
+    than silently absorbed. A first draft of this guard did refuse tuples and would have killed the
+    feature on every run.
+
+    ⚠️ ``asdict()`` is also inside the guarded region now. It recurses the whole record and can
+    raise on an exotic value, and sitting outside the try meant that failure bypassed every
+    message below it.
     """
     directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=True)
     path = directory / MANIFEST_FILENAME
 
-    payload = asdict(manifest)
     try:
-        text = json.dumps(payload, indent=2, sort_keys=True)
-    except TypeError as exc:
+        payload = asdict(manifest)
+        _refuse_lossy(manifest.resolved_config)
+        text = json.dumps(payload, indent=2, sort_keys=True, allow_nan=False)
+    except (TypeError, ValueError) as exc:
         # The usual cause is a config value that is not JSON-native — a numpy scalar, a Path, an
         # enum. Name the offenders rather than letting json's own message report only the type,
         # because the caller has to fix a specific key and the type alone does not say which.
-        offenders = sorted(k for k, v in manifest.resolved_config.items() if not _json_native(v))
+        # ⚠️ `repr` and `key=repr`: the keys may be of mixed or unorderable types, which is one of
+        # the failures being reported, so sorting them naively would raise here instead.
+        offenders = sorted(
+            (repr(k) for k, v in manifest.resolved_config.items() if not _json_native(v)),
+            key=str,
+        )
         err_msg = (
-            f"EmissionManifest is not serialisable: {exc}. "
+            f"EmissionManifest is not serialisable without loss: {exc}. "
             f"Offending resolved_config keys: {offenders or 'none — the problem is elsewhere'}. "
             f"Convert them at the call site; this module records what it is given and does not "
             f"coerce, because a silent coercion is a value that no longer matches the run."
@@ -156,8 +195,29 @@ def write_manifest(manifest: EmissionManifest, directory: Path | str) -> Path:
         logger.error(err_msg)
         raise TypeError(err_msg) from exc
 
-    path.write_text(text)
+    # ⛔ Only now is anything created on disk. Building the directory before the record is known to
+    # be writable would leave an empty directory behind on every refusal.
+    directory.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
     return path
+
+
+def _refuse_lossy(resolved_config: dict) -> None:
+    """Refuse the values `json.dumps` would silently transform rather than reject.
+
+    ADR-008: every raise is preceded by a `logger.error` carrying the same message, so the reason
+    survives even where the caller converts the exception.
+    """
+    non_string_keys = sorted((repr(k) for k in resolved_config if not isinstance(k, str)), key=str)
+    if non_string_keys:
+        err_msg = (
+            f"resolved_config has non-string key(s) {non_string_keys}; JSON would coerce them to "
+            f"strings, so the record would not round-trip to the configuration the run used"
+        )
+        logger.error(err_msg)
+        raise TypeError(err_msg)
+    # ⚠️ Tuples are deliberately NOT refused here — see the caller's docstring. They become lists,
+    # and every live configuration contains them.
 
 
 def read_manifest(path: Path | str) -> EmissionManifest:
@@ -217,9 +277,18 @@ def rows_for_origin(origin: OriginRecord) -> int:
 
 
 def _json_native(value: object) -> bool:
-    """Whether ``json.dumps`` can serialise *value* without help."""
-    if isinstance(value, (str, int, float, bool, type(None))):
+    """Whether ``json.dumps`` can serialise *value* losslessly and as valid JSON.
+
+    ⚠️ ``NaN`` and ``±Infinity`` count as NOT native even though they are `float`. `json.dumps`
+    will happily emit them as bare tokens that are not valid JSON, so they are refused by
+    `allow_nan=False` — and this predicate is what NAMES the offending key in that refusal. While
+    it answered `True` for them, the write failed and the message said *"none — the problem is
+    elsewhere"*, leaving the caller a diagnostic that pointed nowhere.
+    """
+    if isinstance(value, bool) or isinstance(value, (str, int, type(None))):
         return True
+    if isinstance(value, float):
+        return math.isfinite(value)
     if isinstance(value, dict):
         return all(isinstance(k, str) and _json_native(v) for k, v in value.items())
     if isinstance(value, (list, tuple)):

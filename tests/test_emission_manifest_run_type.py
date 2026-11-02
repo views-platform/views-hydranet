@@ -45,9 +45,10 @@ def _run_streaming(tmp_path, eval_type):
 
     seen = {}
 
-    def spy(self, ctx, run_type, artifact_name, **kw):
-        seen["run_type"] = run_type
-        seen["kw"] = kw
+    def spy(self, ctx, artifact_name):
+        # The writer now reads the run type itself, inside its own try, so what a caller passes is
+        # no longer the thing to assert. Record what the method WOULD read.
+        seen["run_type"] = self.configs["run_type"]
 
     with (
         cfg_patches[0],
@@ -91,14 +92,13 @@ def test_every_legal_eval_type_still_yields_the_partition(tmp_path, eval_type):
     assert _run_streaming(tmp_path, eval_type)["run_type"] == "calibration"
 
 
-def test_the_streaming_path_requires_the_directory_to_already_exist(tmp_path):
-    """⚠️ The eval paths keep the moved-convention guard; only the forecast path waives it.
-
-    On a streaming run the pipeline's sink has already created the per-origin directories, so an
-    absent directory means the derivation is wrong and must be reported rather than created.
-    """
-    seen = _run_streaming(tmp_path, eval_type="standard")
-    assert seen["kw"].get("directory_must_exist", True) is True
+# ⛔ A test that asserted `seen["kw"].get("directory_must_exist", True) is True` used to live
+# here. It was a TAUTOLOGY: the call site passed the flag nowhere, so `seen["kw"]` was always `{}`
+# and the expression reduced to `{}.get(..., True) is True` — true for any production default,
+# including the opposite one. The flag has since been removed (the directory check is now
+# unconditional, and the forecast path writes no manifest at all), so there is nothing left to
+# assert. Recorded rather than quietly deleted, because the shape is worth recognising: an
+# assertion whose subject is its own default argument.
 
 
 def test_the_unreachable_batch_path_writes_no_manifest(tmp_path):

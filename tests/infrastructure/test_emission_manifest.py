@@ -33,7 +33,7 @@ def _manifest(**over) -> EmissionManifest:
         model_name="a_model",
         package_version="0.1.8",
         resolved_config={"forecast_composition": "threshold_gate", "gate_threshold": 0.2},
-        quantities={"forecast": "lr_", "gate": "by_"},
+        quantities={"lr_sb_best": "forecast", "by_sb_best": "gate"},
         origins=(
             OriginRecord(
                 sequence_number=0,
@@ -169,3 +169,59 @@ def test_the_module_reads_nothing_but_its_arguments():
             f"emission_manifest references {forbidden!r}; it must record what it is given, so "
             f"that it can be tested with no model and its values cannot be a re-read"
         )
+
+
+# ─── Lossy serialisation is refused; one transformation is accepted on purpose ──
+
+
+def test_a_non_string_config_key_is_refused_rather_than_coerced(tmp_path):
+    """⛔ `json.dumps` turns `{1: "x"}` into `{"1": "x"}` without complaint.
+
+    A record that does not round-trip to the configuration the run used is not a record of it, and
+    this module's whole claim is that it does.
+    """
+    bad = _manifest(resolved_config={1: "x", "fine": 2})
+    with pytest.raises(TypeError, match="non-string key"):
+        write_manifest(bad, tmp_path)
+    assert not (tmp_path / MANIFEST_FILENAME).exists()
+
+
+def test_a_nan_is_refused_because_it_is_not_valid_json(tmp_path):
+    """`NaN` serialises to a bare token that no strict JSON reader accepts."""
+    bad = _manifest(resolved_config={"loss": float("nan")})
+    with pytest.raises(TypeError, match="not serialisable without loss"):
+        write_manifest(bad, tmp_path)
+    assert not (tmp_path / MANIFEST_FILENAME).exists()
+
+
+def test_unorderable_keys_do_not_destroy_the_diagnostic(tmp_path):
+    """⚠️ The error path must not raise its own error.
+
+    With mixed key types `sort_keys=True` raises, and the handler then used to call `sorted()` on
+    those same keys — raising a *second* `TypeError` that replaced the message explaining the
+    first. The report is the only thing the caller gets, so it has to survive.
+    """
+    bad = _manifest(resolved_config={1: object(), "a": object()})
+    with pytest.raises(TypeError) as exc:
+        write_manifest(bad, tmp_path)
+    assert "not serialisable without loss" in str(exc.value)
+
+
+def test_a_tuple_is_accepted_and_the_flattening_is_known(tmp_path):
+    """⚠️ Tuples become JSON lists, and that is ALLOWED — deliberately.
+
+    Every live configuration carries tuples: pipeline-core's partition bounds are
+    `{'train': (121, 530)}`. Refusing them would mean the manifest never writes on any real run,
+    which is the inert-feature defect this module was already caught in once. ⇒ The loss is
+    documented, not silently absorbed, and this test is where the decision is recorded.
+    """
+    path = write_manifest(_manifest(resolved_config={"train": (121, 530)}), tmp_path)
+    assert read_manifest(path).resolved_config["train"] == [121, 530]
+
+
+def test_a_refusal_leaves_no_directory_behind(tmp_path):
+    """The directory is created only once the record is known to be writable."""
+    target = tmp_path / "not_yet"
+    with pytest.raises(TypeError):
+        write_manifest(_manifest(resolved_config={"bad": object()}), target)
+    assert not target.exists(), "a refused write still created its output directory"

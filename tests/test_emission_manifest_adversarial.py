@@ -67,6 +67,10 @@ def _fake_manager(tmp_path, configs: dict):
     pipeline context, none of which this story is about. The method under test is called unbound,
     so it is the real code path — only its collaborators are stood in for.
     """
+    # The writer reads the run type from the manager itself, so every stand-in needs one. Tests
+    # that care about its absence override it explicitly.
+    configs = {"run_type": RUN_TYPE, **configs}
+
     generated = tmp_path / "data" / "generated"
     predictions = generated / f"predictions_{RUN_TYPE}_20261102_010203"
     predictions.mkdir(parents=True)
@@ -91,41 +95,82 @@ def _fake_manager(tmp_path, configs: dict):
     model_path.model_name = "a_model"
     model_path.resolve_artifact_path.return_value = artifact
 
-    fake = SimpleNamespace(_model_path=model_path, configs=configs)
-    # The real provenance collector, bound to the stand-in — so version control is genuinely
-    # consulted rather than mocked away. It is the one part of the writer that touches the
-    # outside world, and a test that skipped it would not exercise the code that runs.
-    fake._repo_provenance = lambda: HydranetManager._repo_provenance(fake)
+    # ⛔⛔ `configs` is a PROPERTY here, not a dict, and that is the whole point.
+    # pipeline-core's `ModelManager.configs` re-runs `get_combined_config()` on every access
+    # (model.py:408-410). The first version of this fixture made it a plain dict — the very dict
+    # the mutation test then mutated — so `resolved_config=dict(self.configs)` passed the test
+    # BY CONSTRUCTION while being exactly the re-read ADR-074 §2.3 forbids. A stand-in that
+    # replaces the mechanism under test cannot test it.
+    class _Fake:
+        def __init__(self):
+            self._model_path = model_path
+            self._merge_count = 0
+
+        @property
+        def configs(self):
+            # A fresh dict per access, as the real property returns.
+            self._merge_count += 1
+            return dict(configs)
+
+        def _repo_provenance(self):
+            # The real collector, so version control is genuinely consulted rather than mocked
+            # away. It is the one part of the writer that touches the outside world.
+            return HydranetManager._repo_provenance(self)
+
+    fake = _Fake()
     return fake, predictions
 
 
-def _ctx(origins=None):
-    orchestrator = SimpleNamespace(emitted_origins=list(origins or _origins()))
-    return SimpleNamespace(orchestrator=orchestrator)
+def _ctx(origins=None, orchestrator_config=None, all_targets=None):
+    """The evaluation context the writer reads.
+
+    `orchestrator.config` is the dict the inference engine was handed — the object the computation
+    actually used — and is where `resolved_config` must come from. It is deliberately a DIFFERENT
+    object from the manager's `configs` property, so a test can tell which one the writer read.
+    """
+    orchestrator = SimpleNamespace(
+        emitted_origins=list(origins or _origins()),
+        config=orchestrator_config if orchestrator_config is not None else {},
+    )
+    return SimpleNamespace(
+        orchestrator=orchestrator,
+        all_targets=list(all_targets or ["lr_sb_best", "by_sb_best"]),
+    )
 
 
 def _write(fake, ctx):
     """Call the real method, unbound, on the stand-in."""
-    HydranetManager._write_emission_manifest(fake, ctx, RUN_TYPE, ARTIFACT)
+    HydranetManager._write_emission_manifest(fake, ctx, ARTIFACT)
 
 
 # ─── The two that matter ─────────────────────────────────────────────────────
 
 
 def test_mutating_the_config_object_reaches_the_manifest(tmp_path):
-    """⭐⭐ The manifest follows the object the run used, not a file or a cached copy.
+    """⭐⭐ The manifest follows the object the COMPUTATION used, not the manager's merged view.
 
-    The configuration is mutated *after* the stand-in is built — the point in a real run where a
-    re-reading implementation and an object-reading one diverge. If the manifest showed the
-    original value, it would be describing a run that did not happen.
+    ⛔ This test was wrong once and passed anyway, which is why it is written this way now. It
+    mutated the manager's `configs` and the writer read `dict(self.configs)` — and the fixture had
+    made `configs` a plain dict, so the two were the same object and the assertion held by
+    construction. In production `configs` is a property that re-merges five sources per access, so
+    the writer was re-reading intent, which is precisely what ADR-074 §2.3 forbids.
+
+    ⇒ Now the two are DIFFERENT objects. `ctx.orchestrator.config` is the dict handed to the
+    inference engine; the manager's property returns something else. Mutating the orchestrator's
+    copy after setup is what a driver actually does — `roster_arm_entry.py` sets
+    `forecast_composition` and `gate_threshold` on it after `_setup_evaluation`, and those are the
+    most load-bearing keys in these experiments. A manifest reading the manager's view would
+    record the model's on-disk composition for a run that rolled out a different one.
     """
-    configs = {"forecast_composition": "threshold_gate", "gate_threshold": 0.2}
-    fake, predictions = _fake_manager(tmp_path, configs)
+    manager_view = {"forecast_composition": "soft_gate", "gate_threshold": 0.0, "run_type": "x"}
+    used_by_the_run = {"forecast_composition": "threshold_gate", "gate_threshold": 0.2}
+    fake, predictions = _fake_manager(tmp_path, {**manager_view, "run_type": RUN_TYPE})
 
-    configs["gate_threshold"] = 0.75
-    configs["emit_distribution"] = "truncated_nb"
+    # The driver's post-setup mutation, on the object the engine holds.
+    used_by_the_run["gate_threshold"] = 0.75
+    used_by_the_run["emit_distribution"] = "truncated_nb"
 
-    _write(fake, _ctx())
+    _write(fake, _ctx(orchestrator_config=used_by_the_run))
     recorded = read_manifest(predictions / MANIFEST_FILENAME).resolved_config
 
     assert recorded["gate_threshold"] == 0.75, (
@@ -136,6 +181,11 @@ def test_mutating_the_config_object_reaches_the_manifest(tmp_path):
         "a key added to the configuration after construction is missing, so the manifest is a "
         "snapshot of the wrong moment"
     )
+    assert recorded["forecast_composition"] == "threshold_gate", (
+        "the manifest recorded the MANAGER's merged configuration rather than the one the "
+        "computation was handed — the re-read ADR-074 section 2.3 forbids"
+    )
+    assert "soft_gate" not in recorded.values()
 
 
 def test_the_mutation_test_would_catch_a_stale_snapshot(tmp_path):
@@ -187,8 +237,9 @@ def test_a_falsified_field_is_detected(tmp_path):
 def test_every_field_agrees_with_the_run_that_produced_it(tmp_path):
     """The manifest describes this run: configuration, origins, identity, artifact digest."""
     configs = {"forecast_composition": "soft_gate", "n_posterior_samples": 4}
-    fake, predictions = _fake_manager(tmp_path, configs)
-    _write(fake, _ctx())
+    fake, predictions = _fake_manager(tmp_path, {})
+    # The config the COMPUTATION used travels on the orchestrator, not on the manager.
+    _write(fake, _ctx(orchestrator_config=configs))
 
     m = read_manifest(predictions / MANIFEST_FILENAME)
 
@@ -283,12 +334,34 @@ def test_a_finished_run_is_never_failed_by_the_manifest_but_the_failure_is_logge
     that quietly stopped being written is indistinguishable from one that was never asked for. So
     the error must also reach the log at ERROR level.
     """
-    fake, predictions = _fake_manager(tmp_path, {"unserialisable": object()})
+    fake, predictions = _fake_manager(tmp_path, {})
+
+    with caplog.at_level("ERROR"):
+        # The bad value goes where `resolved_config` is actually read from.
+        _write(fake, _ctx(orchestrator_config={"unserialisable": object()}))
+
+    assert not (predictions / MANIFEST_FILENAME).exists()
+    assert any("ADR-074" in r.message and r.levelname == "ERROR" for r in caplog.records), (
+        "the manifest failed and said nothing; a silent swallow is not an acceptable outcome"
+    )
+
+
+def test_a_configuration_without_a_run_type_writes_nothing_and_says_so(tmp_path, caplog):
+    """⚠️ The run type is read inside the writer's own try, so its absence cannot fail the run.
+
+    `configs` is a property that re-merges five sources, so a missing or renamed `run_type` — or
+    any failure during that merge — raises. Read at a call site it would do so AFTER every origin
+    had been streamed and persisted, and pipeline-core would convert a finished evaluation into a
+    failed one. Read here it costs the manifest and nothing else.
+    """
+    fake, predictions = _fake_manager(tmp_path, {})
+    # Drop the key the writer needs, the way a renamed or unmerged config would.
+    type(fake).configs = property(lambda self: {"a": 1})
 
     with caplog.at_level("ERROR"):
         _write(fake, _ctx())
 
     assert not (predictions / MANIFEST_FILENAME).exists()
-    assert any("ADR-074" in r.message and r.levelname == "ERROR" for r in caplog.records), (
-        "the manifest failed and said nothing; a silent swallow is not an acceptable outcome"
+    assert any("ADR-074" in r.message for r in caplog.records), (
+        "the manifest was skipped silently; a missing manifest must be visible in the log"
     )

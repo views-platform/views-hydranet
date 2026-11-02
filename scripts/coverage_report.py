@@ -47,8 +47,16 @@ def render(declarations: list[Declaration]) -> str:
     lines = [
         "ADR-077 coverage report",
         "=" * 72,
-        f"configurations declaring an extent: {len(declarations)}"
+        # ⚠️ Two different counts, kept apart on purpose. The row count is every datafactory
+        # descriptor found; only some of those declare an extent, because a viewser-path model has
+        # no `REGION` at all. An earlier version printed the row count under the words "declaring
+        # an extent" — 142 against an actual 59.
+        f"datafactory descriptors found: {len(declarations)}"
         f"  ({len(ours)} HydraNet, {len(others)} other)",
+        f"of those, declaring an extent: {sum(1 for d in declarations if d.region)}"
+        f"  ({sum(1 for d in declarations if d.note == 'not declared')} declare none, "
+        f"{sum(1 for d in declarations if d.region is None and d.note != 'not declared')} "
+        f"unresolved)",
         "",
         f"HydraNet models — ADR-077 requires {GLOBAL_LAND!r}:",
     ]

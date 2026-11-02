@@ -254,3 +254,91 @@ def test_a_horizon_the_window_does_not_contain_is_refused(env):
             orchestrator.generate_prediction_frames(
                 handler, scaler, origins=[handler.shape[0] - 4], all_targets=TARGETS
             )
+
+
+# ─── The STREAMING loop — the path production actually takes ─────────────────
+
+
+def _run_streaming(env, origins, emit_horizons):
+    """Drive `generate_prediction_frames_streaming` and return (sunk frames, orchestrator).
+
+    ⛔⛔ This exists because every other test in this file drives `generate_prediction_frames` —
+    the BATCH loop — and pipeline-core only calls that on the DataFrame branch, which no HydraNet
+    takes. A reviewer deleted both `emit_horizons=` and the recorder call from the STREAMING loop
+    and 85 tests still passed. The feature was fully guarded on the dead copy and unguarded on the
+    live one, which is C-324's signature a third time.
+    """
+    handler, scaler, model = env
+    rng = np.random.default_rng(20261102)
+    posterior = rng.random((CFG["time_steps"], 2, 2, 6, S))
+
+    orchestrator = InferenceOrchestrator(
+        {**CFG, "emit_horizons": emit_horizons}, model, torch.device("cpu")
+    )
+    sunk = []
+    with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_cls:
+        mock_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
+        orchestrator.generate_prediction_frames_streaming(
+            handler,
+            scaler,
+            origins=origins,
+            all_targets=TARGETS,
+            origin_sink=lambda i, pf: sunk.append((i, {t: pf[t] for t in TARGETS})),
+        )
+    return sunk, orchestrator
+
+
+def test_the_streaming_loop_honours_the_horizon_selection(env):
+    """⭐⭐ The live path, not the batch copy. Deleting the kwarg there must fail a test."""
+    origins = _origins(env)
+    sunk, _ = _run_streaming(env, origins, [1])
+
+    assert len(sunk) == len(origins), "the sink was not called once per origin"
+    for _, pf_dict in sunk:
+        months = {int(m) for m in np.asarray(pf_dict[TARGETS[0]].index.time)}
+        assert len(months) == 1, (
+            f"the streaming loop emitted {len(months)} horizons for a 1-horizon selection — the "
+            f"selection does not reach the path production takes"
+        )
+
+
+def test_the_streaming_loop_records_what_it_emitted(env):
+    """⭐⭐ The recorder on the live path. Deleting the call there must fail a test.
+
+    Checked before the sink frees anything, which is why the recorder sits where it does: the
+    pipeline's real sink pops frames out of `pf_dict`, so a record taken afterwards would read an
+    empty dict.
+    """
+    origins = _origins(env)
+    _, orch = _run_streaming(env, origins, None)
+
+    assert len(orch.emitted_origins) == len(origins), (
+        "the streaming loop recorded no origins — the manifest would show `origins: []` beside "
+        "real prediction directories, under an INFO line saying it was written"
+    )
+    assert [o.origin_index for o in orch.emitted_origins] == origins
+    for record in orch.emitted_origins:
+        assert record.emitted_horizons == tuple(range(1, CFG["time_steps"] + 1))
+        assert record.rows_per_horizon > 0
+
+
+def test_the_streaming_and_batch_loops_agree(env):
+    """The two loops are near-duplicates, so they must not be able to drift apart silently.
+
+    ⚠️ This is a guard, not an endorsement: the duplication is the underlying problem and is noted
+    rather than fixed here. Until one of them goes, this is what notices if only one is updated.
+    """
+    origins = _origins(env)
+    batch, batch_orch = _run(env, origins, [1])
+    sunk, stream_orch = _run_streaming(env, origins, [1])
+
+    assert len(batch) == len(sunk)
+    for (_, stream_pf), batch_pf in zip(sunk, batch):
+        for target in TARGETS:
+            assert np.array_equal(
+                np.asarray(batch_pf[target].values), np.asarray(stream_pf[target].values)
+            ), f"{target}: the two loops emit different values for the same selection"
+
+    assert [o.emitted_horizons for o in batch_orch.emitted_origins] == [
+        o.emitted_horizons for o in stream_orch.emitted_origins
+    ]
