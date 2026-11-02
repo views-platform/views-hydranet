@@ -6,7 +6,7 @@
 **Informed:** HydraNet maintainers · views-models maintainers · views-frames maintainers
 **Builds on:** ADR-003 (authority of declarations over inference), ADR-008 (observability and explicit failure)
 **Leaves intact:** ADR-032 (authoritative output schema — counts in, counts out)
-**Required by:** ADR-075 (emission selection — the change that creates emitted intermediaries)
+**Required by:** ADR-075 (emitting the body — the change that creates emitted intermediaries), ADR-078 (origin and horizon selection)
 
 ## Summary (read this first — self-contained)
 
