@@ -65,15 +65,25 @@ remaining thing that appears to offer it.
 change what is computed, and require the declared step list to be a contiguous count rather than a
 selector.*
 
-### 2.1 The field
+### 2.1 The field, and its name
 
 A configuration field declares which horizons a run emits. Its default is all of them.
+
+**Its name must say that it selects emission**, not horizons in general — so it reads as
+*emit*-something rather than as a bare horizon or step setting. This is not cosmetic. The field it
+sits beside, the declared step list, is already a setting that *appears* to select horizons and
+does not (§2.3), and the single most likely misuse of this one is to expect it to shorten a run
+(§2.2). A name that states which of the two it does is the cheapest defence against both, and the
+only one present at the moment someone types it.
 
 ### 2.2 Selection applies to output, not to computation
 
 The field chooses what is written. It does not change what is computed.
 
-This is stated in the field's own documentation as well as here.
+⇒ **This constraint is defended in three places, deliberately**, because an ADR cannot reach the
+person who misreads it: in the field's **name** (§2.1), in the field's own **documentation**, and
+by the **test** in §5 that a selected subset is bit-identical to the corresponding part of a full
+run — which *proves* no computation was skipped rather than asserting it.
 
 ### 2.3 The declared step list is a count, not a selector
 
