@@ -29,8 +29,9 @@ about whether the model is losing cells or losing magnitude are questions about 
 other is held still, and a combined forecast conflates them.
 
 This ADR lets a run be **asked** to emit the body, from the same inference pass and the same draws
-as the forecast. It is a diagnostic output, not a forecast, and never a target. It changes no
-default.
+as the forecast. It is a diagnostic output, not a forecast, and never a target — written under a
+name that says so, `diagnostic_body_<target>`, by a path that cannot turn it into one. It changes
+no default.
 
 ---
 
@@ -85,7 +86,38 @@ classification target, and not entering the target set handed to evaluation.
 The gate's position is different and unchanged — it is a declared classification target, correctly,
 because ground truth for it exists.
 
-### 2.4 Scope
+### 2.4 What it is called, and the two things the name has to survive
+
+An emitted diagnostic is named **`diagnostic_<quantity>_<target>`** — so the body for a given
+target is `diagnostic_body_<target>`. Targets are the model's existing set, and that set may grow.
+
+Two constraints decide this, and both are correctness rather than taste.
+
+**The name must not be caught by a selection meant for something else.** Downstream tooling selects
+artifacts by matching a path component against the forecast and gate prefixes. A name beginning
+with either — including a compound such as the forecast prefix followed by `body` — is **silently
+swept into the forecast archive**. Measured: that compound matches; `diagnostic_body_…` does not.
+
+**It must not be written by the target assembler.** That assembler gives every target a
+prediction-prefixed column, and a serving layer downstream adopts prediction-prefixed columns **by
+prefix, with no allow-list** — so a diagnostic that passed through it would become servable as a
+forecast. A diagnostic therefore has its **own writer**, and never acquires a prediction column.
+
+⇒ Two independent protections, which is the right number for a quantity that would be mistaken for
+a forecast if it leaked: a name no selection catches, and a write path that cannot mint a
+prediction column.
+
+**The namespace is open.** `diagnostic_<quantity>_<target>` admits other quantities should they be
+wanted — a bulk or a tail of a distribution, for instance — without a further decision about
+naming. Adding one is still a decision about whether to emit it; this ADR only fixes the shape of
+the name.
+
+⚠️ One possibility the namespace permits and this ADR does **not** propose: the gate is currently a
+declared target with its own ground truth, and correctly so. If it ever stopped being scored as a
+target it could move into this namespace instead. That is a long way off, is not planned, and would
+need its own decision.
+
+### 2.5 Scope
 
 **In scope:** the field, its validation, and the model honouring it.
 
