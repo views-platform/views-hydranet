@@ -39,10 +39,30 @@ makes it. In summary:
 
 **And the decisive measurement this ADR could not have known.** A **family-free** conditional CDF,
 conditioned on nothing but the model's own `gate x mu` index and fitted on months 421–456, scores
-**0.039327** out of sample on the same 842,634 cell-months with the same m=16 plug-in estimator —
-**−17.6%** against the best parametric cell in §4.3's 2x2 and **−22.5%** against what ships today.
-Bin count **swept**: it loses below 250 bins, crosses around 1,000, peaks at 8,000 and turns back
-down, so the optimum is out-of-sample and not an overfit. **~99.7% of that gain comes from the
+**0.039327** out of sample on the same 842,634 cell-months — **−14.55%** against the best
+parametric cell in §4.3's 2x2 (0.046023) and **−22.5%** against what ships today.
+
+⛔ **THREE CORRECTIONS TO THE LINE ABOVE, 2026-11-02.** The direction survives all three; the
+numbers and the estimator do not.
+
+1. **The anti-overfit argument is withdrawn.** It read: *"bin count swept: it loses below 250
+   bins, crosses around 1,000, peaks at 8,000 and turns back down, so the optimum is out-of-sample
+   and not an overfit."* **M68 withdrew it on 2026-10-27** (`RESULTS_LEDGER.md:425-426`): the
+   turnover is the plug-in estimator's own bias, which grows as equal-count bins shrink, and under
+   the fair estimator the curve never turns over. ⇒ **Nothing in this document now argues that the
+   optimum is not an overfit.**
+2. **The percentage was wrong.** It read −17.6%, which holds only against 0.047741 — truncation
+   alone, which is not the best cell. Against the best cell the figure is **−14.55%**; the
+   independent reproduction records −14.9% plug-in and −15.3% fair (`RESULTS_LEDGER.md:426`).
+3. **The estimator size was wrong, and the figure is unreproduced.** It read *"the same m=16
+   plug-in estimator"*; the implied m is **155** (`PREDICTION_LEDGER.md:386`, R-43). And
+   `PREDICTION_LEDGER.md:307` (W-98) records that **0.039327 has never been produced by any
+   implementation** — the lifted scorer returns different values and the published trio fails its
+   own background/event identity (R-42).
+
+⇒ ⚠️ **Treat the family-free comparison as a direction, not a measurement.** The two findings that
+do not depend on it — the placement inversion and the estimator dependence — are intact, and they
+are what the verdict below rests on. **~99.7% of that gain comes from the
 1.36% of cells where it forecasts anything at all** — it matches the delivered model on the quiet
 background (0.000260 vs 0.000266) and beats it on the conditional law where events occur
 (**10.831 vs 14.589**, −25.7%).
@@ -82,7 +102,7 @@ occurrence while the calibrated half is discarded.
 
 **Assumption no longer true.** `output_distribution` has always been treated as one choice. It is
 two: it selects the family for the **training loss** (`utils/utils.py:186-199`) *and* for the
-**emit-time draw** (`utils/hydranet_inference.py:270`). Nothing requires them to be the same, and
+**emit-time draw** (`utils/hydranet_inference.py:278-280`). Nothing requires them to be the same, and
 the combination that the evidence favours — train as `nb`, emit zero-truncated — is unreachable
 because they share one key.
 
@@ -186,11 +206,22 @@ improper (Lerch et al. **C-79/C-80**) — legitimate as a diagnostic, never as a
 
 ### Relationship to ADR-068 and ADR-069
 
-**ADR-068 (`emit_family_core`) is not subsumed and must not be folded in.** It answers a different
-question: *which part of one family's own distribution to emit* (the π-stripped bulk of a
-self-zeroed family), and it applies only where there is a structural π to strip. This ADR answers
-*which family to emit from at all*. They compose — `emit_family_core` continues to select
-`mean_core`/`sample_core` on whichever family `emit_distribution` resolves to.
+⛔ **CORRECTED 2026-11-02.** This section previously defended `emit_family_core` as a live,
+composable flag and attributed it to ADR-068. Both are wrong:
+
+- **ADR-069 (Active) decided to retire it** — *"Retire `emit_family_core` — the inference flag for
+  the KILLED gated_ZINBcore arm (dead code)"*. This document cannot assert its continued life
+  without reopening that decision, and does not.
+- **`emit_family_core` appears nowhere in ADR-068**, which is a naming-convention ADR. It defines
+  the word *core*; it does not introduce the flag.
+
+⚠️ The flag is nonetheless still present in the code, so **ADR-069's retirement was never
+executed**. That is a code-versus-ADR divergence, recorded as an issue, and not a reason to treat
+the flag as intended design.
+
+The distinction this section was reaching for still holds and does not need the flag: *which part
+of one family's distribution to emit* is a different question from *which family to emit from at
+all*.
 
 **ADR-069 is amended in one respect only.** Its composition rules are statements about the draws the
 gate multiplies, which is the **emitting** family's business. They are re-pointed accordingly, with
@@ -210,11 +241,11 @@ registered as a risk instead.
 
 **Whether the autoregressive feedback follows the emitted family or the trained one.**
 
-`hydranet_inference.py:1052` resolves the fed-back draw from the same `self._family`, so a naive
+`hydranet_inference.py:1109` resolves the fed-back draw from the same `self._family`, so a naive
 implementation changes the rollout as a side effect of changing emission. Two recorded positions
 conflict:
 
-- **Coherence (C-234, `hydranet_inference.py:1054-1058`):** *"Feeding back the self-zeroed body
+- **Coherence (C-234, `hydranet_inference.py:1115-1116`):** *"Feeding back the self-zeroed body
   while emitting the core makes the rollout incoherent (h≥2 on a history the model never emitted)."*
   By this principle the feedback **must** follow the emitted family.
 - **The bloom record (M45, `RESULTS_LEDGER.md:403`, 4 seeds):** `truncated_nb` moved step-1
@@ -265,10 +296,10 @@ its estimator. Recorded against #436.
 ## 7. Implementation Notes
 
 - **Location.** `distributions/registry.py` (`FAMILY_N_PARAMS`), `utils/config_initializer.py`
-  (field + validators, including the ADR-069 re-point), `utils/hydranet_inference.py:270` (the
+  (field + validators, including the ADR-069 re-point), `utils/hydranet_inference.py:278-280` (the
   single seam — every other `self._family` use is already emit-side).
 - **References.** Epic #428; tracking #440; stories #429–#439.
   `reports/2026-10-21_emit_time_split_prereg.md` (prediction, falsifiers, outcome);
-  `reports/2026-10-13_composition_arm_outcome/OUTCOME.md:77-84` (where this was first named);
+  `reports/2026-10-13_composition_arm_outcome/OUTCOME.md:85-90` (where this was first named);
   #396 (the under-firing diagnosis this answers a piece of); views-models#590 (the decision to stop
   *training* on `truncated_nb`).
