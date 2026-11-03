@@ -317,41 +317,94 @@ def _strip_orphaned_import(qs: Path) -> None:
         )
 
 
-def _meta_bool(text: str, key: str):
-    """The literal value of `key` in `text`, PARSED — never regex-matched, never executed.
+def _meta_bool(text: str, key: str, getter: str = "get_meta_config"):
+    """The literal value of ``key`` in the dict ``getter`` RETURNS, parsed — never executed.
 
-    ⛔ This is the readback the regex cannot be, and it exists because three shapes slipped past
-    the count check as surviving mutations (`/code-review max`, 2026-11-03):
+    ⛔ Scoped to that ONE dict, and refusing anything not statically determinable. Walking every
+    ``ast.Dict`` in the file false-accepted twice, both measured rather than imagined:
 
-    * ``": TrueX,"`` / ``": True_FLAG,"`` — no word boundary, so the rewrite mangled a different
-      token and reported success. Closed by ``\b`` in the pattern *and* here.
-    * a **commented-out** occurrence — rewritten, reported ``n == 1``, and the built arm then
-      carries no live key at all, which ``visual_diagnostics.py:73`` silently defaults to False.
-      A comment is not in the AST, so it cannot satisfy this.
-    * ``": True and False,"`` — left byte-identical when ``True`` was asked for, reported as a
-      successful rewrite, and **evaluating to False**: the opposite of the request, in silence.
-      A ``BoolOp`` is not a ``Constant``, so it refuses here.
+    * ``return {"inner": {key: True}}`` reported ``True`` while the real config has no such key
+      at all, so an arm asked to run with diagnostics ON would have shipped with them OFF.
+    * ``cfg = {key: False}`` followed by ``cfg[key] = True`` reported ``False`` while the value is
+      ``True`` — the parse reads the CONSTRUCTION, not the value, and that is exactly the direction
+      a hand-edited arm would take. ⇒ A gate that reads construction is no gate against tampering.
 
-    Returns ``_ABSENT`` unless exactly one live key carries a literal ``bool``.
+    ⚠️ The real configs are ``meta_config = {...}`` followed by ``return meta_config``, not a bare
+    ``return {literal}`` — so the returned NAME is traced back to its single assignment, and the
+    name is refused if anything in the function could have mutated it afterwards.
     """
     try:
         tree = ast.parse(text)
     except SyntaxError:
         return _ABSENT
-    found = _ABSENT
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Dict):
-            continue
-        for k, v in zip(node.keys, node.values):
-            if not (isinstance(k, ast.Constant) and k.value == key):
-                continue
-            if not (isinstance(v, ast.Constant) and isinstance(v.value, bool)):
-                return _ABSENT
-            if found is not _ABSENT:
-                return _ABSENT  # two live keys: which one wins is not ours to guess
-            found = v.value
-    return found
+    fns = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == getter]
+    if len(fns) != 1:
+        return _ABSENT
+    fn = fns[0]
+    #: ⛔ A decorator can replace the return value wholesale, so the body would say nothing about
+    #: what the getter actually yields. Refuse rather than read the body underneath it.
+    if fn.decorator_list:
+        return _ABSENT
+    body = list(fn.body)
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        body = body[1:]  # drop the docstring
+    if not body or not isinstance(body[-1], ast.Return):
+        return _ABSENT
 
+    returned = body[-1].value
+    if isinstance(returned, ast.Dict):
+        target = returned
+    elif isinstance(returned, ast.Name):
+        name = returned.id
+        assigns = [
+            n
+            for n in body
+            if isinstance(n, ast.Assign)
+            and len(n.targets) == 1
+            and isinstance(n.targets[0], ast.Name)
+            and n.targets[0].id == name
+        ]
+        if len(assigns) != 1 or not isinstance(assigns[0].value, ast.Dict):
+            return _ABSENT
+        #: ⛔ Refuse if ANYTHING could have changed it after construction: a subscript store, a
+        #: method call such as `.update`, or an augmented assignment. This is the false-accept.
+        for n in ast.walk(fn):
+            if (
+                isinstance(n, ast.Subscript)
+                and isinstance(n.value, ast.Name)
+                and n.value.id == name
+                and isinstance(n.ctx, ast.Store)
+            ):
+                return _ABSENT
+            if (
+                isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Attribute)
+                and isinstance(n.func.value, ast.Name)
+                and n.func.value.id == name
+            ):
+                return _ABSENT
+            if (
+                isinstance(n, ast.AugAssign)
+                and isinstance(n.target, ast.Name)
+                and n.target.id == name
+            ):
+                return _ABSENT
+        target = assigns[0].value
+    else:
+        return _ABSENT
+
+    found = _ABSENT
+    for k, v in zip(target.keys, target.values):
+        if k is None:
+            return _ABSENT  # `**` unpacking: the key may be hiding inside it
+        if not (isinstance(k, ast.Constant) and k.value == key):
+            continue
+        if not (isinstance(v, ast.Constant) and isinstance(v.value, bool)):
+            return _ABSENT
+        if found is not _ABSENT:
+            return _ABSENT  # two live copies: which one wins is not ours to guess
+        found = v.value
+    return found
 
 def _rewrite_meta(meta: Path, *, label: str, diagnostics: bool) -> None:
     """Rewrite the arm's ``config_meta.py`` name and diagnostics keys, verify by parse, then write.
@@ -422,72 +475,87 @@ def build(
             "data", "logs", "wandb", "artifacts", "reports", "notebooks", "__pycache__", "*.pyc"
         ),
     )
-    # Mirror the floor's directory skeleton. ModelPathManager validates that each of these exists
-    # and raises FileNotFoundError otherwise — so an arm missing `data/processed` dies at startup,
-    # which is exactly what happened on the first attempt at 15:15.
-    for sub in ("data/generated", "data/processed", "artifacts", "logs", "notebooks", "reports"):
-        (dest / sub).mkdir(parents=True, exist_ok=True)
-    # data/raw carries the cached parquet, so no arm fetches from the network mid-sweep.
-    src_raw = _FLOOR / "data" / "raw"
-    if not src_raw.is_dir():
-        raise SystemExit(f"{_TOOL}: {src_raw} missing — an arm would fetch data mid-sweep")
-    shutil.copytree(src_raw, dest / "data" / "raw")
-
-    hp = dest / "configs" / "config_hyperparameters.py"
-    text = hp.read_text()
-    text = _set_key(text, "ss_epsilon_max", repr(eps))
-    text = _set_key(text, "torch_seed", repr(seed))
-    text = _set_key(text, "np_seed", repr(seed))
-    text = _set_key(text, "total_lessons", repr(lessons))
-    # THE one key. `_set_key` raises unless it matches exactly once, and the floor config already
-    # carries `'model': 'HydraBNUNet06_LSTM4'`, so no insert path is needed here.
-    text = _set_key(text, "model", repr(variant))
-    if "'ss_feedback'" in text:
-        text = _set_key(text, "ss_feedback", repr("sample"))
-    else:
-        text = text.replace(
-            f"'ss_epsilon_max': {eps!r},",
-            f"'ss_epsilon_max': {eps!r},\n    'ss_feedback': 'sample',  # C-259",
-            1,
-        )
-    hp.write_text(text)
-
-    # PIN THE QUERYSET IDENTITY TO THE FLOOR'S.
+    # ⛔⛔ THE CLEANUP STARTS HERE — immediately after `dest` exists on disk, and it wraps
+    # EVERYTHING. Twice now the `try` began further down and a refusal above it left a
+    # half-built arm behind; the second time (2026-11-03) the surviving site was the bare
+    # `raise SystemExit` for config_queryset.py, which fires AFTER
+    # `config_hyperparameters.py` has been written. That combination is the dangerous one:
+    # `arm_identity_check.py:117` reads ONLY config_hyperparameters.py, so it PASSES, and
+    # `run_queue.sh:114` reuses the directory on `[ -d ... ]` alone ⇒ the queue trains an arm
+    # whose config_meta.py still says `"name": "violet_visitor"` and still carries the
+    # floor's `diagnostic_visualizations`.
     #
-    # config_queryset.py derives `model_name` from its own file path and uses it as the queryset
-    # "name", which feeds the C-61 provenance digest. Cloning therefore changes the DATA identity even
-    # though the data is byte-identical, and the cached parquet is rejected as stale.
-    #
-    # The arms genuinely share a queryset — they differ only in training hyperparameters, never in what
-    # data is pulled — so pinning the name to the floor's is the honest statement, not a workaround. It
-    # also makes "every arm sees identical data" structural rather than merely intended, which is what
-    # a controlled sweep needs: a per-arm refetch could return a different vintage and confound the
-    # comparison with a data change.
-    qs = dest / "configs" / "config_queryset.py"
-    qtext = qs.read_text()
-    marker = "model_name = ModelPathManager.get_model_name_from_path(__file__)"
-    if marker not in qtext:
-        raise SystemExit(
-            f"{_TOOL}: config_queryset.py no longer derives model_name as expected"
-        )
-    qs.write_text(
-        qtext.replace(
-            marker,
-            "# PINNED by make_ss_arm.py: the queryset identity is the FLOOR's, because every sweep arm\n"
-            "# pulls the same data. Deriving it from the path would change the C-61 provenance digest\n"
-            "# per arm and reject the shared cache as stale.\n"
-            f'model_name = "{_FLOOR.name}"',
-            1,
-        )
-    )
-
-
-    meta = dest / "configs" / "config_meta.py"
-
-    # A failed verification must not leave a half-built arm behind: `build` refuses to overwrite an
-    # existing directory, so the wreckage of a rejected build would block every later attempt and
-    # look like "the builder is broken" rather than "the config was wrong".
+    # ⇒ The rule is structural, not a list of sites: once `dest` exists, every path out of
+    # this function either returns it complete or removes it. Pinned by
+    # `test_every_refusal_after_dest_exists_is_inside_the_cleanup`, which enumerates the
+    # `raise` statements rather than a hand-written set of callee names — the two previous
+    # guards were keyed to names and could not see a new site.
     try:
+        # Mirror the floor's directory skeleton. ModelPathManager validates that each of these exists
+        # and raises FileNotFoundError otherwise — so an arm missing `data/processed` dies at startup,
+        # which is exactly what happened on the first attempt at 15:15.
+        for sub in ("data/generated", "data/processed", "artifacts", "logs", "notebooks", "reports"):
+            (dest / sub).mkdir(parents=True, exist_ok=True)
+        # data/raw carries the cached parquet, so no arm fetches from the network mid-sweep.
+        src_raw = _FLOOR / "data" / "raw"
+        if not src_raw.is_dir():
+            raise SystemExit(f"{_TOOL}: {src_raw} missing — an arm would fetch data mid-sweep")
+        shutil.copytree(src_raw, dest / "data" / "raw")
+
+        hp = dest / "configs" / "config_hyperparameters.py"
+        text = hp.read_text()
+        text = _set_key(text, "ss_epsilon_max", repr(eps))
+        text = _set_key(text, "torch_seed", repr(seed))
+        text = _set_key(text, "np_seed", repr(seed))
+        text = _set_key(text, "total_lessons", repr(lessons))
+        # THE one key. `_set_key` raises unless it matches exactly once, and the floor config already
+        # carries `'model': 'HydraBNUNet06_LSTM4'`, so no insert path is needed here.
+        text = _set_key(text, "model", repr(variant))
+        if "'ss_feedback'" in text:
+            text = _set_key(text, "ss_feedback", repr("sample"))
+        else:
+            text = text.replace(
+                f"'ss_epsilon_max': {eps!r},",
+                f"'ss_epsilon_max': {eps!r},\n    'ss_feedback': 'sample',  # C-259",
+                1,
+            )
+        hp.write_text(text)
+
+        # PIN THE QUERYSET IDENTITY TO THE FLOOR'S.
+        #
+        # config_queryset.py derives `model_name` from its own file path and uses it as the queryset
+        # "name", which feeds the C-61 provenance digest. Cloning therefore changes the DATA identity even
+        # though the data is byte-identical, and the cached parquet is rejected as stale.
+        #
+        # The arms genuinely share a queryset — they differ only in training hyperparameters, never in what
+        # data is pulled — so pinning the name to the floor's is the honest statement, not a workaround. It
+        # also makes "every arm sees identical data" structural rather than merely intended, which is what
+        # a controlled sweep needs: a per-arm refetch could return a different vintage and confound the
+        # comparison with a data change.
+        qs = dest / "configs" / "config_queryset.py"
+        qtext = qs.read_text()
+        marker = "model_name = ModelPathManager.get_model_name_from_path(__file__)"
+        if marker not in qtext:
+            raise SystemExit(
+                f"{_TOOL}: config_queryset.py no longer derives model_name as expected"
+            )
+        qs.write_text(
+            qtext.replace(
+                marker,
+                "# PINNED by make_ss_arm.py: the queryset identity is the FLOOR's, because every sweep arm\n"
+                "# pulls the same data. Deriving it from the path would change the C-61 provenance digest\n"
+                "# per arm and reject the shared cache as stale.\n"
+                f'model_name = "{_FLOOR.name}"',
+                1,
+            )
+        )
+
+
+        meta = dest / "configs" / "config_meta.py"
+
+        # A failed verification must not leave a half-built arm behind: `build` refuses to overwrite an
+        # existing directory, so the wreckage of a rejected build would block every later attempt and
+        # look like "the builder is broken" rather than "the config was wrong".
         # Inside the cleanup deliberately: these refuse, and a refusal outside the `try`
         # would leave `dest` with config_meta.py un-rewritten — which `run_queue.sh:114`
         # reuses and `arm_identity_check.py:117` passes, training a mislabelled arm.

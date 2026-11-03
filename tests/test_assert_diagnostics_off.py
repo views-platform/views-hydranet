@@ -108,7 +108,10 @@ def test_models_root_is_required_rather_than_defaulted(tmp_path):
 
 @pytest.mark.parametrize("literal,expected", [("True", True), ("False", False)])
 def test_meta_bool_reads_a_live_literal(literal, expected):
-    text = f'def f():\n    return {{"diagnostic_visualizations": {literal}}}\n'
+    #: ⚠️ `get_meta_config`, not `def f()`. The readback is scoped to the dict THAT getter returns,
+    #: so a differently-named function refuses — and this test passed for that wrong reason until
+    #: the scoping landed and turned it red.
+    text = f'def get_meta_config():\n    return {{"diagnostic_visualizations": {literal}}}\n'
     assert gate.meta_bool(text) is expected
 
 

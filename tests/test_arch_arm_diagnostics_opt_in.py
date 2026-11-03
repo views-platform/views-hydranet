@@ -59,15 +59,22 @@ pytestmark = pytest.mark.skipif(builder is None, reason="builder absent")
 
 
 def _meta_text(value: str = "True", *, name: str = "violet_visitor", extra: str = "") -> str:
-    """A realistic `config_meta.py`: the key among neighbours, so damage to them is visible."""
+    """A `config_meta.py` in the shape the REAL configs use.
+
+    ⛔ `meta_config = {...}` then `return meta_config` — NOT a bare `return {literal}`. The real
+    `violet_visitor/configs/config_meta.py` is the assign-then-return form, and an earlier version
+    of this fixture used the bare form, so the tests exercised a shape production does not have.
+    """
     return (
         "def get_meta_config():\n"
-        "    return {\n"
+        '    """Meta data for the model."""\n'
+        "    meta_config = {\n"
         f'        "name": "{name}",\n'
         f'        "diagnostic_visualizations": {value},  # was False\n'
         '        "algorithm": "HydraNet",\n'
         f"{extra}"
         "    }\n"
+        "    return meta_config\n"
     )
 
 
@@ -85,26 +92,109 @@ def test_meta_bool_reads_a_live_literal(literal, expected):
     assert builder._meta_bool(_meta_text(literal), "diagnostic_visualizations") is expected
 
 
+def _getter(body: str) -> str:
+    """Wrap a function body in a `get_meta_config` so the refusal is for the STATED reason.
+
+    ⛔ An earlier version of this table passed bare `x = {...}` fragments with no getter at all.
+    After the readback was scoped to the dict the getter RETURNS, every one of those refused
+    because there was no getter — i.e. the whole table passed for the wrong reason, which is the
+    vacuity this suite exists to avoid.
+    """
+    return "def get_meta_config():\n" + body
+
+
 @pytest.mark.parametrize(
-    "text,why",
+    "body,why",
     [
-        ('    x = {"diagnostic_visualizations": 1}\n', "a non-boolean"),
-        ('    x = {"diagnostic_visualizations": None}\n', "an explicit None"),
-        ('    x = {"diagnostic_visualizations": True and False}\n', "a BoolOp, not a literal"),
-        ('    x = {"diagnostic_visualizations": TrueX}\n', "a name, not a literal"),
-        ('    # "diagnostic_visualizations": True,\n', "commented out — not in the AST at all"),
-        ('    x = {"diagnostic_visualisations": True}\n', "British spelling, i.e. renamed"),
-        ("", "absent entirely"),
         (
-            '    x = {"diagnostic_visualizations": True}\n'
-            '    y = {"diagnostic_visualizations": False}\n',
-            "two live keys — which wins is not ours to guess",
+            '    return {"diagnostic_visualizations": 1}\n',
+            "a non-bool; True == 1 so != would pass",
         ),
-        ("def broken(:\n", "not even parseable"),
+        ('    return {"diagnostic_visualizations": None}\n', "an explicit None"),
+        (
+            '    return {"diagnostic_visualizations": True and False}\n',
+            "a BoolOp: reads as True, evaluates False",
+        ),
+        ('    return {"diagnostic_visualizations": TrueX}\n', "a Name, not a literal"),
+        ('    return {"diagnostic_visualizations": True if 1 else False}\n', "an IfExp"),
+        ('    # "diagnostic_visualizations": True,\n    return {}\n', "commented out"),
+        ('    return {"diagnostic_visualisations": True}\n', "British spelling, i.e. renamed"),
+        ("    return {}\n", "absent entirely"),
+        (
+            '    return {"diagnostic_visualizations": True, "diagnostic_visualizations": False}\n',
+            "two live keys in the returned dict",
+        ),
+        (
+            '    return {"inner": {"diagnostic_visualizations": True}}\n',
+            "⛔ NESTED only — reported True while the real config has no such key",
+        ),
+        (
+            '    cfg = {"diagnostic_visualizations": False}\n'
+            '    cfg["diagnostic_visualizations"] = True\n    return cfg\n',
+            "⛔ MUTATED after construction — reported False while the value is True",
+        ),
+        (
+            '    cfg = {"diagnostic_visualizations": False}\n'
+            '    cfg.update({"diagnostic_visualizations": True})\n    return cfg\n',
+            "⛔ mutated via .update",
+        ),
+        (
+            '    cfg = {"diagnostic_visualizations": False}\n'
+            '    cfg = {"diagnostic_visualizations": True}\n    return cfg\n',
+            "two assignments to the returned name",
+        ),
+        ("    return {**_BASE}\n", "** unpacking: the key may hide inside it"),
+        ("    return 1\n", "does not return a dict at all"),
     ],
 )
-def test_meta_bool_refuses_everything_that_is_not_one_live_literal(text, why):
-    assert builder._meta_bool(text, "diagnostic_visualizations") is builder._ABSENT, why
+def test_meta_bool_refuses_everything_not_statically_one_live_literal(body, why):
+    """⛔ Two of these were MEASURED false-accepts of the first version, which walked every
+    `ast.Dict` in the file: a nested dict reported True while the real config had no such key, and
+    a dict mutated after construction reported False while the value was True. The second is the
+    direction that matters — a hand-edited arm passing the scoring gate."""
+    assert builder._meta_bool(_getter(body), "diagnostic_visualizations") is builder._ABSENT, why
+
+
+def test_meta_bool_refuses_a_file_with_two_getters():
+    src = _getter('    return {"diagnostic_visualizations": False}\n') + _getter(
+        '    return {"diagnostic_visualizations": True}\n'
+    )
+    assert builder._meta_bool(src, "diagnostic_visualizations") is builder._ABSENT
+
+
+def test_meta_bool_refuses_unparseable_text():
+    assert builder._meta_bool("def broken(:\n", "diagnostic_visualizations") is builder._ABSENT
+
+
+@pytest.mark.parametrize("literal,expected", [("True", True), ("False", False)])
+def test_meta_bool_accepts_the_bare_return_form_too(literal, expected):
+    src = _getter(f'    return {{"diagnostic_visualizations": {literal}}}\n')
+    assert builder._meta_bool(src, "diagnostic_visualizations") is expected
+
+
+def test_meta_bool_reads_the_REAL_configs_on_disk():
+    """⭐ The fixture is a reconstruction; these are the actual files. The floor must read True and
+    every built arm False — if this fails, the readback is too strict for production."""
+    #: ⛔ Derived, never hardcoded: `test_P5a_no_tracked_test_hardcodes_absolute_machine_path`
+    #: forbids an absolute machine path in a tracked test, and caught this one.
+    root = _MOD.parent.parent.parent.parent.parent / "views-models" / "models"
+    expected = {
+        "violet_visitor": True,
+        "ctlfullzero_fortytwo": False,
+        "ctlfullzero_fortythree": False,
+        "upctwofullzero_fortytwo": False,
+        "upctwofullzero_fortythree": False,
+    }
+    seen = 0
+    for arm, want in expected.items():
+        f = root / arm / "configs" / "config_meta.py"
+        if not f.is_file():
+            continue
+        seen += 1
+        got = builder._meta_bool(f.read_text(encoding="utf-8"), "diagnostic_visualizations")
+        assert got is want, f"{arm}: readback says {got!r}, expected {want!r}"
+    if seen == 0:
+        pytest.skip("views-models is not checked out beside this repo")
 
 
 # ───────────────────────── _rewrite_meta: writes the asked value, or nothing ───────────────────
@@ -268,30 +358,19 @@ def _calls_to(scope: ast.AST, name: str) -> list[ast.Call]:
     ]
 
 
-#: Everything in `build` that can raise `SystemExit`. ⛔ Named as a SET rather than one function,
-#: because the pre-existing guard on this property was keyed to `_strip_orphaned_import` alone and
-#: therefore could not see a SECOND refusing call added outside the cleanup — which is exactly what
-#: happened on 2026-11-03.
+#: Helpers called from `build` that can refuse. ⚠️ Kept only as a cheap smoke check; the real
+#: guard is the structural one below, because a hand-written set of NAMES is what let two previous
+#: versions of this property pass while a new refusing site sat outside the cleanup.
 _REFUSING_CALLS = ("_rewrite_meta", "_strip_orphaned_import", "_verify")
 
 
-@pytest.mark.parametrize("callee", _REFUSING_CALLS)
-def test_every_refusing_call_is_inside_the_rmtree_cleanup(callee):
-    """⛔⛔ A refusal outside the `try/except BaseException: rmtree` leaves a half-built `dest`
-    that `run_queue.sh:114` REUSES and `arm_identity_check.py:117` PASSES (it reads only
-    config_hyperparameters.py), so the queue trains a mislabelled arm.
-
-    `meta.write_text(_set_diagnostics(...))` put the refusal five lines ABOVE the `try`, because
-    Python evaluates the argument before the call. This asserts the property for every refusing
-    callee rather than for one name.
-    """
-    build = _build_fn()
-    tries = [n for n in ast.walk(build) if isinstance(n, ast.Try)]
-    assert tries, "build has no try/except — nothing cleans up a failed build"
-    cleanup = [
+def _cleanup_try(build: ast.FunctionDef) -> ast.Try:
+    """The `try` whose handler removes `dest`. Asserts there is exactly one."""
+    found = [
         tr
-        for tr in tries
-        if any(
+        for tr in ast.walk(build)
+        if isinstance(tr, ast.Try)
+        and any(
             isinstance(c, ast.Call)
             and isinstance(c.func, ast.Attribute)
             and c.func.attr == "rmtree"
@@ -299,13 +378,80 @@ def test_every_refusing_call_is_inside_the_rmtree_cleanup(callee):
             for c in ast.walk(h)
         )
     ]
-    assert cleanup, "no try/except in build removes `dest` on failure"
-    inside = {id(c) for tr in cleanup for stmt in tr.body for c in _calls_to(stmt, callee)}
-    everywhere = {id(c) for c in _calls_to(build, callee)}
-    assert everywhere, f"build does not call {callee} at all"
-    assert everywhere == inside, (
-        f"{len(everywhere - inside)} call(s) to {callee} sit OUTSIDE the rmtree cleanup, so a "
-        "refusal there would leave a half-built arm that the queue reuses and trains"
+    assert len(found) == 1, f"{len(found)} try/except blocks remove `dest`; expected exactly one"
+    return found[0]
+
+
+def test_every_refusal_after_dest_exists_is_inside_the_cleanup():
+    """⛔⛔ The property, stated structurally: once `dest` exists on disk, every path out of
+    `build` either returns a complete arm or removes it.
+
+    This has now been got wrong twice, both times by guarding a NAME instead of the property:
+
+    * the first `try` began below `_strip_orphaned_import`, and a second refusing call added above
+      it was invisible to a guard parametrized on that one name;
+    * the replacement enumerated three callee names, and so could not see the **bare**
+      `raise SystemExit` for `config_queryset.py` — which fires AFTER
+      `config_hyperparameters.py` is written, the one combination `arm_identity_check.py:117`
+      PASSES (it reads only that file) and `run_queue.sh:114` then reuses.
+
+    ⇒ This enumerates `ast.Raise` nodes. A new refusal anywhere after the copytree fails it by
+    construction, with no list to remember to update.
+    """
+    build = _build_fn()
+    dest_created = min(
+        n.lineno
+        for n in ast.walk(build)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == "copytree"
+    )
+    cleanup = _cleanup_try(build)
+    #: Guarded = raised inside the `try` BODY (the cleanup runs), or inside a HANDLER (that is the
+    #: `raise` that re-raises after `rmtree`, which this test flagged as a false positive on its
+    #: first run). ⛔ `orelse` and `finally` are deliberately NOT whitelisted: `orelse` runs only
+    #: after success, so a refusal there would leave `dest` exactly as the real sites did.
+    inside = {
+        id(n)
+        for stmt in (*cleanup.body, *cleanup.handlers)
+        for n in ast.walk(stmt)
+        if isinstance(n, ast.Raise)
+    }
+
+    outside = [
+        n
+        for n in ast.walk(build)
+        if isinstance(n, ast.Raise) and n.lineno > dest_created and id(n) not in inside
+    ]
+    assert not outside, (
+        f"line(s) {[n.lineno for n in outside]} can raise after `dest` exists (created at line "
+        f"{dest_created}) but sit OUTSIDE the cleanup, so a refusal leaves a half-built arm that "
+        "arm_identity_check.py passes and run_queue.sh reuses"
+    )
+
+
+def test_the_cleanup_begins_immediately_after_dest_is_created():
+    """⚠️ Not the same property as the one above, and it is the one that stays true as the function
+    grows: a `try` that starts late is only safe until the next statement is added above it."""
+    build = _build_fn()
+    copytrees = sorted(
+        n.lineno
+        for n in ast.walk(build)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == "copytree"
+    )
+    cleanup = _cleanup_try(build)
+    #: The first copytree creates `dest`; the `try` must open within a few lines of its end, i.e.
+    #: before anything else can touch the new directory.
+    assert cleanup.lineno > copytrees[0], "the cleanup opens before `dest` is created"
+    assert cleanup.lineno - copytrees[0] < 25, (
+        f"`dest` is created at line {copytrees[0]} but the cleanup only opens at "
+        f"{cleanup.lineno} — statements in between can refuse and leave the directory behind"
+    )
+    #: And every later copytree must be INSIDE it.
+    assert all(c > cleanup.lineno for c in copytrees[1:]), (
+        "a later copytree runs outside the cleanup"
     )
 
 

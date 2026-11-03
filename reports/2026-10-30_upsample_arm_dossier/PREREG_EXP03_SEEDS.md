@@ -260,10 +260,35 @@ one **reused** from an earlier build — `run_queue.sh:114` reuses on `[ -d ... 
 
 ⭐ `--expect 12` is not decoration: a sweep over four clean arms is not evidence about twelve, and
 without it the gate can be satisfied by naming fewer arms — the same scope error AMENDMENT 1 exists
-to close, one level up. ⭐ It **parses** the literal rather than executing the config, and refuses
-an unverifiable value (commented out, `True and False`, a bare `1`, two live copies, absent)
+to close, one level up. ⚠️ `--expect` also refuses **duplicate** arm names: naming one clean arm
+twelve times satisfied the count and printed *"all 12 arms carry …=False"*, measured, which is the
+same bypass one level further in.
+
+⭐ It **parses** the literal rather than executing the config, and refuses an unverifiable value
 instead of resolving it — because an absent key is exactly what `visual_diagnostics.py:73` treats
 as off, so "nothing says True" is not the same as "this arm ran with it off".
+
+⛔⛔ **And the first version of that parse was not sound, which is worth recording here rather than
+only in the commit.** It walked every dict in the file, and two false-accepts were **measured**:
+
+| shape | parse said | real value | consequence |
+|---|---|---|---|
+| `cfg = {K: False}` then `cfg[K] = True` | `False` | **`True`** | ⛔ the gate **PASSED** a tampered arm |
+| `return {"inner": {K: True}}` | `True` | *absent* | ⛔ an arm asked for diagnostics shipped without |
+
+The first is the direction that matters: a hand-edited arm passing the very gate written to catch
+it. ⇒ The readback is now scoped to the dict `get_meta_config` **returns**, traces the returned
+name back to its single assignment (the real configs are `meta_config = {…}` then `return
+meta_config`, not a bare `return {literal}`), and refuses if anything could have mutated it after
+construction — a subscript store, a `.update`, an augmented assignment, a decorator on the getter,
+`**` unpacking, two assignments, two getters, or a non-literal value. ✅ Verified against all four
+arms' real files plus the floor's: floor `True`, all four arms `False`.
+
+⚠️ **The residual limit, stated rather than left implicit:** this is a static read. It cannot see
+anything that changes the config at import time by a route the parse does not model. Every such
+route it does not model refuses rather than guesses, so the failure direction is "refuses a valid
+arm", not "passes an invalid one" — but that is a property of the cases enumerated above, not a
+proof over all Python.
 ✅ Run against the four existing arms: **all four pass**, which is the first machine-checked
 confirmation of AMENDMENT 1's "verified four ways".
 

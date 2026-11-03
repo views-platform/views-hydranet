@@ -49,30 +49,93 @@ ABSENT = object()
 KEY = "diagnostic_visualizations"
 
 
-def meta_bool(text: str, key: str = KEY):
-    """The literal value of ``key``, parsed. ``ABSENT`` unless exactly one live ``bool`` literal.
+def meta_bool(text: str, key: str = KEY, getter: str = "get_meta_config"):
+    """The literal value of ``key`` in the dict ``getter`` RETURNS, parsed — never executed.
 
-    Refuses the shapes a text search accepts: a commented-out occurrence (absent from the AST), a
-    non-literal such as ``True and False`` (a ``BoolOp``, and it *evaluates* to the opposite of how
-    it reads), a non-``bool`` such as ``1`` (``True == 1`` is true, so equality would accept it),
-    and two live copies (which one wins is not ours to guess).
+    ⛔ Scoped to that ONE dict, and refusing anything not statically determinable. Walking every
+    ``ast.Dict`` in the file false-accepted twice, both measured rather than imagined:
+
+    * ``return {"inner": {key: True}}`` reported ``True`` while the real config has no such key
+      at all, so an arm asked to run with diagnostics ON would have shipped with them OFF.
+    * ``cfg = {key: False}`` followed by ``cfg[key] = True`` reported ``False`` while the value is
+      ``True`` — the parse reads the CONSTRUCTION, not the value, and that is exactly the direction
+      a hand-edited arm would take. ⇒ A gate that reads construction is no gate against tampering.
+
+    ⚠️ The real configs are ``meta_config = {...}`` followed by ``return meta_config``, not a bare
+    ``return {literal}`` — so the returned NAME is traced back to its single assignment, and the
+    name is refused if anything in the function could have mutated it afterwards.
     """
     try:
         tree = ast.parse(text)
     except SyntaxError:
         return ABSENT
+    fns = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == getter]
+    if len(fns) != 1:
+        return ABSENT
+    fn = fns[0]
+    #: ⛔ A decorator can replace the return value wholesale, so the body would say nothing about
+    #: what the getter actually yields. Refuse rather than read the body underneath it.
+    if fn.decorator_list:
+        return ABSENT
+    body = list(fn.body)
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        body = body[1:]  # drop the docstring
+    if not body or not isinstance(body[-1], ast.Return):
+        return ABSENT
+
+    returned = body[-1].value
+    if isinstance(returned, ast.Dict):
+        target = returned
+    elif isinstance(returned, ast.Name):
+        name = returned.id
+        assigns = [
+            n
+            for n in body
+            if isinstance(n, ast.Assign)
+            and len(n.targets) == 1
+            and isinstance(n.targets[0], ast.Name)
+            and n.targets[0].id == name
+        ]
+        if len(assigns) != 1 or not isinstance(assigns[0].value, ast.Dict):
+            return ABSENT
+        #: ⛔ Refuse if ANYTHING could have changed it after construction: a subscript store, a
+        #: method call such as `.update`, or an augmented assignment. This is the false-accept.
+        for n in ast.walk(fn):
+            if (
+                isinstance(n, ast.Subscript)
+                and isinstance(n.value, ast.Name)
+                and n.value.id == name
+                and isinstance(n.ctx, ast.Store)
+            ):
+                return ABSENT
+            if (
+                isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Attribute)
+                and isinstance(n.func.value, ast.Name)
+                and n.func.value.id == name
+            ):
+                return ABSENT
+            if (
+                isinstance(n, ast.AugAssign)
+                and isinstance(n.target, ast.Name)
+                and n.target.id == name
+            ):
+                return ABSENT
+        target = assigns[0].value
+    else:
+        return ABSENT
+
     found = ABSENT
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Dict):
+    for k, v in zip(target.keys, target.values):
+        if k is None:
+            return ABSENT  # `**` unpacking: the key may be hiding inside it
+        if not (isinstance(k, ast.Constant) and k.value == key):
             continue
-        for k, v in zip(node.keys, node.values):
-            if not (isinstance(k, ast.Constant) and k.value == key):
-                continue
-            if not (isinstance(v, ast.Constant) and isinstance(v.value, bool)):
-                return ABSENT
-            if found is not ABSENT:
-                return ABSENT
-            found = v.value
+        if not (isinstance(v, ast.Constant) and isinstance(v.value, bool)):
+            return ABSENT
+        if found is not ABSENT:
+            return ABSENT  # two live copies: which one wins is not ours to guess
+        found = v.value
     return found
 
 
@@ -128,10 +191,22 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
+    #: ⛔ Duplicates first. `--expect 12` was satisfied by naming ONE clean arm twelve times —
+    #: measured, exit 0, "all 12 arms carry ...=False". A count over a list is not a count over a
+    #: SET, and the whole point of --expect is that a smaller sweep cannot stand in for the real
+    #: one. Found by /review-diff, 2026-11-03.
+    dupes = sorted({x for x in a.arms if a.arms.count(x) > 1})
+    if dupes:
+        print(
+            f"REFUSED: these arms were named more than once: {dupes}. A repeated arm inflates the "
+            "count without widening the sweep, which is exactly what --expect exists to prevent.",
+            file=sys.stderr,
+        )
+        return 1
     if a.expect is not None and len(a.arms) != a.expect:
         print(
-            f"REFUSED: {len(a.arms)} arms named but --expect {a.expect}. The gate must cover the "
-            "whole scored set, not a subset of it.",
+            f"REFUSED: {len(a.arms)} distinct arms named but --expect {a.expect}. The gate must "
+            "cover the whole scored set, not a subset of it.",
             file=sys.stderr,
         )
         return 1
