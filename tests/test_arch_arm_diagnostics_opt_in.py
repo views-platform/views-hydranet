@@ -1,24 +1,27 @@
 """Guards for `make_arch_arm.py`'s `--diagnostics` opt-in.
 
 ⛔ Why this file exists. Until 2026-11-03 the builder FORCED `diagnostic_visualizations` to False
-and refused to build otherwise, citing a per-origin biopsy cost of "~28 min/origin". That number
-appears in five builder docstrings and in no measurement file in this repository. The refusal was a
-permanent guard in a shared file, and it turned "turn diagnostics on" into a code change — which is
-the cost this suite now has to keep honest in the other direction: the flag must not become a way
-for an arm to acquire a six-hour biopsy by accident.
+and refused to build otherwise, citing a cost of "~28 min/origin" that has no evidence file. The
+refusal was a permanent guard in a shared file and it turned "turn diagnostics on" into a code
+change. Removing it moves the risk to the other side: the flag must not let an arm acquire a
+multi-hour biopsy that nobody asked for.
 
-⚠️ `reports/` is outside both `ruff check .` (gitignored) and `testpaths = ["tests"]`, so nothing in
-that tree is linted or collected. This file is the only thing that will ever execute the code it
-guards, which is why the structural assertions below read the builder's AST rather than trusting
-that a keyword argument is still wired through.
+⚠️ `reports/` is gitignored, so it is outside `ruff check .`, and `testpaths = ["tests"]` excludes
+it from collection. This file is the only thing that will ever execute that builder's code.
+
+⭐ Every guard here exists because a mutation survived its absence. The first version of this file
+passed 15/15 while 13 further mutations survived it (`/code-review max`, 2026-11-03), so the
+assertions below are deliberately pointed at the DECISION rather than at the helper that
+implements it — that was the single mechanism behind most of those survivors.
 """
 
 from __future__ import annotations
 
-import argparse
 import ast
 import importlib.util
 import inspect
+import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -31,148 +34,362 @@ _MOD = (
     / "make_arch_arm.py"
 )
 
-pytestmark = pytest.mark.skipif(not _MOD.is_file(), reason="builder absent")
 
-
+#: ⛔ The load must be CONDITIONAL, not guarded by `pytestmark`. `pytestmark` applies to
+#: collected ITEMS, but a module-level load runs during collection — so an absent builder was a
+#: hard collection ERROR that interrupted the whole run, and `reason="builder absent"` was
+#: unreachable. Trigger: any tree where this gitignored dossier is pruned, renamed or exported.
 def _load():
-    spec = importlib.util.spec_from_file_location("make_arch_arm_diag", _MOD)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    #: ⚠️ `dont_write_bytecode` while loading: `exec_module` otherwise drops `__pycache__/*.pyc`
+    #: into the dossier's tools directory, where `test_falsification_repo_clean.py` cannot see it,
+    #: so a plain `pytest` mutated a tree whose tools are meant to be frozen.
+    prev = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec = importlib.util.spec_from_file_location("make_arch_arm_diag", _MOD)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    finally:
+        sys.dont_write_bytecode = prev
 
 
-builder = _load()
+builder = _load() if _MOD.is_file() else None
+pytestmark = pytest.mark.skipif(builder is None, reason="builder absent")
 
 
-#: A realistic fragment: the key surrounded by other lines, so a rewrite that damages its
-#: neighbours is visible. The indentation and trailing comma match violet's real config_meta.py.
-def _meta(value: str) -> str:
+def _meta_text(value: str = "True", *, name: str = "violet_visitor", extra: str = "") -> str:
+    """A realistic `config_meta.py`: the key among neighbours, so damage to them is visible."""
     return (
         "def get_meta_config():\n"
         "    return {\n"
-        '        "name": "violet_visitor",\n'
+        f'        "name": "{name}",\n'
         f'        "diagnostic_visualizations": {value},  # was False\n'
         '        "algorithm": "HydraNet",\n'
+        f"{extra}"
         "    }\n"
     )
 
 
-@pytest.mark.parametrize("start", ["True", "False"])
-@pytest.mark.parametrize("want", [True, False])
-def test_the_value_written_is_the_value_asked_for_from_either_starting_point(start, want):
-    """⛔ The fail-open case is `start=False, want=True`: the pre-2026-11-03 regex matched only
-    `True`, so against a floor already saying False the flag changed nothing, and said nothing."""
-    out = builder._set_diagnostics(_meta(start), diagnostics=want, where="cfg.py")
-    assert f'"diagnostic_visualizations": {want},' in out, (
-        f"asked for {want} starting from {start}, got: {out!r}"
-    )
-    # ...and the opposite value is gone, so this is not satisfied by a line that holds both.
-    assert f'"diagnostic_visualizations": {not want},' not in out
+def _meta_file(tmp_path: Path, *args, **kw) -> Path:
+    f = tmp_path / "config_meta.py"
+    f.write_text(_meta_text(*args, **kw), encoding="utf-8")
+    return f
 
 
-@pytest.mark.parametrize("want", [True, False])
-def test_nothing_but_that_one_line_changes(want):
-    """A rewrite that glues itself to a neighbouring line is the exact defect this builder shipped
-    once before, where an indented import took the following statement out of module scope."""
-    before = _meta("True")
-    after = builder._set_diagnostics(before, diagnostics=want, where="cfg.py")
-    b = [ln for ln in before.splitlines() if "diagnostic_visualizations" not in ln]
-    a = [ln for ln in after.splitlines() if "diagnostic_visualizations" not in ln]
-    assert a == b, "a line other than the diagnostics line was modified"
-    assert len(after.splitlines()) == len(before.splitlines()), "line count changed"
+# ───────────────────────── _meta_bool: the parse that the regex cannot be ─────────────────────
+
+
+@pytest.mark.parametrize("literal,expected", [("True", True), ("False", False)])
+def test_meta_bool_reads_a_live_literal(literal, expected):
+    assert builder._meta_bool(_meta_text(literal), "diagnostic_visualizations") is expected
 
 
 @pytest.mark.parametrize(
     "text,why",
     [
-        ("", "the key is absent entirely"),
-        ('        "diagnostic_visualisations": True,\n', "British spelling — a renamed key"),
-        ('        "diagnostic_visualizations": 1,\n', "a non-boolean value"),
-        ('        "diagnostic_visualizations": None,\n', "an explicit None"),
+        ('    x = {"diagnostic_visualizations": 1}\n', "a non-boolean"),
+        ('    x = {"diagnostic_visualizations": None}\n', "an explicit None"),
+        ('    x = {"diagnostic_visualizations": True and False}\n', "a BoolOp, not a literal"),
+        ('    x = {"diagnostic_visualizations": TrueX}\n', "a name, not a literal"),
+        ('    # "diagnostic_visualizations": True,\n', "commented out — not in the AST at all"),
+        ('    x = {"diagnostic_visualisations": True}\n', "British spelling, i.e. renamed"),
+        ("", "absent entirely"),
+        (
+            '    x = {"diagnostic_visualizations": True}\n'
+            '    y = {"diagnostic_visualizations": False}\n',
+            "two live keys — which wins is not ours to guess",
+        ),
+        ("def broken(:\n", "not even parseable"),
     ],
 )
-def test_it_refuses_rather_than_silently_doing_nothing(text, why):
-    """⛔ The property is not 'the regex is correct'. It is that a MISS is loud. A rewrite whose
-    failure mode is silence ships an arm carrying whatever the floor happened to say."""
-    with pytest.raises(SystemExit) as exc:
-        builder._set_diagnostics(text, diagnostics=True, where="cfg.py")
-    msg = str(exc.value)
-    assert "found 0" in msg, f"the refusal does not report the count ({why}): {msg}"
-    assert "cfg.py" in msg, f"the refusal does not say which file ({why}): {msg}"
+def test_meta_bool_refuses_everything_that_is_not_one_live_literal(text, why):
+    assert builder._meta_bool(text, "diagnostic_visualizations") is builder._ABSENT, why
 
 
-def test_two_occurrences_are_refused_not_both_rewritten():
-    """Two copies mean one of them is probably a docstring or a commented-out block, and guessing
-    which is load-bearing is exactly the mistake that consumed a `count=1` replace here before."""
-    doubled = _meta("True") + '        "diagnostic_visualizations": False,\n'
+# ───────────────────────── _rewrite_meta: writes the asked value, or nothing ───────────────────
+
+
+@pytest.mark.parametrize("start", ["True", "False"])
+@pytest.mark.parametrize("want", [True, False])
+def test_the_written_value_is_the_asked_value_from_either_start(tmp_path, start, want):
+    """⛔ The fail-open case is `start=False, want=True`: the pre-2026-11-03 regex matched only
+    `True`, so against a floor already saying False the flag changed nothing and said nothing."""
+    f = _meta_file(tmp_path, start)
+    builder._rewrite_meta(f, label="ctlfullzero_fortytwo", diagnostics=want)
+    out = f.read_text(encoding="utf-8")
+    assert builder._meta_bool(out, "diagnostic_visualizations") is want
+    assert '"name": "ctlfullzero_fortytwo"' in out, "the sibling name rewrite did not happen"
+    assert "violet_visitor" not in out
+
+
+@pytest.mark.parametrize("start", ["True", "False"])
+@pytest.mark.parametrize("want", [True, False])
+def test_only_the_two_intended_lines_change(tmp_path, start, want):
+    """⚠️ Parametrized over `start` as well as `want`: fixing `start="True"` made the `want=True`
+    case assert that a no-op changed nothing, which is half of this guard doing nothing."""
+    f = _meta_file(tmp_path, start)
+    before = f.read_text(encoding="utf-8").splitlines()
+    builder._rewrite_meta(f, label="armlabel_x", diagnostics=want)
+    after = f.read_text(encoding="utf-8").splitlines()
+    assert len(after) == len(before), "line count changed"
+    changed = [i for i, (a, b) in enumerate(zip(after, before)) if a != b]
+    for i in changed:
+        assert any(k in before[i] for k in ("diagnostic_visualizations", '"name"')), (
+            f"line {i} changed and it is neither the diagnostics nor the name line: {before[i]!r}"
+        )
+
+
+@pytest.mark.parametrize(
+    "value,why",
+    [
+        ("1", "a non-boolean value"),
+        ("None", "an explicit None"),
+        ("True and False", "a non-literal that EVALUATES to False while reading as True"),
+        ("TrueX", "no word boundary — the old pattern rewrote the wrong token"),
+        ("True_FLAG", "same, with an underscore"),
+    ],
+)
+def test_it_refuses_and_leaves_the_file_UNTOUCHED(tmp_path, value, why):
+    """⛔ Two properties, and the second is the one a mutation broke: it must refuse, AND it must
+    not have written. A version that validated and then let the caller write the UNVALIDATED text
+    survived the whole suite, so the write now lives inside the function and is asserted here."""
+    f = _meta_file(tmp_path, value)
+    original = f.read_bytes()
     with pytest.raises(SystemExit) as exc:
-        builder._set_diagnostics(doubled, diagnostics=True, where="cfg.py")
+        builder._rewrite_meta(f, label="armlabel_x", diagnostics=True)
+    assert f.read_bytes() == original, f"the file was modified despite refusing ({why})"
+    assert str(f) in str(exc.value), f"the refusal does not name the file ({why})"
+
+
+def test_a_commented_out_key_is_refused_not_rewritten(tmp_path):
+    """⛔ The regex rewrote a commented occurrence and reported n==1 success; the built arm then
+    carried NO live key, and `visual_diagnostics.py:73` defaults a missing key to False — exactly
+    what the docstring promises will not happen."""
+    f = tmp_path / "config_meta.py"
+    f.write_text(
+        "def get_meta_config():\n"
+        "    return {\n"
+        '        "name": "violet_visitor",\n'
+        '        # "diagnostic_visualizations": True,\n'
+        "    }\n",
+        encoding="utf-8",
+    )
+    original = f.read_bytes()
+    with pytest.raises(SystemExit):
+        builder._rewrite_meta(f, label="armlabel_x", diagnostics=True)
+    assert f.read_bytes() == original
+
+
+def test_a_missing_name_key_is_refused(tmp_path):
+    f = _meta_file(tmp_path, "True", name="something_else")
+    with pytest.raises(SystemExit) as exc:
+        builder._rewrite_meta(f, label="armlabel_x", diagnostics=False)
+    assert "name" in str(exc.value)
+
+
+def test_two_live_keys_are_refused_not_both_rewritten(tmp_path):
+    f = _meta_file(tmp_path, "True", extra='        "diagnostic_visualizations": False,\n')
+    with pytest.raises(SystemExit) as exc:
+        builder._rewrite_meta(f, label="armlabel_x", diagnostics=True)
     assert "found 2" in str(exc.value)
 
 
-def test_diagnostics_defaults_to_off_in_build_and_verify():
+# ───────────────────────── _assert_meta: the readback, now reachable ──────────────────────────
+
+
+@pytest.mark.parametrize("want", [True, False])
+def test_assert_meta_accepts_a_matching_arm(tmp_path, want):
+    dest = tmp_path / "armlabel_x"
+    (dest / "configs").mkdir(parents=True)
+    (dest / "configs" / "config_meta.py").write_text(
+        _meta_text(str(want), name="armlabel_x"), encoding="utf-8"
+    )
+    builder._assert_meta(dest, diagnostics=want)  # must not raise
+
+
+@pytest.mark.parametrize(
+    "value,want,why",
+    [
+        ("True", False, "diagnostics on when off was asked for"),
+        ("False", True, "diagnostics off when on was asked for"),
+        ("1", False, "a stray 1 — `True == 1`, so `!=` would accept it and `is not` must not"),
+        ("1", True, "a stray 1 against True — same hole from the other side"),
+    ],
+)
+def test_assert_meta_refuses_a_mismatch(tmp_path, value, want, why):
+    """⛔ This readback had NO executable coverage: `is not diagnostics` -> `!=`, deleting the
+    check, and reverting it to the old hard `is not False` all survived. It was also DEAD for every
+    arm that is its own control, because it sat below `_verify`'s self-control early return."""
+    dest = tmp_path / "armlabel_x"
+    (dest / "configs").mkdir(parents=True)
+    (dest / "configs" / "config_meta.py").write_text(
+        _meta_text(value, name="armlabel_x"), encoding="utf-8"
+    )
+    with pytest.raises(SystemExit) as exc:
+        builder._assert_meta(dest, diagnostics=want)
+    assert "diagnostic_visualizations" in str(exc.value), why
+
+
+def test_assert_meta_refuses_a_mislabelled_arm(tmp_path):
+    dest = tmp_path / "armlabel_x"
+    (dest / "configs").mkdir(parents=True)
+    (dest / "configs" / "config_meta.py").write_text(
+        _meta_text("False", name="violet_visitor"), encoding="utf-8"
+    )
+    with pytest.raises(SystemExit) as exc:
+        builder._assert_meta(dest, diagnostics=False)
+    assert "violet_visitor" in str(exc.value)
+
+
+# ───────────────────────── structure: the decisions, not the helpers ──────────────────────────
+
+
+def _build_fn() -> ast.FunctionDef:
+    """`build` as the INTERPRETER would bind it: the LAST top-level definition of that name.
+
+    ⛔ `ast.walk` yields the FIRST definition in source order while Python executes the last, so a
+    second `def build` carrying an inert call satisfied a walk-based test while the inert one ran.
+    `tree.body` also excludes a `def build` nested inside another function, which cannot be the
+    module-level `build` at all. Both shapes were surviving mutations; the fix already existed 12
+    lines away in `tests/test_strip_orphaned_import.py`.
+    """
+    tree = ast.parse(_MOD.read_text(encoding="utf-8"))
+    tops = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "build"]
+    assert len(tops) == 1, f"{len(tops)} top-level `def build` — the last one is what runs"
+    return tops[0]
+
+
+def _calls_to(scope: ast.AST, name: str) -> list[ast.Call]:
+    return [
+        n
+        for n in ast.walk(scope)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == name
+    ]
+
+
+#: Everything in `build` that can raise `SystemExit`. ⛔ Named as a SET rather than one function,
+#: because the pre-existing guard on this property was keyed to `_strip_orphaned_import` alone and
+#: therefore could not see a SECOND refusing call added outside the cleanup — which is exactly what
+#: happened on 2026-11-03.
+_REFUSING_CALLS = ("_rewrite_meta", "_strip_orphaned_import", "_verify")
+
+
+@pytest.mark.parametrize("callee", _REFUSING_CALLS)
+def test_every_refusing_call_is_inside_the_rmtree_cleanup(callee):
+    """⛔⛔ A refusal outside the `try/except BaseException: rmtree` leaves a half-built `dest`
+    that `run_queue.sh:114` REUSES and `arm_identity_check.py:117` PASSES (it reads only
+    config_hyperparameters.py), so the queue trains a mislabelled arm.
+
+    `meta.write_text(_set_diagnostics(...))` put the refusal five lines ABOVE the `try`, because
+    Python evaluates the argument before the call. This asserts the property for every refusing
+    callee rather than for one name.
+    """
+    build = _build_fn()
+    tries = [n for n in ast.walk(build) if isinstance(n, ast.Try)]
+    assert tries, "build has no try/except — nothing cleans up a failed build"
+    cleanup = [
+        tr
+        for tr in tries
+        if any(
+            isinstance(c, ast.Call)
+            and isinstance(c.func, ast.Attribute)
+            and c.func.attr == "rmtree"
+            for h in tr.handlers
+            for c in ast.walk(h)
+        )
+    ]
+    assert cleanup, "no try/except in build removes `dest` on failure"
+    inside = {id(c) for tr in cleanup for stmt in tr.body for c in _calls_to(stmt, callee)}
+    everywhere = {id(c) for c in _calls_to(build, callee)}
+    assert everywhere, f"build does not call {callee} at all"
+    assert everywhere == inside, (
+        f"{len(everywhere - inside)} call(s) to {callee} sit OUTSIDE the rmtree cleanup, so a "
+        "refusal there would leave a half-built arm that the queue reuses and trains"
+    )
+
+
+@pytest.mark.parametrize("callee", ["_verify", "_rewrite_meta"])
+def test_build_forwards_its_own_diagnostics_parameter_to_every_such_call(callee):
+    """⛔ The keyword NAME is not the property: `diagnostics=False` carries `kw.arg ==
+    "diagnostics"` and is the inert knob this exists to catch. And it must hold for EVERY call —
+    a merge over `ast.walk` let a shallow live call pass `False` while a deeper dead one passed the
+    parameter, leaving the dict looking correct. Both were surviving mutations.
+    """
+    calls = _calls_to(_build_fn(), callee)
+    assert calls, f"build does not call {callee}"
+    for c in calls:
+        kw = {k.arg: k.value for k in c.keywords if k.arg}
+        assert "diagnostics" in kw, f"a call to {callee} omits `diagnostics` — the flag is inert"
+        v = kw["diagnostics"]
+        assert isinstance(v, ast.Name) and v.id == "diagnostics", (
+            f"a call to {callee} passes `diagnostics={ast.unparse(v)}` rather than build's own "
+            "parameter, so the flag is inert"
+        )
+
+
+@pytest.mark.parametrize("fn_name", ["build", "_verify"])
+def test_the_entry_points_default_diagnostics_off(fn_name):
     """⛔ The load-bearing safety property. Every historical caller of `build` omits `diagnostics`;
     if the default flipped, every arm in the programme would silently acquire the biopsy."""
-    for fn in (builder.build, builder._verify):
-        param = inspect.signature(fn).parameters["diagnostics"]
-        assert param.default is False, f"{fn.__name__} defaults to {param.default!r}, not False"
-        assert param.kind is inspect.Parameter.KEYWORD_ONLY, (
-            f"{fn.__name__}'s `diagnostics` is positional — a caller could set it by accident"
-        )
+    param = inspect.signature(getattr(builder, fn_name)).parameters["diagnostics"]
+    assert param.kind is inspect.Parameter.KEYWORD_ONLY, f"{fn_name}: positional"
+    assert param.default is False, f"{fn_name} defaults to {param.default!r}, not False"
 
 
-def test_build_actually_forwards_diagnostics_to_verify_and_to_the_rewrite():
-    """A keyword argument that is accepted and then dropped is the inert-knob defect (C-324): the
-    flag would validate, reach nothing, and be tested as if it worked. Read off the AST, because
-    the only way to catch it by execution is to build a real arm with a GPU."""
-    tree = ast.parse(_MOD.read_text(encoding="utf-8"))
-    build = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "build")
-    # ⛔ The keyword NAME is not the property. `diagnostics=False` carries `kw.arg ==
-    # "diagnostics"` and is exactly the inert knob this test exists to catch — the first version of
-    # this guard asserted only the name and a mutation to `diagnostics=False` SURVIVED it. What has
-    # to hold is that the value forwarded is build's own PARAMETER.
-    forwarded: dict[str, dict[str, ast.expr]] = {}
-    for node in ast.walk(build):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            forwarded.setdefault(node.func.id, {}).update(
-                {kw.arg: kw.value for kw in node.keywords if kw.arg}
-            )
-
-    for callee, why in (
-        ("_verify", "the arm would be checked against the default, not against the request"),
-        ("_set_diagnostics", "the config rewrite would ignore the flag entirely"),
-    ):
-        assert callee in forwarded, f"build() never calls {callee}"
-        value = forwarded[callee].get("diagnostics")
-        assert value is not None, f"build() does not pass `diagnostics` to {callee} — {why}"
-        assert isinstance(value, ast.Name) and value.id == "diagnostics", (
-            f"build() passes `diagnostics={ast.unparse(value)}` to {callee} rather than its own "
-            f"parameter — the flag is inert and {why}"
-        )
-
-
-def test_the_cli_exposes_diagnostics_as_an_explicit_off_by_default_flag():
-    src = inspect.getsource(builder.main)
-    assert '"--diagnostics"' in src, "main() does not register --diagnostics"
-    assert 'action="store_true"' in src, "--diagnostics is not a store_true flag"
-    # And it genuinely parses that way, rather than merely appearing in the source.
-    p = argparse.ArgumentParser()
-    p.add_argument("--diagnostics", action="store_true")
-    assert p.parse_args([]).diagnostics is False
-    assert p.parse_args(["--diagnostics"]).diagnostics is True
-
-
-def test_the_unsourced_cost_figure_is_not_presented_as_measured():
-    """⛔ W-109's rule applied to this builder's own prose: a number quoted in a document names
-    the artifact that produced it, or is marked unverified in the same place. "~28 min/origin"
-    appears in five builder docstrings and in no `.out` in this repository."""
-    text = _MOD.read_text(encoding="utf-8")
-    if "28 min" not in text:
-        pytest.skip("the figure has been removed entirely, which also satisfies the rule")
-    head = text[: text.index("28 min")]
-    tail = text[text.index("28 min") :][:600]
-    window = head[-600:] + tail
-    assert any(w in window for w in ("unsourced", "unverified", "no measurement")), (
-        "the ~28 min/origin figure is stated without marking it unverified, which is the W-109 "
-        "shape: a docstring number re-quoted as a measurement"
+@pytest.mark.parametrize("fn_name", ["_rewrite_meta", "_assert_meta"])
+def test_the_internal_helpers_REQUIRE_diagnostics_rather_than_defaulting_it(fn_name):
+    """⛔ The opposite rule, deliberately: these two decide what is written and what is accepted,
+    so a caller that forgets the argument must be a TypeError rather than a silent "off". A default
+    here would mean the one place the value is applied could be reached without supplying it."""
+    param = inspect.signature(getattr(builder, fn_name)).parameters["diagnostics"]
+    assert param.kind is inspect.Parameter.KEYWORD_ONLY, f"{fn_name}: positional"
+    assert param.default is inspect.Parameter.empty, (
+        f"{fn_name} defaults `diagnostics` to {param.default!r}; it must be required, so omitting "
+        "it cannot silently mean False at the point the value is applied"
     )
+
+
+def test_the_real_parser_defaults_diagnostics_off():
+    """⛔ Asserted against `_parser()`, the parser the tool actually uses. The previous version
+    checked substrings of `main`'s source and the default of a throwaway parser the TEST built, so
+    `default=True` on the real argument, and dropping the kwarg, both survived."""
+    req = ["--lessons", "300", "--eps", "0.0", "--seed", "42", "--variant", "UpsampleConv2"]
+    assert builder._parser().parse_args(req).diagnostics is False
+    assert builder._parser().parse_args([*req, "--diagnostics"]).diagnostics is True
+
+
+def test_main_forwards_the_parsed_flag_rather_than_a_literal():
+    src = inspect.getsource(builder.main)
+    assert "diagnostics=a.diagnostics" in src, (
+        "main() does not forward the parsed flag. `diagnostics=False` and dropping the "
+        "kwarg both left the suite green when this was not asserted"
+    )
+
+
+def test_every_cost_figure_in_the_file_is_marked_unverified():
+    """⛔ W-109 applied to this builder's own prose. The previous version used
+    `text.index("28 min")` and so inspected only the FIRST site — while the second, which this
+    change ADDED, was the operator-facing `--help` string, and dropping its hedge left the suite
+    green.
+    """
+    text = _MOD.read_text(encoding="utf-8")
+    sites = [m.start() for m in re.finditer(r"28 min|min/origin", text)]
+    assert sites, "no cost figure found — if the numbers were removed, delete this test too"
+    for pos in sites:
+        window = text[max(0, pos - 700) : pos + 700]
+        assert any(
+            w in window
+            for w in (
+                "unsourced",
+                "unverified",
+                "UNMEASURED",
+                "unmeasured",
+                "no evidence",
+                "could not be reproduced",
+                "disagree",
+            )
+        ), (
+            f"the cost figure at offset {pos} is stated without being marked unverified: "
+            f"...{text[max(0, pos - 90) : pos + 90]!r}..."
+        )

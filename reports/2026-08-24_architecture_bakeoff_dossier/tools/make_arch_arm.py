@@ -47,32 +47,73 @@ It also asserts, before any GPU work:
 
 * ``diagnostic_visualizations`` equals whatever ``--diagnostics`` asked for — **off by default**,
   because violet's is **True** and the per-origin biopsy is expensive. ⛔ It is never flipped
-  implicitly in either direction, and a config whose key is missing is refused rather than
-  defaulted.
-  ⚠️ **The cost this guard has always cited is unsourced.** "~28 min/origin, i.e. ~6 h per emit"
-  appears in five builder docstrings and in **no measurement file in this repository**. Treat it as
-  unverified; do not quote it as measured.
-  ⭐ **What IS measured, from EXP-02's own arm logs with diagnostics OFF** (the `models` session,
-  2026-11-03, parsed from `[Origin N/13]` timestamps in `exp02_arm.log`): the emit stage ran
-  **3.6 min/origin** on `ctlfullzero_fortythree` (43.3 min / 13) and **1.9 min/origin** on
-  `upctwofullzero_fortytwo` (22.6 min / 13). ⇒ The unsourced figure would be an **8–15× increase on
-  the emit stage**, which is where the cost lands — so emit, not the whole arm, is the thing to
-  compare against. ⭐ And the cheap way to settle it: run one arm with `--diagnostics`, read the
-  per-origin timestamps for origins 1 and 2, and kill it there if the number is bad. That is two
-  origins, not an arm.
-  ⛔ **Two things must be true on the pod or the arm dies AFTER training.** (a) matplotlib must be
-  installed: it is an **optional extra** of this package, so the pod must install
-  ``views-hydranet[viz]`` — ⚠️ and in ONE command together with the ``toolz>=0.12.1`` override,
-  because `pod_run_model.sh:177-181` records that any later install can silently revert toolz below
-  0.12 and break every datafactory fetch. ⛔ Never hand-pin matplotlib's range here; it is declared
-  by the ``viz`` extra and a second copy drifts without failing. (b) the plots land in a RELATIVE
-  ``reports/plots/diagnostics/<ts>/``, which `pod_run_model.sh:371`'s ``cd`` resolves to
+  implicitly in either direction, and the value is read back by **parse** after the rewrite, so a
+  commented-out key, a non-literal such as ``True and False``, or two live copies all refuse.
+  ⚠️⚠️ **Both cost figures in circulation are unverified; neither is quoted here as measured.**
+  (a) "~28 min/origin, i.e. ~6 h per emit" appears in five builder docstrings and in **no
+  measurement file in this repository**. (b) A relayed emit baseline of "1.9-3.6 min/origin" came
+  from the `models` session on 2026-11-03, described as parsed from "``[Origin N/13]`` timestamps
+  in ``exp02_arm.log``" — but that log carries **no per-line timestamps at all**, only tqdm bars
+  with embedded elapsed fields, so the stated method cannot be what produced it; and an independent
+  parse of the completed-bar elapsed matched only 4-13 of 13 origins per arm and returned
+  **1.25 min/origin** for the arm quoted at 3.6, a ~3x disagreement. ⛔ So the emit cost with
+  diagnostics ON **and** OFF are both unmeasured, and the log that would settle either is
+  gitignored (``.gitignore:283``), in another repository, under a delivery path whose pods are
+  destroyed. ⭐ The cheap way to settle it: run one arm with ``--diagnostics``, read the per-origin
+  elapsed for origins 1 and 2, and kill it there. That is two origins, not an arm.
+  ⛔ **Two things must be true on the pod, or the arm dies EARLY — not after training.**
+  ⚠️ This docstring said "AFTER training" until 2026-11-03 and that was **false**:
+  ``hydranet_manager.py:278-279`` hands ``VisualDiagnostics`` to ``_run_data_pipeline`` **before**
+  training, and ``training_engine.py`` plots at 1454, 1755, 1884, 1896 and 2036 — **inside** it.
+  Since ``visual_diagnostics.py:27-40`` imports matplotlib lazily on the first plotting call, a
+  missing matplotlib raises in the data pipeline or during training. ⇒ The loss is minutes, not a
+  finished run, and an operator told to "read origins 1-2" would never reach that stage.
+
+  (a) **matplotlib must be installed**, as this package's optional ``viz`` extra. ⛔ Never hand-pin
+  its range; the extra declares it and a second copy drifts without failing. ⛔⛔ **Two installs,
+  toolz strictly LAST, then asserted.** Measured 2026-11-03 against the real indexes:
+
+  * ``views-hydranet[viz]~=0.1.1`` **plus** ``toolz>=0.12.1`` on one line is **UNSATISFIABLE**:
+    ``viewser==6.6.4`` caps ``toolz>=0.11.1,<0.12.0`` and ``views-pipeline-core`` needs
+    ``viewser>=6.6.4``. ⇒ That is what `pod_run_model.sh:177-181`'s *"MUST stay the last install"*
+    actually encodes — unsatisfiability, not ordering hygiene.
+  * the extra installed into a venv already holding a good toolz **actively downgrades it**:
+    ``uv pip install --dry-run`` reports ``- toolz==1.2.0`` / ``+ toolz==0.11.2``.
+  * ``uv pip install`` is **additive**; it removes nothing. Verified on a throwaway venv —
+    ``appwrite==13.6.1`` survived a later unrelated install. ⇒ A hand install does **not** drop
+    ``views-pipeline-core[appwrite]``, so views-models#517's publish-time failure is not
+    reintroduced. (Raised in review as a defect; measured false.)
+
+  ::
+
+      uv pip install --python "$VENV/bin/python" "views-hydranet[viz]~=0.1.1"   # downgrades toolz
+      uv pip install --python "$VENV/bin/python" "toolz>=0.12.1"                # restores it, LAST
+      V=$("$VENV/bin/python" -c "import matplotlib, tlz, toolz; print(toolz.__version__)")
+      case "$V" in 0.1[2-9]*|0.[2-9]*|[1-9]*) ;; *) echo "toolz $V too old" >&2; exit 1;; esac
+
+  ⚠️ The check imports ``tlz`` as well as ``toolz``, because C-151's symptom is ``tlz`` failing to
+  import on py3.11, not a version string reading wrong. ⚠️ And `pod_run_model.sh:186` writes
+  ``.built-by-pod-run-model`` last so its presence means "the whole block ran in order" — a hand
+  install afterwards makes that marker's claim narrower than it reads.
+
+  (b) **the plots land in a RELATIVE** ``reports/plots/diagnostics/<ts>/``, which
+  `pod_run_model.sh:371`'s ``cd`` resolves to
   ``/workspace/views-models/models/<arm>/reports/...`` — **outside the runner's archive glob**, so
-  they must be pulled separately (views-models `tools/podrun/stream_diagnostics.py`).
-  ⚠️ ``arm_identity_check.py`` resolves only ``config_hyperparameters.py``, and this key lives in
-  ``config_meta.py`` ⇒ it is **invisible to ``run_queue.sh``'s reuse check**. An arm reused from an
+  they must be pulled separately (views-models ``tools/podrun/stream_diagnostics.py``).
+
+  ⛔ **This flag is unreachable from the only programmatic launcher.** `run_queue.sh:149` invokes
+  this builder with ``--lessons/--eps/--seed`` (plus ``--variant``) and **nothing else**: no
+  ``--diagnostics`` and no ``--control``, and its spec grammar has no slot for either. ⇒ A
+  diagnostics arm must be built BY HAND, and — because ``--control`` is also absent and the default
+  ``fullzero_<seed>`` directories no longer exist — ``run_queue.sh`` cannot build **any**
+  300-lesson arm at all; it reuses pre-built ones. ⚠️ So this builder is not the gate on the launch
+  path, and ``arm_identity_check.py`` resolves only ``config_hyperparameters.py`` while this key
+  lives in ``config_meta.py`` ⇒ it is **invisible to the reuse check**. An arm reused from an
   earlier build keeps the setting it was built with, silently. Build fresh when it matters.
-* ``ss_feedback == 'sample'`` whenever ``ss_epsilon_max > 0`` (C-259).
+* ``ss_feedback`` is **set** to ``'sample'`` whenever ``ss_epsilon_max > 0`` (C-259) — ⚠️ written
+  at the ``_set_key`` step, **not** asserted in ``_verify``, unlike every other item in this list.
+  It is the one write with no readback anywhere; said plainly because this docstring claimed it was
+  asserted until 2026-11-03.
 * ``features == regression_targets`` in order (C-260 rejects otherwise; fail before the GPU spins).
 """
 
@@ -108,8 +149,13 @@ _INTENDED = {
 
 #: ``ModelPathManager.validate_model_name`` enforces ``^[a-z]+_[a-z]+$`` — exactly two lowercase
 #: words, no digits, one underscore. So the arm's parameters cannot appear literally in the directory
-#: name; they are encoded through these tables instead, and ``arm.json`` carries the authoritative
-#: values. Deterministic both ways, so a name is still a reliable handle in a log or the process table.
+#: name; they are encoded through these tables instead. ⚠️ This comment named ``arm.json`` as the
+#: authoritative record of those values until 2026-11-03, and **nothing in either repository writes
+#: one** — no ``json.dump`` in any of the five builders, and no ``arm.json`` beside any of the four
+#: built arms. The authoritative record is each arm's own ``configs/*.py``, which is what
+#: ``arm_identity_check.py`` and ``_verify`` actually read. ⇒ The encoding is deterministic both
+#: ways, so a name is still a reliable handle in a log or the process table, but it is the ONLY
+#: machine-readable summary and that is a thinner guarantee than the old comment implied.
 _LESSON_WORD = {
     2: "tiny",
     40: "short",
@@ -124,6 +170,11 @@ _LESSON_WORD = {
 #: adjective for 900, and an unambiguous name beats a pretty one (lesson-curve dossier,
 #: reports/2026-08-18_lesson_curve_dossier).
 _EPS_WORD = {0.0: "zero", 0.1: "tenth", 0.25: "quarter", 0.5: "half"}
+#: Sentinel for "no single live boolean under this key". A plain `None` would collide with a
+#: config that genuinely wrote `None`, which is one of the shapes that must refuse.
+_ABSENT = object()
+
+
 _SEED_WORD = {
     42: "fortytwo",
     43: "fortythree",
@@ -266,33 +317,88 @@ def _strip_orphaned_import(qs: Path) -> None:
         )
 
 
-def _set_diagnostics(mtext: str, *, diagnostics: bool, where: Path | str) -> str:
-    """Return `mtext` with `diagnostic_visualizations` set to `diagnostics`, or refuse.
+def _meta_bool(text: str, key: str):
+    """The literal value of `key` in `text`, PARSED — never regex-matched, never executed.
 
-    Extracted from `build` for one reason: a rewrite whose failure mode is SILENCE needs a test,
-    and an expression inlined in a 90-line function cannot have one.
+    ⛔ This is the readback the regex cannot be, and it exists because three shapes slipped past
+    the count check as surviving mutations (`/code-review max`, 2026-11-03):
 
-    It matches `True` **or** `False` and writes the value that was asked for, rather than matching
-    only `True` as this builder did until 2026-11-03. That older form made `--diagnostics` a silent
-    no-op against a floor that already said `False` — the fail-open shape, where the tool reports
-    success and changes nothing.
+    * ``": TrueX,"`` / ``": True_FLAG,"`` — no word boundary, so the rewrite mangled a different
+      token and reported success. Closed by ``\b`` in the pattern *and* here.
+    * a **commented-out** occurrence — rewritten, reported ``n == 1``, and the built arm then
+      carries no live key at all, which ``visual_diagnostics.py:73`` silently defaults to False.
+      A comment is not in the AST, so it cannot satisfy this.
+    * ``": True and False,"`` — left byte-identical when ``True`` was asked for, reported as a
+      successful rewrite, and **evaluating to False**: the opposite of the request, in silence.
+      A ``BoolOp`` is not a ``Constant``, so it refuses here.
 
-    `subn`'s count is checked rather than discarded, so a renamed key, a non-boolean value or a
-    second occurrence refuses here, at the rewrite, instead of surfacing later as an arm whose
-    diagnostics setting is whatever the floor happened to carry.
+    Returns ``_ABSENT`` unless exactly one live key carries a literal ``bool``.
     """
-    out, n = re.subn(
-        r'("diagnostic_visualizations":\s*)(?:True|False)',
-        lambda m: m.group(1) + ("True" if diagnostics else "False"),
-        mtext,
-    )
-    if n != 1:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return _ABSENT
+    found = _ABSENT
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Dict):
+            continue
+        for k, v in zip(node.keys, node.values):
+            if not (isinstance(k, ast.Constant) and k.value == key):
+                continue
+            if not (isinstance(v, ast.Constant) and isinstance(v.value, bool)):
+                return _ABSENT
+            if found is not _ABSENT:
+                return _ABSENT  # two live keys: which one wins is not ours to guess
+            found = v.value
+    return found
+
+
+def _rewrite_meta(meta: Path, *, label: str, diagnostics: bool) -> None:
+    """Rewrite the arm's ``config_meta.py`` name and diagnostics keys, verify by parse, then write.
+
+    ⛔ **The write is inside this function deliberately.** The earlier form returned text for the
+    caller to write, and a mutation that called it for its refusal and then wrote the *unvalidated*
+    original survived the entire suite — so did deleting the sibling name rewrite. The validated
+    text must be the only text that can reach disk.
+
+    Both rewrites check ``subn``'s count rather than discarding it, because the failure mode of a
+    rewrite that misses its anchor is SILENCE.
+    """
+    text = meta.read_text(encoding="utf-8")
+
+    text, n_name = re.subn(r'"name":\s*"violet_visitor"', f'"name": "{label}"', text)
+    if n_name != 1:
         raise SystemExit(
-            f"{_TOOL}: expected exactly one `diagnostic_visualizations` boolean in {where}, "
-            f"found {n}. The arm would carry whatever the floor happened to say, so it must not "
-            "ship on an unverified diagnostics setting."
+            f"{_TOOL}: expected exactly one `\"name\": \"violet_visitor\"` in {meta}, found "
+            f"{n_name}. The arm would ship under the floor's name, which "
+            "`arm_identity_check.py` cannot see because it reads only config_hyperparameters.py."
         )
-    return out
+
+    text, n_diag = re.subn(
+        r'("diagnostic_visualizations":\s*)(?:True|False)\b',
+        lambda m: m.group(1) + ("True" if diagnostics else "False"),
+        text,
+    )
+    if n_diag != 1:
+        raise SystemExit(
+            f"{_TOOL}: expected exactly one `diagnostic_visualizations` boolean in {meta}, found "
+            f"{n_diag}. The arm would carry whatever the floor happened to say, so it must not "
+            "ship on an unverified diagnostics setting. ⚠️ Fix the FLOOR's config_meta.py "
+            f"({_FLOOR / 'configs' / 'config_meta.py'}); {meta} is a copy and this arm directory "
+            "is removed, so a retry is safe."
+        )
+
+    got = _meta_bool(text, "diagnostic_visualizations")
+    if got is not diagnostics:
+        raise SystemExit(
+            f"{_TOOL}: after rewriting {meta}, `diagnostic_visualizations` parses as "
+            f"{'ABSENT' if got is _ABSENT else repr(got)} but {diagnostics!r} was asked for. "
+            "The textual rewrite reported success and did not achieve it — a commented-out key, a "
+            "non-literal value such as `True and False`, or two live copies. The arm is NOT built."
+        )
+
+    meta.write_text(text, encoding="utf-8")
+
 
 
 def build(
@@ -372,16 +478,22 @@ def build(
 
 
     meta = dest / "configs" / "config_meta.py"
-    mtext = meta.read_text().replace('"name": "violet_visitor"', f'"name": "{label}"')
-    meta.write_text(_set_diagnostics(mtext, diagnostics=diagnostics, where=meta))
 
     # A failed verification must not leave a half-built arm behind: `build` refuses to overwrite an
     # existing directory, so the wreckage of a rejected build would block every later attempt and
     # look like "the builder is broken" rather than "the config was wrong".
     try:
-        # Inside the cleanup deliberately: this refuses, and a refusal outside the `try`
+        # Inside the cleanup deliberately: these refuse, and a refusal outside the `try`
         # would leave `dest` with config_meta.py un-rewritten — which `run_queue.sh:114`
         # reuses and `arm_identity_check.py:117` passes, training a mislabelled arm.
+        #
+        # ⛔⛔ `_rewrite_meta` is here for that reason and it was NOT, until 2026-11-03. The form
+        # `meta.write_text(_set_diagnostics(mtext, ...))` put its refusal FIVE LINES ABOVE this
+        # `try`, because Python evaluates the argument before the call — so the defect this very
+        # comment was written to prevent was reintroduced one statement above the fix, and the
+        # test that asserts the property could not see it because it is keyed to the name
+        # `_strip_orphaned_import`. Found by `/code-review max`.
+        _rewrite_meta(meta, label=label, diagnostics=diagnostics)
         _strip_orphaned_import(qs)
         _verify(dest, lessons=lessons, eps=eps, seed=seed, variant=variant, control=control,
                 diagnostics=diagnostics)
@@ -389,6 +501,29 @@ def build(
         shutil.rmtree(dest, ignore_errors=True)
         raise
     return dest
+
+
+def _assert_meta(dest: Path, *, diagnostics: bool) -> None:
+    """Read the BUILT arm's ``config_meta.py`` back and refuse unless it says what was asked.
+
+    Separate from ``_verify`` so it can be executed by a test: ``_verify`` instantiates a torch
+    architecture and resolves a control arm from ``_MODELS``, so nothing in the suite ran it, and
+    three mutations on this check survived — ``is not diagnostics`` → ``!=``, the whole ``if`` →
+    ``if False:``, and a silent revert to the old hard ``is not False`` (which would make
+    ``--diagnostics`` refuse its own output).
+    """
+    m = _resolve(dest / "configs" / "config_meta.py", "get_meta_config")
+    #: ⛔ `is not`, not `!=`. `True == 1` is true in Python, so `!=` would accept a stray `1` as
+    #: equivalent to True. Verified: 1, 1.0, "True", None and [] are all refused by `is`.
+    if m.get("diagnostic_visualizations") is not diagnostics:
+        raise SystemExit(
+            f"{_TOOL}: diagnostic_visualizations is "
+            f"{m.get('diagnostic_visualizations')!r} but --diagnostics asked for {diagnostics!r}. "
+            "The biopsy's cost is the reason this is checked at all, and it is NOT measured in "
+            "this repository — so an arm must never acquire it by accident in either direction."
+        )
+    if m.get("name") != dest.name:
+        raise SystemExit(f"{_TOOL}: meta name {m.get('name')!r} != dir {dest.name!r}")
 
 
 def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
@@ -404,9 +539,17 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
             f"{sorted(expected)}. An unintended key changed — the arm is NOT built."
         )
 
-    assert arm["ss_epsilon_max"] == eps, arm["ss_epsilon_max"]
-    assert arm["torch_seed"] == seed and arm["np_seed"] == seed
-    assert arm["total_lessons"] == lessons
+    #: ⛔ `SystemExit`, not `assert`. A bare `assert` is removed entirely under `-O` /
+    #: `PYTHONOPTIMIZE`, so these three arm-identity invariants — the ones `arm_identity_check.py`
+    #: re-checks on every queue reuse — would silently stop being checked, while every other
+    #: refusal in this function kept working. Flagged by `/code-review max`.
+    for _key, _want in (("ss_epsilon_max", eps), ("torch_seed", seed), ("np_seed", seed),
+                        ("total_lessons", lessons)):
+        if arm.get(_key) != _want:
+            raise SystemExit(
+                f"{_TOOL}: {_key} is {arm.get(_key)!r}, expected {_want!r} — this arm's identity "
+                "is not the one requested, and `arm_identity_check.py` would accept it on reuse."
+            )
     if arm.get("model") != variant:
         raise SystemExit(
             f"{_TOOL}: model is {arm.get('model')!r}, expected {variant!r} — this arm would "
@@ -417,6 +560,16 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
             f"{_TOOL}: output_distribution changed. Only `model` may differ — this program "
             "varies the ARCHITECTURE, and M45 is what a two-key experiment costs."
         )
+
+    # ⛔⛔ BEFORE the self-control early return below, not after. Until 2026-11-03 this readback
+    # sat 57 lines further down, past `if control_dir.resolve() == dest.resolve(): return` — so it
+    # was DEAD for every arm that is its own control, i.e. every `ctlfullzero_*`, which is six of
+    # the twelve arms `PREREG_EXP03_SEEDS.md` pools into σ. That document rested its safety claim
+    # on this exact readback ("`_verify` guarantees matches what was asked for"), and the guarantee
+    # did not exist for half the scored set. Found by `/code-review max`.
+    #
+    # It also has nothing to do with the control contrast; it was below it only by append order.
+    _assert_meta(dest, diagnostics=diagnostics)
 
     # ── the contrast this dossier actually claims ────────────────────────────────────────────
     # The ancestors diff only against the FLOOR. But every claim here is treatment-vs-CONTROL,
@@ -441,12 +594,14 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
         return
     control_hp = control_dir / "configs" / "config_hyperparameters.py"
     if control_hp.is_file():
-        control = _resolve(control_hp, "get_hp_config")
-        vs_control = {k for k in set(control) | set(arm) if control.get(k) != arm.get(k)}
+        #: Named `control_cfg`, not `control`: rebinding the `control: str | None` parameter to a
+        #: dict made the two meanings share one name for the rest of the function.
+        control_cfg = _resolve(control_hp, "get_hp_config")
+        vs_control = {k for k in set(control_cfg) | set(arm) if control_cfg.get(k) != arm.get(k)}
         # A SMOKE arm deliberately differs in total_lessons too — it is never a scored result, so
         # the single-variable invariant applies to the SCORED arms only. Stated rather than
         # silently tolerated, and the smoke's own lesson count is asserted above.
-        same_len = lessons == control.get("total_lessons")
+        same_len = lessons == control_cfg.get("total_lessons")
         allowed = {"model"} if same_len else {"model", "total_lessons"}
         if vs_control != allowed:
             raise SystemExit(
@@ -493,22 +648,23 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
             f"{n_targets} — the emitted field would not match the targets."
         )
 
-    m = _resolve(dest / "configs" / "config_meta.py", "get_meta_config")
-    # `is not` rather than `!=`, so a truthy non-bool (a stray 1) is refused rather than accepted
-    # as equivalent to True.
-    if m.get("diagnostic_visualizations") is not diagnostics:
-        raise SystemExit(
-            f"{_TOOL}: diagnostic_visualizations is "
-            f"{m.get('diagnostic_visualizations')!r} but --diagnostics asked for {diagnostics!r}. "
-            "The biopsy's cost is the reason this is checked at all, and it is NOT measured in "
-            "this repository — so an arm must never acquire it by accident in either direction."
-        )
-    if m.get("name") != dest.name:
-        raise SystemExit(f"{_TOOL}: meta name {m.get('name')!r} != dir {dest.name!r}")
 
 
-def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__)
+def _parser() -> argparse.ArgumentParser:
+    """The real parser, extracted from ``main`` so a test can assert against IT.
+
+    ⛔ Three mutations survived the whole suite while this lived inside ``main``: adding
+    ``default=True`` to ``--diagnostics``, forwarding a literal ``diagnostics=False``, and dropping
+    the kwarg. The test could only check substrings of ``main``'s source and the default of a
+    throwaway parser the TEST built — i.e. it asserted CPython's ``store_true`` semantics with no
+    reference to the code under test. Found by `/code-review max`.
+
+    ``RawDescriptionHelpFormatter`` because ``description=__doc__`` is a multi-kilobyte block whose
+    bullets argparse otherwise reflows into a wall.
+    """
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--lessons", type=int, required=True)
     p.add_argument("--eps", type=float, required=True)
     p.add_argument("--seed", type=int, required=True)
@@ -522,16 +678,23 @@ def main() -> int:
     p.add_argument(
         "--diagnostics",
         action="store_true",
-        help="build the arm with `diagnostic_visualizations: True`. ⛔ OFF by default. ⚠️ The cost "
-             "is NOT measured in this repo: the '~28 min/origin' figure has no evidence file behind "
-             "it, and the measured emit baseline with diagnostics off is 1.9-3.6 min/origin, so "
-             "that figure would be an 8-15x increase on emit. Read origins 1-2 and kill it if the "
-             "number is bad. ⛔ The pod needs `views-hydranet[viz]` (matplotlib is an optional "
-             "extra; without it the run dies AFTER training) installed in ONE command with "
-             "`toolz>=0.12.1`, and the plots land outside pod_run_model.sh's archive glob — pull "
-             "them separately or they are lost with the pod.",
+        help="build the arm with `diagnostic_visualizations: True`. OFF by default. "
+             "THE COST IS UNMEASURED: the '~28 min/origin' figure has no evidence file behind it, "
+             "and a relayed '1.9-3.6 min/origin' baseline could not be reproduced (its stated "
+             "source has no timestamps, and an independent parse disagreed ~3x) -- so run one arm, "
+             "read origins 1-2, and kill it if the number is bad. The pod needs "
+             "`views-hydranet[viz]` as TWO installs with `toolz>=0.12.1` strictly LAST, then "
+             "asserted: the one-line combined form is UNSATISFIABLE (viewser caps toolz<0.12) and "
+             "the extra alone downgrades toolz to 0.11.2, which breaks every datafactory fetch "
+             "with no error. Without matplotlib the run dies in the DATA PIPELINE or during "
+             "training, not after it. And the plots land outside pod_run_model.sh's archive glob "
+             "-- pull them before teardown or they are lost with the pod.",
     )
-    a = p.parse_args()
+    return p
+
+
+def main() -> int:
+    a = _parser().parse_args()
     dest = build(lessons=a.lessons, eps=a.eps, seed=a.seed, variant=a.variant,
                  control=a.control, diagnostics=a.diagnostics)
     print(f"built {dest}")

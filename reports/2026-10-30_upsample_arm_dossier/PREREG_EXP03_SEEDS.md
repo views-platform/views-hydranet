@@ -63,14 +63,19 @@ the seed.**
 Binding, and each verified rather than asserted:
 
 - ⛔ **One data pull.** `queryset_digest` **must** equal
-  `b32a221b70e5255d3d85e683b483d9398ae08ed3b5e9d1be71c6e8f7aa13422c` on all eight, and the raw
+  `b32a221b70e5255d3d85e683b483d9398ae08ed3b5e9d1be71c6e8f7aa13422c` on all **TWELVE** — the
+  same scope correction AMENDMENT 1 made for diagnostics, which was not applied here
+  either; a pooled σ̂ over two pulls is the `C-351` defect this document invokes twice. ✅
+  EXP-02's four are verified identical (raw parquet md5 `d3636988b1085af74a08555c347ec5fe`
+  on all four). And the raw
   parquet **md5 must match EXP-02's** `d3636988b1085af74a08555c347ec5fe`. Four arms on two pulls
   makes this a cross-population comparison (`C-351`), which is what `P-30`'s falsification already
   did to `P-27` once.
-- ⛔ **S must equal 16 on all eight**, read off `y_pred.npy.shape[1]` in each arm's own cube, not
+- ⛔ **S must equal 16 on all TWELVE** (AMENDMENT 1: the scored set is twelve, not eight),
+  read off `y_pred.npy.shape[1]` in each arm's own cube, not
   off a manifest field. AP is quantised to S+1 rank levels; unequal S makes AP incomparable across
   arms (epic #263: *"the reference's S MUST equal the arms' cube width"*).
-- ⛔ **`n_origins` must equal 13 on all eight**, and each `upctwo` arm is differenced against the
+- ⛔ **`n_origins` must equal 13 on all TWELVE**, and each `upctwo` arm is differenced against the
   control **of its own seed**.
 - ⛔ **No `h18` number appears anywhere in this document's verdict**, in either direction
   (§6 device 2, carried).
@@ -124,7 +129,7 @@ probability from EXP-02's own numbers is **~97%**: P(a seed lands negative at h3
 Reported from EXP-03's σ̂ with **no** post-hoc choice of estimator:
 
 ```
-n_required = (z_0.95 + z_0.80)^2 * sigma_hat^2 / mu^2        # = 6.1865 * sigma^2 / mu^2
+n_required = (z_0.95 + z_0.80)^2 * sigma_hat^2 / mu^2        # = 6.1826 * sigma^2 / mu^2
 ```
 
 evaluated at **three** pre-named μ, and reported at σ̂ **and** at both ends of σ̂'s own χ²(5)
@@ -223,3 +228,66 @@ but `_SEED_WORD` admits only 42–47, so a replica collides with the arm it repl
 `build` refuses to overwrite. ⚠️ And the test would be **asymmetric even if run**: identical cubes
 would prove inertness, while differing cubes would prove nothing, because cross-pod cuDNN
 nondeterminism is not excluded. ⇒ Not attempted. The constraint above does not depend on it.
+
+---
+
+## ⛔ AMENDMENT 2 — 2026-11-03, still before any EXP-03 arm exists
+
+⚠️ Legitimate for the same reason as AMENDMENT 1: EXP-03 has no numbers. ⛔ Found by
+`/code-review max` on the builder branch, which reviewed this document as well as the code.
+
+### 1 · ⛔⛔ AMENDMENT 1 credited a check that did not exist. It exists now.
+
+AMENDMENT 1 item 2 bound *"Before any ΔAP is computed, `diagnostic_visualizations` is read from
+each of the twelve arms' own `config_meta.py` and must be `False` in all twelve"*, and item 3 then
+leaned on it: *"Check 2 catches it if the rebuild is forgotten."* ⛔ **No code in either repository
+implemented that sweep.** The only readers of the key were the seven dossier builders (at BUILD
+time) and the hydranet runtime. `verify_exp02.py`, `verify_bakeoff.py` and `arm_identity_check.py`
+do not contain the string at all. ⇒ The probe arm was safe by *memory*, which is what item 2 said
+it was not.
+
+⚠️ And `make_arch_arm.py::_verify` could never have been that check, for a reason worth stating:
+it runs at **build** time, so it structurally cannot see an arm that leaked into the scored set or
+one **reused** from an earlier build — `run_queue.sh:114` reuses on `[ -d ... ]` alone and
+`arm_identity_check.py` reads only `config_hyperparameters.py`.
+
+⇒ **The gate is `scripts/assert_diagnostics_off.py`**, committed with this amendment and covered by
+16 tests. Invocation, binding before any ΔAP is computed::
+
+    python scripts/assert_diagnostics_off.py --models-root ../views-models/models --expect 12 \
+        ctlfullzero_fortytwo ctlfullzero_fortythree upctwofullzero_fortytwo \
+        upctwofullzero_fortythree <the eight EXP-03 arms>
+
+⭐ `--expect 12` is not decoration: a sweep over four clean arms is not evidence about twelve, and
+without it the gate can be satisfied by naming fewer arms — the same scope error AMENDMENT 1 exists
+to close, one level up. ⭐ It **parses** the literal rather than executing the config, and refuses
+an unverifiable value (commented out, `True and False`, a bare `1`, two live copies, absent)
+instead of resolving it — because an absent key is exactly what `visual_diagnostics.py:73` treats
+as off, so "nothing says True" is not the same as "this arm ran with it off".
+✅ Run against the four existing arms: **all four pass**, which is the first machine-checked
+confirmation of AMENDMENT 1's "verified four ways".
+
+### 2 · ⚠️ The probe's plots live inside the directory item 3 orders removed
+
+AMENDMENT 1 item 3 says the seed-47 probe arm is *"killed, deleted, and rebuilt with diagnostics
+off"*. ⛔ Its plots are written to `<arm>/reports/plots/diagnostics/<ts>/` — **inside the arm
+directory** — and `build` refuses to overwrite an existing `dest`, so the rebuild requires deleting
+it. ⇒ **Retrieval is sequenced BEFORE deletion, explicitly**, and this document already calls that
+shape its highest-consequence manual step:
+
+1. read the per-origin elapsed for origins 1–2 and kill the run
+2. **pull the plots off the pod** (views-models `tools/podrun/stream_diagnostics.py`) and verify
+   they are on local disk by content, not by count
+3. only then delete the arm directory and rebuild with diagnostics off
+4. `assert_diagnostics_off.py --expect 12` before any ΔAP
+
+### 3 · ⚠️ Two figures withdrawn from §1 and from the builder's docstring
+
+The emit baseline quoted as **"1.9–3.6 min/origin"** was relayed, described as parsed from
+"`[Origin N/13]` timestamps in `exp02_arm.log`". ⛔ That log carries **no per-line timestamps** —
+only tqdm bars with embedded elapsed fields — so the stated method cannot be what produced it, and
+an independent parse here matched only 4–13 of 13 origins per arm and returned **1.25 min/origin**
+for the arm quoted at 3.6, a ~3× disagreement. ⇒ **Withdrawn.** Both the "~28 min/origin" figure
+and the "1.9–3.6" baseline are unverified, and the log that would settle either is gitignored, in
+another repository, on destroyed pods. ⚠️ This does not change the probe plan — it is the reason
+for it.

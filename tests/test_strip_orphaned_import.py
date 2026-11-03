@@ -303,19 +303,25 @@ def test_every_runnable_builder_carries_the_same_helper():
         # the end of the file is what the call site resolves to, while the slice below reads the
         # FIRST definition — so the repair silently does nothing and this test still reports one
         # distinct body. Measured as a surviving mutation against the first version of this test.
-        n_defs = sum(
-            isinstance(node, ast.FunctionDef) and node.name == "_strip_orphaned_import"
+        defs = [
+            node
             for node in ast.walk(ast.parse(text))
-        )
-        assert n_defs == 1, (
-            f"{stem} defines _strip_orphaned_import {n_defs} times; a later definition shadows "
+            if isinstance(node, ast.FunctionDef) and node.name == "_strip_orphaned_import"
+        ]
+        assert len(defs) == 1, (
+            f"{stem} defines _strip_orphaned_import {len(defs)} times; a later definition shadows "
             f"the one this test reads, so the helper under test is not the one that runs"
         )
-        start = text.index("def _strip_orphaned_import(")
-        end = text.index("\ndef ", start + 1)
-        bodies[stem] = text[start:end]
+        #: ⛔ Bounded by the AST NODE, not by `text.index("\ndef ", ...)`. The text form sliced
+        #: from the helper's `def` to the NEXT `def`, so anything appended between them — a module
+        #: constant, a comment block — was silently pulled into the "helper body" and reported as
+        #: drift. That fired on 2026-11-03 for a sentinel added after the helper, i.e. the guard
+        #: was measuring a different object than the one it names.
+        lines = text.splitlines(keepends=True)
+        bodies[stem] = "".join(lines[defs[0].lineno - 1 : defs[0].end_lineno])
         assert bodies[stem].strip(), f"{stem}: the helper slice is empty, so comparing is vacuous"
-        assert "_strip_orphaned_import(qs)" in text[end:], (
+        after_def = "".join(lines[defs[0].end_lineno :])
+        assert "_strip_orphaned_import(qs)" in after_def, (
             f"{stem} defines the helper but never calls it"
         )
 
