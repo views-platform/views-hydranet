@@ -367,29 +367,86 @@ def test_main_forwards_the_parsed_flag_rather_than_a_literal():
     )
 
 
-def test_every_cost_figure_in_the_file_is_marked_unverified():
-    """⛔ W-109 applied to this builder's own prose. The previous version used
-    `text.index("28 min")` and so inspected only the FIRST site — while the second, which this
-    change ADDED, was the operator-facing `--help` string, and dropping its hedge left the suite
-    green.
+_HEDGES = (
+    "unsourced",
+    "unverified",
+    "UNMEASURED",
+    "unmeasured",
+    "no evidence",
+    "could not be reproduced",
+    "disagree",
+)
+_FIGURE = re.compile(r"28 min|min/origin")
+
+
+def _diagnostics_help() -> str:
+    """The `--diagnostics` help string, read out of the AST rather than by char offset."""
+    tree = ast.parse(_MOD.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        if node.func.attr != "add_argument":
+            continue
+        if not any(isinstance(a, ast.Constant) and a.value == "--diagnostics" for a in node.args):
+            continue
+        for kw in node.keywords:
+            if kw.arg == "help":
+                return ast.literal_eval(kw.value)
+    raise AssertionError("no --diagnostics argument with a help string")
+
+
+def _unhedged_sentences(text: str) -> list[str]:
+    """Sentences that state a cost figure with no hedge **in that sentence**.
+
+    ⛔ Three versions of this guard failed before this one, each for the same reason one scope
+    wider: `text.index("28 min")` saw only the first of two sites; a +/-700 char window was
+    satisfied by an unrelated caveat elsewhere in the file; and checking the help string as a
+    WHOLE was satisfied by the hedge belonging to the OTHER figure in it — this string states two.
+    ⇒ The unit has to be the sentence, because that is the unit a reader attributes a caveat to.
     """
-    text = _MOD.read_text(encoding="utf-8")
-    sites = [m.start() for m in re.finditer(r"28 min|min/origin", text)]
-    assert sites, "no cost figure found — if the numbers were removed, delete this test too"
-    for pos in sites:
-        window = text[max(0, pos - 700) : pos + 700]
-        assert any(
-            w in window
-            for w in (
-                "unsourced",
-                "unverified",
-                "UNMEASURED",
-                "unmeasured",
-                "no evidence",
-                "could not be reproduced",
-                "disagree",
-            )
-        ), (
-            f"the cost figure at offset {pos} is stated without being marked unverified: "
-            f"...{text[max(0, pos - 90) : pos + 90]!r}..."
+    return [
+        s
+        for s in re.split(r"(?<=\.)\s+", text)
+        if _FIGURE.search(s) and not any(w in s for w in _HEDGES)
+    ]
+
+
+def test_the_operator_facing_help_hedges_every_cost_figure_it_states():
+    """`--help` is the one surface an operator reads before spending the money."""
+    bare = _unhedged_sentences(_diagnostics_help())
+    assert not bare, "the --diagnostics help states a cost figure as fact: " + repr(bare)
+
+
+def test_the_module_docstring_hedges_every_cost_figure_it_states():
+    doc = ast.get_docstring(ast.parse(_MOD.read_text(encoding="utf-8"))) or ""
+    assert _FIGURE.search(doc), "no cost figure in the docstring — if removed, delete this test"
+    #: Per SENTENCE, for the same reason as the help string: a hedge attached to one figure must
+    #: not be read as covering another, and this docstring states several.
+    bare = _unhedged_sentences(doc.replace("\n", " "))
+    assert not bare, "a docstring sentence states a cost figure as fact: " + repr(bare)
+
+
+def test_verify_calls_the_readback_BEFORE_its_self_control_early_return():
+    """⛔⛔ The decision, not the helper. `_assert_meta` is unit-tested above, but moving its CALL
+    back below `_verify`'s `if control_dir.resolve() == dest.resolve(): return` left every test
+    green — and that placement is the original defect: dead for every arm that is its own control,
+    i.e. six of the twelve arms the prereg pools into sigma.
+
+    Proven as a surviving mutation against the first version of these fixes, which is why this
+    asserts the ORDER rather than the existence of the call.
+    """
+    tree = ast.parse(_MOD.read_text(encoding="utf-8"))
+    verify = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_verify")
+    calls = [
+        n.lineno
+        for n in ast.walk(verify)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_assert_meta"
+    ]
+    assert calls, "_verify does not call _assert_meta at all — the readback is gone"
+    returns = [n.lineno for n in ast.walk(verify) if isinstance(n, ast.Return)]
+    if returns:
+        assert min(calls) < min(returns), (
+            f"_assert_meta is called at line {min(calls)} but _verify can return at "
+            f"{min(returns)} — the readback is DEAD for every arm that takes that early return, "
+            "which is every arm that is its own control"
         )

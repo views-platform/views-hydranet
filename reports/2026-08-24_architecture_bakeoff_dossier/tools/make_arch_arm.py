@@ -374,6 +374,11 @@ def _rewrite_meta(meta: Path, *, label: str, diagnostics: bool) -> None:
             "`arm_identity_check.py` cannot see because it reads only config_hyperparameters.py."
         )
 
+    #: ⚠️ The ``\b`` is defence in depth, not the guard. Measured 2026-11-03: removing it leaves
+    #: every bad shape still refusing and the file still untouched — only WHICH refusal fires
+    #: changes (count vs readback). ⇒ It is an equivalent mutant, and no test pins it, because a
+    #: test whose only job is to hold a message in place is one more thing to maintain and nothing
+    #: more. The readback below is what actually closes the class.
     text, n_diag = re.subn(
         r'("diagnostic_visualizations":\s*)(?:True|False)\b',
         lambda m: m.group(1) + ("True" if diagnostics else "False"),
