@@ -155,6 +155,39 @@ def test_meta_bool_refuses_everything_not_statically_one_live_literal(body, why)
     assert builder._meta_bool(_getter(body), "diagnostic_visualizations") is builder._ABSENT, why
 
 
+def test_meta_bool_is_scoped_to_get_meta_config_BY_NAME():
+    """⛔ Surviving mutation: dropping the name filter (reading any function's return) left the
+    suite green. The key could then be read out of an unrelated getter in the same file."""
+    src = 'def other_config():\n    return {"diagnostic_visualizations": True}\n'
+    assert builder._meta_bool(src, "diagnostic_visualizations") is builder._ABSENT
+    #: ...and the correctly-named one in the same file is still read.
+    src2 = src + 'def get_meta_config():\n    return {"diagnostic_visualizations": False}\n'
+    assert builder._meta_bool(src2, "diagnostic_visualizations") is False
+
+
+def test_meta_bool_refuses_a_DECORATED_getter():
+    """⛔ Surviving mutation: dropping the decorator refusal. A decorator can replace the return
+    value wholesale, so the body says nothing about what the getter yields."""
+    src = (
+        "import functools\n@functools.cache\ndef get_meta_config():\n"
+        '    return {"diagnostic_visualizations": False}\n'
+    )
+    assert builder._meta_bool(src, "diagnostic_visualizations") is builder._ABSENT
+
+
+def test_meta_bool_refuses_a_returned_dict_that_ALSO_unpacks():
+    """⛔ Surviving mutation: skipping `**` entries instead of refusing. The earlier table only
+    had `return {**_BASE}` with no explicit key, which refuses either way — so the mutation was
+    equivalent against it. With an explicit key BESIDE the unpacking, skipping reports that key
+    while `_BASE` may set it too, and which one wins is not statically knowable."""
+    src = (
+        '_BASE = {"diagnostic_visualizations": True}\n'
+        "def get_meta_config():\n"
+        '    return {**_BASE, "diagnostic_visualizations": False}\n'
+    )
+    assert builder._meta_bool(src, "diagnostic_visualizations") is builder._ABSENT
+
+
 def test_meta_bool_refuses_a_file_with_two_getters():
     src = _getter('    return {"diagnostic_visualizations": False}\n') + _getter(
         '    return {"diagnostic_visualizations": True}\n'

@@ -100,6 +100,19 @@ def test_expect_refuses_a_subset_even_when_every_named_arm_is_clean(tmp_path):
     assert gate.main(["--models-root", str(tmp_path), "--expect", "12", "a", "b", "c", "d"]) == 1
 
 
+def test_duplicate_arm_names_are_refused(tmp_path):
+    """⛔ Surviving mutation: dropping the duplicate check. Measured before the fix: ONE clean arm
+    named twelve times with `--expect 12` printed "all 12 arms carry ...=False" and exited 0. A
+    count over a list is not a count over a set, and --expect exists precisely so a smaller sweep
+    cannot stand in for the real one."""
+    _arm(tmp_path, "a", OFF)
+    assert gate.main(["--models-root", str(tmp_path), "--expect", "12"] + ["a"] * 12) == 1
+    #: ...and refused even without --expect, because a repeated arm is never what was meant.
+    assert gate.main(["--models-root", str(tmp_path), "a", "a"]) == 1
+    #: ...while the honest single-arm sweep still passes.
+    assert gate.main(["--models-root", str(tmp_path), "--expect", "1", "a"]) == 0
+
+
 def test_models_root_is_required_rather_than_defaulted(tmp_path):
     """⛔ A wrong-but-plausible default would check a different tree and PASS."""
     with pytest.raises(SystemExit):

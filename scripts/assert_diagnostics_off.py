@@ -153,6 +153,10 @@ def check(models_root: Path, arms: list[str]) -> list[str]:
             problems.append(f"{arm}: no config_meta.py at {meta} — this is not an arm directory")
             continue
         got = meta_bool(meta.read_text(encoding="utf-8"))
+        #: ⚠️ This branch exists for its MESSAGE, not its outcome. Measured 2026-11-03: deleting
+        #: it leaves every shape still refusing, because `ABSENT is not False` falls through to the
+        #: branch below — an equivalent mutant, deliberately not pinned by a test. It is kept
+        #: because "cannot be verified" and "is True" are different things to tell an operator.
         if got is ABSENT:
             problems.append(
                 f"{arm}: {KEY} is not a single live True/False literal in {meta}, so what "
