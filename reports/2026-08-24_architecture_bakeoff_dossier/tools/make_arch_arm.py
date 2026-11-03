@@ -45,8 +45,16 @@ one to a key we happened to think of.
 
 It also asserts, before any GPU work:
 
-* ``diagnostic_visualizations is False`` — violet's is **True**, and the per-origin biopsy costs
-  ~28 min/origin, i.e. **~6 h per emit**: the largest silent cost landmine in the sweep.
+* ``diagnostic_visualizations`` equals whatever ``--diagnostics`` asked for — **off by default**,
+  because violet's is **True** and the per-origin biopsy is expensive. ⛔ It is never flipped
+  implicitly in either direction, and a config whose key is missing is refused rather than
+  defaulted.
+  ⚠️ **The cost this guard has always cited is unsourced.** "~28 min/origin, i.e. ~6 h per emit"
+  appears in five builder docstrings and in **no measurement file in this repository**. Treat it as
+  unverified until one arm is actually timed with diagnostics on; do not quote it as measured.
+  ⚠️ ``arm_identity_check.py`` resolves only ``config_hyperparameters.py``, and this key lives in
+  ``config_meta.py`` ⇒ it is **invisible to ``run_queue.sh``'s reuse check**. An arm reused from an
+  earlier build keeps the setting it was built with, silently. Build fresh when it matters.
 * ``ss_feedback == 'sample'`` whenever ``ss_epsilon_max > 0`` (C-259).
 * ``features == regression_targets`` in order (C-260 rejects otherwise; fail before the GPU spins).
 """
@@ -241,9 +249,38 @@ def _strip_orphaned_import(qs: Path) -> None:
         )
 
 
+def _set_diagnostics(mtext: str, *, diagnostics: bool, where: Path | str) -> str:
+    """Return `mtext` with `diagnostic_visualizations` set to `diagnostics`, or refuse.
+
+    Extracted from `build` for one reason: a rewrite whose failure mode is SILENCE needs a test,
+    and an expression inlined in a 90-line function cannot have one.
+
+    It matches `True` **or** `False` and writes the value that was asked for, rather than matching
+    only `True` as this builder did until 2026-11-03. That older form made `--diagnostics` a silent
+    no-op against a floor that already said `False` — the fail-open shape, where the tool reports
+    success and changes nothing.
+
+    `subn`'s count is checked rather than discarded, so a renamed key, a non-boolean value or a
+    second occurrence refuses here, at the rewrite, instead of surfacing later as an arm whose
+    diagnostics setting is whatever the floor happened to carry.
+    """
+    out, n = re.subn(
+        r'("diagnostic_visualizations":\s*)(?:True|False)',
+        lambda m: m.group(1) + ("True" if diagnostics else "False"),
+        mtext,
+    )
+    if n != 1:
+        raise SystemExit(
+            f"{_TOOL}: expected exactly one `diagnostic_visualizations` boolean in {where}, "
+            f"found {n}. The arm would carry whatever the floor happened to say, so it must not "
+            "ship on an unverified diagnostics setting."
+        )
+    return out
+
+
 def build(
     *, lessons: int, eps: float, seed: int, variant: str, out_root: Path = _MODELS,
-    control: str | None = None,
+    control: str | None = None, diagnostics: bool = False,
 ) -> Path:
     label = arm_label(lessons=lessons, eps=eps, seed=seed, variant=variant)
     dest = out_root / label
@@ -319,10 +356,7 @@ def build(
 
     meta = dest / "configs" / "config_meta.py"
     mtext = meta.read_text().replace('"name": "violet_visitor"', f'"name": "{label}"')
-    mtext = re.sub(
-        r'"diagnostic_visualizations":\s*True', '"diagnostic_visualizations": False', mtext
-    )
-    meta.write_text(mtext)
+    meta.write_text(_set_diagnostics(mtext, diagnostics=diagnostics, where=meta))
 
     # A failed verification must not leave a half-built arm behind: `build` refuses to overwrite an
     # existing directory, so the wreckage of a rejected build would block every later attempt and
@@ -332,7 +366,8 @@ def build(
         # would leave `dest` with config_meta.py un-rewritten — which `run_queue.sh:114`
         # reuses and `arm_identity_check.py:117` passes, training a mislabelled arm.
         _strip_orphaned_import(qs)
-        _verify(dest, lessons=lessons, eps=eps, seed=seed, variant=variant, control=control)
+        _verify(dest, lessons=lessons, eps=eps, seed=seed, variant=variant, control=control,
+                diagnostics=diagnostics)
     except BaseException:
         shutil.rmtree(dest, ignore_errors=True)
         raise
@@ -340,7 +375,7 @@ def build(
 
 
 def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
-            control: str | None = None) -> None:
+            control: str | None = None, diagnostics: bool = False) -> None:
     floor = _resolve(_FLOOR / "configs" / "config_hyperparameters.py", "get_hp_config")
     arm = _resolve(dest / "configs" / "config_hyperparameters.py", "get_hp_config")
 
@@ -442,10 +477,14 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
         )
 
     m = _resolve(dest / "configs" / "config_meta.py", "get_meta_config")
-    if m.get("diagnostic_visualizations") is not False:
+    # `is not` rather than `!=`, so a truthy non-bool (a stray 1) is refused rather than accepted
+    # as equivalent to True.
+    if m.get("diagnostic_visualizations") is not diagnostics:
         raise SystemExit(
-            f"{_TOOL}: diagnostic_visualizations must be False — the per-origin biopsy costs "
-            "~28 min/origin, i.e. ~6 h per emit"
+            f"{_TOOL}: diagnostic_visualizations is "
+            f"{m.get('diagnostic_visualizations')!r} but --diagnostics asked for {diagnostics!r}. "
+            "The biopsy's cost is the reason this is checked at all, and it is NOT measured in "
+            "this repository — so an arm must never acquire it by accident in either direction."
         )
     if m.get("name") != dest.name:
         raise SystemExit(f"{_TOOL}: meta name {m.get('name')!r} != dir {dest.name!r}")
@@ -463,9 +502,17 @@ def main() -> int:
         help="label of THIS experiment's control arm, e.g. ctlfullzero_fortytwo. Default keeps "
              "the historical `fullzero_<seed>`, which no longer exists on disk.",
     )
+    p.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help="build the arm with `diagnostic_visualizations: True`. ⛔ OFF by default. ⚠️ The cost "
+             "is unmeasured in this repo (the '~28 min/origin' figure has no evidence file behind "
+             "it) and the plots land in a RELATIVE reports/plots/diagnostics/<ts>/ that "
+             "pod_run_model.sh does NOT archive — fetch it before teardown or it is lost.",
+    )
     a = p.parse_args()
     dest = build(lessons=a.lessons, eps=a.eps, seed=a.seed, variant=a.variant,
-                 control=a.control)
+                 control=a.control, diagnostics=a.diagnostics)
     print(f"built {dest}")
     return 0
 
