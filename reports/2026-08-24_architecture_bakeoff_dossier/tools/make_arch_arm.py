@@ -73,32 +73,31 @@ It asserts, before any GPU work:
   missing matplotlib raises in the data pipeline or during training. ⇒ The loss is minutes, not a
   finished run, and an operator told to "read origins 1-2" would never reach that stage.
 
-  (a) **matplotlib must be installed**, as this package's optional ``viz`` extra. ⛔ Never hand-pin
-  its range; the extra declares it and a second copy drifts without failing. ⛔⛔ **Two installs,
-  toolz strictly LAST, then asserted.** Measured 2026-11-03 against the real indexes:
-
-  * ``views-hydranet[viz]~=0.1.1`` **plus** ``toolz>=0.12.1`` on one line is **UNSATISFIABLE**:
-    ``viewser==6.6.4`` caps ``toolz>=0.11.1,<0.12.0`` and ``views-pipeline-core`` needs
-    ``viewser>=6.6.4``. ⇒ That is what `pod_run_model.sh:177-181`'s *"MUST stay the last install"*
-    actually encodes — unsatisfiability, not ordering hygiene.
-  * the extra installed into a venv already holding a good toolz **actively downgrades it**:
-    ``uv pip install --dry-run`` reports ``- toolz==1.2.0`` / ``+ toolz==0.11.2``.
-  * ``uv pip install`` is **additive**; it removes nothing. Verified on a throwaway venv —
-    ``appwrite==13.6.1`` survived a later unrelated install. ⇒ A hand install does **not** drop
-    ``views-pipeline-core[appwrite]``, so views-models#517's publish-time failure is not
-    reintroduced. (Raised in review as a defect; measured false.)
-
-  ::
-
-      uv pip install --python "$VENV/bin/python" "views-hydranet[viz]~=0.1.1"   # downgrades toolz
-      uv pip install --python "$VENV/bin/python" "toolz>=0.12.1"                # restores it, LAST
-      V=$("$VENV/bin/python" -c "import matplotlib, tlz, toolz; print(toolz.__version__)")
-      case "$V" in 0.1[2-9]*|0.[2-9]*|[1-9]*) ;; *) echo "toolz $V too old" >&2; exit 1;; esac
-
-  ⚠️ The check imports ``tlz`` as well as ``toolz``, because C-151's symptom is ``tlz`` failing to
-  import on py3.11, not a version string reading wrong. ⚠️ And `pod_run_model.sh:186` writes
-  ``.built-by-pod-run-model`` last so its presence means "the whole block ran in order" — a hand
-  install afterwards makes that marker's claim narrower than it reads.
+  (a) **matplotlib must be importable.** ⚠️ It is, and no install step is needed — but this
+  docstring prescribed one until 2026-11-03 and that instruction was unnecessary and carried a
+  real hazard of its own, so the reasoning is recorded rather than just deleted.
+  ⭐ **Measured on a prepared pod venv** (the one `pod_run_model.sh` built for
+  ``ctlfullzero_fortythree``, untouched): ``matplotlib 3.11.2`` present, ``toolz 1.2.0`` correct,
+  ``tlz`` importable, and ``VisualDiagnostics({"diagnostic_visualizations": True})`` constructs with
+  ``active=True``. ⇒ It arrives as an ordinary transitive dependency: **four** installed
+  distributions require it **unconditionally**, and the decisive one is **``views-datafactory``**
+  (``matplotlib<4,>=3.8``), which `pod_run_model.sh:172` installs **by name** in the same command —
+  so this is a hard requirement of a package the runner already asks for, not a coincidence of
+  resolution. (``pyod``, ``seaborn`` and ``views-reporting`` require it unconditionally too.)
+  ⛔ **So: no ``views-hydranet[viz]`` install, no second install, no toolz override to re-apply,
+  and nothing appended after `pod_run_model.sh:181`.** That whole step was mine, it was adopted on
+  a resolver reading rather than a venv reading, and it would have re-created the 2026-09-29 silent
+  toolz revert it was written to avoid. ⚠️ The resolver facts behind it are still true and still
+  worth knowing if an install is ever actually needed: the one-line combined form is
+  **UNSATISFIABLE** (``viewser==6.6.4`` caps ``toolz>=0.11.1,<0.12.0``), and the extra alone
+  **downgrades** a good toolz (``- toolz==1.2.0`` / ``+ toolz==0.11.2``). ⇒ Two installs, toolz
+  strictly last, asserted — but only if the measured state ever stops holding.
+  ⚠️ **The failure mode is real even though its trigger is absent.** ``views-hydranet`` declares
+  matplotlib only under ``[viz]`` while ``VisualDiagnostics`` needs it whenever
+  ``diagnostic_visualizations`` is True — a plain config key. If those four requirers ever move it
+  behind an extra, diagnostics raise ``ImportError`` on the first plotting call, which
+  ``visual_diagnostics.py:27-40`` makes lazy ⇒ inside the data pipeline or during training. ⇒ The
+  guard worth having is an **early import check when the flag is on**, not an install.
 
   (b) **the plots land in a RELATIVE** ``reports/plots/diagnostics/<ts>/``, which
   `pod_run_model.sh:371`'s ``cd`` resolves to
