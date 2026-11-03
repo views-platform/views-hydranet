@@ -123,6 +123,14 @@ stale, miscounted, badly cited or incomplete. The cheapest high-value items:
   **§5.5 L1–L3** (the ceiling of a normalised statistic is not the ceiling of its unnormalised cousin)
   and **§5.10 L4–L6**. Two retractions added to `Appendix B`; one new instrument to `Appendix A.1`; a
   fourth row to `Appendix A.3`. ⛔ Nothing was deleted.
+- **2026-11-03/04** — EXP-03's eleven arms read out, and the readout produced **more about the
+  instruments than about the arm**. ⭐⭐ The headline is a property of our primary score that nothing
+  in this document had measured: **118 cells carry 81% of total CRPS**, so a pooled CRPS null cannot
+  be told from a blind instrument (**§9b L1**). It also **corrects a folk belief this document has
+  carried** — the zeros do *not* swamp CRPS; the events do. Five further lessons in **§9b**, four
+  retractions of my own claims made the same day, and ⚠️ **`Appendix F.4`'s `grep` warning was in
+  this file and I tripped over the same hazard anyway** (L7). ⛔ Nothing deleted; §9b is additive and
+  names which existing sections it qualifies.
 - **2026-10-26** — the structure-penalty arm returned **negative**, and produced the first case in
   this record of **two instruments for one quantity disagreeing by sign** (§7 **S18**). Three new §8
   rows — **16, 17, 18** — all earned the same day, which is the largest single-day addition to that
@@ -2265,6 +2273,204 @@ parameter-sensitivity is now a **paper artifact**, which means
   numbers were wrong and all four ran toward the conclusion already drawn; that is a finding about
   method, and it belongs in the paper rather than being quietly fixed.
 ---
+
+## §9b — 2026-11-03/04: what EXP-03 taught us about evaluating
+
+⛔ **Additive.** Nothing in §0–§9 or the appendices is edited or removed. Where a lesson qualifies an
+existing claim this section says so and leaves both standing. Source:
+`reports/2026-10-30_upsample_arm_dossier/FINDING_EXP03.md` and the four committed instruments beside
+it; every figure below is from `results/exp03_*.{out,json}`.
+
+**Population for everything here:** 13 origins × 64,818 global land cells = **842,634 cell-months**
+per horizon per arm, `sb`, count space, S = 16, truth = the arms' shared global pull. Eleven of
+twelve arms; five complete seed pairs.
+
+---
+
+### L1 ⭐⭐ Our primary score is a ~100-cell measurement, and nothing said so
+
+CRPS decomposed by truth magnitude, control arm:
+
+| truth band | n cells | % of cells | CRPS/cell | **% of TOTAL CRPS** |
+|---|---|---|---|---|
+| **h36, 101+** | **118** | **0.014%** | **1,234** | **81.16%** |
+| h36, 21–100 | 517 | 0.061% | 38.7 | 11.16% |
+| h36, 1–20 | 2,672 | 0.317% | 1.4–9.6 | 6.93% |
+| **h1, 101+** | **51** | **0.006%** | **253.8** | **29.64%** |
+| h1, 21–100 | 563 | 0.067% | 33.1 | 42.64% |
+
+⇒ At h36, **118 cells out of 842,634 carry 81% of the score**. At h1, 614 cells carry 72%.
+
+**Mechanism, not mystery:** CRPS is in **count units** and truth is heavy-tailed (max 2,482), so
+CRPS/cell runs **1.4 → 1,234** across bands and the pooled mean is a magnitude-weighted average
+dominated by the largest cells.
+
+⛔ **The consequence for how we read nulls.** A flat `crps_all` **cannot** refute a change spread
+over hundreds of thousands of cells, because the instrument's resolution is set by ~100 extreme
+cells. ⇒ *"CRPS did not move"* and *"CRPS cannot see this"* are different statements and we have
+been writing the first when we meant the second.
+
+⇒ **NEW DEFAULT:** report **the share of total CRPS carried by the top truth band** beside every
+CRPS number. One figure, descriptive, no interval needed, and it is what decides whether the CRPS
+beside it is interpretable. ⭐ Better form, **proposed and not yet measured**: CRPS's effective
+sample size, `(Σc)² / Σc²`.
+
+#### ⚠️ And it corrects a folk belief this document has carried
+
+The standing worry has been that the 99.66% zero cells swamp CRPS. **They do not.** `crps_none` is
+**0.0020–0.0034** against `crps_events` of **13.2–14.5**: event cells are **0.34%** of the
+population and **96.2%** of `crps_all`. The pooled score is dominated by **events**, and within
+events by the largest hundred. ⇒ This **qualifies §2.2** (*"AP, because it has dynamic range where
+CRPS does not"*): CRPS's problem here is not flatness from dilution, it is **concentration**.
+
+---
+
+### L2 ⭐⭐ Per-seed resolution is not replication — and the configuration that makes it misleading is measurable IN ADVANCE
+
+EXP-02 reported the gate's h1 effect as **+0.0049 and +0.0047, each resolved within its own seed,
+agreeing to 4%**. That description was accurate. Three more seeds later, **seed 47 resolved at
+−0.0063** with an interval excluding zero, and the across-seed interval straddles zero.
+
+⭐ **The diagnostic that would have warned us, and it needs no extra data:** the **between-seed sd
+(0.00511) was 1.6× the median within-seed MDE (0.00327)**. When the spread *between* seeds exceeds
+the width of each seed's *own* interval, per-seed resolution is systematically misleading — each arm
+looks resolved while the effect is not reproducible.
+
+⇒ **Report the ratio `between-seed sd / median within-seed MDE` with any multi-seed result.** Above
+~1 it is a warning that per-seed intervals are the wrong level of inference. ⇒ This **extends §2.5**
+(paired designs) with the limit of pairing: a paired design buys within-seed power and buys *nothing*
+against between-seed variance.
+
+⚠️ **This is not "use more seeds".** The derived requirement for the h1 gate effect was **45 seeds**
+(CI 19–255). The lesson is to report the level of inference honestly, not to buy it.
+
+---
+
+### L3 ⭐⭐ A negative control derived from the instrument's own physics beats more seeds
+
+Calibrating B-1 (the structure-share statistic) on a **3×3-smoothed truth** gave 0.2532 at lag 1
+rising to 1.1043 at lag 32 — because a 3-cell blur **provably cannot** change structure at lag 32,
+where two cells are uncorrelated either way.
+
+⇒ That handed us a **free negative control**: lags 16 and 32 *cannot* be moved by a sharpening. And
+the arm's result read:
+
+| | across-seed CI | per-seed behaviour |
+|---|---|---|
+| **d=1** (target) | **[+0.0229, +0.0780]** — replicates | all five positive |
+| d=16, d=32 (control) | straddle zero | ⭐ **seeds resolve and CONTRADICT each other** (−0.1464\* vs +0.0588\*) |
+
+⭐⭐ **"Resolved-and-consistent at the target lag, resolved-but-contradictory at the control lags" is
+stronger evidence than unanimity**, because it demonstrates *on the same data* that the method can
+tell seed-dependent structure from an effect. L2 is the proof that this discrimination is not
+automatic.
+
+⇒ **Where an instrument has a derivable invariance, measure it and use it as a control in the same
+table.** This **adds to §2.13** (validating the instrument on synthetic fields): the synthetic
+validation is not only a correctness check, it *generates* the negative control.
+
+---
+
+### L4 ⭐ Strata can MANUFACTURE a lead — decomposition is a diagnostic, not a reporting default
+
+Banding CRPS by truth magnitude produced an apparently coherent trade: small-event cells ~1% worse
+(**4 of 5 seeds**, three bands running), large-event cells better. It looked like the mechanism
+behind L1.
+
+⛔ **All ten banded effects failed their across-seed intervals.** At `101+`, h1, two seeds resolved
+in **opposite** directions **3.8 units apart** (−2.7567\* and +1.0849\*).
+
+⇒ 5 bands × 2 horizons = **10 tests**, and 4-of-5 sign agreement across them is what multiplicity
+looks like. ⛔ **Banded CRPS is a diagnostic — run when a pooled null needs explaining — and never
+reported without across-seed intervals.** An earlier draft of this day's finding recommended banded
+reporting as a default; that recommendation was **retracted within 24 hours by its own bootstrap**.
+⇒ **Extends §3.3.**
+
+---
+
+### L5 ⭐ When a gate fires, suspect the GATE — and narrow it rather than widen it
+
+Three times in one session a `G-0` fired and the **instrument was right while my derived expectation
+was wrong**:
+
+| the gate I wrote | why it was wrong |
+|---|---|
+| a blurred field must score < 1 at **every** lag | a 3-cell kernel cannot reach lag 32; the signature must **return** to 1.0 |
+| the blur signature is **monotone decreasing** | it **rises** toward 1.0 — the prose said so and the code was inverted |
+| a truth lookup via a 24.9M-key dict | correct but ran 40 min; the vectorised form takes **1.9 s** |
+
+⭐ **The rule this produces, and it is the opposite of the usual reflex:** when a gate fails, ask
+whether the *expectation* or the *instrument* is wrong. If the expectation, **narrow the gate to
+where the claim actually holds** — which makes it stronger, because it then pins a *shape* a broken
+instrument could not reproduce — rather than widening a tolerance.
+
+⛔ **And the asymmetry matters.** Relaxing a failed gate is the ad-hoc-rescue move this project
+refuses elsewhere (the same day, a sibling session was told not to lower a scale guard to pass its
+own run). The test for whether a gate change is legitimate is **verdict-neutrality**: does it alter
+any result already scored? For the scale guard the answer was measurable — no, the worst verified
+arm sat at 13.69 against a floor moving 12.0 → 9.0 — and that is what made the change a correction
+rather than a rescue.
+
+---
+
+### L6 ⛔ We adopted a default on an endpoint chosen AFTER seeing the data
+
+`PREREG.md` pre-registered `P-23` on **gate AP**. The recommendation to make `UpsampleConv2` the
+default rests on **B-1 at d=1**, which was **not** a pre-registered endpoint for that arm.
+
+⇒ The adoption case is **hypothesis-generating, not confirmatory**, however clean
+`[+0.0229, +0.0780]` looks. ⭐ **The remedy costs nothing and is the generalisable part:** adopt on
+narrow stated grounds, and **pre-register the new endpoint as PRIMARY for the next arm that touches
+the same mechanism**, so the claim becomes confirmable rather than discovered. A **revert condition**
+was pre-committed in the same document. ⇒ **Extends §2.12.**
+
+---
+
+### L7 ⚠️ A written warning in a 322 KB document is not a control
+
+`Appendix F.4` of **this file** already records: *"One auditor's shell `grep` was `ugrep
+--ignore-files`, which silently skips the gitignored `reports/` tree ... Any re-run must use
+`command grep`."*
+
+⛔ **I tripped over the identical hazard on 2026-11-03.** Measured: `grep -rn '28 min/origin' .` → **1
+hit**; `command grep -rn` → **15 hits across 10 files**. Every recursive search over `reports/` in
+that session under-reported, and an absence proved nothing. ⚠️ It is **intermittent by invocation
+shape** — an explicit `reports/` path can still return hits — which is why it survives being written
+down.
+
+⇒ The lesson is not "write it down again". It is that **F.5's rule needs a mechanism, not a
+sentence** — a wrapper, an alias, or a pre-commit check — because the prose remedy has now failed at
+least twice in this record.
+
+---
+
+### L8 ⚠️ An O(1) reformulation of a bootstrap needs an equality gate
+
+Both statistics bootstrapped here reduce to **per-origin sufficient statistics**, making a replicate
+O(1) instead of a rescore of 842,634 cells (per-cell CRPS is invariant to origin resampling; `γ(d)`
+is a ratio of per-origin pair sums). That is what made 400 replicates × 10 cells × 2 statistics
+feasible at all.
+
+⛔ **But a faster statistic is a different statistic until proven otherwise.** `G-1` asserts the
+reduction equals the committed direct computation to **< 1e-9** (`0.6820653315` vs `0.6820653315`)
+and the script **refuses to print an interval** otherwise. ⇒ An interval on the wrong statistic is
+worse than no interval, because it carries false authority. ⇒ **Adds a row in spirit to
+`Appendix A`'s inventory.**
+
+---
+
+### ⚠️ What §9b does not establish
+
+- ⛔ **L1 is measured on ONE population** (global land, `sb`, 13 origins, S=16). The *concentration*
+  is a property of CRPS-in-count-units against a heavy-tailed target, so it should generalise — but
+  the figures 81% / 118 cells are this population's, not a constant.
+- ⛔ **No claim that banded CRPS is useless** — only that it is not a reporting default (L4).
+- ⛔ **L2's ratio threshold (~1) is a reading, not a derived critical value.** It came from one case.
+- ⚠️ **The arm's event-cell magnitude result is still un-intervalled**, so L3's "one effect
+  replicates" refers to B-1 at d=1 alone.
+- ⛔ **Nothing here revisits FAO-02**, which stays locked. L1 proposes a *decomposition* and a
+  *reported diagnostic*, not a replacement score, and twCRPS/LogScore/PIT remain rejected.
+
 
 ## Appendix A — The instrument inventory
 
