@@ -255,6 +255,41 @@ structure** (a **+8.9% relative** gain) from one layer swap.
 d=1 Δ **−0.0006**, signs `−+−−+`; no unanimity at any lag. Consistent with §3: there is no body left
 to sharpen.
 
+### 4.5 ⭐⭐ WITH INTERVALS (added 2026-11-04) — this is the one effect that REPLICATES
+
+`results/exp03_bootstrap.out`, `tools/exp03_bootstrap.py`. Two levels, because they answer
+different questions: **(a) within seed**, a paired origin-block bootstrap over the 13 origins
+(`n_boot=400`, both arms scored on the same resampled set); **(b) across seeds**, a Student-t
+interval on the five per-seed point estimates, 4 dof — ⭐ *this is the one that asks whether the
+effect REPLICATES*, and it is the question §1.1's gate result failed.
+
+**G-1 PASS, exactly.** The bootstrap uses per-origin sufficient statistics so a replicate is O(1)
+rather than a rescore of 842,634 cells, and that reduction is **exact, not an approximation**:
+asserted against the committed direct computation to < 1e-9 (`0.6820653315` vs `0.6820653315`). The
+script refuses to print an interval otherwise — an interval on the wrong statistic is worse than
+none.
+
+| lag (h1) | mean Δ | across-seed 90% t CI | **replicates?** |
+|---|---|---|---|
+| **d=1** | **+0.0504** | **[+0.0229, +0.0780]** | ⭐⭐ **YES** |
+| d=2 | −0.0025 | [−0.0419, +0.0370] | no |
+| d=4 | −0.0167 | [−0.1016, +0.0681] | no |
+| d=8 | −0.0293 | [−0.1123, +0.0537] | no |
+| d=16 ⟵ *neg. control* | −0.0330 | [−0.1224, +0.0564] | no |
+| d=32 ⟵ *neg. control* | −0.0422 | [−0.1241, +0.0398] | no |
+
+Per-seed at d=1: **+0.0984, +0.0447\*, +0.0203, +0.0479, +0.0410\*** (\* = that seed's own
+interval excludes 0). All five positive; the across-seed interval excludes zero.
+
+⭐⭐ **And the negative control behaves exactly as a negative control must — which is the strongest
+internal evidence in this document.** At d=4…32 individual seeds **do** resolve, and they
+**contradict each other**: seed 42 at −0.1464\* against seed 43 at +0.0588\* and seed 47 at
+−0.0932\*, every one excluding zero. ⇒ Resolved-but-contradictory at the lags a sharpening cannot
+reach; resolved-and-consistent at d=1. That is seed-dependent structure being correctly
+distinguished from an effect — the discrimination that §1.1's gate result shows is *not* automatic.
+
+**h36, d=1: does not replicate** ([−0.0435, +0.0423]), consistent with §4.3.
+
 ### 4.4 ⭐ A structural finding that is bigger than the arm
 
 The body is **smeared at d=1** (0.5648) and **over-dispersed from d=4 outward** (1.17 → 1.39 at h1;
@@ -324,6 +359,25 @@ evidence of no effect; they are evidence the score cannot see one.**
 It joins two sibling instrument findings: FAO-02's 1% MCR margin sitting **84×** under seed noise
 (RP-2b), and the battery's gate leg running on **255 distinct values** at S=16 (M3b).
 
+#### ⇒ What becomes a DEFAULT, and what does not — corrected 2026-11-04 after §5.3's bootstrap
+
+⭐ **DEFAULT, on every CRPS report, permanently: the share of total CRPS carried by the top truth
+band.** One number (81% / 118 cells at h36; 72% / 614 cells at h1). It is descriptive and exact,
+needs no interval, and it is what decides whether the CRPS beside it is interpretable at all —
+without it a pooled null cannot be told from a blind instrument.
+
+⭐ **A better form of that default, proposed but NOT yet measured:** CRPS's **effective sample
+size**, the participation ratio `(Σc)² / Σc²`. It turns "118 cells carry 81%" into a single
+travelling number and needs no bands. ⚠️ The committed artifacts hold per-band sums rather than
+per-cell CRPS, so this is a proposed form and **no figure for it is claimed**.
+
+⛔ **NOT a default: the banded comparison table.** An earlier version of this section recommended
+reporting banded CRPS "from here on, owed across the whole scoreboard". ⛔ **That was written before
+the intervals existed and §5.3 refutes it.** Banding did not reveal an effect the pooled score hid;
+it **manufactured a lead that died**, across 5 bands × 2 horizons = **10 tests**. ⇒ The banded
+comparison is a **diagnostic**, run on demand when a pooled CRPS is null and the question is whether
+the score *could* have seen the effect — and ⛔ it is never reported without across-seed intervals.
+
 ### 5.3 The banded trade the pooled score hides
 
 Δ CRPS/cell, upctwo − control (lower = better), 5 seeds:
@@ -347,8 +401,29 @@ to approximately zero.
 
 ⚠️ ⛔ **Every band effect is ~1% or less of its band's level, with a between-seed sd comparable to or
 larger than the effect.** The sign consistency in the three small bands (4/5, three bands running)
-is **suggestive**; it is **not an interval**. This is a **LEAD, not a result**, and §1.1 is the
-standing reason not to treat 4/5 as resolved.
+is **suggestive**; it is **not an interval**. This was recorded as a **LEAD, not a result**.
+
+#### ⛔⛔ REFUTED 2026-11-04 — the lead did not survive intervals
+
+`results/exp03_bootstrap.out`. **All ten banded effects fail their across-seed t interval, at both
+horizons.** Not one replicates.
+
+| band (h1) | mean Δ | across-seed 90% t CI | replicates? |
+|---|---|---|---|
+| 1–2 | +0.0162 | [−0.0119, +0.0442] | no |
+| 3–5 | +0.0307 | [−0.0339, +0.0952] | no |
+| 6–20 | +0.0016 | [−0.2819, +0.2851] | no |
+| 21–100 | −0.2357 | [−1.0058, +0.5345] | no |
+| 101+ | −0.5444 | [−1.9126, +0.8239] | no |
+
+⭐ **And the manner of failure is the finding.** At `101+`, h1, the per-seed values are −2.7567\*,
+**+1.0849\***, −0.2283, +0.1154, −0.9373 — **two seeds resolve in OPPOSITE directions, 3.8 units
+apart**. `6–20` is the same shape: −0.4921\* against +0.3061\*. ⇒ The "small bands worse, large
+bands better" trade **does not exist**; it was 4-of-5 sign agreement over 10 tests on effects of
+~1% against a far larger between-seed spread.
+
+⛔ **Consequence for §5.2's recommendation**, which this retracts in part: banding is a diagnostic,
+not a reporting default. See §5.2's corrected block.
 
 ### 5.4 QS99 — the licensed tail guardrail
 
@@ -452,10 +527,11 @@ been run. ⛔ Nothing in §6 should be read as a literature claim.
 - ⛔ **Nothing about gate calibration.** AP is rank-based and **exactly invariant** to monotone
   miscalibration — `p → (p+1)/2` moves Brier by 0.249 and AP by **0.000000** (M3 Finding B). "ΔAP
   +0.005" means the *ranking* changed and says nothing about calibration.
-- ⛔ **No intervals on the body results.** §3 and §4's headline claims are **sign counts across five
-  seeds**. §1.1 is the standing demonstration that unanimity without an interval can mislead. ⇒ A
-  paired bootstrap on the d=1 structure share and on the banded CRPS is **owed before either number
-  is quoted outside this dossier**.
+- ⚠️ **Intervals: now present for TWO of the three body results, and still absent for the third.**
+  §4.5 supplies them for B-1 (d=1 **replicates**) and §5.3 for the banded CRPS (**refuted**). ⛔ **§3's
+  event-cell magnitude sweep is still a sign count** and has **not** been bootstrapped — so the
+  "5/5 upper-tail lift" claim remains un-intervalled and must not be quoted outside this dossier as
+  a resolved effect. §1.1 is the standing reason that matters.
 - ⛔ **`P-22`, `P-25`, `P-26` remain unread.** They are in the same pre-registration; leaving them
   unread while reporting `P-23` would be selective reporting (the plan's own DoD line 9).
 - ⚠️ **One target only** (`sb`), one composition, one vehicle family.
@@ -519,12 +595,85 @@ could have silently corrupted the numbers above.
 3. ⛔ **Do not buy the sixth pair.** It cannot change the branch. `O-5` stays open as a result.
 4. ✅ **The arm does sharpen the body at d=1 and does lift the event-cell tail, on all five seeds** —
    ⚠️ as sign counts, pending intervals.
-5. ⭐⭐ **Report CRPS banded by truth magnitude alongside the pooled number, from here on.** It is a
-   decomposition of the locked primary score, not a new score, and it would have shown §5.3's trade
-   immediately instead of a null. **Owed across the whole scoreboard, not just this arm.**
+5. ⭐⭐ **Report the CRPS CONCENTRATION figure — the share of the score in the top truth band —
+   beside every CRPS number, permanently** (§5.2). ⛔ **But banded CRPS is a diagnostic, not a
+   reporting default**: all ten banded effects failed their intervals (§5.3), so banding
+   manufactured a lead rather than revealing a hidden effect. Corrected 2026-11-04; the earlier
+   blanket "report banded CRPS from here on" is retracted.
 6. ⭐ **A diffuseness penalty must be amplitude-invariant and arrangement-sensitive.** The existing
    `_structure_penalty` is neither and its arm regressed B-1 4.44×. **Do not re-use that shape.**
 7. ⭐ **Next measurement, and it is cheap:** the per-step profile of structure share and amplitude
    across all 36 horizons, from draws already on disk. It decides whether the autoregressive lever
    is **fade** or **smear**, and §6.4's two-endpoint reading cannot.
 8. **`P-22`, `P-25`, `P-26` are owed** regardless of any of the above.
+
+---
+
+## 11 · ⭐⭐ THE RECOMMENDATION: make `UpsampleConv2` the default upsampling strategy
+
+**Decision: switch the default. `UpsampleConv2` replaces `ConvTranspose2d(k=2, s=2)`.**
+
+**The case in one line: it is better on the only thing measured with an interval, and worse on
+nothing.**
+
+| measurement | result |
+|---|---|
+| B-1 structure share, d=1, h1 | ✅ **+0.0504 [+0.0229, +0.0780] — resolved AND replicating** (§4.5) |
+| negative-control lags d=16, d=32 | ✅ do **not** replicate ⇒ sharpening, not rescaling (§4.5) |
+| event-cell upper tail, q0.90 / q0.99 | ✅ 5/5 seeds up, toward a truth median the body undershoots 2–4× (§3) ⚠️ un-intervalled |
+| `G-F` phase signature (`P-20`/`P-21`) | ✅ already settled in its favour, gap → **−0.1984** |
+| CRPS — every band, both horizons | ⚪ **null, not worse** (§5.3) |
+| gate AP | ⚪ does not replicate; mean **+0.0021**, i.e. not worse (§1) |
+| QS99 | ⚪ null (§5.4) |
+| h36, anything | ⚪ nothing (§3, §4.3) |
+
+### 11.1 ⭐⭐ Why "CRPS does not improve" is not an argument against it
+
+§5.1 measures that **118 cells — 0.014% of the population — carry 81% of total CRPS at h36**. A
+structural change distributed over 842,634 cells has **no path to register** in a score whose
+effective resolution is set by ~100 extreme cells. ⇒ Declining the swap on CRPS grounds would mean
+**treating a blind instrument's silence as a verdict**. We are not trading score for structure; we
+are getting structure at no measured cost.
+
+And the defect it addresses is the programme's stated target: the body carries only **0.565** of its
+due short-range structure, and this closes **11.6%** of that gap.
+
+### 11.2 ⛔ Scope — do NOT flip the fleet
+
+| where | action |
+|---|---|
+| new models, and the next retrain of `violet_visitor` (the R&D reference) | ✅ **default to `UpsampleConv2`** |
+| the other 7 roster models | ⛔ **leave alone** |
+
+Measured on **one** architecture family (`HydraBNUNet06_LSTM4`), **one** target (`sb`), one
+composition, global land, one vehicle. Generalisation to the other seven is **unmeasured**, the
+fleet pins a published 0.1.9, and eight retrains on an unmeasured generalisation is not a decision
+this evidence supports.
+
+### 11.3 ⛔⛔ The integrity point, stated because it cuts against the recommendation
+
+`PREREG.md` pre-registered `P-23` on **gate AP**. ⛔ **B-1 at d=1 was NOT a pre-registered endpoint
+for this arm.** The adoption case therefore rests on a statistic chosen **after** seeing the data,
+which makes it **hypothesis-generating, not confirmatory** — however clean [+0.0229, +0.0780] looks.
+This is precisely the post-hoc endpoint selection §6's devices exist to prevent, and naming it here
+is cheaper than having it found later.
+
+⇒ **The remedy, which costs nothing:** adopt the default now on the narrow grounds *"structurally
+better on its design target, score-neutral, no measured cost"* — and **pre-register B-1 at d=1 as
+the PRIMARY endpoint for the next arm that touches upsampling**, so the claim becomes confirmable
+rather than discovered. ⛔ Until that second arm runs, this result may **not** be described as a
+confirmed improvement.
+
+### 11.4 Revert condition, pre-committed
+
+⛔ **If any later measurement shows a RESOLVED CRPS or AP cost, the default reverts.** A structural
+improvement outranks a score's *silence*; it does **not** outrank a demonstrated score regression.
+
+### 11.5 What this recommendation is not
+
+- ⛔ **Not a claim that the arm improves forecasts.** No proper score moved. The honest sentence is:
+  *`UpsampleConv2` measurably reduces the body's short-range smearing at h1 — the one thing it was
+  designed to do — and that improvement does not reach any proper score.*
+- ⛔ **Not a §6 verdict**, and not a resolution of `P-23`, which remains an underpowered MIXED
+  reading (§0, §2.2).
+- ⛔ **Not applicable at h36**, where there is no body left to sharpen (§3, §4.3).
