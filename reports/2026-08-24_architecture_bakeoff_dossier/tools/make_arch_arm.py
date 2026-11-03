@@ -43,7 +43,7 @@ the floor and the arm config and asserts the **symmetric difference of the two r
 exactly the intended key set** — so an unintended change anywhere in the file fails loud, not just
 one to a key we happened to think of.
 
-It also asserts, before any GPU work:
+It asserts, before any GPU work:
 
 * ``diagnostic_visualizations`` equals whatever ``--diagnostics`` asked for — **off by default**,
   because violet's is **True** and the per-origin biopsy is expensive. ⛔ It is never flipped
@@ -110,11 +110,22 @@ It also asserts, before any GPU work:
   path, and ``arm_identity_check.py`` resolves only ``config_hyperparameters.py`` while this key
   lives in ``config_meta.py`` ⇒ it is **invisible to the reuse check**. An arm reused from an
   earlier build keeps the setting it was built with, silently. Build fresh when it matters.
+⛔ **Run this with the project interpreter**, ``conda run -n views-hydranet-env``. ``_verify``
+imports ``views_hydranet.architectures.registry`` to instantiate the variant on CPU, and the
+``views_pipeline`` environment has no ``views_hydranet`` at all — so a non-default variant fails
+only at verification, after the arm has been copied. Reported 2026-11-03 after it cost a pass.
+
+It also asserts, before any GPU work:
+
 * ``ss_feedback`` is **set** to ``'sample'`` whenever ``ss_epsilon_max > 0`` (C-259) — ⚠️ written
   at the ``_set_key`` step, **not** asserted in ``_verify``, unlike every other item in this list.
   It is the one write with no readback anywhere; said plainly because this docstring claimed it was
   asserted until 2026-11-03.
 * ``features == regression_targets`` in order (C-260 rejects otherwise; fail before the GPU spins).
+* ⛔ every directory in ``_REQUIRED_SUBDIRS`` holds a trackable file, not merely exists — the arm
+  reaches the pod by ``git clone --depth 1`` and git carries files, so an empty one is absent there
+  and ``ModelPathManager`` raises AFTER provisioning. Measured at **1 of 7** on all eight EXP-03
+  arms built at 99fe887; views-models #685 is the same failure five days earlier.
 """
 
 from __future__ import annotations
@@ -173,6 +184,20 @@ _EPS_WORD = {0.0: "zero", 0.1: "tenth", 0.25: "quarter", 0.5: "half"}
 #: Sentinel for "no single live boolean under this key". A plain `None` would collide with a
 #: config that genuinely wrote `None`, which is one of the shapes that must refuse.
 _ABSENT = object()
+
+
+#: The directories ``ModelPathManager`` validates on import. ⚠️ Each must contain a TRACKABLE
+#: file, not merely exist: the arm reaches the pod through `git clone --depth 1`, and git carries
+#: files rather than directories.
+_REQUIRED_SUBDIRS = (
+    "data/raw",
+    "data/generated",
+    "data/processed",
+    "artifacts",
+    "logs",
+    "notebooks",
+    "reports",
+)
 
 
 _SEED_WORD = {
@@ -494,8 +519,18 @@ def build(
         # Mirror the floor's directory skeleton. ModelPathManager validates that each of these exists
         # and raises FileNotFoundError otherwise — so an arm missing `data/processed` dies at startup,
         # which is exactly what happened on the first attempt at 15:15.
-        for sub in ("data/generated", "data/processed", "artifacts", "logs", "notebooks", "reports"):
-            (dest / sub).mkdir(parents=True, exist_ok=True)
+        for sub in _REQUIRED_SUBDIRS:
+            d = dest / sub
+            d.mkdir(parents=True, exist_ok=True)
+            #: ⛔⛔ A `.gitkeep` per directory, or the directory does not survive the pod's
+            #: `git clone --depth 1` and `ModelPathManager` raises BEFORE training — after the pod
+            #: is provisioned and paid for. git tracks files, not directories, and `mkdir` leaves
+            #: these EMPTY: the floor carries all seven `.gitkeep` files but
+            #: `shutil.ignore_patterns` above drops `data`, `logs`, `artifacts`, `reports` and
+            #: `notebooks`, so only `data/raw` got one back — via the parquet copy, by accident.
+            #: ⇒ 1 of 7, measured on all eight EXP-03 arms built at 99fe887. This is views-models
+            #: #685 recurring in the tool five days after it was fixed in the instructions.
+            (d / ".gitkeep").touch()
         # data/raw carries the cached parquet, so no arm fetches from the network mid-sweep.
         src_raw = _FLOOR / "data" / "raw"
         if not src_raw.is_dir():
@@ -576,6 +611,29 @@ def build(
     return dest
 
 
+def _assert_clonable(dest: Path) -> None:
+    """Refuse unless every required subdirectory holds at least one file git can track.
+
+    ⛔ Existence is not the property. ``ModelPathManager`` validates that these directories exist,
+    but the arm reaches the pod through ``git clone --depth 1`` — and git carries FILES. An empty
+    directory is simply absent on the other side, so validation raises there and not here: after
+    the pod is provisioned, after the operator has paid for it, and with nothing in the build log
+    to explain it.
+
+    ⇒ Measured on all eight EXP-03 arms built at 99fe887: **1 of 7**, the one being ``data/raw``
+    and only because the parquet copy happened to bring a ``.gitkeep`` with it. views-models #685
+    is the same failure, fixed in the instructions five days earlier and then reintroduced by this
+    tool — which is the argument for asserting it here rather than documenting it again.
+    """
+    bare = [s for s in _REQUIRED_SUBDIRS if not any((dest / s).iterdir())]
+    if bare:
+        raise SystemExit(
+            f"{_TOOL}: {sorted(bare)} exist but are EMPTY in {dest}. git tracks files, not "
+            "directories, so `git clone --depth 1` would not recreate them on the pod and "
+            "ModelPathManager would raise there — after provisioning. The arm is NOT built."
+        )
+
+
 def _assert_meta(dest: Path, *, diagnostics: bool) -> None:
     """Read the BUILT arm's ``config_meta.py`` back and refuse unless it says what was asked.
 
@@ -643,6 +701,7 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
     #
     # It also has nothing to do with the control contrast; it was below it only by append order.
     _assert_meta(dest, diagnostics=diagnostics)
+    _assert_clonable(dest)
 
     # ── the contrast this dossier actually claims ────────────────────────────────────────────
     # The ancestors diff only against the FLOOR. But every claim here is treatment-vs-CONTROL,
@@ -746,7 +805,10 @@ def _parser() -> argparse.ArgumentParser:
         "--control",
         default=None,
         help="label of THIS experiment's control arm, e.g. ctlfullzero_fortytwo. Default keeps "
-             "the historical `fullzero_<seed>`, which no longer exists on disk.",
+             "the historical `fullzero_<seed>`, which no longer exists on disk. NOTE: a CONTROL "
+             "arm is built naming ITSELF here -- `--variant <incumbent> --control <its own label>` "
+             "-- because the reference cannot differ from itself and _verify returns early on that "
+             "branch. This was not discoverable from the help text and cost a failed build pass.",
     )
     p.add_argument(
         "--diagnostics",

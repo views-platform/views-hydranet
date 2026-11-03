@@ -629,3 +629,66 @@ def test_verify_calls_the_readback_BEFORE_its_self_control_early_return():
             f"{min(returns)} — the readback is DEAD for every arm that takes that early return, "
             "which is every arm that is its own control"
         )
+
+
+# ───────────────────────── the arm must survive `git clone --depth 1` ──────────────────────────
+
+
+def test_every_required_subdir_is_declared_once_and_covers_ModelPathManager():
+    """⚠️ The list used to be a literal inside `build` and omitted `data/raw`, which is the one
+    directory that got a `.gitkeep` by accident rather than by intent."""
+    subs = builder._REQUIRED_SUBDIRS
+    assert len(subs) == len(set(subs)), f"duplicate entries: {subs}"
+    for expected in ("data/raw", "data/generated", "data/processed", "artifacts", "logs"):
+        assert expected in subs, f"{expected} is not declared required"
+
+
+def test_assert_clonable_refuses_an_empty_required_subdir(tmp_path):
+    """⛔⛔ The failure this prevents costs a provisioned pod. `ModelPathManager` validates that
+    these directories EXIST, but the arm reaches the pod through `git clone --depth 1` and git
+    carries files, not directories — so an empty one is absent there and validation raises after
+    the money is spent. Measured at 1 of 7 on all eight EXP-03 arms built at 99fe887.
+    """
+    dest = tmp_path / "armlabel_x"
+    for sub in builder._REQUIRED_SUBDIRS:
+        (dest / sub).mkdir(parents=True)
+        (dest / sub / ".gitkeep").touch()
+    builder._assert_clonable(dest)  # all populated: must not raise
+
+    #: Now empty exactly one, each in turn — a guard that only checks the first would pass.
+    for sub in builder._REQUIRED_SUBDIRS:
+        (dest / sub / ".gitkeep").unlink()
+        with pytest.raises(SystemExit) as exc:
+            builder._assert_clonable(dest)
+        assert sub in str(exc.value), f"the refusal does not name {sub}"
+        assert "clone" in str(exc.value), "the refusal does not say why an empty dir is fatal"
+        (dest / sub / ".gitkeep").touch()
+
+
+def test_build_creates_a_gitkeep_in_every_required_subdir():
+    """Read off the AST: `build` must touch a `.gitkeep` inside the loop over the required dirs.
+    Executing `build` needs the floor, torch and a writable views-models, so the structure is what
+    is checkable here — and the structure is what regressed.
+    """
+    build = _build_fn()
+    loops = [n for n in ast.walk(build) if isinstance(n, ast.For)]
+    over_required = [
+        n for n in loops if isinstance(n.iter, ast.Name) and n.iter.id == "_REQUIRED_SUBDIRS"
+    ]
+    assert over_required, "build does not iterate _REQUIRED_SUBDIRS"
+    body_src = "\n".join(ast.unparse(s) for s in over_required[0].body)
+    assert ".gitkeep" in body_src, (
+        "the loop over the required subdirs does not create a .gitkeep, so the directories reach "
+        "the pod empty and `git clone --depth 1` drops them"
+    )
+    assert "mkdir" in body_src, "the loop no longer creates the directory"
+
+
+def test_verify_asserts_clonability():
+    """A new refusal that nothing calls is decorative."""
+    verify = next(
+        n
+        for n in ast.parse(_MOD.read_text(encoding="utf-8")).body
+        if isinstance(n, ast.FunctionDef) and n.name == "_verify"
+    )
+    assert _calls_to(verify, "_assert_clonable"), "_verify does not call _assert_clonable"
