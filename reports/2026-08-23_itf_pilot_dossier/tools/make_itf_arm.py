@@ -55,8 +55,14 @@ import argparse
 import ast
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+#: This tool's own name, for error prefixes. Derived, never retyped: five of this
+#: file's refusal messages named a DIFFERENT dossier's tool because the name was a
+#: literal copied down the make_ss -> make_itf -> make_trunc -> make_arch lineage.
+_TOOL = Path(__file__).stem
 
 _MODELS = Path("/home/simon/Documents/scripts/views_platform/views-models/models")
 _FLOOR = _MODELS / "violet_visitor"
@@ -111,7 +117,7 @@ def arm_label(*, lessons: int, eps: float, seed: int) -> str:
     ):
         if key not in table:
             raise SystemExit(
-                f"make_ss_arm: no word for {what}={key}. Add one to the table rather than "
+                f"{_TOOL}: no word for {what}={key}. Add one to the table rather than "
                 "improvising a name — the mapping must stay deterministic in both directions."
             )
     # `itf` prefix, because the SS sweep already owns `{lessons}{eps}_{seed}`: an ITF arm at
@@ -134,7 +140,7 @@ def _set_key(text: str, key: str, literal: str) -> str:
     pat = re.compile(rf"('{re.escape(key)}':\s*)[^\n]*?,")
     new, n = pat.subn(rf"\g<1>{literal},", text, count=1)
     if n != 1:
-        raise SystemExit(f"make_ss_arm: key {key!r} not found exactly once")
+        raise SystemExit(f"{_TOOL}: key {key!r} not found exactly once")
     return new
 
 
@@ -147,11 +153,60 @@ def _resolve(path: Path, fn: str) -> dict:
     return ns[fn]()
 
 
+def _strip_orphaned_import(qs: Path) -> None:
+    """Remove the import that pinning ``model_name`` orphans, and REFUSE if it survives.
+
+    ⛔ Pinning the name deletes the import's only executable use, so ``ruff`` fires F401 on the
+    generated arm. That reddens ``ruff check .`` in views-models — ``ship-it`` Step 1 for every
+    seat shipping from that repo — and the arm directory is not this tool's to revisit afterwards.
+
+    ⭐ ``ruff`` does the removal rather than a text edit here, because ``ruff`` is what *defines*
+    the failure: it is already pinned in ``pyproject.toml`` and already shelled out to by
+    ``tests/test_falsification_repo_clean.py``, and it is AST-aware. A hand-rolled removal has to
+    get an ``__all__`` re-export, a string annotation, a parenthesised or aliased import, an
+    indented import inside ``if TYPE_CHECKING:``, and a docstring copy of the import line all
+    right, and when it does not it either ships the F401 anyway or deletes a binding ``ruff``
+    considers live — turning the check it exists to satisfy from green to red.
+
+    ⛔ The post-check is the point, not a belt-and-braces extra. The failure mode of an anchored
+    rewrite that misses its anchor is SILENCE: the builder prints success and the arm ships
+    F401-red. So ``--fix`` is verified, never trusted.
+
+    ``--isolated`` keeps the rule set this tool's own, rather than inheriting whatever config
+    happens to sit above the arm directory in views-models.
+    """
+    cmd = ["ruff", "check", "--isolated", "--select", "F401"]
+    try:
+        # ⚠️ The --fix result is deliberately discarded: the re-check below is the verification, so
+        # `check=True` here would only add an uncaught crash site without proving anything.
+        subprocess.run([*cmd, "--fix", "-q", str(qs)], check=False, capture_output=True, text=True)
+        after = subprocess.run([*cmd, str(qs)], check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise SystemExit(
+            f"{_TOOL}: `ruff` is not on PATH, so the import orphaned by pinning model_name in "
+            f"{qs} cannot be removed and the arm would ship F401-red. Run this inside the "
+            "project environment."
+        ) from None
+    # ruff exits 1 for findings and 2 for its own failure. Both refuse, but they are different
+    # problems and a message that names the wrong one sends the operator to the wrong file.
+    if after.returncode == 1:
+        raise SystemExit(
+            f"{_TOOL}: {qs} still fails `ruff check --select F401` after --fix:\n"
+            f"{after.stdout}{after.stderr}"
+        )
+    if after.returncode != 0:
+        raise SystemExit(
+            f"{_TOOL}: `ruff` itself failed (exit {after.returncode}) on {qs}, so whether the arm "
+            f"is F401-clean is UNKNOWN and it must not ship on an unverified config:\n"
+            f"{after.stdout}{after.stderr}"
+        )
+
+
 def build(*, lessons: int, eps: float, seed: int, out_root: Path = _MODELS) -> Path:
     label = arm_label(lessons=lessons, eps=eps, seed=seed)
     dest = out_root / label
     if dest.exists():
-        raise SystemExit(f"make_ss_arm: {dest} already exists — refusing to overwrite an arm")
+        raise SystemExit(f"{_TOOL}: {dest} already exists — refusing to overwrite an arm")
 
     shutil.copytree(
         _FLOOR,
@@ -168,7 +223,7 @@ def build(*, lessons: int, eps: float, seed: int, out_root: Path = _MODELS) -> P
     # data/raw carries the cached parquet, so no arm fetches from the network mid-sweep.
     src_raw = _FLOOR / "data" / "raw"
     if not src_raw.is_dir():
-        raise SystemExit(f"make_ss_arm: {src_raw} missing — an arm would fetch data mid-sweep")
+        raise SystemExit(f"{_TOOL}: {src_raw} missing — an arm would fetch data mid-sweep")
     shutil.copytree(src_raw, dest / "data" / "raw")
 
     hp = dest / "configs" / "config_hyperparameters.py"
@@ -214,9 +269,7 @@ def build(*, lessons: int, eps: float, seed: int, out_root: Path = _MODELS) -> P
     qtext = qs.read_text()
     marker = "model_name = ModelPathManager.get_model_name_from_path(__file__)"
     if marker not in qtext:
-        raise SystemExit(
-            "make_ss_arm: config_queryset.py no longer derives model_name as expected"
-        )
+        raise SystemExit(f"{_TOOL}: config_queryset.py no longer derives model_name as expected")
     qs.write_text(
         qtext.replace(
             marker,
@@ -227,6 +280,9 @@ def build(*, lessons: int, eps: float, seed: int, out_root: Path = _MODELS) -> P
             1,
         )
     )
+
+    # The pin above orphaned the import; `ruff` removes it and this refuses if it survives.
+    _strip_orphaned_import(qs)
 
     meta = dest / "configs" / "config_meta.py"
     mtext = meta.read_text().replace('"name": "violet_visitor"', f'"name": "{label}"')
@@ -247,7 +303,7 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     expected = {k for k in _INTENDED if arm.get(k) != floor.get(k)}
     if diff != expected:
         raise SystemExit(
-            f"make_ss_arm: config differs from the floor in {sorted(diff)}, expected exactly "
+            f"{_TOOL}: config differs from the floor in {sorted(diff)}, expected exactly "
             f"{sorted(expected)}. An unintended key changed — the arm is NOT built."
         )
 
@@ -255,12 +311,10 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     assert arm["torch_seed"] == seed and arm["np_seed"] == seed
     assert arm["total_lessons"] == lessons
     if arm.get("ss_reverse") is not True:
-        raise SystemExit(
-            "make_itf_arm: ss_reverse must be True — this would be an SS arm, not ITF"
-        )
+        raise SystemExit(f"{_TOOL}: ss_reverse must be True — this would be an SS arm, not ITF")
     if arm.get("ss_warmup_lessons") != lessons:
         raise SystemExit(
-            f"make_itf_arm: ss_warmup_lessons is {arm.get('ss_warmup_lessons')}, must equal "
+            f"{_TOOL}: ss_warmup_lessons is {arm.get('ss_warmup_lessons')}, must equal "
             f"total_lessons ({lessons}). A short ramp decays epsilon to 0 early and then "
             "teacher-forces the rest — the shape AMENDMENT 1 rejected."
         )
@@ -277,24 +331,22 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     )
     if not (abs(_m.get_epsilon(0) - eps) < 1e-9 and _m.get_epsilon(lessons - 1) < 0.01):
         raise SystemExit(
-            f"make_itf_arm: the built schedule is not ITF — eps(0)={_m.get_epsilon(0)}, "
+            f"{_TOOL}: the built schedule is not ITF — eps(0)={_m.get_epsilon(0)}, "
             f"eps({lessons - 1})={_m.get_epsilon(lessons - 1)}; expected ~{eps} decaying to ~0"
         )
     if arm["ss_epsilon_max"] > 0 and arm.get("ss_feedback") != "sample":
-        raise SystemExit(
-            "make_ss_arm: C-259 — ss_feedback must be 'sample' when ss_epsilon_max > 0"
-        )
+        raise SystemExit(f"{_TOOL}: C-259 — ss_feedback must be 'sample' when ss_epsilon_max > 0")
     if list(arm["features"]) != list(arm["regression_targets"]):
-        raise SystemExit("make_ss_arm: C-260 — features must equal regression_targets in order")
+        raise SystemExit(f"{_TOOL}: C-260 — features must equal regression_targets in order")
 
     m = _resolve(dest / "configs" / "config_meta.py", "get_meta_config")
     if m.get("diagnostic_visualizations") is not False:
         raise SystemExit(
-            "make_ss_arm: diagnostic_visualizations must be False — the per-origin biopsy costs "
+            f"{_TOOL}: diagnostic_visualizations must be False — the per-origin biopsy costs "
             "~28 min/origin, i.e. ~6 h per emit"
         )
     if m.get("name") != dest.name:
-        raise SystemExit(f"make_ss_arm: meta name {m.get('name')!r} != dir {dest.name!r}")
+        raise SystemExit(f"{_TOOL}: meta name {m.get('name')!r} != dir {dest.name!r}")
 
 
 def main() -> int:
