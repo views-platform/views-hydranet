@@ -168,3 +168,58 @@ itself, not more draws of it.
 4. ⚠️ No branch above says **"closed"**, except §5's measured seed-route clause, which names in the
    same sentence what would reopen it.
 5. ⛔ This document may not be changed after EXP-03's numbers exist.
+
+---
+
+## ⛔ AMENDMENT 1 — 2026-11-03, before any EXP-03 arm exists
+
+⚠️ **Legitimate because EXP-03 has no numbers.** §7 device 5 forbids changing this document after
+them; nothing has run. Recorded as an amendment rather than a silent edit.
+
+### The defect this closes, found by the `models` session
+
+§3 and §5 estimate σ at **5 dof** over **all six seeds**. ⇒ The scored set is not EXP-03's eight
+arms. It is **twelve**: EXP-02's 42 and 43 plus EXP-03's 44–47. And **42/43 already ran with
+`diagnostic_visualizations: False`** — verified four ways by `models`: the key in all four
+`config_meta.py`, no `reports/plots` tree on any of the four pods, `visual_diagnostics.py:73`
+returning False, and the Null Object path taken.
+
+⛔ **So "run all eight EXP-03 arms the same way, with diagnostics on" reintroduces exactly the
+mixture it was written to prevent** — four off-arms and eight on-arms inside one σ — displaced from
+*within* EXP-03 to *across* the EXP-02/EXP-03 boundary. The argument is unchanged: if viz perturbs
+the numerics by one RNG draw, the between-seed variance being bought is inflated by a difference
+that tracks which experiment an arm came from, **and the failure looks exactly like the finding.**
+
+⚠️ 42/43 cannot be re-run with diagnostics on at any sensible cost, so **they set the standard the
+other ten must match**, not the reverse.
+
+### ⛔ Binding, and it replaces the constraint as first stated
+
+1. ⛔ **All twelve scored arms run `diagnostic_visualizations: False`.** Not because viz is
+   suspected — the call sites in `training_engine.py` and `hydranet_inference.py` are plotting calls
+   on already-computed tensors, guarded by `sample_idx == 0 and self.viz.active`, and
+   `visual_diagnostics.py` makes no RNG call — but because **that is read off the code, not
+   measured**, and this repo's pushforward audit already caught a diagnostic forward pass writing
+   BatchNorm statistics. The exposure is removed rather than reasoned away.
+2. ⭐ **Enforced mechanically, not remembered.** Before any ΔAP is computed,
+   `diagnostic_visualizations` is read from **each of the twelve arms' own `config_meta.py`** and
+   must be `False` in all twelve. ⇒ An arm built with `--diagnostics` that leaked into the set is
+   caught by its own config, which `make_arch_arm.py::_verify` guarantees matches what was asked
+   for. **This is the check that makes the probe below safe by construction.**
+3. **The diagnostics-ON run is a probe, not a member.** One arm at seed 47 built with
+   `--diagnostics`, run far enough to read `[Origin N/13]` timestamps for origins 1 and 2, then
+   **killed, deleted, and rebuilt with diagnostics off** before it is ever scored. Cost ~2 origins,
+   not an arm. Check 2 catches it if the rebuild is forgotten.
+4. ⚠️ **What this does NOT buy.** Two origins of plots is a cost measurement and a first look, not a
+   study. If a full diagnostics run is wanted to actually read, that is **one additional arm,
+   deliberately outside the scored twelve and never entered into σ** (`models`' proposal, and the
+   right shape for that case). ⛔ Not authorised here; it is a separate spend.
+
+### ⚠️ One thing that stays unmeasured, stated so it is not mistaken for settled
+
+Whether `diagnostic_visualizations: True` is numerically inert is **still unmeasured**. The cheap
+test would be a diagnostics-on replica of an existing arm at the same seed, compared cube-to-cube —
+but `_SEED_WORD` admits only 42–47, so a replica collides with the arm it replicates, and
+`build` refuses to overwrite. ⚠️ And the test would be **asymmetric even if run**: identical cubes
+would prove inertness, while differing cubes would prove nothing, because cross-pod cuDNN
+nondeterminism is not excluded. ⇒ Not attempted. The constraint above does not depend on it.
