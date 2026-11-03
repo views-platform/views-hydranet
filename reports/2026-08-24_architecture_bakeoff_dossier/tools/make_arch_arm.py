@@ -51,7 +51,24 @@ It also asserts, before any GPU work:
   defaulted.
   ⚠️ **The cost this guard has always cited is unsourced.** "~28 min/origin, i.e. ~6 h per emit"
   appears in five builder docstrings and in **no measurement file in this repository**. Treat it as
-  unverified until one arm is actually timed with diagnostics on; do not quote it as measured.
+  unverified; do not quote it as measured.
+  ⭐ **What IS measured, from EXP-02's own arm logs with diagnostics OFF** (the `models` session,
+  2026-11-03, parsed from `[Origin N/13]` timestamps in `exp02_arm.log`): the emit stage ran
+  **3.6 min/origin** on `ctlfullzero_fortythree` (43.3 min / 13) and **1.9 min/origin** on
+  `upctwofullzero_fortytwo` (22.6 min / 13). ⇒ The unsourced figure would be an **8–15× increase on
+  the emit stage**, which is where the cost lands — so emit, not the whole arm, is the thing to
+  compare against. ⭐ And the cheap way to settle it: run one arm with `--diagnostics`, read the
+  per-origin timestamps for origins 1 and 2, and kill it there if the number is bad. That is two
+  origins, not an arm.
+  ⛔ **Two things must be true on the pod or the arm dies AFTER training.** (a) matplotlib must be
+  installed: it is an **optional extra** of this package, so the pod must install
+  ``views-hydranet[viz]`` — ⚠️ and in ONE command together with the ``toolz>=0.12.1`` override,
+  because `pod_run_model.sh:177-181` records that any later install can silently revert toolz below
+  0.12 and break every datafactory fetch. ⛔ Never hand-pin matplotlib's range here; it is declared
+  by the ``viz`` extra and a second copy drifts without failing. (b) the plots land in a RELATIVE
+  ``reports/plots/diagnostics/<ts>/``, which `pod_run_model.sh:371`'s ``cd`` resolves to
+  ``/workspace/views-models/models/<arm>/reports/...`` — **outside the runner's archive glob**, so
+  they must be pulled separately (views-models `tools/podrun/stream_diagnostics.py`).
   ⚠️ ``arm_identity_check.py`` resolves only ``config_hyperparameters.py``, and this key lives in
   ``config_meta.py`` ⇒ it is **invisible to ``run_queue.sh``'s reuse check**. An arm reused from an
   earlier build keeps the setting it was built with, silently. Build fresh when it matters.
@@ -506,9 +523,13 @@ def main() -> int:
         "--diagnostics",
         action="store_true",
         help="build the arm with `diagnostic_visualizations: True`. ⛔ OFF by default. ⚠️ The cost "
-             "is unmeasured in this repo (the '~28 min/origin' figure has no evidence file behind "
-             "it) and the plots land in a RELATIVE reports/plots/diagnostics/<ts>/ that "
-             "pod_run_model.sh does NOT archive — fetch it before teardown or it is lost.",
+             "is NOT measured in this repo: the '~28 min/origin' figure has no evidence file behind "
+             "it, and the measured emit baseline with diagnostics off is 1.9-3.6 min/origin, so "
+             "that figure would be an 8-15x increase on emit. Read origins 1-2 and kill it if the "
+             "number is bad. ⛔ The pod needs `views-hydranet[viz]` (matplotlib is an optional "
+             "extra; without it the run dies AFTER training) installed in ONE command with "
+             "`toolz>=0.12.1`, and the plots land outside pod_run_model.sh's archive glob — pull "
+             "them separately or they are lost with the pod.",
     )
     a = p.parse_args()
     dest = build(lessons=a.lessons, eps=a.eps, seed=a.seed, variant=a.variant,
