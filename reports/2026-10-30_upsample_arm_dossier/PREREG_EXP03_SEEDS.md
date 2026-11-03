@@ -306,13 +306,30 @@ shape its highest-consequence manual step:
 3. only then delete the arm directory and rebuild with diagnostics off
 4. `assert_diagnostics_off.py --expect 12` before any ΔAP
 
-### 3 · ⚠️ Two figures withdrawn from §1 and from the builder's docstring
+### 3 · ⛔ A withdrawal I made, now itself withdrawn — the baseline is measured
 
-The emit baseline quoted as **"1.9–3.6 min/origin"** was relayed, described as parsed from
-"`[Origin N/13]` timestamps in `exp02_arm.log`". ⛔ That log carries **no per-line timestamps** —
-only tqdm bars with embedded elapsed fields — so the stated method cannot be what produced it, and
-an independent parse here matched only 4–13 of 13 origins per arm and returned **1.25 min/origin**
-for the arm quoted at 3.6, a ~3× disagreement. ⇒ **Withdrawn.** Both the "~28 min/origin" figure
-and the "1.9–3.6" baseline are unverified, and the log that would settle either is gitignored, in
-another repository, on destroyed pods. ⚠️ This does not change the probe plan — it is the reason
-for it.
+I withdrew the **1.70–3.44 min/origin** emit baseline on the grounds that `exp02_arm.log` "carries
+no per-line timestamps at all". ⛔ **That was false** — it carries **118** line-anchored timestamps
+and **437** in total — and worse than false in how it was reached: from a grep whose output had
+been truncated to a file I never opened, i.e. a conclusion drawn from unread output. That is the
+same failure as describing an artifact one has not read, one layer out.
+
+⇒ **The baseline stands and now has an artifact**:
+`reports/2026-08-24_architecture_bakeoff_dossier/results/exp02_emit_baseline.out`, independently
+reparsed here with a separately written parser — all four spans reproduce **exactly**
+(41.3/3.44, 20.4/1.70, 28.9/2.41, 182.2/15.18), as does the constant 227/228-character attribution
+gap for the first marker of each origin.
+
+⚠️ One correction to my own second objection too: I read that gap over **every** occurrence of the
+marker, found 227–34,314, and briefly treated the spread as refuting it. tqdm redraws the bar
+thousands of times per origin (2,830 and 4,302 in the two arms checked) and the method attributes
+only the first. The spread was an artifact of measuring something the method does not use.
+
+⚠️ And my own tqdm-elapsed figure of ~1.25 min/origin is **not** a competing baseline: the bar's
+elapsed field times the drawing loop alone, while post-draw work — metrics, parquet writes — falls
+between one bar's end and the next bar's start. Wall clock between origin starts is the cost; the
+bar is a component of it.
+
+⇒ **Still unmeasured, and still not to be quoted:** the "~28 min/origin" diagnostics-ON figure.
+Against 1.70–3.44 it would be an **8–16× increase on the emit stage** — roughly $3 against $23 over
+eight arms — which is what the probe's origins 1–2 exist to replace.

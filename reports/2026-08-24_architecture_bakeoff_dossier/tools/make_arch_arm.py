@@ -49,18 +49,22 @@ It asserts, before any GPU work:
   because violet's is **True** and the per-origin biopsy is expensive. ⛔ It is never flipped
   implicitly in either direction, and the value is read back by **parse** after the rewrite, so a
   commented-out key, a non-literal such as ``True and False``, or two live copies all refuse.
-  ⚠️⚠️ **Both cost figures in circulation are unverified; neither is quoted here as measured.**
-  (a) "~28 min/origin, i.e. ~6 h per emit" appears in five builder docstrings and in **no
-  measurement file in this repository**. (b) A relayed emit baseline of "1.9-3.6 min/origin" came
-  from the `models` session on 2026-11-03, described as parsed from "``[Origin N/13]`` timestamps
-  in ``exp02_arm.log``" — but that log carries **no per-line timestamps at all**, only tqdm bars
-  with embedded elapsed fields, so the stated method cannot be what produced it; and an independent
-  parse of the completed-bar elapsed matched only 4-13 of 13 origins per arm and returned
-  **1.25 min/origin** for the arm quoted at 3.6, a ~3x disagreement. ⛔ So the emit cost with
-  diagnostics ON **and** OFF are both unmeasured, and the log that would settle either is
-  gitignored (``.gitignore:283``), in another repository, under a delivery path whose pods are
-  destroyed. ⭐ The cheap way to settle it: run one arm with ``--diagnostics``, read the per-origin
-  elapsed for origins 1 and 2, and kill it there. That is two origins, not an arm.
+  ⚠️ **The "~28 min/origin, i.e. ~6 h per emit" figure is unsourced.** It appears in five builder
+  docstrings and in **no measurement file**. Treat it as unverified; do not quote it as measured.
+  ⭐ **The diagnostics-OFF baseline it should be compared against IS measured, and has an
+  artifact**: ``reports/2026-08-24_architecture_bakeoff_dossier/results/exp02_emit_baseline.out``
+  — **1.70–3.44 min/origin** over three arms (``upctwofullzero_fortytwo`` 1.70,
+  ``upctwofullzero_fortythree`` 2.41, ``ctlfullzero_fortythree`` 3.44), from each arm's own
+  ``exp02_arm.log``, origin_1 → origin_13 divided by 12. ⚠️ ``ctlfullzero_fortytwo`` is **excluded
+  at 15.18** — its pod was co-tenanted (host load 43–66 against 2–6, GPU unthrottled), so its wall
+  clock is a property of the pod, not the run. ⇒ Against that baseline the unsourced figure would
+  be an **8–16× increase on the emit stage**, roughly $3 versus $23 over eight arms.
+  ⚠️⚠️ **This session withdrew that baseline once, wrongly**, asserting the log "carries no
+  per-line timestamps at all". It carries 118 line-anchored and 437 in total; the claim came from a
+  grep whose output had been truncated to a file that was never opened. Recorded because the
+  artifact above now exists precisely so the number need not be taken on anyone's word.
+  ⭐ The cheap way to settle the diagnostics-ON side: run one arm with ``--diagnostics``, read the
+  per-origin elapsed for origins 1 and 2, and kill it there. Two origins, not an arm.
   ⛔ **Two things must be true on the pod, or the arm dies EARLY — not after training.**
   ⚠️ This docstring said "AFTER training" until 2026-11-03 and that was **false**:
   ``hydranet_manager.py:278-279`` hands ``VisualDiagnostics`` to ``_run_data_pipeline`` **before**

@@ -574,26 +574,49 @@ def _diagnostics_help() -> str:
     raise AssertionError("no --diagnostics argument with a help string")
 
 
-def _unhedged_sentences(text: str) -> list[str]:
-    """Sentences that state a cost figure with no hedge **in that sentence**.
+#: An evidence file naming satisfies W-109's FIRST limb: "a number quoted in a document names the
+#: artifact that produced it, OR is marked unverified in the same place." The earlier version of
+#: this guard encoded only the second limb, so restoring a figure that now HAS an artifact turned
+#: the suite red for the right reason under the wrong rule.
+_ARTIFACT = re.compile(r"\.out\b")
 
-    ⛔ Three versions of this guard failed before this one, each for the same reason one scope
+#: ⚠️ Abbreviations that end in a period and must not end a sentence. Without these, `"~28
+#: min/origin, i.e. ~6 h per emit"` split after "i.e." and orphaned the figure from the hedge in
+#: the next fragment — a false positive that cost a debugging round.
+_ABBREV = ("i.e.", "e.g.", "cf.", "etc.", "vs.", "approx.", "Fig.", "No.")
+
+
+def _sentences(text: str) -> list[str]:
+    flat = " ".join(text.split())
+    for a in _ABBREV:
+        flat = flat.replace(a, a.replace(".", "\x00"))
+    return [s.replace("\x00", ".") for s in re.split(r"(?<=\.)\s+", flat)]
+
+
+def _unqualified_sentences(text: str) -> list[str]:
+    """Sentences stating a cost figure with neither a hedge nor an artifact **in that sentence**.
+
+    ⛔ Four versions of this guard failed before this one, each for the same reason one scope
     wider: `text.index("28 min")` saw only the first of two sites; a +/-700 char window was
-    satisfied by an unrelated caveat elsewhere in the file; and checking the help string as a
-    WHOLE was satisfied by the hedge belonging to the OTHER figure in it — this string states two.
-    ⇒ The unit has to be the sentence, because that is the unit a reader attributes a caveat to.
+    satisfied by an unrelated caveat elsewhere in the file; checking the help string as a WHOLE was
+    satisfied by the hedge belonging to the OTHER figure in it; and encoding only "must be hedged"
+    rejected a figure that had since acquired a real artifact.
+    ⇒ The unit is the sentence, because that is the unit a reader attributes a caveat to, and the
+    test is W-109's rule verbatim: hedged, or sourced.
     """
     return [
         s
-        for s in re.split(r"(?<=\.)\s+", text)
-        if _FIGURE.search(s) and not any(w in s for w in _HEDGES)
+        for s in _sentences(text)
+        if _FIGURE.search(s) and not any(w in s for w in _HEDGES) and not _ARTIFACT.search(s)
     ]
 
 
 def test_the_operator_facing_help_hedges_every_cost_figure_it_states():
     """`--help` is the one surface an operator reads before spending the money."""
-    bare = _unhedged_sentences(_diagnostics_help())
-    assert not bare, "the --diagnostics help states a cost figure as fact: " + repr(bare)
+    bare = _unqualified_sentences(_diagnostics_help())
+    assert not bare, "a --diagnostics help sentence states a cost figure unqualified: " + repr(
+        bare
+    )
 
 
 def test_the_module_docstring_hedges_every_cost_figure_it_states():
@@ -601,8 +624,8 @@ def test_the_module_docstring_hedges_every_cost_figure_it_states():
     assert _FIGURE.search(doc), "no cost figure in the docstring — if removed, delete this test"
     #: Per SENTENCE, for the same reason as the help string: a hedge attached to one figure must
     #: not be read as covering another, and this docstring states several.
-    bare = _unhedged_sentences(doc.replace("\n", " "))
-    assert not bare, "a docstring sentence states a cost figure as fact: " + repr(bare)
+    bare = _unqualified_sentences(doc)
+    assert not bare, "a docstring sentence states a cost figure unqualified: " + repr(bare)
 
 
 def test_verify_calls_the_readback_BEFORE_its_self_control_early_return():
