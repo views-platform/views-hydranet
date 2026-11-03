@@ -57,8 +57,14 @@ import argparse
 import ast
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+#: This tool's own name, for error prefixes. Derived, never retyped: five of this
+#: file's refusal messages named a DIFFERENT dossier's tool because the name was a
+#: literal copied down the make_ss -> make_itf -> make_trunc -> make_arch lineage.
+_TOOL = Path(__file__).stem
 
 _MODELS = Path("/home/simon/Documents/scripts/views_platform/views-models/models")
 _FLOOR = _MODELS / "violet_visitor"
@@ -131,7 +137,7 @@ def arm_label(*, lessons: int, eps: float, seed: int, variant: str | None = None
     """Pipeline-legal directory name: (300, 0.0, 42, AntiAliasedPool) -> `aafullzero_fortytwo`."""
     if variant not in _ARCH_TAG:
         raise SystemExit(
-            f"make_arch_arm: --variant must be one of {sorted(_ARCH_TAG)}; got {variant!r}. "
+            f"{_TOOL}: --variant must be one of {sorted(_ARCH_TAG)}; got {variant!r}. "
             "Add a tag to the table rather than improvising a name."
         )
     for table, key, what in (
@@ -141,7 +147,7 @@ def arm_label(*, lessons: int, eps: float, seed: int, variant: str | None = None
     ):
         if key not in table:
             raise SystemExit(
-                f"make_arch_arm: no word for {what}={key}. Add one to the table rather than "
+                f"{_TOOL}: no word for {what}={key}. Add one to the table rather than "
                 "improvising a name — the mapping must stay deterministic in both directions."
             )
     # The tag prefixes the ADJECTIVE. The pipeline requires EXACTLY two lowercase parts
@@ -157,7 +163,7 @@ def arm_identity(*, lessons: int, eps: float, seed: int, variant: str | None = N
     architecture and score it as this one. The rest reproduce the legacy tuple so nothing is lost.
     """
     if variant not in _ARCH_TAG:
-        raise SystemExit(f"make_arch_arm: unknown variant {variant!r}")
+        raise SystemExit(f"{_TOOL}: unknown variant {variant!r}")
     return {
         "model": variant,
         "total_lessons": lessons,
@@ -172,7 +178,7 @@ def _set_key(text: str, key: str, literal: str) -> str:
     pat = re.compile(rf"('{re.escape(key)}':\s*)[^\n]*?,")
     new, n = pat.subn(rf"\g<1>{literal},", text, count=1)
     if n != 1:
-        raise SystemExit(f"make_ss_arm: key {key!r} not found exactly once")
+        raise SystemExit(f"{_TOOL}: key {key!r} not found exactly once")
     return new
 
 
@@ -185,6 +191,56 @@ def _resolve(path: Path, fn: str) -> dict:
     return ns[fn]()
 
 
+
+def _strip_orphaned_import(qs: Path) -> None:
+    """Remove the import that pinning ``model_name`` orphans, and REFUSE if it survives.
+
+    ⛔ Pinning the name deletes the import's only executable use, so ``ruff`` fires F401 on the
+    generated arm. That reddens ``ruff check .`` in views-models — ``ship-it`` Step 1 for every
+    seat shipping from that repo — and the arm directory is not this tool's to revisit afterwards.
+
+    ⭐ ``ruff`` does the removal rather than a text edit here, because ``ruff`` is what *defines*
+    the failure: it is already pinned in ``pyproject.toml`` and already shelled out to by
+    ``tests/test_falsification_repo_clean.py``, and it is AST-aware. A hand-rolled removal has to
+    get an ``__all__`` re-export, a string annotation, a parenthesised or aliased import, an
+    indented import inside ``if TYPE_CHECKING:``, and a docstring copy of the import line all
+    right, and when it does not it either ships the F401 anyway or deletes a binding ``ruff``
+    considers live — turning the check it exists to satisfy from green to red.
+
+    ⛔ The post-check is the point, not a belt-and-braces extra. The failure mode of an anchored
+    rewrite that misses its anchor is SILENCE: the builder prints success and the arm ships
+    F401-red. So ``--fix`` is verified, never trusted.
+
+    ``--isolated`` keeps the rule set this tool's own, rather than inheriting whatever config
+    happens to sit above the arm directory in views-models.
+    """
+    cmd = ["ruff", "check", "--isolated", "--select", "F401"]
+    try:
+        # ⚠️ The --fix result is deliberately discarded: the re-check below is the verification, so
+        # `check=True` here would only add an uncaught crash site without proving anything.
+        subprocess.run([*cmd, "--fix", "-q", str(qs)], check=False, capture_output=True, text=True)
+        after = subprocess.run([*cmd, str(qs)], check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise SystemExit(
+            f"{_TOOL}: `ruff` is not on PATH, so the import orphaned by pinning model_name in "
+            f"{qs} cannot be removed and the arm would ship F401-red. Run this inside the "
+            "project environment."
+        ) from None
+    # ruff exits 1 for findings and 2 for its own failure. Both refuse, but they are different
+    # problems and a message that names the wrong one sends the operator to the wrong file.
+    if after.returncode == 1:
+        raise SystemExit(
+            f"{_TOOL}: {qs} still fails `ruff check --select F401` after --fix:\n"
+            f"{after.stdout}{after.stderr}"
+        )
+    if after.returncode != 0:
+        raise SystemExit(
+            f"{_TOOL}: `ruff` itself failed (exit {after.returncode}) on {qs}, so whether the arm "
+            f"is F401-clean is UNKNOWN and it must not ship on an unverified config:\n"
+            f"{after.stdout}{after.stderr}"
+        )
+
+
 def build(
     *, lessons: int, eps: float, seed: int, variant: str, out_root: Path = _MODELS,
     control: str | None = None,
@@ -192,7 +248,7 @@ def build(
     label = arm_label(lessons=lessons, eps=eps, seed=seed, variant=variant)
     dest = out_root / label
     if dest.exists():
-        raise SystemExit(f"make_ss_arm: {dest} already exists — refusing to overwrite an arm")
+        raise SystemExit(f"{_TOOL}: {dest} already exists — refusing to overwrite an arm")
 
     shutil.copytree(
         _FLOOR,
@@ -209,7 +265,7 @@ def build(
     # data/raw carries the cached parquet, so no arm fetches from the network mid-sweep.
     src_raw = _FLOOR / "data" / "raw"
     if not src_raw.is_dir():
-        raise SystemExit(f"make_ss_arm: {src_raw} missing — an arm would fetch data mid-sweep")
+        raise SystemExit(f"{_TOOL}: {src_raw} missing — an arm would fetch data mid-sweep")
     shutil.copytree(src_raw, dest / "data" / "raw")
 
     hp = dest / "configs" / "config_hyperparameters.py"
@@ -247,7 +303,7 @@ def build(
     marker = "model_name = ModelPathManager.get_model_name_from_path(__file__)"
     if marker not in qtext:
         raise SystemExit(
-            "make_ss_arm: config_queryset.py no longer derives model_name as expected"
+            f"{_TOOL}: config_queryset.py no longer derives model_name as expected"
         )
     qs.write_text(
         qtext.replace(
@@ -260,6 +316,7 @@ def build(
         )
     )
 
+
     meta = dest / "configs" / "config_meta.py"
     mtext = meta.read_text().replace('"name": "violet_visitor"', f'"name": "{label}"')
     mtext = re.sub(
@@ -271,6 +328,10 @@ def build(
     # existing directory, so the wreckage of a rejected build would block every later attempt and
     # look like "the builder is broken" rather than "the config was wrong".
     try:
+        # Inside the cleanup deliberately: this refuses, and a refusal outside the `try`
+        # would leave `dest` with config_meta.py un-rewritten — which `run_queue.sh:114`
+        # reuses and `arm_identity_check.py:117` passes, training a mislabelled arm.
+        _strip_orphaned_import(qs)
         _verify(dest, lessons=lessons, eps=eps, seed=seed, variant=variant, control=control)
     except BaseException:
         shutil.rmtree(dest, ignore_errors=True)
@@ -287,7 +348,7 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
     expected = {k for k in _INTENDED if arm.get(k) != floor.get(k)}
     if diff != expected:
         raise SystemExit(
-            f"make_trunc_arm: config differs from the floor in {sorted(diff)}, expected exactly "
+            f"{_TOOL}: config differs from the floor in {sorted(diff)}, expected exactly "
             f"{sorted(expected)}. An unintended key changed — the arm is NOT built."
         )
 
@@ -296,12 +357,12 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
     assert arm["total_lessons"] == lessons
     if arm.get("model") != variant:
         raise SystemExit(
-            f"make_arch_arm: model is {arm.get('model')!r}, expected {variant!r} — this arm would "
+            f"{_TOOL}: model is {arm.get('model')!r}, expected {variant!r} — this arm would "
             "train a different architecture than the one requested."
         )
     if arm.get("output_distribution") != floor.get("output_distribution"):
         raise SystemExit(
-            "make_arch_arm: output_distribution changed. Only `model` may differ — this program "
+            f"{_TOOL}: output_distribution changed. Only `model` may differ — this program "
             "varies the ARCHITECTURE, and M45 is what a two-key experiment costs."
         )
 
@@ -337,13 +398,13 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
         allowed = {"model"} if same_len else {"model", "total_lessons"}
         if vs_control != allowed:
             raise SystemExit(
-                f"make_arch_arm: arm differs from its control {control_dir.name} in "
+                f"{_TOOL}: arm differs from its control {control_dir.name} in "
                 f"{sorted(vs_control)}, expected exactly {sorted(allowed)}. The experiment is "
                 "NOT single-variable — the arm is NOT built."
             )
     elif lessons == 300:
         raise SystemExit(
-            f"make_arch_arm: control {control_dir} not found — a scored arm has nothing to be "
+            f"{_TOOL}: control {control_dir} not found — a scored arm has nothing to be "
             "compared against. Pass --control <label> naming the control arm of THIS experiment; "
             "the historical `fullzero_*` directories no longer exist."
         )
@@ -368,7 +429,7 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
     )
     if net.base % 8:
         raise SystemExit(
-            f"make_arch_arm: {arm['model']} has state width {net.base}, not divisible by 8; "
+            f"{_TOOL}: {arm['model']} has state width {net.base}, not divisible by 8; "
             "blend_recurrent_state would silently mis-assign short-term vs long-term memory."
         )
     n_targets = len(arm["regression_targets"])
@@ -376,18 +437,18 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
         out = net(torch.zeros(1, arm["input_channels"], 16, 16), net.init_hTtime(net.base, 16, 16))
     if out.cls.shape[1] != n_targets:
         raise SystemExit(
-            f"make_arch_arm: {arm['model']} emits {out.cls.shape[1]} gate channels, expected "
+            f"{_TOOL}: {arm['model']} emits {out.cls.shape[1]} gate channels, expected "
             f"{n_targets} — the emitted field would not match the targets."
         )
 
     m = _resolve(dest / "configs" / "config_meta.py", "get_meta_config")
     if m.get("diagnostic_visualizations") is not False:
         raise SystemExit(
-            "make_ss_arm: diagnostic_visualizations must be False — the per-origin biopsy costs "
+            f"{_TOOL}: diagnostic_visualizations must be False — the per-origin biopsy costs "
             "~28 min/origin, i.e. ~6 h per emit"
         )
     if m.get("name") != dest.name:
-        raise SystemExit(f"make_ss_arm: meta name {m.get('name')!r} != dir {dest.name!r}")
+        raise SystemExit(f"{_TOOL}: meta name {m.get('name')!r} != dir {dest.name!r}")
 
 
 def main() -> int:

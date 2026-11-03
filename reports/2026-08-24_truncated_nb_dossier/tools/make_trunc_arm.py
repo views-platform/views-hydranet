@@ -65,8 +65,14 @@ import argparse
 import ast
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+#: This tool's own name, for error prefixes. Derived, never retyped: five of this
+#: file's refusal messages named a DIFFERENT dossier's tool because the name was a
+#: literal copied down the make_ss -> make_itf -> make_trunc -> make_arch lineage.
+_TOOL = Path(__file__).stem
 
 _MODELS = Path("/home/simon/Documents/scripts/views_platform/views-models/models")
 _FLOOR = _MODELS / "violet_visitor"
@@ -120,7 +126,7 @@ def arm_label(*, lessons: int, eps: float, seed: int) -> str:
     ):
         if key not in table:
             raise SystemExit(
-                f"make_ss_arm: no word for {what}={key}. Add one to the table rather than "
+                f"{_TOOL}: no word for {what}={key}. Add one to the table rather than "
                 "improvising a name — the mapping must stay deterministic in both directions."
             )
     # The pipeline requires `adjective_noun` — EXACTLY two lowercase parts
@@ -140,7 +146,7 @@ def _set_key(text: str, key: str, literal: str) -> str:
     pat = re.compile(rf"('{re.escape(key)}':\s*)[^\n]*?,")
     new, n = pat.subn(rf"\g<1>{literal},", text, count=1)
     if n != 1:
-        raise SystemExit(f"make_ss_arm: key {key!r} not found exactly once")
+        raise SystemExit(f"{_TOOL}: key {key!r} not found exactly once")
     return new
 
 
@@ -153,11 +159,60 @@ def _resolve(path: Path, fn: str) -> dict:
     return ns[fn]()
 
 
+def _strip_orphaned_import(qs: Path) -> None:
+    """Remove the import that pinning ``model_name`` orphans, and REFUSE if it survives.
+
+    ⛔ Pinning the name deletes the import's only executable use, so ``ruff`` fires F401 on the
+    generated arm. That reddens ``ruff check .`` in views-models — ``ship-it`` Step 1 for every
+    seat shipping from that repo — and the arm directory is not this tool's to revisit afterwards.
+
+    ⭐ ``ruff`` does the removal rather than a text edit here, because ``ruff`` is what *defines*
+    the failure: it is already pinned in ``pyproject.toml`` and already shelled out to by
+    ``tests/test_falsification_repo_clean.py``, and it is AST-aware. A hand-rolled removal has to
+    get an ``__all__`` re-export, a string annotation, a parenthesised or aliased import, an
+    indented import inside ``if TYPE_CHECKING:``, and a docstring copy of the import line all
+    right, and when it does not it either ships the F401 anyway or deletes a binding ``ruff``
+    considers live — turning the check it exists to satisfy from green to red.
+
+    ⛔ The post-check is the point, not a belt-and-braces extra. The failure mode of an anchored
+    rewrite that misses its anchor is SILENCE: the builder prints success and the arm ships
+    F401-red. So ``--fix`` is verified, never trusted.
+
+    ``--isolated`` keeps the rule set this tool's own, rather than inheriting whatever config
+    happens to sit above the arm directory in views-models.
+    """
+    cmd = ["ruff", "check", "--isolated", "--select", "F401"]
+    try:
+        # ⚠️ The --fix result is deliberately discarded: the re-check below is the verification, so
+        # `check=True` here would only add an uncaught crash site without proving anything.
+        subprocess.run([*cmd, "--fix", "-q", str(qs)], check=False, capture_output=True, text=True)
+        after = subprocess.run([*cmd, str(qs)], check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise SystemExit(
+            f"{_TOOL}: `ruff` is not on PATH, so the import orphaned by pinning model_name in "
+            f"{qs} cannot be removed and the arm would ship F401-red. Run this inside the "
+            "project environment."
+        ) from None
+    # ruff exits 1 for findings and 2 for its own failure. Both refuse, but they are different
+    # problems and a message that names the wrong one sends the operator to the wrong file.
+    if after.returncode == 1:
+        raise SystemExit(
+            f"{_TOOL}: {qs} still fails `ruff check --select F401` after --fix:\n"
+            f"{after.stdout}{after.stderr}"
+        )
+    if after.returncode != 0:
+        raise SystemExit(
+            f"{_TOOL}: `ruff` itself failed (exit {after.returncode}) on {qs}, so whether the arm "
+            f"is F401-clean is UNKNOWN and it must not ship on an unverified config:\n"
+            f"{after.stdout}{after.stderr}"
+        )
+
+
 def build(*, lessons: int, eps: float, seed: int, out_root: Path = _MODELS) -> Path:
     label = arm_label(lessons=lessons, eps=eps, seed=seed)
     dest = out_root / label
     if dest.exists():
-        raise SystemExit(f"make_ss_arm: {dest} already exists — refusing to overwrite an arm")
+        raise SystemExit(f"{_TOOL}: {dest} already exists — refusing to overwrite an arm")
 
     shutil.copytree(
         _FLOOR,
@@ -174,7 +229,7 @@ def build(*, lessons: int, eps: float, seed: int, out_root: Path = _MODELS) -> P
     # data/raw carries the cached parquet, so no arm fetches from the network mid-sweep.
     src_raw = _FLOOR / "data" / "raw"
     if not src_raw.is_dir():
-        raise SystemExit(f"make_ss_arm: {src_raw} missing — an arm would fetch data mid-sweep")
+        raise SystemExit(f"{_TOOL}: {src_raw} missing — an arm would fetch data mid-sweep")
     shutil.copytree(src_raw, dest / "data" / "raw")
 
     hp = dest / "configs" / "config_hyperparameters.py"
@@ -211,9 +266,7 @@ def build(*, lessons: int, eps: float, seed: int, out_root: Path = _MODELS) -> P
     qtext = qs.read_text()
     marker = "model_name = ModelPathManager.get_model_name_from_path(__file__)"
     if marker not in qtext:
-        raise SystemExit(
-            "make_ss_arm: config_queryset.py no longer derives model_name as expected"
-        )
+        raise SystemExit(f"{_TOOL}: config_queryset.py no longer derives model_name as expected")
     qs.write_text(
         qtext.replace(
             marker,
@@ -224,6 +277,9 @@ def build(*, lessons: int, eps: float, seed: int, out_root: Path = _MODELS) -> P
             1,
         )
     )
+
+    # The pin above orphaned the import; `ruff` removes it and this refuses if it survives.
+    _strip_orphaned_import(qs)
 
     meta = dest / "configs" / "config_meta.py"
     mtext = meta.read_text().replace('"name": "violet_visitor"', f'"name": "{label}"')
@@ -244,7 +300,7 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     expected = {k for k in _INTENDED if arm.get(k) != floor.get(k)}
     if diff != expected:
         raise SystemExit(
-            f"make_trunc_arm: config differs from the floor in {sorted(diff)}, expected exactly "
+            f"{_TOOL}: config differs from the floor in {sorted(diff)}, expected exactly "
             f"{sorted(expected)}. An unintended key changed — the arm is NOT built."
         )
 
@@ -253,19 +309,19 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     assert arm["total_lessons"] == lessons
     if arm.get("output_distribution") != "truncated_nb":
         raise SystemExit(
-            f"make_trunc_arm: output_distribution is {arm.get('output_distribution')!r}, must be "
+            f"{_TOOL}: output_distribution is {arm.get('output_distribution')!r}, must be "
             "'truncated_nb' — this would be an ordinary nb arm, i.e. the control."
         )
     if arm.get("body_supervision") != floor.get("body_supervision"):
         raise SystemExit(
-            "make_trunc_arm: body_supervision changed. It must NOT: the family folds its own y>0 "
+            f"{_TOOL}: body_supervision changed. It must NOT: the family folds its own y>0 "
             "mask into nll, so 'active' is numerically identical at event_threshold==0, and "
             "changing it alongside the family is exactly the confound that made truncated_smoke "
             "unreadable (postmortem_floor_limited_vehicle.md)."
         )
     if arm.get("forecast_composition") != "soft_gate":
         raise SystemExit(
-            f"make_trunc_arm: forecast_composition is {arm.get('forecast_composition')!r}; the "
+            f"{_TOOL}: forecast_composition is {arm.get('forecast_composition')!r}; the "
             "premise is that the GATE is the only zero source, which requires soft_gate."
         )
 
@@ -277,14 +333,14 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     control_hp = control_dir / "configs" / "config_hyperparameters.py"
     if not control_hp.is_file():
         raise SystemExit(
-            f"make_trunc_arm: control {control_dir} not found — the arm has nothing to be "
+            f"{_TOOL}: control {control_dir} not found — the arm has nothing to be "
             "compared against and the 4v4 design is not satisfiable."
         )
     control = _resolve(control_hp, "get_hp_config")
     vs_control = {k for k in set(control) | set(arm) if control.get(k) != arm.get(k)}
     if vs_control != {"output_distribution"}:
         raise SystemExit(
-            f"make_trunc_arm: arm differs from its control {control_dir.name} in "
+            f"{_TOOL}: arm differs from its control {control_dir.name} in "
             f"{sorted(vs_control)}, expected exactly ['output_distribution']. The experiment is "
             "NOT single-variable — the arm is NOT built."
         )
@@ -300,7 +356,7 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     fam = resolve_family(arm["output_distribution"])
     if fam is None or fam.self_zeroed:
         raise SystemExit(
-            f"make_trunc_arm: {arm['output_distribution']!r} did not resolve to a non-self-zeroed "
+            f"{_TOOL}: {arm['output_distribution']!r} did not resolve to a non-self-zeroed "
             "family; under soft_gate a self-zeroed body would double-count zeros again."
         )
     # the mu -> 0 background, where a plain nb draws 0 almost always
@@ -308,26 +364,24 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     _draws = fam.sample(_params, 1, torch.Generator().manual_seed(3))
     if int((_draws == 0).sum()) != 0:
         raise SystemExit(
-            "make_trunc_arm: the resolved body drew a ZERO on the mu->0 background. The gate is "
+            f"{_TOOL}: the resolved body drew a ZERO on the mu->0 background. The gate is "
             "then not the only zero source and this arm does not test what it claims."
         )
     if not bool(torch.equal(fam.prob_positive(_params), torch.ones(5000))):
-        raise SystemExit("make_trunc_arm: prob_positive is not identically 1 — wrong family.")
+        raise SystemExit(f"{_TOOL}: prob_positive is not identically 1 — wrong family.")
     if arm["ss_epsilon_max"] > 0 and arm.get("ss_feedback") != "sample":
-        raise SystemExit(
-            "make_ss_arm: C-259 — ss_feedback must be 'sample' when ss_epsilon_max > 0"
-        )
+        raise SystemExit(f"{_TOOL}: C-259 — ss_feedback must be 'sample' when ss_epsilon_max > 0")
     if list(arm["features"]) != list(arm["regression_targets"]):
-        raise SystemExit("make_ss_arm: C-260 — features must equal regression_targets in order")
+        raise SystemExit(f"{_TOOL}: C-260 — features must equal regression_targets in order")
 
     m = _resolve(dest / "configs" / "config_meta.py", "get_meta_config")
     if m.get("diagnostic_visualizations") is not False:
         raise SystemExit(
-            "make_ss_arm: diagnostic_visualizations must be False — the per-origin biopsy costs "
+            f"{_TOOL}: diagnostic_visualizations must be False — the per-origin biopsy costs "
             "~28 min/origin, i.e. ~6 h per emit"
         )
     if m.get("name") != dest.name:
-        raise SystemExit(f"make_ss_arm: meta name {m.get('name')!r} != dir {dest.name!r}")
+        raise SystemExit(f"{_TOOL}: meta name {m.get('name')!r} != dir {dest.name!r}")
 
 
 def main() -> int:
