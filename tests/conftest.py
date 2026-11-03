@@ -187,3 +187,27 @@ def valid_config_dict():
             ]
         },
     }
+
+
+# ───────────────────────────────────────────────────────────────────────────────────────────────
+# Leave the frozen dossier trees as we found them.
+#
+# ⚠️ 23 loaders across 13 test files `exec_module` a tool out of `reports/*/tools/`, and each one
+# drops `__pycache__/*.pyc` beside a file that is meant to be frozen. `reports/` is gitignored
+# (`.gitignore:203`), so `test_falsification_repo_clean.py` cannot see the mess and a plain
+# `pytest` quietly mutates those directories — one of them still held a `cpython-310.pyc` from an
+# interpreter this project no longer uses.
+#
+# ⛔ Deliberately a session-end sweep rather than `sys.dont_write_bytecode = True`: that flag is
+# global, so it would disable bytecode caching for EVERY import in the run, not just the dozen
+# dossier tools. Flagged by `/code-review max`, 2026-11-03.
+# ───────────────────────────────────────────────────────────────────────────────────────────────
+def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001 - pytest hook signature
+    import shutil
+    from pathlib import Path
+
+    reports = Path(__file__).resolve().parent.parent / "reports"
+    if not reports.is_dir():
+        return
+    for cache in reports.glob("*/tools/__pycache__"):
+        shutil.rmtree(cache, ignore_errors=True)
