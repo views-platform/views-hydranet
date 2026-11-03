@@ -74,37 +74,6 @@ class VisualDiagnostics:
         self.config = config  # Store for dynamic labelling
 
         if self.active:
-            # ⛔ Probe matplotlib HERE, at construction, not at the first plotting call.
-            #
-            # `_load_mpl` is lazy by design (issue #215: a headless run needs no plotting stack,
-            # so matplotlib is the optional `viz` extra). But `diagnostic_visualizations` is a
-            # plain config key, so a config can ask for plots in an environment that cannot make
-            # them — and because the import is lazy, the ImportError then fires on whichever
-            # plotting method runs first. `hydranet_manager.py` hands this object to
-            # `_run_data_pipeline` BEFORE training and `training_engine` plots five times during
-            # it, so that failure lands minutes-to-hours in, with a stack trace about pyplot
-            # rather than about configuration.
-            #
-            # ⚠️ Measured 2026-11-03: on a prepared pod venv matplotlib IS present, required
-            # unconditionally by `views-datafactory` (which the runner installs by name), `pyod`,
-            # `seaborn` and `views-reporting`. So this does not fire today. It is here because the
-            # declaration does not match the need: if any of those moves matplotlib behind an
-            # extra, the only thing standing between a config flag and a mid-training crash is
-            # this check. Cost when it passes: one already-cached import.
-            try:
-                _load_mpl()
-            except ImportError as exc:  # pragma: no cover - requires an env without matplotlib
-                #: ADR-008: log before raising, in the sequence the convention names, so the cause
-                #: reaches the run log even if the traceback does not reach the operator.
-                err_msg = (
-                    "diagnostic_visualizations is True but matplotlib cannot be imported, so no "
-                    "biopsy could be written. Install the plotting stack "
-                    "(`pip install 'views-hydranet[viz]'`) or set diagnostic_visualizations to "
-                    f"False. Refusing now rather than during training. Cause: {exc}"
-                )
-                logger.error(err_msg)
-                raise ImportError(err_msg) from exc
-
             # Determine save directory
             # If manager passed a timestamp in config (ADR 026), use it.
             from datetime import datetime
