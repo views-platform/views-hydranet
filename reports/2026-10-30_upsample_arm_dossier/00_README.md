@@ -48,6 +48,9 @@ this dossier; nothing was duplicated):
 | `gf_phase_signature.py` / `.out` | the `G-F` mechanism probe and its captured output |
 | `FINDING_GF.md` | `G-F`'s read-out |
 | `tools/` | `preflight_exp02.py`, `smoke_exp02.sh`, `launch_exp02.sh` |
+| `PREREG_EXP03_SEEDS.md` | the six-seed pre-registration + amendments 1 and 2 |
+| ⭐ `FINDING_EXP03.md` | **the EXP-03 readout, 11 of 12 arms.** The h1 gate win does NOT replicate (seed 47 resolved negative); the seed route is **CLOSED at h1** (45 seeds needed, >20 pre-committed as closed); the body **does** sharpen at d=1 on 5/5 seeds and lifts the event-cell upper tail on 5/5; ⭐⭐ **118 cells carry 81% of total CRPS at h36**, so FAO-02's primary score is a ~100-cell measurement; and the diffuseness-penalty question is answered from C-366 (the existing `_structure_penalty` is amplitude-homogeneous and arrangement-blind, and its arm regressed B-1 4.44x) |
+| `tools/exp03_*.py` + `results/exp03_*.{out,json}` | the four EXP-03 instruments and their captured output: the paired gate bootstrap, the body magnitude sweep, the B-1 structure share, and the CRPS concentration decomposition |
 
 ## 4 · Harness at a glance
 

@@ -1,0 +1,138 @@
+EXP-03, the BODY: does the upsample arm forecast HIGHER or LOWER on cells that fire?
+
+⭐ WHY. Every EXP-02/03 readout so far is the GATE (AP). AP is rank-based: it is exactly invariant
+to monotone gate miscalibration and it says nothing whatever about magnitude. This asks Simon's
+question instead -- among cells that fire, does the forecast go up or down, and how is the
+distribution shaped.
+
+**C-351 slots.** Population = 13 origins x 64,818 global land cells = 842,634 cell-months PER
+HORIZON per arm. Transform = NONE; the draws are already count space. Estimator = the arm's 16
+posterior draws; `E[Y]` is their mean; CRPS from the FROZEN ruler, imported, plug-in on 16 members.
+Truth = the arms' shared global pull, `lr_sb_best`. ⛔ NOT `V2_TRUTH`.
+
+⛔ The ratio is SWEPT across quantiles, never reported as `size_ratio`. `size_ratio` is a median
+and was measured to be EXACTLY invariant to a factor-1000 error on up to 49% of event cells
+(M3 Finding C), which is precisely the quantity under discussion here.
+
+⚠️ Equal S matters and is asserted: all arms are S=16, so the plug-in CRPS bias is common and
+differences are interpretable while levels are not comparable to anything scored at another S.
+
+truth grid (384, 64818)
+
+  seed fortytwo done
+  seed fortythree done
+  seed fortyfour done
+  seed fortyfive done
+  seed fortyseven done
+
+============================================================================================
+h1  —  n = 842,634 cell-months, 2,905 TRUE event cells
+============================================================================================
+
+  crps_all   (FAO-02 PRIMARY, lower is better)   (h1)
+  seed             control      upctwo           Δ   direction
+  ------------------------------------------------------------
+  fortytwo          0.0518      0.0511     -0.0007   lower
+  fortythree        0.0490      0.0491     +0.0001   HIGHER
+  fortyfour         0.0513      0.0511     -0.0002   lower
+  fortyfive         0.0497      0.0497     +0.0001   HIGHER
+  fortyseven        0.0515      0.0524     +0.0009   HIGHER
+                                                     3/5 higher, mean Δ +0.0000, sd 0.0006, unanimous: False
+
+  crps_events   (on true event cells, lower is better)   (h1)
+  seed             control      upctwo           Δ   direction
+  ------------------------------------------------------------
+  fortytwo         14.4631     13.9704     -0.4927   lower
+  fortythree       13.2244     13.3575     +0.1331   HIGHER
+  fortyfour        13.9393     13.8782     -0.0611   lower
+  fortyfive        13.6320     13.6624     +0.0304   HIGHER
+  fortyseven       14.3578     14.5270     +0.1691   HIGHER
+                                                     3/5 higher, mean Δ -0.0442, sd 0.2664, unanimous: False
+
+  crps_none   (on true zero cells, lower is better)   (h1)
+  seed             control      upctwo           Δ   direction
+  ------------------------------------------------------------
+  fortytwo          0.0020      0.0030     +0.0010   HIGHER
+  fortythree        0.0034      0.0031     -0.0003   lower
+  fortyfour         0.0032      0.0033     +0.0000   HIGHER
+  fortyfive         0.0027      0.0026     -0.0001   lower
+  fortyseven        0.0020      0.0023     +0.0003   HIGHER
+                                                     3/5 higher, mean Δ +0.0002, sd 0.0005, unanimous: False
+
+  share of TRUE EVENT cells where ALL 16 draws are ZERO   (h1)
+  seed             control      upctwo           Δ   direction
+  ------------------------------------------------------------
+  fortytwo          0.3608      0.2912     -0.0695   lower
+  fortythree        0.3019      0.3084     +0.0065   HIGHER
+  fortyfour         0.3356      0.3432     +0.0076   HIGHER
+  fortyfive         0.3105      0.3026     -0.0079   lower
+  fortyseven        0.3883      0.3422     -0.0461   lower
+                                                     2/5 higher, mean Δ -0.0219, sd 0.0344, unanimous: False
+
+  E[Y] on TRUE EVENT cells — the distribution, swept   (h1)
+  quantile     fortytwo  fortythre  fortyfour  fortyfive  fortyseve
+  q0.10         +0.0000    +0.0000    +0.0000    +0.0000    +0.0000   <- Δ (upctwo − control)
+  q0.25         +0.0000    +0.0000    +0.0000    +0.0000    +0.0000   <- Δ (upctwo − control)
+  q0.50         +0.8125    -0.3750    +0.1250    -0.2500    +0.3125   <- Δ (upctwo − control)
+  q0.75         +1.6250    +0.8125    +0.6250    -0.0000    +0.3750   <- Δ (upctwo − control)
+  q0.90         +1.6250    +0.8750    +0.9375    +0.3125    +1.1250   <- Δ (upctwo − control)
+  q0.99         +0.8925    +4.0675    +2.3075    +1.2000    +6.0775   <- Δ (upctwo − control)
+  (control)      1.8125     3.3125     2.9375     2.3750     1.4375   <- control median, for scale
+  (truth)        6.0000     6.0000     6.0000     6.0000     6.0000   <- TRUTH median on the same cells
+
+============================================================================================
+h36  —  n = 842,634 cell-months, 3,307 TRUE event cells
+============================================================================================
+
+  crps_all   (FAO-02 PRIMARY, lower is better)   (h36)
+  seed             control      upctwo           Δ   direction
+  ------------------------------------------------------------
+  fortytwo          0.2130      0.2125     -0.0005   lower
+  fortythree        0.2125      0.2123     -0.0002   lower
+  fortyfour         0.2122      0.2122     -0.0000   lower
+  fortyfive         0.2130      0.2133     +0.0003   HIGHER
+  fortyseven        0.2128      0.2129     +0.0001   HIGHER
+                                                     2/5 higher, mean Δ -0.0001, sd 0.0003, unanimous: False
+
+  crps_events   (on true event cells, lower is better)   (h36)
+  seed             control      upctwo           Δ   direction
+  ------------------------------------------------------------
+  fortytwo         53.8571     53.3825     -0.4746   lower
+  fortythree       53.3114     53.4743     +0.1629   HIGHER
+  fortyfour        53.3525     53.2832     -0.0693   lower
+  fortyfive        53.7724     53.9487     +0.1763   HIGHER
+  fortyseven       53.8913     53.8884     -0.0029   lower
+                                                     2/5 higher, mean Δ -0.0415, sd 0.2641, unanimous: False
+
+  crps_none   (on true zero cells, lower is better)   (h36)
+  seed             control      upctwo           Δ   direction
+  ------------------------------------------------------------
+  fortytwo          0.0016      0.0030     +0.0013   HIGHER
+  fortythree        0.0033      0.0025     -0.0008   lower
+  fortyfour         0.0028      0.0031     +0.0002   HIGHER
+  fortyfive         0.0020      0.0016     -0.0004   lower
+  fortyseven        0.0013      0.0014     +0.0001   HIGHER
+                                                     3/5 higher, mean Δ +0.0001, sd 0.0008, unanimous: False
+
+  share of TRUE EVENT cells where ALL 16 draws are ZERO   (h36)
+  seed             control      upctwo           Δ   direction
+  ------------------------------------------------------------
+  fortytwo          0.6244      0.5398     -0.0847   lower
+  fortythree        0.5640      0.5851     +0.0212   HIGHER
+  fortyfour         0.5724      0.5839     +0.0115   HIGHER
+  fortyfive         0.5627      0.5649     +0.0021   HIGHER
+  fortyseven        0.6650      0.6117     -0.0532   lower
+                                                     3/5 higher, mean Δ -0.0206, sd 0.0460, unanimous: False
+
+  E[Y] on TRUE EVENT cells — the distribution, swept   (h36)
+  quantile     fortytwo  fortythre  fortyfour  fortyfive  fortyseve
+  q0.10         +0.0000    +0.0000    +0.0000    +0.0000    +0.0000   <- Δ (upctwo − control)
+  q0.25         +0.0000    +0.0000    +0.0000    +0.0000    +0.0000   <- Δ (upctwo − control)
+  q0.50         +0.0000    +0.0000    +0.0000    +0.0000    +0.0000   <- Δ (upctwo − control)
+  q0.75         +1.5625    -0.8750    +0.0625    -0.5625    +0.4375   <- Δ (upctwo − control)
+  q0.90         +1.9125    -0.7250    +0.5000    -1.3750    +0.1250   <- Δ (upctwo − control)
+  q0.99         +4.8087    -0.1875    +0.6100    -2.8163    +2.2975   <- Δ (upctwo − control)
+  (control)      0.0000     0.0000     0.0000     0.0000     0.0000   <- control median, for scale
+  (truth)        5.0000     5.0000     5.0000     5.0000     5.0000   <- TRUTH median on the same cells
+
+wrote /tmp/claude-1000/-home-simon-Documents-scripts-views-platform-views-hydranet/f7a7ca8c-4eb9-45a0-8923-271b8be2a39c/scratchpad/exp03_magnitude.json

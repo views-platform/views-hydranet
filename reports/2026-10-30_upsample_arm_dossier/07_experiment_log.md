@@ -334,3 +334,66 @@ remain unsettled, no arm has trained, and the 2-lesson smoke deliberately scores
 does not establish *which* allocation inside the backtest pass dominates the 21 GiB — §3 narrows it
 to one origin's worth of work, which is as far as the evidence goes. ⚠️ Sizing a pod on "> 21 GiB" is a floor read off a failure, not a
 measured requirement; the first pod run should record its own peak.
+
+---
+
+# 2026-11-03 — EXP-03, eleven of twelve arms. The gate win does not replicate; the body sharpens; the primary score is near-blind to it.
+
+**Pre-registration** `PREREG.md` §5b/§6 (`P-23`) and `PREREG_EXP03_SEEDS.md` (+ AMENDMENTS 1, 2) ·
+**The one variable** `model`: `HydraBNUNet06_LSTM4` → `UpsampleConv2`, each arm paired to its
+**own-seed** control so the symmetric difference is exactly `{"model"}` ·
+**Full write-up** `FINDING_EXP03.md` · **Artifacts** `results/exp03_{pairs,magnitude,sharpness,crps_concentration}.{out,json}`
+· **Tools** `tools/exp03_*.py`
+
+## Verdict against the pre-registered falsifiers
+
+⛔ **UNDERPOWERED READING — not a §6 verdict.** AMENDMENT 1 specifies §6's "both seeds" as **"all
+six, strictly"**, and `upctwofullzero_fortysix` was lost (FINDING §8). Five complete pairs cannot
+satisfy a six-seed unanimity test, and that label was fixed **before** any number was seen.
+
+⭐ **What IS robust to the missing pair:** the *disagreement*. §6's CONFIRMS and FALSIFIES branches
+both require unanimity, and **resolved** seeds already break it in both directions — seed 47
+resolved **negative at h1**, seed 44 resolved **negative at h36**. A sixth seed cannot un-resolve a
+resolved disagreement. ⇒ **MIXED is determined by the five pairs in hand.**
+
+## Which falsifiers fired
+
+| pre-registered prediction | outcome |
+|---|---|
+| `P-23` ΔAP **> 0 at h1 on every seed** | ⛔ **FAILS** — seed 47 resolved at **−0.0063** [−0.0094, −0.0028] |
+| `P-23` ΔAP **< 0 at h36 on every seed** | ⛔ **FAILS** — seed 43 at **+0.0034** (unresolved) |
+| §6 MIXED branch: derive the seed count from the **observed** spread | ✅ **done**: h1 **45 seeds** (CI 19–255) ⇒ **>20 ⇒ the seed route is CLOSED**, as pre-committed. h36 **14** ⇒ still open |
+
+⛔ **The two-seed h1 result is WITHDRAWN.** `+0.0049 / +0.0047` "agreeing to 4%" was accurate and was
+an accident of which two seeds ran first. The pre-commitment made before these numbers existed —
+*"if any seed flips sign, 'replicated win' is no longer the right description"* — is honoured here.
+
+## The decision
+
+1. ⛔ **No more seeds for h1.** Pre-committed closed at `n_required > 20`; it is 45.
+2. ⛔ **Do not re-run the twelfth arm.** It cannot change the branch (§2.2). ⇒ ledger `O-5` stays
+   **OPEN** and views-models #697 should be merged on its own correctness merits, not for this.
+3. ⭐ **The arm is NOT a null — the score is near-blind to it.** It sharpens the body at d=1 on
+   **5/5 seeds** (B-1 +0.0504, with d=16/d=32 as a derived negative control that does **not** move)
+   and lifts the event-cell upper tail on **5/5 seeds** (q0.90, q0.99), while **CRPS is null in
+   every truth band**. ⚠️ Both body results are **sign counts, not intervals** — a paired bootstrap
+   is owed before either is quoted outside this dossier.
+4. ⭐⭐ **The programme-level consequence, bigger than the arm:** at h36, **118 cells — 0.014% of
+   842,634 — carry 81% of total CRPS** (at h1, 614 cells carry 72%). FAO-02's primary score is, to
+   first order, a **~100-cell measurement**, and nothing in the apparatus said so. ⇒ **Report CRPS
+   banded by truth magnitude alongside the pooled number from here on** — a decomposition of the
+   locked score, not a new score. Owed across the whole scoreboard.
+5. ⭐ **A diffuseness penalty must be amplitude-invariant and arrangement-sensitive.** The existing
+   `_structure_penalty` is neither (C-366 H1/H3/H4) and its arm regressed B-1 **4.44×** while
+   improving the penalty 4.87×. **Do not re-use that shape.**
+6. ⭐ **Next, and cheap:** the per-step profile of structure share and amplitude over all 36
+   horizons, from draws already on disk. Two endpoints cannot distinguish **fade** from **smear**,
+   and the h1/h36 contrast (structure 0.565 → 0.540, median E[Y] 1.81 → **0.0000**) says the
+   autoregressive pathology is fade.
+
+⛔ **What this entry does not claim.** `P-22`, `P-25` and `P-26` remain **unread** and are owed —
+leaving them while reporting `P-23` would be selective reporting. No h18 number appears, in either
+direction (device 2). Nothing is compared to EXP-01's absolute numbers (`W-122` voided that). AP
+says nothing about gate calibration (M3 Finding B). One target (`sb`), one composition, one vehicle
+family. And ⛔ the twelfth arm's artifact was destroyed before its raw values were read, so §8's
+reading of its refusal is a derivation plus eight siblings, **not** a measurement of that arm.
