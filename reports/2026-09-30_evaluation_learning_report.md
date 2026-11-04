@@ -123,6 +123,16 @@ stale, miscounted, badly cited or incomplete. The cheapest high-value items:
   **§5.5 L1–L3** (the ceiling of a normalised statistic is not the ceiling of its unnormalised cousin)
   and **§5.10 L4–L6**. Two retractions added to `Appendix B`; one new instrument to `Appendix A.1`; a
   fourth row to `Appendix A.3`. ⛔ Nothing was deleted.
+- **2026-11-04** — §9b **AMENDED**: ⭐⭐ L1's framing is **qualified by its own measurement**.
+  `crps_effective_n` is now measured on real per-cell CRPS — **475–505 at h18**, but **2.58 at h36**
+  — so *"our primary score is blind"* is **too broad**; the accurate claim is **one horizon ruined by
+  one data artifact** (one annual summary event holding 62% of h36's truth mass, confirmed by
+  views-datafactory as a documented parity rule). ⛔ Two figures I had quoted the same day were
+  **proxies under this statistic's name** — 178.3 and 2.58 — which is this document's own L2
+  violated by its author within the hour. Plus **L9** (a default silently handing you the wrong
+  thing, now a class at **five** instances, #553), **L10** (do not commit while anything else is
+  mutating the tree — a reviewer's probe was captured by a commit and sat in HEAD while
+  `git status` read clean), **L11** (`ls` is not an import check). ⛔ Nothing deleted.
 - **2026-11-03/04** — EXP-03's eleven arms read out, and the readout produced **more about the
   instruments than about the arm**. ⭐⭐ The headline is a property of our primary score that nothing
   in this document had measured: **118 cells carry 81% of total CRPS**, so a pooled CRPS null cannot
@@ -2458,6 +2468,93 @@ worse than no interval, because it carries false authority. ⇒ **Adds a row in 
 `Appendix A`'s inventory.**
 
 ---
+
+### ⚠️ AMENDMENT 2026-11-04 — L1 is QUALIFIED by its own measurement, and three lessons are added
+
+⛔ **Additive. Nothing above is deleted.** L1–L8 stand as written; what follows corrects one of
+L1's framings and adds L9–L11 from the same session's later work.
+
+#### ⭐⭐ L1 QUALIFIED — the number is now measured, and it LOCALISES rather than generalises
+
+L1 above proposed `crps_effective_n` as *"a better form, **proposed and not yet measured**"*. It has
+since been measured on **real per-cell CRPS from the delivered arms**
+(`reports/2026-10-30_upsample_arm_dossier/results/exp03_p25.out`):
+
+| | |
+|---|---|
+| **h18**, all ten arms | **475.84 – 504.59** of 842,634 cells — ~**0.06%** |
+| **h36** | **2.58** |
+| cause of the h36 figure | **one** probable summary-event assignment — priogrid 148759, month 504, **113,395** fatalities ringed by zeros — holding **62%** of that horizon's truth mass |
+| that one cell removed | h36 → **214.94** |
+
+⇒ ⭐⭐ **So "our primary score is blind" — which is how L1 reads — is TOO BROAD.** The accurate
+statement is **one horizon ruined by one data artifact**. At h18 the score averages over ~490
+effective cells; it is concentrated, not pathological. The catastrophe is specific to h36 and to
+that cell.
+
+⛔ **And two figures quoted earlier the same day were PROXIES, neither of them this statistic:**
+
+| figure | what it actually was |
+|---|---|
+| **178.3** | a vector reconstructed **uniform within each band** — it smooths away the within-band concentration the statistic exists to find, so it over-estimates |
+| **2.58** | the participation ratio of the **truth** vector at h36 — a different statistic, and the one I stated to a sibling repo as though it were this one |
+
+⚠️ ⛔ **The lesson in that is the document's own L2 and §2.2, committed by me and then violated by me
+within the hour**: I quoted a *truth*-vector statistic under a *CRPS* statistic's name. ⇒ A proxy
+must carry its own name, not the name of the thing it stands in for — and *"I said it was a proxy"*
+is not sufficient when the number then travels into another repository's issue.
+
+⭐ **What the correction does NOT weaken:** the data finding. One annual summary event being 62% of a
+horizon's score is now confirmed by views-datafactory as `date_end_only` applied to annual-source
+events under a documented parity rule — *"a real aggregate assigned wholesale to one cell-month,
+not a measurement of what happened in that cell that month."* ⇒ The instrument was fine; **the data
+is concentrated**, and the instrument is what revealed it.
+
+#### L9 ⭐⭐ "A default silently hands you the wrong thing" is a CLASS, now at five instances
+
+| # | the default | what it hands you | loud? |
+|---|---|---|---|
+| 1 | recursive `grep` under gitignored `reports/` | 1 hit where there are 15 | ⛔ silent |
+| 2 | `git add -u` | silently omits a NEW file under `reports/` — nearly shipped four tools importing a module absent from the repo | ⛔ silent |
+| 3 | `pip`/`uv` on Python 3.12 | views-hydranet **0.1.3**, eight releases old, because 0.1.9 is `Requires-Python >=3.11,<3.12` | ⛔ silent |
+| 4 | `git clone` | **`main`**, 27 commits behind `development` and missing a symbol a dossier tool imports | ⛔ silent |
+| 5 | `score_v2_horizons.py`'s truth | the **retired 13,110-cell Africa crop** against a 64,818-cell population | ⚠️ raises |
+
+⇒ Every one is a tool doing **exactly what it documents**, on a default that does not match this
+repository's layout. Four of five are silent. Filed as **#553**; two are mitigated by the project
+`CLAUDE.md` (#545).
+
+⭐ **The remedy is one shape, not five:** a default that is wrong for the current task must
+**announce itself rather than succeed**. ⚠️ And the reason to record it as a class is that filing
+five separate issues gets each fixed in isolation and loses the pattern.
+
+#### L10 ⛔ Do not COMMIT while anything else is mutating the tree
+
+The standing rule here was *"commit **before** mutation testing"*, because `git checkout --` eats
+uncommitted work. ⇒ The converse half was missing, and it cost a bad commit: a `/code-review` agent
+was running its **own** guard audit with `y >= lo` → `y > lo` applied as a probe, and a commit made
+inside that window **captured the probe**. The buggy line sat in `HEAD` for 80 seconds while
+`git status` reported **clean** the whole time.
+
+⚠️ The mutation was a good one and the guard would have caught it — a test passes truth of exactly
+`101.0` and asserts 2 cells in the `101+` band, which fails under `y > lo`. **It was invisible only
+because it was committed rather than tested.**
+
+⇒ **A green `git status` proves nothing when another process is mid-probe.** Before committing, know
+what else is running against the tree; and a review agent that mutates must report tree-clean before
+the author commits.
+
+#### L11 ⚠️ `ls` is not an import check
+
+Provisioning a pod, the check *"`scripts/rollout_ruler_core.py` present"* **passed on `main`** — the
+file has existed for months. The **symbol** it was needed for was three days old. ⇒ Had that stood,
+four ~20-minute GPU emits would have completed and then died at the scoring step.
+
+⭐ **The general form, which this document already records in two other dresses** (L1's *"a guard
+whose failure mode is an empty collection cannot be checked by iterating it"*, and the `.gitkeep`
+substring grep that survived re-introducing its own defect): **a file-existence check on a module
+whose CONTENTS changed is a decorative guard.** Check the thing you actually depend on —
+`python -c "import x; x.the_symbol"`, not `ls x.py`.
 
 ### ⚠️ What §9b does not establish
 
