@@ -25,12 +25,17 @@ from pathlib import Path
 import numpy as np
 import pyarrow.parquet as pq
 
-REPO = Path("/home/simon/Documents/scripts/views_platform/views-hydranet")
-MODELS = Path("/home/simon/Documents/scripts/views_platform/views-models/models")
+#: ⛔ views-models renamed the twelve arms (#702/#704), so a directory may NOT be spelled
+#: from a pre-registered name. `exp03_arms` derives the mapping from each delivery's own
+#: manifests and refuses an ambiguous one. Pre-registered names stay the identifiers in
+#: every readout below, because that is what PREREG.md and the ledgers use.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from exp03_arms import DELIVERY, REPO, arm_dir, arm_directories  # noqa: E402
+
+_ARMS = arm_directories()
 sys.path.insert(0, str(REPO / "reports/2026-07-17_lodestar_eval_dossier/tools"))
 from lodestar_score import average_precision  # noqa: E402
 
-DELIVERY = "data/generated/calibration_delivery_20261103"
 SEEDS = ["fortytwo", "fortythree", "fortyfour", "fortyfive", "fortysix", "fortyseven"]
 HORIZONS = (1, 36)
 N_BOOT, BOOT_SEED, CI = 400, 0, 0.90
@@ -39,7 +44,7 @@ G0_TOL = 0.0005
 
 print(__doc__, flush=True)
 
-tb = pq.read_table(MODELS / "ctlfullzero_fortytwo" / "data/raw/calibration_datafactory_df.parquet",
+tb = pq.read_table(arm_dir("ctlfullzero_fortytwo", arms=_ARMS) / "data/raw/calibration_datafactory_df.parquet",
                    columns=["month_id", "priogrid_id", "lr_sb_best"])
 _mo, _un = tb["month_id"].to_numpy(), tb["priogrid_id"].to_numpy()
 CELLS, M0 = np.unique(_un), int(_mo.min())
@@ -54,7 +59,7 @@ def load_arm(arm):
     """-> {h: {origin: (posterior-mean gate, binary truth)}}. Extracts sb only, then discards."""
     out = {h: {} for h in HORIZONS}
     with tempfile.TemporaryDirectory() as td:
-        subprocess.run(["tar", "-I", "zstd", "-xf", str(MODELS / arm / DELIVERY /
+        subprocess.run(["tar", "-I", "zstd", "-xf", str(arm_dir(arm, arms=_ARMS) / DELIVERY /
                         "gate_endpoints.tar.zst"), "-C", td,
                         "--wildcards", "*/by_sb_best/*"], check=True)
         root = Path(td) / "gate_endpoints"
@@ -94,7 +99,7 @@ def one_cell(task, cache):
                 n=int(sum(c[o][0].size for o in origins)))
 
 
-PAIRS = [s for s in SEEDS if (MODELS / f"upctwofullzero_{s}" / DELIVERY).is_dir()]
+PAIRS = [s for s in SEEDS if f"upctwofullzero_{s}" in _ARMS]
 for s in SEEDS:
     if s not in PAIRS:
         print(f"⛔ seed {s}: INCOMPLETE — upctwofullzero_{s} absent, the pair cannot be read",
