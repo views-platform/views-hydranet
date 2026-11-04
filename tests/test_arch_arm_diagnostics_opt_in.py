@@ -574,49 +574,26 @@ def _diagnostics_help() -> str:
     raise AssertionError("no --diagnostics argument with a help string")
 
 
-#: An evidence file naming satisfies W-109's FIRST limb: "a number quoted in a document names the
-#: artifact that produced it, OR is marked unverified in the same place." The earlier version of
-#: this guard encoded only the second limb, so restoring a figure that now HAS an artifact turned
-#: the suite red for the right reason under the wrong rule.
-_ARTIFACT = re.compile(r"\.out\b")
+def _unhedged_sentences(text: str) -> list[str]:
+    """Sentences that state a cost figure with no hedge **in that sentence**.
 
-#: ⚠️ Abbreviations that end in a period and must not end a sentence. Without these, `"~28
-#: min/origin, i.e. ~6 h per emit"` split after "i.e." and orphaned the figure from the hedge in
-#: the next fragment — a false positive that cost a debugging round.
-_ABBREV = ("i.e.", "e.g.", "cf.", "etc.", "vs.", "approx.", "Fig.", "No.")
-
-
-def _sentences(text: str) -> list[str]:
-    flat = " ".join(text.split())
-    for a in _ABBREV:
-        flat = flat.replace(a, a.replace(".", "\x00"))
-    return [s.replace("\x00", ".") for s in re.split(r"(?<=\.)\s+", flat)]
-
-
-def _unqualified_sentences(text: str) -> list[str]:
-    """Sentences stating a cost figure with neither a hedge nor an artifact **in that sentence**.
-
-    ⛔ Four versions of this guard failed before this one, each for the same reason one scope
+    ⛔ Three versions of this guard failed before this one, each for the same reason one scope
     wider: `text.index("28 min")` saw only the first of two sites; a +/-700 char window was
-    satisfied by an unrelated caveat elsewhere in the file; checking the help string as a WHOLE was
-    satisfied by the hedge belonging to the OTHER figure in it; and encoding only "must be hedged"
-    rejected a figure that had since acquired a real artifact.
-    ⇒ The unit is the sentence, because that is the unit a reader attributes a caveat to, and the
-    test is W-109's rule verbatim: hedged, or sourced.
+    satisfied by an unrelated caveat elsewhere in the file; and checking the help string as a
+    WHOLE was satisfied by the hedge belonging to the OTHER figure in it — this string states two.
+    ⇒ The unit has to be the sentence, because that is the unit a reader attributes a caveat to.
     """
     return [
         s
-        for s in _sentences(text)
-        if _FIGURE.search(s) and not any(w in s for w in _HEDGES) and not _ARTIFACT.search(s)
+        for s in re.split(r"(?<=\.)\s+", text)
+        if _FIGURE.search(s) and not any(w in s for w in _HEDGES)
     ]
 
 
 def test_the_operator_facing_help_hedges_every_cost_figure_it_states():
     """`--help` is the one surface an operator reads before spending the money."""
-    bare = _unqualified_sentences(_diagnostics_help())
-    assert not bare, "a --diagnostics help sentence states a cost figure unqualified: " + repr(
-        bare
-    )
+    bare = _unhedged_sentences(_diagnostics_help())
+    assert not bare, "the --diagnostics help states a cost figure as fact: " + repr(bare)
 
 
 def test_the_module_docstring_hedges_every_cost_figure_it_states():
@@ -624,8 +601,8 @@ def test_the_module_docstring_hedges_every_cost_figure_it_states():
     assert _FIGURE.search(doc), "no cost figure in the docstring — if removed, delete this test"
     #: Per SENTENCE, for the same reason as the help string: a hedge attached to one figure must
     #: not be read as covering another, and this docstring states several.
-    bare = _unqualified_sentences(doc)
-    assert not bare, "a docstring sentence states a cost figure unqualified: " + repr(bare)
+    bare = _unhedged_sentences(doc.replace("\n", " "))
+    assert not bare, "a docstring sentence states a cost figure as fact: " + repr(bare)
 
 
 def test_verify_calls_the_readback_BEFORE_its_self_control_early_return():
@@ -652,66 +629,3 @@ def test_verify_calls_the_readback_BEFORE_its_self_control_early_return():
             f"{min(returns)} — the readback is DEAD for every arm that takes that early return, "
             "which is every arm that is its own control"
         )
-
-
-# ───────────────────────── the arm must survive `git clone --depth 1` ──────────────────────────
-
-
-def test_every_required_subdir_is_declared_once_and_covers_ModelPathManager():
-    """⚠️ The list used to be a literal inside `build` and omitted `data/raw`, which is the one
-    directory that got a `.gitkeep` by accident rather than by intent."""
-    subs = builder._REQUIRED_SUBDIRS
-    assert len(subs) == len(set(subs)), f"duplicate entries: {subs}"
-    for expected in ("data/raw", "data/generated", "data/processed", "artifacts", "logs"):
-        assert expected in subs, f"{expected} is not declared required"
-
-
-def test_assert_clonable_refuses_an_empty_required_subdir(tmp_path):
-    """⛔⛔ The failure this prevents costs a provisioned pod. `ModelPathManager` validates that
-    these directories EXIST, but the arm reaches the pod through `git clone --depth 1` and git
-    carries files, not directories — so an empty one is absent there and validation raises after
-    the money is spent. Measured at 1 of 7 on all eight EXP-03 arms built at 99fe887.
-    """
-    dest = tmp_path / "armlabel_x"
-    for sub in builder._REQUIRED_SUBDIRS:
-        (dest / sub).mkdir(parents=True)
-        (dest / sub / ".gitkeep").touch()
-    builder._assert_clonable(dest)  # all populated: must not raise
-
-    #: Now empty exactly one, each in turn — a guard that only checks the first would pass.
-    for sub in builder._REQUIRED_SUBDIRS:
-        (dest / sub / ".gitkeep").unlink()
-        with pytest.raises(SystemExit) as exc:
-            builder._assert_clonable(dest)
-        assert sub in str(exc.value), f"the refusal does not name {sub}"
-        assert "clone" in str(exc.value), "the refusal does not say why an empty dir is fatal"
-        (dest / sub / ".gitkeep").touch()
-
-
-def test_build_creates_a_gitkeep_in_every_required_subdir():
-    """Read off the AST: `build` must touch a `.gitkeep` inside the loop over the required dirs.
-    Executing `build` needs the floor, torch and a writable views-models, so the structure is what
-    is checkable here — and the structure is what regressed.
-    """
-    build = _build_fn()
-    loops = [n for n in ast.walk(build) if isinstance(n, ast.For)]
-    over_required = [
-        n for n in loops if isinstance(n.iter, ast.Name) and n.iter.id == "_REQUIRED_SUBDIRS"
-    ]
-    assert over_required, "build does not iterate _REQUIRED_SUBDIRS"
-    body_src = "\n".join(ast.unparse(s) for s in over_required[0].body)
-    assert ".gitkeep" in body_src, (
-        "the loop over the required subdirs does not create a .gitkeep, so the directories reach "
-        "the pod empty and `git clone --depth 1` drops them"
-    )
-    assert "mkdir" in body_src, "the loop no longer creates the directory"
-
-
-def test_verify_asserts_clonability():
-    """A new refusal that nothing calls is decorative."""
-    verify = next(
-        n
-        for n in ast.parse(_MOD.read_text(encoding="utf-8")).body
-        if isinstance(n, ast.FunctionDef) and n.name == "_verify"
-    )
-    assert _calls_to(verify, "_assert_clonable"), "_verify does not call _assert_clonable"

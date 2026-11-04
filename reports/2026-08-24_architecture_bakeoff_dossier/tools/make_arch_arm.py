@@ -43,28 +43,24 @@ the floor and the arm config and asserts the **symmetric difference of the two r
 exactly the intended key set** — so an unintended change anywhere in the file fails loud, not just
 one to a key we happened to think of.
 
-It asserts, before any GPU work:
+It also asserts, before any GPU work:
 
 * ``diagnostic_visualizations`` equals whatever ``--diagnostics`` asked for — **off by default**,
   because violet's is **True** and the per-origin biopsy is expensive. ⛔ It is never flipped
   implicitly in either direction, and the value is read back by **parse** after the rewrite, so a
   commented-out key, a non-literal such as ``True and False``, or two live copies all refuse.
-  ⚠️ **The "~28 min/origin, i.e. ~6 h per emit" figure is unsourced.** It appears in five builder
-  docstrings and in **no measurement file**. Treat it as unverified; do not quote it as measured.
-  ⭐ **The diagnostics-OFF baseline it should be compared against IS measured, and has an
-  artifact**: ``reports/2026-08-24_architecture_bakeoff_dossier/results/exp02_emit_baseline.out``
-  — **1.70–3.44 min/origin** over three arms (``upctwofullzero_fortytwo`` 1.70,
-  ``upctwofullzero_fortythree`` 2.41, ``ctlfullzero_fortythree`` 3.44), from each arm's own
-  ``exp02_arm.log``, origin_1 → origin_13 divided by 12. ⚠️ ``ctlfullzero_fortytwo`` is **excluded
-  at 15.18** — its pod was co-tenanted (host load 43–66 against 2–6, GPU unthrottled), so its wall
-  clock is a property of the pod, not the run. ⇒ Against that baseline the unsourced figure would
-  be an **8–16× increase on the emit stage**, roughly $3 versus $23 over eight arms.
-  ⚠️⚠️ **This session withdrew that baseline once, wrongly**, asserting the log "carries no
-  per-line timestamps at all". It carries 118 line-anchored and 437 in total; the claim came from a
-  grep whose output had been truncated to a file that was never opened. Recorded because the
-  artifact above now exists precisely so the number need not be taken on anyone's word.
-  ⭐ The cheap way to settle the diagnostics-ON side: run one arm with ``--diagnostics``, read the
-  per-origin elapsed for origins 1 and 2, and kill it there. Two origins, not an arm.
+  ⚠️⚠️ **Both cost figures in circulation are unverified; neither is quoted here as measured.**
+  (a) "~28 min/origin, i.e. ~6 h per emit" appears in five builder docstrings and in **no
+  measurement file in this repository**. (b) A relayed emit baseline of "1.9-3.6 min/origin" came
+  from the `models` session on 2026-11-03, described as parsed from "``[Origin N/13]`` timestamps
+  in ``exp02_arm.log``" — but that log carries **no per-line timestamps at all**, only tqdm bars
+  with embedded elapsed fields, so the stated method cannot be what produced it; and an independent
+  parse of the completed-bar elapsed matched only 4-13 of 13 origins per arm and returned
+  **1.25 min/origin** for the arm quoted at 3.6, a ~3x disagreement. ⛔ So the emit cost with
+  diagnostics ON **and** OFF are both unmeasured, and the log that would settle either is
+  gitignored (``.gitignore:283``), in another repository, under a delivery path whose pods are
+  destroyed. ⭐ The cheap way to settle it: run one arm with ``--diagnostics``, read the per-origin
+  elapsed for origins 1 and 2, and kill it there. That is two origins, not an arm.
   ⛔ **Two things must be true on the pod, or the arm dies EARLY — not after training.**
   ⚠️ This docstring said "AFTER training" until 2026-11-03 and that was **false**:
   ``hydranet_manager.py:278-279`` hands ``VisualDiagnostics`` to ``_run_data_pipeline`` **before**
@@ -73,31 +69,32 @@ It asserts, before any GPU work:
   missing matplotlib raises in the data pipeline or during training. ⇒ The loss is minutes, not a
   finished run, and an operator told to "read origins 1-2" would never reach that stage.
 
-  (a) **matplotlib must be importable.** ⚠️ It is, and no install step is needed — but this
-  docstring prescribed one until 2026-11-03 and that instruction was unnecessary and carried a
-  real hazard of its own, so the reasoning is recorded rather than just deleted.
-  ⭐ **Measured on a prepared pod venv** (the one `pod_run_model.sh` built for
-  ``ctlfullzero_fortythree``, untouched): ``matplotlib 3.11.2`` present, ``toolz 1.2.0`` correct,
-  ``tlz`` importable, and ``VisualDiagnostics({"diagnostic_visualizations": True})`` constructs with
-  ``active=True``. ⇒ It arrives as an ordinary transitive dependency: **four** installed
-  distributions require it **unconditionally**, and the decisive one is **``views-datafactory``**
-  (``matplotlib<4,>=3.8``), which `pod_run_model.sh:172` installs **by name** in the same command —
-  so this is a hard requirement of a package the runner already asks for, not a coincidence of
-  resolution. (``pyod``, ``seaborn`` and ``views-reporting`` require it unconditionally too.)
-  ⛔ **So: no ``views-hydranet[viz]`` install, no second install, no toolz override to re-apply,
-  and nothing appended after `pod_run_model.sh:181`.** That whole step was mine, it was adopted on
-  a resolver reading rather than a venv reading, and it would have re-created the 2026-09-29 silent
-  toolz revert it was written to avoid. ⚠️ The resolver facts behind it are still true and still
-  worth knowing if an install is ever actually needed: the one-line combined form is
-  **UNSATISFIABLE** (``viewser==6.6.4`` caps ``toolz>=0.11.1,<0.12.0``), and the extra alone
-  **downgrades** a good toolz (``- toolz==1.2.0`` / ``+ toolz==0.11.2``). ⇒ Two installs, toolz
-  strictly last, asserted — but only if the measured state ever stops holding.
-  ⚠️ **The failure mode is real even though its trigger is absent.** ``views-hydranet`` declares
-  matplotlib only under ``[viz]`` while ``VisualDiagnostics`` needs it whenever
-  ``diagnostic_visualizations`` is True — a plain config key. If those four requirers ever move it
-  behind an extra, diagnostics raise ``ImportError`` on the first plotting call, which
-  ``visual_diagnostics.py:27-40`` makes lazy ⇒ inside the data pipeline or during training. ⇒ The
-  guard worth having is an **early import check when the flag is on**, not an install.
+  (a) **matplotlib must be installed**, as this package's optional ``viz`` extra. ⛔ Never hand-pin
+  its range; the extra declares it and a second copy drifts without failing. ⛔⛔ **Two installs,
+  toolz strictly LAST, then asserted.** Measured 2026-11-03 against the real indexes:
+
+  * ``views-hydranet[viz]~=0.1.1`` **plus** ``toolz>=0.12.1`` on one line is **UNSATISFIABLE**:
+    ``viewser==6.6.4`` caps ``toolz>=0.11.1,<0.12.0`` and ``views-pipeline-core`` needs
+    ``viewser>=6.6.4``. ⇒ That is what `pod_run_model.sh:177-181`'s *"MUST stay the last install"*
+    actually encodes — unsatisfiability, not ordering hygiene.
+  * the extra installed into a venv already holding a good toolz **actively downgrades it**:
+    ``uv pip install --dry-run`` reports ``- toolz==1.2.0`` / ``+ toolz==0.11.2``.
+  * ``uv pip install`` is **additive**; it removes nothing. Verified on a throwaway venv —
+    ``appwrite==13.6.1`` survived a later unrelated install. ⇒ A hand install does **not** drop
+    ``views-pipeline-core[appwrite]``, so views-models#517's publish-time failure is not
+    reintroduced. (Raised in review as a defect; measured false.)
+
+  ::
+
+      uv pip install --python "$VENV/bin/python" "views-hydranet[viz]~=0.1.1"   # downgrades toolz
+      uv pip install --python "$VENV/bin/python" "toolz>=0.12.1"                # restores it, LAST
+      V=$("$VENV/bin/python" -c "import matplotlib, tlz, toolz; print(toolz.__version__)")
+      case "$V" in 0.1[2-9]*|0.[2-9]*|[1-9]*) ;; *) echo "toolz $V too old" >&2; exit 1;; esac
+
+  ⚠️ The check imports ``tlz`` as well as ``toolz``, because C-151's symptom is ``tlz`` failing to
+  import on py3.11, not a version string reading wrong. ⚠️ And `pod_run_model.sh:186` writes
+  ``.built-by-pod-run-model`` last so its presence means "the whole block ran in order" — a hand
+  install afterwards makes that marker's claim narrower than it reads.
 
   (b) **the plots land in a RELATIVE** ``reports/plots/diagnostics/<ts>/``, which
   `pod_run_model.sh:371`'s ``cd`` resolves to
@@ -113,22 +110,11 @@ It asserts, before any GPU work:
   path, and ``arm_identity_check.py`` resolves only ``config_hyperparameters.py`` while this key
   lives in ``config_meta.py`` ⇒ it is **invisible to the reuse check**. An arm reused from an
   earlier build keeps the setting it was built with, silently. Build fresh when it matters.
-⛔ **Run this with the project interpreter**, ``conda run -n views-hydranet-env``. ``_verify``
-imports ``views_hydranet.architectures.registry`` to instantiate the variant on CPU, and the
-``views_pipeline`` environment has no ``views_hydranet`` at all — so a non-default variant fails
-only at verification, after the arm has been copied. Reported 2026-11-03 after it cost a pass.
-
-It also asserts, before any GPU work:
-
 * ``ss_feedback`` is **set** to ``'sample'`` whenever ``ss_epsilon_max > 0`` (C-259) — ⚠️ written
   at the ``_set_key`` step, **not** asserted in ``_verify``, unlike every other item in this list.
   It is the one write with no readback anywhere; said plainly because this docstring claimed it was
   asserted until 2026-11-03.
 * ``features == regression_targets`` in order (C-260 rejects otherwise; fail before the GPU spins).
-* ⛔ every directory in ``_REQUIRED_SUBDIRS`` holds a trackable file, not merely exists — the arm
-  reaches the pod by ``git clone --depth 1`` and git carries files, so an empty one is absent there
-  and ``ModelPathManager`` raises AFTER provisioning. Measured at **1 of 7** on all eight EXP-03
-  arms built at 99fe887; views-models #685 is the same failure five days earlier.
 """
 
 from __future__ import annotations
@@ -187,20 +173,6 @@ _EPS_WORD = {0.0: "zero", 0.1: "tenth", 0.25: "quarter", 0.5: "half"}
 #: Sentinel for "no single live boolean under this key". A plain `None` would collide with a
 #: config that genuinely wrote `None`, which is one of the shapes that must refuse.
 _ABSENT = object()
-
-
-#: The directories ``ModelPathManager`` validates on import. ⚠️ Each must contain a TRACKABLE
-#: file, not merely exist: the arm reaches the pod through `git clone --depth 1`, and git carries
-#: files rather than directories.
-_REQUIRED_SUBDIRS = (
-    "data/raw",
-    "data/generated",
-    "data/processed",
-    "artifacts",
-    "logs",
-    "notebooks",
-    "reports",
-)
 
 
 _SEED_WORD = {
@@ -522,18 +494,8 @@ def build(
         # Mirror the floor's directory skeleton. ModelPathManager validates that each of these exists
         # and raises FileNotFoundError otherwise — so an arm missing `data/processed` dies at startup,
         # which is exactly what happened on the first attempt at 15:15.
-        for sub in _REQUIRED_SUBDIRS:
-            d = dest / sub
-            d.mkdir(parents=True, exist_ok=True)
-            #: ⛔⛔ A `.gitkeep` per directory, or the directory does not survive the pod's
-            #: `git clone --depth 1` and `ModelPathManager` raises BEFORE training — after the pod
-            #: is provisioned and paid for. git tracks files, not directories, and `mkdir` leaves
-            #: these EMPTY: the floor carries all seven `.gitkeep` files but
-            #: `shutil.ignore_patterns` above drops `data`, `logs`, `artifacts`, `reports` and
-            #: `notebooks`, so only `data/raw` got one back — via the parquet copy, by accident.
-            #: ⇒ 1 of 7, measured on all eight EXP-03 arms built at 99fe887. This is views-models
-            #: #685 recurring in the tool five days after it was fixed in the instructions.
-            (d / ".gitkeep").touch()
+        for sub in ("data/generated", "data/processed", "artifacts", "logs", "notebooks", "reports"):
+            (dest / sub).mkdir(parents=True, exist_ok=True)
         # data/raw carries the cached parquet, so no arm fetches from the network mid-sweep.
         src_raw = _FLOOR / "data" / "raw"
         if not src_raw.is_dir():
@@ -614,29 +576,6 @@ def build(
     return dest
 
 
-def _assert_clonable(dest: Path) -> None:
-    """Refuse unless every required subdirectory holds at least one file git can track.
-
-    ⛔ Existence is not the property. ``ModelPathManager`` validates that these directories exist,
-    but the arm reaches the pod through ``git clone --depth 1`` — and git carries FILES. An empty
-    directory is simply absent on the other side, so validation raises there and not here: after
-    the pod is provisioned, after the operator has paid for it, and with nothing in the build log
-    to explain it.
-
-    ⇒ Measured on all eight EXP-03 arms built at 99fe887: **1 of 7**, the one being ``data/raw``
-    and only because the parquet copy happened to bring a ``.gitkeep`` with it. views-models #685
-    is the same failure, fixed in the instructions five days earlier and then reintroduced by this
-    tool — which is the argument for asserting it here rather than documenting it again.
-    """
-    bare = [s for s in _REQUIRED_SUBDIRS if not any((dest / s).iterdir())]
-    if bare:
-        raise SystemExit(
-            f"{_TOOL}: {sorted(bare)} exist but are EMPTY in {dest}. git tracks files, not "
-            "directories, so `git clone --depth 1` would not recreate them on the pod and "
-            "ModelPathManager would raise there — after provisioning. The arm is NOT built."
-        )
-
-
 def _assert_meta(dest: Path, *, diagnostics: bool) -> None:
     """Read the BUILT arm's ``config_meta.py`` back and refuse unless it says what was asked.
 
@@ -704,7 +643,6 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str,
     #
     # It also has nothing to do with the control contrast; it was below it only by append order.
     _assert_meta(dest, diagnostics=diagnostics)
-    _assert_clonable(dest)
 
     # ── the contrast this dossier actually claims ────────────────────────────────────────────
     # The ancestors diff only against the FLOOR. But every claim here is treatment-vs-CONTROL,
@@ -808,10 +746,7 @@ def _parser() -> argparse.ArgumentParser:
         "--control",
         default=None,
         help="label of THIS experiment's control arm, e.g. ctlfullzero_fortytwo. Default keeps "
-             "the historical `fullzero_<seed>`, which no longer exists on disk. NOTE: a CONTROL "
-             "arm is built naming ITSELF here -- `--variant <incumbent> --control <its own label>` "
-             "-- because the reference cannot differ from itself and _verify returns early on that "
-             "branch. This was not discoverable from the help text and cost a failed build pass.",
+             "the historical `fullzero_<seed>`, which no longer exists on disk.",
     )
     p.add_argument(
         "--diagnostics",
