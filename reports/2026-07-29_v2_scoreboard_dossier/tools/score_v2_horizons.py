@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # own dir (activation_
 sys.path.insert(0, f"{_HN}/reports/2026-07-17_lodestar_eval_dossier/tools")
 sys.path.insert(0, f"{_HN}/reports/2026-07-25_t0_rollout_skill_dossier/tools")
 sys.path.insert(0, f"{_HN}/reports/2026-07-28_datafactory_migration_dossier/tools")
+sys.path.insert(0, f"{_HN}/scripts")  # rollout_ruler_core.crps_concentration (#537)
 
 from activation_metrics import activation_frequency, topk_occurrence  # noqa: E402
 from lodestar_score import (  # noqa: E402
@@ -50,6 +51,7 @@ from lodestar_score import (  # noqa: E402
     brier,
     crps_ensemble,
 )
+from rollout_ruler_core import crps_concentration  # noqa: E402
 from rollout_skill_score import (  # noqa: E402
     _persistence_gathered,
     _support_keys,
@@ -73,11 +75,7 @@ def _metric_row(label, g, support, tmap, tgt, h, thr):
     then adds mcr_all + mcr_none. g = gathered dict (origin_m0, h, unit) -> (cs, gate)."""
     cs = np.stack([g[(m0, h, u)][0] for (m0, u) in support])  # (N, S)
     has_gate = g[(support[0][0], h, support[0][1])][1] is not None
-    p = (
-        np.array([g[(m0, h, u)][1] for (m0, u) in support])
-        if has_gate
-        else (cs > 0).mean(1)
-    )
+    p = np.array([g[(m0, h, u)][1] for (m0, u) in support]) if has_gate else (cs > 0).mean(1)
     if thr is not None:
         if not has_gate:
             raise ValueError(f"[{tgt}] {label}: th_gated needs a gate — FAIL")
@@ -89,6 +87,22 @@ def _metric_row(label, g, support, tmap, tgt, h, thr):
     ey = cs.mean(1)
     ratio = ey[ev] / truth[ev] if ev.sum() else np.array([])
     tmean = float(truth.mean())
+    # #537: concentration refuses a non-finite per-cell crps -- correctly, in isolation. But
+    # `score_horizons_v2` accumulates every (arm x target x horizon) row and writes the CSV only at
+    # the end, so propagating here would lose an entire expensive multi-arm run to one bloomed
+    # cell, where before it wrote a row whose crps_all was NaN. ⇒ store NaN and let
+    # `require_headline_columns` refuse THAT ROW downstream, which is the behaviour it already has
+    # for crps_events/crps_none on an empty band.
+    try:
+        _conc = crps_concentration(c, truth, where=f"[{tgt}] {label} h={h}")
+    except ValueError as exc:
+        print(f"  [{tgt}] {label} h={h}: concentration unavailable — {exc}", file=sys.stderr)
+        _conc = {
+            "crps_concentration": float("nan"),
+            "crps_effective_n": float("nan"),
+            "crps_top_band": "",
+            "crps_band_n": {},
+        }
     # #258 activation-aware metrics (crps_all/MCR are blind to the collapse): occurrence frequency,
     # gate precision@k, and the named risk — composed magnitude on the gate's false positives.
     af = activation_frequency(cs, truth)
@@ -104,6 +118,15 @@ def _metric_row(label, g, support, tmap, tgt, h, thr):
         crps_all=float(c.mean()),
         crps_events=float(c[ev].mean()) if ev.sum() else float("nan"),
         crps_none=float(c[ze].mean()) if ze.sum() else float("nan"),
+        # #537: a pooled CRPS on this population is dominated by a handful of cells (118 of
+        # 842,634 carried 81.16% at h36), so it cannot be told from a blind score when reported
+        # alone. These two travel with it; HEADLINE_COLUMNS now requires both.
+        crps_concentration=_conc["crps_concentration"],
+        crps_effective_n=_conc["crps_effective_n"],
+        # ⚠️ without this, crps_concentration == 0.0 is ambiguous: "the top band is cheap" and
+        # "the top band is EMPTY" are opposite readings of the same number. On ns/os, a narrower
+        # region or a shorter origin set the 101+ band can genuinely be empty.
+        crps_top_band_n=int(_conc["crps_band_n"].get(_conc["crps_top_band"], 0)),
         size_ratio=float(np.median(ratio)) if ratio.size else float("nan"),
         pos_mcr=float(np.mean(ratio)) if ratio.size else float("nan"),  # = mcr_events
         mcr_all=float(ey.mean() / tmean) if tmean > 0 else float("nan"),
@@ -201,10 +224,15 @@ if __name__ == "__main__":
     )
     df = pd.DataFrame(rows)
     df.to_csv(out_csv, index=False)
-    print(f"wrote {out_csv}  ({len(df)} rows: {df.model.nunique()} models × "
-          f"{len(targets)} targets × {len(horizons)} h)")
+    print(
+        f"wrote {out_csv}  ({len(df)} rows: {df.model.nunique()} models × "
+        f"{len(targets)} targets × {len(horizons)} h)"
+    )
     for tgt in targets:
         sub = df[df.target == tgt]
         print(f"\n=== {tgt}: crps_all / mcr_none by horizon ===")
-        print(sub.pivot_table(index="model", columns="h", values="crps_all")
-              .to_string(float_format=lambda x: f"{x:.4f}"))
+        print(
+            sub.pivot_table(index="model", columns="h", values="crps_all").to_string(
+                float_format=lambda x: f"{x:.4f}"
+            )
+        )
