@@ -474,7 +474,7 @@ def crps_concentration(crps, truth, *, edges=CRPS_TRUTH_BAND_EDGES, where: str =
             keys.append(f"{lo}")
         else:
             keys.append(f"{lo}-{hi - 1}")
-        masks.append((y > lo) if hi is None else ((y >= lo) & (y < hi)))
+        masks.append((y >= lo) if hi is None else ((y >= lo) & (y < hi)))
 
     #: Half-open ascending edges partition ``[edges[0], inf)`` by construction, so the only way a
     #: cell escapes is a truth BELOW the first edge — a negative count. Refuse rather than report a
