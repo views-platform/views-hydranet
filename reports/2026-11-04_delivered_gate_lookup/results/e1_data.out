@@ -72,4 +72,4 @@ E-1 LOADER — the delivered gate at h1, the truth, and the emission's draws
   PASS  G-5  ALIGNMENT: gate units == draws units == truth cell order on 13/13 origins
   PASS  G-8  STRUCTURAL: 842,634 cell-months, 2,905 events (0.3448%), max 2482  (expected 842,634 / 2,905 / 2482)
 
-  loaded 13 origins, 7 folds, 453,726 scored cell-months, in 30.5 s
+  loaded 13 origins covering months 457..469, 7 folds, 453,726 scored cell-months, in 36.4 s
