@@ -5,8 +5,9 @@ measured, **118 of 842,634 cells carried 81.16%** of the total at h36
 (`reports/2026-10-30_upsample_arm_dossier/results/exp03_crps_concentration.out`). A CRPS reported
 alone therefore cannot be told from a score that is blind to the effect.
 
-⛔ **`crps_effective_n` has NOT been measured on a delivered arm**, and two proxies that bracket it
-must not be quoted as if they were it:
+⭐ **`crps_effective_n` IS now measured on delivered arms** — **475-505 at h18** across all ten
+(`reports/2026-10-30_upsample_arm_dossier/results/exp03_p25.out`, 2026-11-04). ⛔ Two earlier
+figures were PROXIES and neither is this statistic:
   * **178.3** — the participation ratio of a vector reconstructed from the committed per-band
     sums. It is an OVER-estimate: uniform within each band, so it smooths away exactly the
     within-band concentration the statistic exists to find.
@@ -14,7 +15,9 @@ must not be quoted as if they were it:
     probable summary-event assignment holding 62% of the truth mass. A proxy only because this
     body is timid, so a cell's cost tracks its truth; and it is a statistic of the TRUTH, not of
     the per-cell CRPS that `crps_effective_n` is defined on.
-⇒ The real figure needs the per-cell CRPS from the delivered draws (blocked on #539's arm rename).
+⇒ Both bracketed the truth badly in opposite directions. ⚠️ And the h36 catastrophe is **local**,
+not general: one probable summary-event assignment holds 62% of that horizon's truth mass, and h18
+— which that cell never touches — reads ~490 regardless.
 
 ⛔ Every expected value below is computed BY HAND or read from a committed artifact, never from the
 implementation. And the guard tests assert the refusal **FIRES** — this project's recurring defect

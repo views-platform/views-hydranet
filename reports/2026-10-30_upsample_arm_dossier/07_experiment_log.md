@@ -449,3 +449,72 @@ since changing §2 after the numbers exist is what device 6 forbids.
   asserts equality **with the incumbent**, not with `905,289`. A comment at `:197-202` records that
   an earlier version pinned the literals and it was removed as a tripwire that *"would then be
   'fixed' by editing the constant, after which it guards nothing."* ⛔ Do not re-add literal pins.
+
+---
+
+# 2026-11-04 — `P-25` settled: the body is untouched, with nearly 4× margin
+
+**Pre-registration** `PREREG.md` §5b, `P-25` — *"The body is untouched"*, threshold
+**|Δ `crps_all`| @h18 ≤ 0.006** · **Population** §3: *"seeds **42** and **43**, L=300, paired"* ·
+**Script** `tools/exp03_p25.py` · **Output** `results/exp03_p25.out` · **Ledger** `R-62` ·
+**CPU only, no GPU**
+
+## ✅ VERDICT: CONFIRMED
+
+| seed | `crps_all` control | `crps_all` arm | Δ | within 0.006? |
+|---|---|---|---|---|
+| 42 | 0.053520 | 0.051937 | **−0.001583** | ✅ |
+| 43 | 0.051791 | 0.052284 | **+0.000493** | ✅ |
+
+⇒ **max |Δ| = 0.001583** against the pre-registered **0.006** — inside by a factor of **3.8**.
+⇒ The arm changes the body's *spatial structure* (§4.5, +0.0504 at d=1, replicating) **without
+changing what the body costs**, which is exactly what `P-25` was written to check.
+
+⛔ **Seeds 44, 45 and 47 are NOT in the verdict.** §3's population is seeds 42 and 43; the later
+seeds arrived with `PREREG_EXP03_SEEDS.md`. They are reported beside it as context (Δ −0.000134,
++0.000171, +0.000518 — all well inside) and folding them in would be moving the goalposts after the
+numbers exist.
+
+⭐ **Why an h18 number is permitted here:** §12, and §3's own estimator slot provisioning
+*"h1/6/12/18/24/30/36, plus the oracle ceiling"*. ⛔ No frozen `HORIZONS` constant was changed —
+`exp03_magnitude.py` is untouched so its committed output stays reproducible, and h18 is computed
+in a dedicated script.
+
+## ⭐⭐ And the figure this programme has been quoting as a proxy is now measured
+
+`crps_effective_n` on **real per-cell CRPS**, h18, all ten delivered arms:
+
+| | |
+|---|---|
+| range across arms | **475.84 – 504.59** |
+| i.e. the score averages over | ~**490** of 842,634 cells — **0.06%** |
+| top truth band | ~**22.5%** of the score in **57** cells |
+
+⛔ **This corrects two numbers I quoted earlier today, in opposite directions:**
+
+| figure | what it actually was |
+|---|---|
+| **178.3** | a vector reconstructed **uniform within each band** — it smooths away the within-band concentration the statistic exists to find |
+| **2.58** | the participation ratio of the **truth** vector at h36, not of the CRPS |
+
+⇒ ⭐ **And it localises the h36 catastrophe rather than generalising it.** 2.58 is real *for h36*,
+and it is caused by **one** probable summary-event assignment — priogrid 148759, month 504,
+113,395 fatalities ringed by zeros — holding **62%** of that horizon's truth mass. Remove that
+single cell and h36 reads **214.94**. h18, which that cell never touches, reads ~490 regardless.
+
+⇒ So *"the score is blind"* is a statement about **one horizon ruined by one data artifact**
+(views-datafactory#533), **not** about CRPS in general. Three independent measurements now agree on
+that shape.
+
+⚠️ **But 0.06% is still 0.06%.** "Not pathological" means *readable*, not *good*: a change touching
+ordinary cells remains hard for this score to see, which is why §5's concentration figure is now
+reported beside every CRPS (#537).
+
+## ⛔ What this does not settle
+
+- **`P-22` remains unsettled** and needs **4 teacher-forced GPU emits** (#543) — it is not
+  derivable from anything on disk.
+- **`P-23` stays an underpowered MIXED reading** (§0, §2.2). `O-3` remains open.
+- ⚠️ **`P-25` CONFIRMED is not evidence the arm works.** It says the body's *cost* is unchanged.
+  Combined with §4.5 it says the arm moved **structure** without moving **cost** — which is the
+  whole reason §11's adoption rests on structure and not on a score.
