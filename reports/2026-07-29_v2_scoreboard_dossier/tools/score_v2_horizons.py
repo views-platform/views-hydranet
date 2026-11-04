@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # own dir (activation_
 sys.path.insert(0, f"{_HN}/reports/2026-07-17_lodestar_eval_dossier/tools")
 sys.path.insert(0, f"{_HN}/reports/2026-07-25_t0_rollout_skill_dossier/tools")
 sys.path.insert(0, f"{_HN}/reports/2026-07-28_datafactory_migration_dossier/tools")
+sys.path.insert(0, f"{_HN}/scripts")  # rollout_ruler_core.crps_concentration (#537)
 
 from activation_metrics import activation_frequency, topk_occurrence  # noqa: E402
 from lodestar_score import (  # noqa: E402
@@ -50,6 +51,7 @@ from lodestar_score import (  # noqa: E402
     brier,
     crps_ensemble,
 )
+from rollout_ruler_core import crps_concentration  # noqa: E402
 from rollout_skill_score import (  # noqa: E402
     _persistence_gathered,
     _support_keys,
@@ -91,6 +93,7 @@ def _metric_row(label, g, support, tmap, tgt, h, thr):
     tmean = float(truth.mean())
     # #258 activation-aware metrics (crps_all/MCR are blind to the collapse): occurrence frequency,
     # gate precision@k, and the named risk — composed magnitude on the gate's false positives.
+    _conc = crps_concentration(c, truth, where=f"[{tgt}] {label} h={h}")
     af = activation_frequency(cs, truth)
     tk = topk_occurrence(p, ey, truth)  # rank by the gate p; magnitude = composed mean ey
     return dict(
@@ -104,6 +107,11 @@ def _metric_row(label, g, support, tmap, tgt, h, thr):
         crps_all=float(c.mean()),
         crps_events=float(c[ev].mean()) if ev.sum() else float("nan"),
         crps_none=float(c[ze].mean()) if ze.sum() else float("nan"),
+        # #537: a pooled CRPS on this population is dominated by a handful of cells (118 of
+        # 842,634 carried 81.16% at h36), so it cannot be told from a blind score when reported
+        # alone. These two travel with it; HEADLINE_COLUMNS now requires both.
+        crps_concentration=_conc["crps_concentration"],
+        crps_effective_n=_conc["crps_effective_n"],
         size_ratio=float(np.median(ratio)) if ratio.size else float("nan"),
         pos_mcr=float(np.mean(ratio)) if ratio.size else float("nan"),  # = mcr_events
         mcr_all=float(ey.mean() / tmean) if tmean > 0 else float("nan"),
