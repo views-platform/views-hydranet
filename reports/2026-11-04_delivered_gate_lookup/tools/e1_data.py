@@ -67,6 +67,7 @@ Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
 
 from __future__ import annotations
 
+import functools
 import json
 import subprocess
 import sys
@@ -114,8 +115,14 @@ G8_EVENTS = 2_905
 G8_MAX = 2482.0
 
 
+@functools.lru_cache(maxsize=1)
 def anchor_ap() -> float:
-    """-> the committed ``ap_ctl`` for this arm at h1. Raises if the record is absent."""
+    """-> the committed ``ap_ctl`` for this arm at h1. Raises if the record is absent.
+
+    ⚠️ Cached, so the run prints ONE anchor. Uncached it was read four times per run (once by G-0
+    and three times by the report and the exit strings), and a file changing mid-run would have
+    printed two different anchors in the same block.
+    """
     rows = json.loads(_ANCHOR_JSON.read_text())
     hit = [r for r in rows if r.get("seed") == "fortytwo" and r.get("h") == 1]
     if len(hit) != 1:
@@ -125,6 +132,14 @@ def anchor_ap() -> float:
         )
     row = hit[0]
     #: ⛔ The anchor's own population must match ours, or the gate compares two different things.
+    #: ⚠️ Missing keys are refused HERE rather than raising KeyError, because a bare traceback is
+    #: not the reportable refusal the gate contract promises.
+    missing = [k for k in ("ap_ctl", "n", "n_org") if k not in row]
+    if missing:
+        raise SystemExit(
+            f"e1_data: the anchor record in {_ANCHOR_JSON} is missing {missing}. Its population "
+            f"cannot be checked, so no copy gate may be claimed (W-120)."
+        )
     if int(row["n"]) != G8_CELL_MONTHS or int(row["n_org"]) != N_ORIGINS:
         raise SystemExit(
             f"e1_data: the anchor was computed on n={row['n']} over {row['n_org']} origins, but "
@@ -146,6 +161,15 @@ def truth_grid() -> tuple[np.ndarray, np.ndarray, int]:
     )
     mo, un = tb["month_id"].to_numpy(), tb["priogrid_id"].to_numpy()
     cells, m0 = np.unique(un), int(mo.min())
+    #: ⛔ Every later read is `grid[month - m0]`. If the pull were ever re-scoped to the
+    #: calibration window — which its own filename invites — `457 - m0` would go NEGATIVE and
+    #: NumPy would silently return rows from the END of the grid instead of raising. Refuse.
+    if not (m0 <= H1_MONTHS[0] and int(mo.max()) >= H1_MONTHS[-1]):
+        raise SystemExit(
+            f"e1_data: the pull covers months {m0}..{int(mo.max())}, which does not contain "
+            f"the h1 window {H1_MONTHS[0]}..{H1_MONTHS[-1]}. Every `grid[month - m0]` read "
+            f"would be out of range, and a negative index wraps silently rather than raising."
+        )
     grid = np.zeros((int(mo.max()) - m0 + 1, cells.size), np.float64)
     grid[mo - m0, np.searchsorted(cells, un)] = tb["lr_sb_best"].to_numpy()
     return grid, cells, m0
@@ -154,15 +178,20 @@ def truth_grid() -> tuple[np.ndarray, np.ndarray, int]:
 def load_gate_h1() -> dict[int, tuple[np.ndarray, np.ndarray, int]]:
     """-> ``{origin: (gate_mean[N_CELLS], units, month)}`` at h1.
 
-    Extraction is scoped to ``*/by_sb_best/*`` so the h36 arrays and the other two targets
-    are never
-    written to disk.
+    ⛔ Extraction is scoped to ``*/by_sb_best/*_h1.*``, which writes **only** the two h1 arrays
+    per origin.
+
+    ⚠️ The obvious wildcard ``*/by_sb_best/*`` does NOT do that. ``y_pred_h36.npy`` and
+    ``identifiers_h36.npz`` live inside ``by_sb_best/`` as well — verified by listing the
+    archive — so it writes roughly twice the data, on a disk already at 96%. An earlier version
+    of this function used that wildcard and claimed otherwise right here; the #563 code review
+    caught the false claim, not the code.
     """
     out: dict[int, tuple[np.ndarray, np.ndarray, int]] = {}
     src = arm_dir(ARM, arms=arm_directories()) / DELIVERY / "gate_endpoints.tar.zst"
     with tempfile.TemporaryDirectory(prefix="e1_gate_") as td:
         subprocess.run(
-            ["tar", "-I", "zstd", "-xf", str(src), "-C", td, "--wildcards", "*/by_sb_best/*"],
+            ["tar", "-I", "zstd", "-xf", str(src), "-C", td, "--wildcards", "*/by_sb_best/*_h1.*"],
             check=True,
         )
         root = Path(td) / "gate_endpoints"
@@ -276,7 +305,22 @@ def gate_0_ap_copy(
 
 
 def gate_4_leakage() -> tuple[bool, list[int]]:
-    """-> (passed, per-fold intersection sizes). Counted, never argued."""
+    """-> (passed, per-fold intersection sizes). Counted, never argued.
+
+    ⚠️⚠️ **This is a CONSTRUCTION gate, not a VOID gate** (``GLOSSARY.md`` §4b draws the
+    distinction: a construction gate asks whether the *object* is what it is captioned as).
+    ``FOLDS``
+    is built as ``(range(m - FIT_LEN, m), m)``, so on the module's own constant the intersection is
+    empty **by construction** and this gate cannot fire on anything the module produces — only on a
+    future edit to ``FOLDS``, which is exactly what it is here to catch.
+
+    ⛔ **It is therefore NOT evidence about the analysis.** The leakage risk E-1 actually faces
+    lives
+    in the fit code, which does not exist yet: the bins must be cut on the fit months only and
+    applied to the score month. That gate is **owed by #565** and a PASS here says nothing about
+    it.
+    Recorded so the captured ``.out``'s "4 of 4 gates pass" is not read as more than it is.
+    """
     sizes = [len(set(fit) & {sco}) for fit, sco in FOLDS]
     return all(s == 0 for s in sizes), sizes
 
@@ -286,7 +330,33 @@ def gate_5_alignment(
     draws: dict[int, tuple[np.ndarray, np.ndarray, int]],
     cells: np.ndarray,
 ) -> tuple[bool, list[int]]:
-    """-> (passed, the origins that failed). Three-way ``np.array_equal`` per origin."""
+    """-> (passed, the origins that failed). FOUR checks per origin, plus a key-set precondition.
+
+    ⭐ **Widened after the #563 code review**, which found two holes. Both are strengthenings, not
+    relaxations, so neither touches ``PREREG.md``'s thresholds or its verdict rule:
+
+      * the key sets are now a **precondition**. ``gate``'s keys are parsed from archive directory
+        names and ``draws``' are ``range(N_ORIGINS)``, so a 1-indexed archive passed the origin
+        COUNT check in ``load_gate_h1`` and then raised a bare ``KeyError`` *inside* this gate — a
+        traceback instead of the reportable refusal the gate contract promises.
+      * the loaded months are now checked against ``H1_MONTHS``. Previously nothing joined the two
+        halves: this gate checked gate-month == draws-month per origin, and ``gate_8_structural``
+        read the truth at the hardcoded ``H1_MONTHS`` regardless of what was loaded. A re-delivery
+        starting at 458 would have passed **both** while the printed event count described a month
+        set that was not the one in hand.
+    """
+    if set(gate) != set(draws):
+        raise SystemExit(
+            f"e1_data: G-5 cannot run — the gate carries origins {sorted(gate)} and the draws "
+            f"{sorted(draws)}. Alignment is undefined across different origin sets."
+        )
+    loaded = sorted(m for _, _, m in gate.values())
+    if loaded != list(H1_MONTHS):
+        raise SystemExit(
+            f"e1_data: G-5 — the loaded origins cover months {loaded}, not the expected "
+            f"{list(H1_MONTHS)}. G-8 reads the truth at the expected months regardless, so every "
+            f"reported count would describe a different population from the one loaded."
+        )
     bad = [
         o
         for o in sorted(gate)
@@ -347,9 +417,13 @@ def run_gates() -> dict[str, object]:
     if not (ok4 and ok5 and ok8):
         raise SystemExit("\nVOID: a structural gate failed. See the block above.")
 
+    #: ⚠️ Counted off the LOADED arrays, not off `len(FOLDS) * N_CELLS` — a report that recomputes
+    #: its own total from constants cannot disagree with itself, which is the point of printing it.
+    scored = sum(gate[o][0].size for _, sco in FOLDS for o in gate if gate[o][2] == sco)
     print(
-        f"\n  loaded {len(gate)} origins, {len(FOLDS)} folds, "
-        f"{len(FOLDS) * N_CELLS:,} scored cell-months, in {time.time() - t0:.1f} s"
+        f"\n  loaded {len(gate)} origins covering months {min(m for _, _, m in gate.values())}.."
+        f"{max(m for _, _, m in gate.values())}, {len(FOLDS)} folds, "
+        f"{scored:,} scored cell-months, in {time.time() - t0:.1f} s"
     )
     return {"grid": grid, "cells": cells, "m0": m0, "gate": gate, "draws": draws}
 

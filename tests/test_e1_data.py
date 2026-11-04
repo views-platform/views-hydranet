@@ -66,6 +66,16 @@ def _toy(n_cells: int = 40, n_origins: int = 3, n_draws: int = 4):
     return gate, draws, grid, cells, m0
 
 
+def _align_months(monkeypatch, gate):
+    """Point H1_MONTHS at the toy's own months, so G-5's month-set precondition is satisfied.
+
+    ⭐ The precondition itself is tested directly by
+    ``test_gate_5_FIRES_when_the_loaded_months_are_not_the_expected_set``; here it is satisfied so
+    the per-origin array checks are reachable at all.
+    """
+    monkeypatch.setattr(e1_data, "H1_MONTHS", tuple(sorted(m for _, _, m in gate.values())))
+
+
 # ── G-0 · the copy gate ──────────────────────────────────────────────────────────────────────
 
 
@@ -123,16 +133,33 @@ def test_anchor_refuses_a_population_that_is_not_ours(tmp_path, monkeypatch):
         json.dumps([{"seed": "fortytwo", "h": 1, "ap_ctl": 0.5, "n": 13110, "n_org": 13}])
     )
     monkeypatch.setattr(e1_data, "_ANCHOR_JSON", bad)
+    #: ⚠️ anchor_ap is lru_cached so one run prints one anchor; the cache must be cleared or this
+    #: test silently asserts against whatever a previous test already read.
+    e1_data.anchor_ap.cache_clear()
     with pytest.raises(SystemExit, match="no copy gate may be claimed"):
         e1_data.anchor_ap()
+    e1_data.anchor_ap.cache_clear()
 
 
 def test_anchor_refuses_a_missing_record(tmp_path, monkeypatch):
     missing = tmp_path / "pairs.json"
     missing.write_text(json.dumps([{"seed": "fortythree", "h": 1, "ap_ctl": 0.5}]))
     monkeypatch.setattr(e1_data, "_ANCHOR_JSON", missing)
+    e1_data.anchor_ap.cache_clear()
     with pytest.raises(SystemExit, match="exactly one"):
         e1_data.anchor_ap()
+    e1_data.anchor_ap.cache_clear()
+
+
+def test_anchor_refuses_a_record_without_its_population(tmp_path, monkeypatch):
+    """⛔ A missing key must be a reportable refusal, not a bare KeyError traceback."""
+    thin = tmp_path / "pairs.json"
+    thin.write_text(json.dumps([{"seed": "fortytwo", "h": 1, "ap_ctl": 0.5}]))
+    monkeypatch.setattr(e1_data, "_ANCHOR_JSON", thin)
+    e1_data.anchor_ap.cache_clear()
+    with pytest.raises(SystemExit, match="missing"):
+        e1_data.anchor_ap()
+    e1_data.anchor_ap.cache_clear()
 
 
 def test_the_real_anchor_is_the_published_value():
@@ -165,15 +192,17 @@ def test_gate_4_FIRES_when_a_fold_scores_a_month_it_was_fitted_on(monkeypatch):
 # ── G-5 · alignment ──────────────────────────────────────────────────────────────────────────
 
 
-def test_gate_5_passes_on_aligned_inputs():
+def test_gate_5_passes_on_aligned_inputs(monkeypatch):
     gate, draws, _grid, cells, _m0 = _toy()
+    _align_months(monkeypatch, gate)
     ok, bad = e1_data.gate_5_alignment(gate, draws, cells)
     assert ok and bad == [], bad
 
 
-def test_gate_5_FIRES_on_permuted_cell_order():
+def test_gate_5_FIRES_on_permuted_cell_order(monkeypatch):
     """⛔ A reordered unit array would make every positional read silently wrong."""
     gate, draws, _grid, cells, _m0 = _toy()
+    _align_months(monkeypatch, gate)
     o = sorted(draws)[1]
     g, u, m = draws[o]
     draws[o] = (g, np.roll(u, 1), m)
@@ -181,9 +210,10 @@ def test_gate_5_FIRES_on_permuted_cell_order():
     assert not ok and bad == [o], bad
 
 
-def test_gate_5_FIRES_on_a_month_mismatch():
+def test_gate_5_FIRES_on_a_month_mismatch(monkeypatch):
     """⛔ The gate and the draws must describe the SAME month, not merely the same cells."""
     gate, draws, _grid, cells, _m0 = _toy()
+    _align_months(monkeypatch, gate)
     o = sorted(draws)[2]
     g, u, m = draws[o]
     draws[o] = (g, u, m + 1)
@@ -191,11 +221,48 @@ def test_gate_5_FIRES_on_a_month_mismatch():
     assert not ok and bad == [o], bad
 
 
-def test_gate_5_FIRES_when_the_truth_cell_order_differs():
+def test_gate_5_FIRES_when_the_truth_cell_order_differs(monkeypatch):
     gate, draws, _grid, cells, _m0 = _toy()
+    _align_months(monkeypatch, gate)
     ok, bad = e1_data.gate_5_alignment(gate, draws, np.roll(cells, 3))
     assert not ok, "G-5 accepted a truth cell order that matches neither input"
     assert sorted(bad) == sorted(gate), "a global mismatch must implicate every origin"
+
+
+def test_gate_5_FIRES_on_mismatched_origin_key_sets(monkeypatch):
+    """⛔ Review finding 5: a 1-indexed archive used to raise a bare KeyError inside the gate."""
+    gate, draws, _grid, cells, _m0 = _toy()
+    _align_months(monkeypatch, gate)
+    draws = {o + 1: v for o, v in draws.items()}  # the 1-indexed archive
+    with pytest.raises(SystemExit, match="different origin sets"):
+        e1_data.gate_5_alignment(gate, draws, cells)
+
+
+def test_gate_5_FIRES_when_the_loaded_months_are_not_the_expected_set(monkeypatch):
+    """⛔ Review finding 3: G-5 and G-8 both passed while describing different month sets.
+
+    A re-delivery starting one month later satisfies every per-origin check (the gate and the
+    draws still agree with each other) while G-8 reads the truth at the hardcoded expected months
+    regardless — so the printed event count would describe a population that was never loaded.
+    """
+    gate, draws, _grid, cells, _m0 = _toy()
+    monkeypatch.setattr(
+        e1_data, "H1_MONTHS", tuple(m + 1 for m in sorted(m for _, _, m in gate.values()))
+    )
+    with pytest.raises(SystemExit, match="not the expected"):
+        e1_data.gate_5_alignment(gate, draws, cells)
+
+
+def test_gate_4_is_labelled_a_construction_gate_not_evidence_about_the_analysis():
+    """⛔ Review finding 2: G-4 is tautological on the module's own FOLDS and must say so.
+
+    Pinned as a test because the captured .out reads "4 of 4 gates pass", and a reader must not
+    take G-4's PASS as evidence that the eventual fit code does not leak. That gate is owed by
+    #565.
+    """
+    doc = e1_data.gate_4_leakage.__doc__ or ""
+    assert "CONSTRUCTION gate" in doc
+    assert "#565" in doc, "the docstring must name who owes the real leakage gate"
 
 
 # ── G-8 · structural ─────────────────────────────────────────────────────────────────────────
