@@ -35,12 +35,17 @@ import numpy as np
 import pyarrow.parquet as pq
 from scipy.stats import t as student_t
 
-REPO = Path("/home/simon/Documents/scripts/views_platform/views-hydranet")
-MODELS = Path("/home/simon/Documents/scripts/views_platform/views-models/models")
+#: ⛔ views-models renamed the twelve arms (#702/#704), so a directory may NOT be spelled
+#: from a pre-registered name. `exp03_arms` derives the mapping from each delivery's own
+#: manifests and refuses an ambiguous one. Pre-registered names stay the identifiers in
+#: every readout below, because that is what PREREG.md and the ledgers use.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from exp03_arms import DELIVERY, REPO, arm_dir, arm_directories  # noqa: E402
+
+_ARMS = arm_directories()
 sys.path.insert(0, str(REPO / "reports/2026-07-17_lodestar_eval_dossier/tools"))
 from lodestar_score import crps_ensemble  # noqa: E402
 
-DELIVERY = "data/generated/calibration_delivery_20261103"
 SEEDS = ["fortytwo", "fortythree", "fortyfour", "fortyfive", "fortyseven"]
 HORIZONS = (1, 36)
 LAGS = (1, 2, 4, 8, 16, 32)
@@ -49,7 +54,7 @@ ROWS, COLS = 360, 720
 N_BOOT, BOOT_SEED, CI = 400, 0, 0.90
 print(__doc__, flush=True)
 
-tb = pq.read_table(MODELS / "ctlfullzero_fortytwo" / "data/raw/calibration_datafactory_df.parquet",
+tb = pq.read_table(arm_dir("ctlfullzero_fortytwo", arms=_ARMS) / "data/raw/calibration_datafactory_df.parquet",
                    columns=["month_id", "priogrid_id", "row", "col", "lr_sb_best"])
 mo, un = tb["month_id"].to_numpy(), tb["priogrid_id"].to_numpy()
 CELLS, M0 = np.unique(un), int(mo.min())
@@ -71,7 +76,7 @@ def suff(arm):
                    tsx=[], tsxx=[], cband={k: [] for k in BKEY}, nband={k: [] for k in BKEY},
                    raw=[]) for h in HORIZONS}
     with tempfile.TemporaryDirectory() as td:
-        tars = sorted((MODELS / arm / DELIVERY / "draws").glob("*_lr.tar.zst"))
+        tars = sorted((arm_dir(arm, arms=_ARMS) / DELIVERY / "draws").glob("*_lr.tar.zst"))
         assert len(tars) == 1, f"{arm}: {len(tars)} lr archives"
         subprocess.run(["tar", "-I", "zstd", "-xf", str(tars[0]), "-C", td,
                         "--wildcards", "*/lr_sb_best/*"], check=True)
