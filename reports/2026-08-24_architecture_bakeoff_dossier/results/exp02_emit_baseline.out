@@ -1,0 +1,61 @@
+EXP-02 emit-stage baseline, measured 2026-11-03 from the four arms' exp02_arm.log
+================================================================================
+
+METHOD. Each origin's draw phase is announced by a tqdm bar '[Origin N/13] Drawing
+Posterior Samples', which carries no timestamp of its own. The log DOES carry 118
+line-anchored timestamps and 431 in total, so each origin is attributed the nearest
+PRECEDING timestamp in the text. The span origin_1 -> origin_13 is divided by 12.
+
+WHY THE ATTRIBUTION IS EXACT RATHER THAN APPROXIMATE: the character distance from the
+attributed timestamp to the origin marker is 227-228 chars for EVERY origin of EVERY
+arm -- i.e. it is always the same preceding log line (the stage banner). A varying gap
+would mean varying error; a constant gap is a fixed offset of well under a second.
+
+arm                           span(min)   min/origin   attribution gap
+----------------------------------------------------------------------
+ctlfullzero_fortythree             41.3         3.44         227 chars
+upctwofullzero_fortytwo            20.4         1.70         228 chars
+upctwofullzero_fortythree          28.9         2.41         228 chars
+ctlfullzero_fortytwo              182.2        15.18         228 chars
+
+BASELINE: 1.70 - 3.44 min/origin, viz OFF, three arms.
+
+EXCLUSION, stated rather than silent: ctlfullzero_fortytwo is EXCLUDED at 15.18
+min/origin. Its pod was co-tenanted -- host load 43-66 throughout against 2-6 on the
+other three, ~10% of CPU in nice'd processes that were not ours, GPU showing no
+throttling of any kind (2407 of 2415 MHz, 30C, no HW/SW slowdown flags) and disk at
+701 MB/s. The arm is sound; its wall clock is not a property of the run.
+
+WHY THIS DISAGREES WITH A tqdm-ELAPSED PARSE (~1.25 min/origin): the bar's elapsed
+field times the drawing loop ALONE. Each origin also does post-draw work -- metrics,
+parquet writes -- which falls between one bar's end and the next bar's start. Wall
+clock between origin starts is the cost; the bar is a component of it.
+
+WHAT THIS IS FOR: the denominator the diagnostics probe is judged against. The
+builders assert '~28 min/origin' for diagnostics-on in five docstrings and zero
+measurement files. Against 1.70-3.44 that is an 8-16x increase on the emit stage,
+not a doubling of the arm -- which is the difference between ~$3 and ~$23 over eight
+arms. The probe's origins 1-2 replace the docstring with a number.
+
+--------------------------------------------------------------------------------
+INDEPENDENT CONFIRMATION, views-hydranet session, 2026-11-03
+--------------------------------------------------------------------------------
+Reparsed from the same four logs with a separately written parser. All four spans and
+per-origin figures reproduce EXACTLY: 41.3/3.44, 20.4/1.70, 28.9/2.41, 182.2/15.18.
+
+The constant attribution gap also reproduces, under the method as stated -- the FIRST
+'[Origin N/13]' marker of each origin sits 227 chars (fortythree) or 228 chars (the
+other three) after its attributed timestamp, identical for all 13 origins of each arm.
+
+A first attempt here read the gap over EVERY occurrence of the marker and found
+227-34,314 chars, and briefly treated that as refuting the claim. That was wrong: tqdm
+redraws the bar thousands of times per origin (2,830 and 4,302 markers in the two arms
+checked) and only the first redraw is what the method attributes. The spread is an
+artifact of measuring something the method does not use.
+
+ALSO CORRECTED HERE: this session previously asserted that exp02_arm.log "carries no
+per-line timestamps at all" and withdrew the baseline on that basis. The log carries
+118 line-anchored timestamps and 437 by the count used here. The claim was false, and
+it was reached from a grep whose output had been truncated to a file that was never
+opened -- i.e. a conclusion drawn from unread output, which is the same failure as
+describing an artifact one has not read. The withdrawal is itself withdrawn.

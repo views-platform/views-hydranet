@@ -1,0 +1,60 @@
+⭐⭐ Where does CRPS actually LIVE on this population? — the session's headline instrument finding.
+
+Reads the committed `results/exp03_magnitude.json` (produced by `exp03_magnitude.py`) and reports,
+per truth-magnitude band: the cell count, that band's CRPS per cell, and ⭐ **that band's share of
+the TOTAL CRPS**. Then the arm's per-band effect, and QS99.
+
+**Why it exists.** Simon's objection, in his words: *"manipulated nature of the data makes enormous
+CRPS very hard to use."* That is a claim about the instrument, and it is measurable rather than
+arguable. FAO-02 locks CRPS as the primary score; this does not propose a replacement, it
+DECOMPOSES the locked score by truth magnitude — which is permitted where a new score is not.
+
+⚠️ Bands were fixed BEFORE any arm was compared (they are a property of the truth distribution, not
+tuned to an effect). ⛔ Nothing here is an interval: the per-band arm effects are sign counts across
+five seeds, and the between-seed sd is printed beside every one of them precisely so they cannot be
+read as resolved effects.
+
+==================================================================================================
+h1   WHERE DOES CRPS LIVE?   (control, seed 42 — a property of the DATA, not the arm)
+==================================================================================================
+  truth band     n cells  % of cells    crps/cell   % of TOTAL crps
+  1-2                843      0.100%        1.430             2.76%
+  3-5                549      0.065%        3.260             4.10%
+  6-20               899      0.107%        8.289            17.06%
+  21-100             563      0.067%       33.079            42.64%
+  101-inf             51      0.006%      253.833            29.64%
+  ⇒ the 51 cells of band 101-inf are 0.006% of the population and carry 29.6% of the score.
+
+  --- the ARM, per band: Δ crps/cell (lower = better), 5 seeds ---
+  band                ctl     upctwo     mean Δ        sd  signs       unanimous
+  1-2               1.506      1.522     +0.016     0.029  +-+++       no
+  3-5               3.306      3.337     +0.031     0.068  -++++       no
+  6-20              7.982      7.984     +0.002     0.297  -++++       no
+  21-100           31.190     30.955     -0.236     0.808  -+-++       no
+  101-inf         247.573    247.028     -0.544     1.435  -+-+-       no
+
+  QS99 all cells       ctl     0.0269  upctwo     0.0267  Δ   -0.0002  signs -+++-  not unanimous
+  QS99 event cells     ctl     7.4347  upctwo     7.3171  Δ   -0.1176  signs -+++-  not unanimous
+
+==================================================================================================
+h36   WHERE DOES CRPS LIVE?   (control, seed 42 — a property of the DATA, not the arm)
+==================================================================================================
+  truth band     n cells  % of cells    crps/cell   % of TOTAL crps
+  1-2              1,082      0.128%        1.381             0.83%
+  3-5                719      0.085%        3.537             1.42%
+  6-20               871      0.103%        9.644             4.68%
+  21-100             517      0.061%       38.730            11.16%
+  101-inf            118      0.014%     1234.282            81.16%
+  ⇒ the 118 cells of band 101-inf are 0.014% of the population and carry 81.2% of the score.
+
+  --- the ARM, per band: Δ crps/cell (lower = better), 5 seeds ---
+  band                ctl     upctwo     mean Δ        sd  signs       unanimous
+  1-2               1.401      1.400     -0.001     0.024  +-+--       no
+  3-5               3.507      3.510     +0.003     0.069  -+++-       no
+  6-20              9.404      9.427     +0.023     0.270  -++++       no
+  21-100           38.049     37.861     -0.188     0.819  -+-++       no
+  101-inf        1232.866   1232.349     -0.517     1.764  -+-+-       no
+
+  QS99 all cells       ctl     0.1963  upctwo     0.1956  Δ   -0.0007  signs -+-+-  not unanimous
+  QS99 event cells     ctl    49.7816  upctwo    49.5789  Δ   -0.2027  signs -+-+-  not unanimous
+

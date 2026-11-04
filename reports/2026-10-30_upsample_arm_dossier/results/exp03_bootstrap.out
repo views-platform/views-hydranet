@@ -1,0 +1,98 @@
+EXP-03: turn the two 5/5-unanimous BODY results into INTERVALS.
+
+⭐ WHY. `FINDING_EXP03.md` §3 and §4 report the body's upper-tail lift and its d=1 sharpening as
+**sign counts across five seeds**, not intervals — and §1.1 is this experiment's own demonstration
+that unanimity without an interval misleads (the gate's h1 effect looked replicated on two seeds and
+then a third seed resolved the other way). This supplies the missing intervals.
+
+**TWO levels of variation, reported separately, because they answer different questions.**
+
+  (a) WITHIN seed — paired origin-block bootstrap over the 13 origins. One origin draw per
+      replicate scores BOTH arms on the same resampled origin set, so the correlation between arms
+      is carried rather than assumed away. Answers: *is THIS seed's effect resolved?*
+  (b) ACROSS seeds — Student-t interval on the five per-seed point estimates, 4 dof.
+      Answers: *does the effect REPLICATE?* ⭐ This is the one that matters, and the one the gate
+      result failed.
+
+⭐ **Why it is fast.** Both statistics reduce to per-origin SUFFICIENT STATISTICS, so a replicate is
+O(1) rather than a rescore of 842,634 cells:
+
+  * banded CRPS — per-cell CRPS does not change when origins are resampled, so each band needs only
+    (sum of crps, count) per origin; the band mean over any origin set is sum(sums)/sum(counts).
+  * B-1 — gamma(d) over an origin set is 0.5 * sum(S_d) / sum(N_d) from per-origin pair sums, and
+    the land variance from per-origin (sum x, sum x^2, n). Both are exact, not approximations:
+    asserted against a direct recomputation on the full origin set (G-1).
+
+**C-351 slots** are `FINDING_EXP03.md`'s, unchanged: 13 origins x 64,818 global land cells per
+horizon per arm, count space, S=16, truth = the shared pull's `lr_sb_best`, frozen primitives
+imported. ⛔ h1 and h36 only; no h18 number (device 2).
+
+land 64,818/259,200; truth grid (384, 64818)
+
+  loaded seed fortytwo
+  loaded seed fortythree
+  loaded seed fortyfour
+  loaded seed fortyfive
+  loaded seed fortyseven
+
+====================================================================================================
+G-1  do the per-origin sufficient statistics reproduce the committed DIRECT B-1?
+====================================================================================================
+  ctlfullzero_fortytwo         d=1   sufficient 0.6820653315  committed 0.6820653315  PASS
+  ctlfullzero_fortytwo         d=32  sufficient 1.2932419072  committed 1.2932419072  PASS
+  upctwofullzero_fortytwo      d=1   sufficient 0.7804384334  committed 0.7804384334  PASS
+  upctwofullzero_fortytwo      d=32  sufficient 1.1575225947  committed 1.1575225947  PASS
+  ctlfullzero_fortythree       d=1   sufficient 0.4810194042  committed 0.4810194042  PASS
+  ctlfullzero_fortythree       d=32  sufficient 1.4122646990  committed 1.4122646990  PASS
+  upctwofullzero_fortythree    d=1   sufficient 0.5257006347  committed 0.5257006347  PASS
+  upctwofullzero_fortythree    d=32  sufficient 1.4527679022  committed 1.4527679022  PASS
+
+====================================================================================================
+B-1 STRUCTURE SHARE, Δ = upctwo − own-seed control   (higher = less smeared)
+====================================================================================================
+
+  B-1 — h1
+  key           mean Δ      across-seed 90% t CI  repl?   per-seed Δ [within-seed 90% CI]
+  ----------------------------------------------------------------------------------------------------------------------
+  1            +0.0504   [+0.0229, +0.0780]     YES   +0.0984[-0.0118,+0.1624]   +0.0447[+0.0200,+0.0777]*  +0.0203[-0.0267,+0.0612]   +0.0479[-0.0021,+0.0990]   +0.0410[+0.0256,+0.0595]*
+  2            -0.0025   [-0.0419, +0.0370]      no   -0.0743[-0.1060,-0.0314]*  +0.0108[-0.0015,+0.0225]   +0.0178[-0.0176,+0.0510]   +0.0300[+0.0071,+0.0527]*  +0.0034[-0.0143,+0.0232] 
+  4            -0.0167   [-0.1016, +0.0681]      no   -0.1494[-0.2083,-0.0605]*  +0.0459[+0.0287,+0.0634]*  +0.0199[-0.0179,+0.0537]   +0.0641[+0.0318,+0.0879]*  -0.0642[-0.0863,-0.0383]*
+  8            -0.0293   [-0.1123, +0.0537]      no   -0.1464[-0.2085,-0.0454]*  +0.0588[+0.0402,+0.0755]*  +0.0028[-0.0204,+0.0249]   +0.0316[+0.0061,+0.0500]*  -0.0932[-0.1139,-0.0606]*
+  16           -0.0330   [-0.1224, +0.0564]      no   -0.1498[-0.2215,-0.0302]*  +0.0426[+0.0249,+0.0605]*  +0.0149[-0.0095,+0.0386]   +0.0459[+0.0145,+0.0679]*  -0.1183[-0.1389,-0.0851]*
+  32           -0.0422   [-0.1241, +0.0398]      no   -0.1357[-0.2032,-0.0128]*  +0.0405[+0.0193,+0.0578]*  -0.0410[-0.0850,+0.0082]   +0.0462[+0.0133,+0.0687]*  -0.1208[-0.1448,-0.0847]*
+    * = that seed's own interval excludes 0.   higher is better
+
+  B-1 — h36
+  key           mean Δ      across-seed 90% t CI  repl?   per-seed Δ [within-seed 90% CI]
+  ----------------------------------------------------------------------------------------------------------------------
+  1            -0.0006   [-0.0435, +0.0423]      no   -0.0574[-0.0987,-0.0249]*  +0.0358[+0.0158,+0.0568]*  -0.0272[-0.0539,-0.0042]*  -0.0069[-0.0244,+0.0117]   +0.0525[+0.0194,+0.0966]*
+  2            +0.0006   [-0.0460, +0.0471]      no   -0.0623[-0.0841,-0.0451]*  +0.0438[+0.0352,+0.0556]*  -0.0268[-0.0424,-0.0116]*  -0.0068[-0.0316,+0.0200]   +0.0547[+0.0346,+0.0757]*
+  4            -0.0193   [-0.0616, +0.0229]      no   -0.0323[-0.0502,-0.0133]*  +0.0464[+0.0386,+0.0567]*  -0.0011[-0.0166,+0.0143]   -0.0388[-0.0534,-0.0238]*  -0.0709[-0.1125,-0.0377]*
+  8            -0.0086   [-0.0281, +0.0108]      no   -0.0156[-0.0386,+0.0046]   +0.0165[+0.0036,+0.0303]*  +0.0088[-0.0080,+0.0260]   -0.0220[-0.0402,-0.0090]*  -0.0310[-0.0778,+0.0078] 
+  16           -0.0257   [-0.1000, +0.0486]      no   +0.0376[+0.0081,+0.0626]*  +0.0343[+0.0076,+0.0536]*  +0.0101[-0.0196,+0.0453]   -0.0684[-0.0900,-0.0355]*  -0.1422[-0.1955,-0.0709]*
+  32           -0.0244   [-0.1031, +0.0542]      no   +0.0191[-0.0107,+0.0417]   +0.0141[-0.0171,+0.0412]   +0.0596[+0.0130,+0.1009]*  -0.0688[-0.0982,-0.0242]*  -0.1461[-0.1934,-0.0881]*
+    * = that seed's own interval excludes 0.   higher is better
+
+====================================================================================================
+CRPS BY TRUTH BAND, Δ = upctwo − own-seed control   (lower = better)
+====================================================================================================
+
+  crps/cell — h1
+  key           mean Δ      across-seed 90% t CI  repl?   per-seed Δ [within-seed 90% CI]
+  ----------------------------------------------------------------------------------------------------------------------
+  1-2          +0.0162   [-0.0119, +0.0442]      no   +0.0492[+0.0335,+0.0664]*  -0.0235[-0.0463,-0.0004]*  +0.0112[-0.0065,+0.0290]   +0.0032[-0.0063,+0.0156]   +0.0408[+0.0196,+0.0593]*
+  3-5          +0.0307   [-0.0339, +0.0952]      no   -0.0811[-0.1070,-0.0586]*  +0.0937[+0.0678,+0.1209]*  +0.0628[+0.0325,+0.0948]*  +0.0576[+0.0301,+0.0848]*  +0.0202[-0.0133,+0.0558] 
+  6-20         +0.0016   [-0.2819, +0.2851]      no   -0.4921[-0.5386,-0.4477]*  +0.3061[+0.2476,+0.3732]*  +0.0212[-0.0380,+0.0705]   +0.0517[-0.0028,+0.1129]   +0.1213[+0.0856,+0.1596]*
+  21-100       -0.2357   [-1.0058, +0.5345]      no   -1.5015[-1.6624,-1.3371]*  +0.0433[-0.0879,+0.1744]   -0.4061[-0.5478,-0.2835]*  +0.0028[-0.1828,+0.1811]   +0.6831[+0.5679,+0.8131]*
+  101-inf      -0.5444   [-1.9126, +0.8239]      no   -2.7567[-3.9683,-1.9624]*  +1.0849[+0.0860,+2.2000]*  -0.2283[-0.9734,+0.6488]   +0.1154[-0.8627,+1.0193]   -0.9373[-2.3846,+0.2877] 
+    * = that seed's own interval excludes 0.   lower is better
+
+  crps/cell — h36
+  key           mean Δ      across-seed 90% t CI  repl?   per-seed Δ [within-seed 90% CI]
+  ----------------------------------------------------------------------------------------------------------------------
+  1-2          -0.0010   [-0.0239, +0.0220]      no   +0.0302[+0.0111,+0.0543]*  -0.0141[-0.0304,-0.0000]*  +0.0162[+0.0011,+0.0342]*  -0.0300[-0.0393,-0.0218]*  -0.0072[-0.0162,+0.0034] 
+  3-5          +0.0030   [-0.0630, +0.0690]      no   -0.0923[-0.1054,-0.0797]*  +0.0419[+0.0199,+0.0628]*  +0.0348[+0.0121,+0.0565]*  +0.0755[+0.0416,+0.1157]*  -0.0451[-0.0708,-0.0184]*
+  6-20         +0.0229   [-0.2341, +0.2799]      no   -0.4324[-0.4868,-0.3764]*  +0.2310[+0.1666,+0.2960]*  +0.0629[+0.0058,+0.1169]*  +0.2184[+0.1704,+0.2715]*  +0.0346[-0.0096,+0.0800] 
+  21-100       -0.1881   [-0.9685, +0.5923]      no   -1.4554[-1.6727,-1.2037]*  +0.5443[+0.3869,+0.7109]*  -0.4920[-0.6337,-0.3211]*  +0.4478[+0.1841,+0.6867]*  +0.0148[-0.0906,+0.1333] 
+  101-inf      -0.5174   [-2.1989, +1.1642]      no   -3.4478[-4.2246,-2.6831]*  +0.3493[-0.8818,+1.4191]   -0.6104[-1.7160,+0.2305]   +1.1816[+0.4295,+1.9251]*  -0.0595[-0.6908,+0.4477] 
+    * = that seed's own interval excludes 0.   lower is better

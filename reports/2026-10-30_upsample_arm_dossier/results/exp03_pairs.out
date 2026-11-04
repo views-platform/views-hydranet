@@ -1,0 +1,61 @@
+EXP-03 readout: ΔAP at h1 and h36 across the COMPLETE seed pairs, taken off the GATE.
+
+⭐ WHY OFF THE GATE. `P-23` reads AP from the gate. The delivered `gate_endpoints.tar.zst` carries,
+per origin, `by_sb_best/y_pred_h{1,36}.npy` [cells, 16] with `identifiers_h{1,36}.npz` holding
+`time`/`unit` IN BAND. ⇒ no (H,W)->priogrid arithmetic and none of the lr/gate row-alignment the
+plan's Step 4 warns about, because AP needs the gate alone.
+
+**C-351 slots.** Population = 13 origins x 64,818 global land cells = 842,634 cell-months PER
+HORIZON, per arm. Transform = none (the gate is already a probability). Estimator = posterior-mean
+gate (mean over the arm's 16 draws), pooled over origins; AP from the FROZEN ruler, imported.
+Truth = the arms' shared global pull, `lr_sb_best > 0`. ⛔ NOT `V2_TRUTH` (retired Africa crop).
+
+**G-0 gates everything.** Seeds 42/43 are published at h1 as +0.0049 / +0.0047. This must
+reproduce both within 0.0005 or it REFUSES to print a single figure.
+
+Paired origin-block bootstrap, n_boot=400 (the committed default in
+`scripts/ap_block_bootstrap.py`): one origin draw per replicate scores BOTH arms of a pair on the
+same resampled origin set, so the correlation between arms is carried rather than assumed away.
+
+truth grid (384, 64818) from the shared pull; 57,426 positive cell-months over all 384 months
+
+⛔ seed fortysix: INCOMPLETE — upctwofullzero_fortysix absent, the pair cannot be read
+  loaded seed fortytwo
+  loaded seed fortythree
+  loaded seed fortyfour
+  loaded seed fortyfive
+  loaded seed fortyseven
+
+====================================================================================================
+G-0  does this reproduce the two PUBLISHED h1 values?
+====================================================================================================
+  seed fortytwo     published +0.0049   computed +0.0049   |Δ| 0.00001   PASS
+  seed fortythree   published +0.0047   computed +0.0047   |Δ| 0.00000   PASS
+
+====================================================================================================
+ΔAP = upctwo − its OWN-SEED control · gate · sb · paired origin-block bootstrap · 90% CI
+====================================================================================================
+
+  h1     (n = 842,634 cell-months over 13 origins, per seed)
+  seed           AP ctl  AP upctwo       ΔAP                 90% CI      MDE   resolved?
+  ----------------------------------------------------------------------------------------
+  fortytwo       0.5667     0.5716   +0.0049   [+0.0028, +0.0067]   0.0020   YES
+  fortythree     0.5736     0.5783   +0.0047   [+0.0014, +0.0079]   0.0033   YES
+  fortyfour      0.5686     0.5696   +0.0010   [-0.0026, +0.0046]   0.0036   no (straddles 0)
+  fortyfive      0.5624     0.5688   +0.0064   [+0.0031, +0.0094]   0.0031   YES
+  fortyseven     0.5675     0.5612   -0.0063   [-0.0094, -0.0028]   0.0033   YES
+  ⇒ 5 pairs: mean +0.00213  between-seed sd 0.00511  min -0.0063  max +0.0064  signs ++++-
+    unanimous sign: False   median within-seed MDE: 0.00327
+
+  h36     (n = 842,634 cell-months over 13 origins, per seed)
+  seed           AP ctl  AP upctwo       ΔAP                 90% CI      MDE   resolved?
+  ----------------------------------------------------------------------------------------
+  fortytwo       0.3238     0.3203   -0.0035   [-0.0085, +0.0012]   0.0049   no (straddles 0)
+  fortythree     0.3152     0.3186   +0.0034   [-0.0014, +0.0080]   0.0047   no (straddles 0)
+  fortyfour      0.3305     0.3183   -0.0122   [-0.0200, -0.0028]   0.0086   YES
+  fortyfive      0.3227     0.3176   -0.0051   [-0.0174, +0.0108]   0.0141   no (straddles 0)
+  fortyseven     0.3212     0.3177   -0.0035   [-0.0079, +0.0003]   0.0041   no (straddles 0)
+  ⇒ 5 pairs: mean -0.00419  between-seed sd 0.00556  min -0.0122  max +0.0034  signs -+---
+    unanimous sign: False   median within-seed MDE: 0.00485
+
+wrote /tmp/claude-1000/-home-simon-Documents-scripts-views-platform-views-hydranet/f7a7ca8c-4eb9-45a0-8923-271b8be2a39c/scratchpad/exp03_pairs.json
