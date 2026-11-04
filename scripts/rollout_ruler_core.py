@@ -430,10 +430,12 @@ def crps_concentration(crps, truth, *, edges=CRPS_TRUTH_BAND_EDGES, where: str =
 
     Returns:
         ``{"crps_concentration", "crps_effective_n", "crps_band_share", "crps_band_n"}`` —
-        the top band's share of total CRPS, the participation ratio ``(sum c)^2 / sum c^2``,
-        and the per-band share and cell count. ⚠️ ``crps_concentration`` of **0.0** is ambiguous
-        on its own — it means either "the top band is cheap" or "the top band is EMPTY", which are
-        opposite readings. ⇒ a caller that keeps only the scalar must also keep
+        ``{"crps_concentration", "crps_effective_n", "crps_top_band", "crps_band_share",
+        "crps_band_n"}`` — the top band's share of total CRPS, the participation ratio
+        ``(sum c)^2 / sum c^2``, the top band's KEY (so a caller need not rely on dict ordering
+        to find it), and the per-band share and cell count. ⚠️ ``crps_concentration`` of **0.0**
+        is ambiguous on its own — it means either "the top band is cheap" or "the top band is
+        EMPTY", which are opposite readings. ⇒ a caller that keeps only the scalar must also keep
         ``crps_band_n`` (or at least the top band's count) to tell them apart.
 
     Raises:
@@ -513,12 +515,14 @@ def crps_concentration(crps, truth, *, edges=CRPS_TRUTH_BAND_EDGES, where: str =
         return {
             "crps_concentration": float("nan"),
             "crps_effective_n": float("nan"),
+            "crps_top_band": keys[-1],
             "crps_band_share": dict.fromkeys(keys, float("nan")),
             "crps_band_n": band_n,
         }
     return {
         "crps_concentration": float(c[masks[-1]].sum() / total),
         "crps_effective_n": float(total * total / float((c * c).sum())),
+        "crps_top_band": keys[-1],
         "crps_band_share": {k: float(c[mk].sum() / total) for k, mk in zip(keys, masks)},
         "crps_band_n": band_n,
     }
