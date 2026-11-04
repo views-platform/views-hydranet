@@ -93,7 +93,18 @@ def _metric_row(label, g, support, tmap, tgt, h, thr):
     tmean = float(truth.mean())
     # #258 activation-aware metrics (crps_all/MCR are blind to the collapse): occurrence frequency,
     # gate precision@k, and the named risk — composed magnitude on the gate's false positives.
-    _conc = crps_concentration(c, truth, where=f"[{tgt}] {label} h={h}")
+    # #537: concentration refuses a non-finite per-cell crps -- correctly, in isolation. But
+    # `score_horizons_v2` accumulates every (arm x target x horizon) row and writes the CSV only at
+    # the end, so propagating here would lose an entire expensive multi-arm run to one bloomed
+    # cell, where before it wrote a row whose crps_all was NaN. ⇒ store NaN and let
+    # `require_headline_columns` refuse THAT ROW downstream, which is the behaviour it already has
+    # for crps_events/crps_none on an empty band.
+    try:
+        _conc = crps_concentration(c, truth, where=f"[{tgt}] {label} h={h}")
+    except ValueError as exc:
+        print(f"  [{tgt}] {label} h={h}: concentration unavailable — {exc}", file=sys.stderr)
+        _conc = {"crps_concentration": float("nan"), "crps_effective_n": float("nan"),
+                 "crps_band_n": {}}
     af = activation_frequency(cs, truth)
     tk = topk_occurrence(p, ey, truth)  # rank by the gate p; magnitude = composed mean ey
     return dict(
@@ -112,6 +123,10 @@ def _metric_row(label, g, support, tmap, tgt, h, thr):
         # alone. These two travel with it; HEADLINE_COLUMNS now requires both.
         crps_concentration=_conc["crps_concentration"],
         crps_effective_n=_conc["crps_effective_n"],
+        # ⚠️ without this, crps_concentration == 0.0 is ambiguous: "the top band is cheap" and
+        # "the top band is EMPTY" are opposite readings of the same number. On ns/os, a narrower
+        # region or a shorter origin set the 101+ band can genuinely be empty.
+        crps_top_band_n=int(list(_conc["crps_band_n"].values())[-1]) if _conc["crps_band_n"] else 0,
         size_ratio=float(np.median(ratio)) if ratio.size else float("nan"),
         pos_mcr=float(np.mean(ratio)) if ratio.size else float("nan"),  # = mcr_events
         mcr_all=float(ey.mean() / tmean) if tmean > 0 else float("nan"),

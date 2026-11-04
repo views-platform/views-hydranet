@@ -1,9 +1,20 @@
 """crps_concentration (#536) and the guard that now requires it (#537).
 
-⭐ WHY THIS FILE EXISTS. A pooled CRPS on this population is dominated by a handful of cells —
-measured, 118 of 842,634 carried 81.16% of the total at h36, and the h36 effective sample size is
-**2.58 cells** because one probable summary-event assignment holds 62% of the truth mass. A CRPS
-reported alone therefore cannot be told from a score that is blind to the effect.
+⭐ WHY THIS FILE EXISTS. A pooled CRPS on this population is dominated by a handful of cells:
+measured, **118 of 842,634 cells carried 81.16%** of the total at h36
+(`reports/2026-10-30_upsample_arm_dossier/results/exp03_crps_concentration.out`). A CRPS reported
+alone therefore cannot be told from a score that is blind to the effect.
+
+⛔ **`crps_effective_n` has NOT been measured on a delivered arm**, and two proxies that bracket it
+must not be quoted as if they were it:
+  * **178.3** — the participation ratio of a vector reconstructed from the committed per-band
+    sums. It is an OVER-estimate: uniform within each band, so it smooths away exactly the
+    within-band concentration the statistic exists to find.
+  * **2.58** — the participation ratio of the **truth** vector at h36, which is dominated by one
+    probable summary-event assignment holding 62% of the truth mass. A proxy only because this
+    body is timid, so a cell's cost tracks its truth; and it is a statistic of the TRUTH, not of
+    the per-cell CRPS that `crps_effective_n` is defined on.
+⇒ The real figure needs the per-cell CRPS from the delivered draws (blocked on #539's arm rename).
 
 ⛔ Every expected value below is computed BY HAND or read from a committed artifact, never from the
 implementation. And the guard tests assert the refusal **FIRES** — this project's recurring defect
@@ -95,9 +106,14 @@ def test_the_pre_registered_band_edges_are_not_quietly_changed():
 
 # ---------------------------------------------------------------- the refusals
 def test_a_zero_cost_forecast_reports_nan_rather_than_inventing_a_value():
-    """A raw-truth row scores crps_all EXACTLY 0 (the red-team harness emits one), so this is
-    reachable. ``0/0`` has no answer; nan makes such a row unreportable, which is correct —
-    a raw-truth forecast is a construction gate, not a result."""
+    """``0/0`` has no answer; nan makes such a row unreportable, which is correct — a raw-truth
+    forecast is a construction gate, not a result.
+
+    ⭐ Reachable, and here is the artifact rather than an assertion: the red-team harness's
+    ``oracle (raw truth)`` row scores ``crps_all`` **0.000000**, and its construction gate
+    ``G-h`` asserts it — ``reports/2026-10-27_metric_redteam/separation_matrix.out``,
+    *"PASS  G-h  ORACLE: crps_all EXACTLY 0, size_ratio 1, AP 1, Brier 0"*.
+    """
     got = crps_concentration(np.zeros(10), np.arange(10.0))
     assert np.isnan(got["crps_concentration"])
     assert np.isnan(got["crps_effective_n"])
@@ -126,8 +142,32 @@ def test_a_negative_per_cell_cost_is_refused():
 
 
 def test_a_truth_below_the_first_edge_is_refused_rather_than_silently_dropped():
-    with pytest.raises(ValueError, match="below the first band edge"):
+    with pytest.raises(ValueError, match="below the first edge"):
         crps_concentration(np.ones(2), np.array([-1.0, 5.0]))
+
+
+def test_edges_that_silently_drop_cells_are_refused_by_COUNTING_not_by_argument():
+    """⛔ The regression this guards, demonstrated by a reviewer. ``nan`` among the edges passes
+    the ascending check (every comparison with nan is False) and then drops cells: the shares
+    summed to 0.625 over 2 of 4 cells with NO refusal. Argued-total is not total."""
+    with pytest.raises(ValueError, match="cover 2 of 4 cells"):
+        crps_concentration(
+            np.ones(4), np.array([0.0, 2.0, 50.0, 500.0]), edges=(0, 1, np.nan, 101)
+        )
+
+
+def test_a_single_edge_is_legal_and_gives_one_band():
+    """⚠️ One edge is well-defined — a single band ``[e0, inf)``. An earlier version demanded two
+    and so refused a legal input through a branch no test exercised."""
+    got = crps_concentration(np.array([1.0, 3.0]), np.array([0.0, 9.0]), edges=(0,))
+    assert got["crps_band_n"] == {"0+": 2}
+    assert got["crps_band_share"]["0+"] == pytest.approx(1.0)
+    assert got["crps_concentration"] == pytest.approx(1.0)
+
+
+def test_empty_edges_are_refused():
+    with pytest.raises(ValueError, match="non-empty and ascending"):
+        crps_concentration(np.ones(2), np.zeros(2), edges=())
 
 
 def test_mismatched_shapes_are_refused():
@@ -189,10 +229,20 @@ def test_it_reproduces_the_committed_exp03_concentration():
     c: list[float] = []
     y: list[float] = []
     acc = 0.0
-    for key, lo in zip(["1-2", "3-5", "6-20", "21-100", "101-inf"], [1, 3, 6, 21, 101]):
+    #: ⛔ Place cells at BOTH ends of each band, not only the lower edge. An earlier version put
+    #: every cell at its band's lower edge, so it could not see an upper-boundary error and
+    #: ``crps_band_n["101+"] == 118`` was true by construction — it verified the band-sum
+    #: arithmetic and not the band ASSIGNMENT.
+    for key, lo, hi_incl in zip(
+        ["1-2", "3-5", "6-20", "21-100", "101-inf"],
+        [1, 3, 6, 21, 101],
+        [2, 5, 20, 100, 100_000],
+    ):
         n, per = d["n_band"][key], d["crps_band"][key]
         c += [per] * n
-        y += [float(lo)] * n
+        #: alternate lower edge / upper-inclusive edge so a half-open slip shows up as a
+        #: mis-assignment rather than cancelling
+        y += [float(lo if i % 2 == 0 else hi_incl) for i in range(n)]
         acc += per * n
     n_zero = d["n"] - len(c)
     c += [(total - acc) / n_zero] * n_zero
