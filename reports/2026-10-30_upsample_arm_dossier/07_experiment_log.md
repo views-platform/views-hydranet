@@ -397,3 +397,55 @@ direction (device 2). Nothing is compared to EXP-01's absolute numbers (`W-122` 
 says nothing about gate calibration (M3 Finding B). One target (`sb`), one composition, one vehicle
 family. And ⛔ the twelfth arm's artifact was destroyed before its raw values were read, so §8's
 reading of its refusal is a derivation plus eight siblings, **not** a measurement of that arm.
+
+---
+
+# 2026-11-04 — `P-26` settled: the parameter count matches §2 exactly, for all three architectures
+
+**Pre-registration** `PREREG.md` §5b, `P-26` — *"Parameter count matches §2 **exactly** for the
+chosen remedy"*, threshold *"printed, then compared to **905,289 / 720,969**"* ·
+**Settled from** `gf_phase_signature.out` lines 21/28/35, written 2026-10-30 ·
+**Ledger** `R-61` · **Cost** zero new compute
+
+## ✅ VERDICT: CONFIRMED
+
+| architecture | printed | §2's figure | |
+|---|---|---|---|
+| `HydraBNUNet06_LSTM4` (incumbent) | **905,289** | 905,289 | ✅ |
+| **`UpsampleConv2`** — the chosen remedy | **905,289** | 905,289 | ✅ |
+| `UpsampleConv1` | **720,969** | 720,969 | ✅ |
+
+⭐ The *"±0 parameters, EXACTLY"* claim at `views_hydranet/architectures/upsample_interp.py:50` is
+therefore **measured, not asserted** — the remedy that ships costs nothing in capacity, which is
+what made it adoptable on structural grounds alone (`FINDING_EXP03.md` §11).
+
+**Method, stated because it is unusually cheap:** `gf_phase_signature.py:284` is
+`sum(p.numel() for p in model.parameters())` on a freshly seeded, **untrained** model — **CPU, zero
+GPU, no checkpoint, no data**. Logged as `M94` in `reports/RESULTS_LEDGER.md:438`.
+
+## ⚠️ One sub-figure disagrees across three documents. The totals do not.
+
+| source | the 12 upsample modules hold |
+|---|---|
+| `PREREG.md` §2 (:72-79) | **245,760** |
+| `reports/2026-08-24_architecture_bakeoff_dossier/02_design.md:35-42` | **246,336** |
+| `views_hydranet/architectures/upsample_interp.py:42-44` | **246,336** |
+
+⇒ The difference is **576 = 12 modules × 48 biases**: §2's column is **weight-only**, the other two
+**include biases**. ⛔ **`P-26`'s thresholds are untouched**, because every *total* (905,289 /
+1,212,489 / 720,969) and every Δ percentage agrees across all three. ⚠️ But the sub-figure must not
+be quoted without saying which convention it uses — recorded here rather than reconciled silently,
+since changing §2 after the numbers exist is what device 6 forbids.
+
+## ⛔ What this does not settle
+
+- **Nothing about the arm's performance.** `P-26` is a prediction about an **architecture**, not a
+  result. A matching parameter count is a precondition for a clean comparison — it is what makes
+  "the only config key that differs is `model`" true in capacity as well as in name — and it is
+  **not** evidence the remedy works.
+- **`P-22`, `P-23`, `P-25` remain unsettled.** `O-3` stays open.
+- ⭐ **The relation is pinned without the literals, deliberately.**
+  `tests/architectures/test_candidate_mechanisms.py::test_upsample_conv2_is_exactly_parameter_free`
+  asserts equality **with the incumbent**, not with `905,289`. A comment at `:197-202` records that
+  an earlier version pinned the literals and it was removed as a tripwire that *"would then be
+  'fixed' by editing the constant, after which it guards nothing."* ⛔ Do not re-add literal pins.
