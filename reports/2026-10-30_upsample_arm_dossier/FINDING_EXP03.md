@@ -38,7 +38,7 @@ standing warning about exactly that (§1.1).
 | **truth** | the arms' **shared** global pull, `data/raw/calibration_datafactory_df.parquet`, `lr_sb_best`. All twelve arms verified at one digest `d3636988b1085af7` |
 | **transform** | **none.** The gate is already a probability; the draws are already count space |
 | **estimator** | the arm's own **S = 16** posterior draws. `E[Y]` is their mean; the gate is the posterior-mean over draws; CRPS is the frozen plug-in on 16 members |
-| **endpoints** | **h1 and h36 only.** ⛔ No h18 number appears anywhere, in either direction (`PREREG.md` §6 device 2) |
+| **endpoints** | **h1 and h36 only** *in this document*. ⚠️ **QUALIFIED 2026-11-04 (#541):** an earlier wording — *"No h18 number appears anywhere, in either direction"* — read as a universal ban and is not one. It describes **this readout's scope**. §12 below states the reading. |
 | **primitives** | `average_precision` and `crps_ensemble` **imported** from the frozen ruler `reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py`, never reimplemented |
 
 ⚠️ **Equal S is load-bearing** (epic #263). All arms are S=16, so the plug-in CRPS bias and the
@@ -677,3 +677,61 @@ improvement outranks a score's *silence*; it does **not** outrank a demonstrated
 - ⛔ **Not a §6 verdict**, and not a resolution of `P-23`, which remains an underpowered MIXED
   reading (§0, §2.2).
 - ⛔ **Not applicable at h36**, where there is no body left to sharpen (§3, §4.3).
+
+---
+
+## 12 · ⭐ Why h18 is permitted for `P-22` and `P-25`, and forbidden for `P-23`'s verdict
+
+⛔ **Written down because it looks like a contradiction and is not one** — and because leaving it
+implicit would make settling `P-25` (#542) look like a violation of §11's own committed text.
+
+### The apparent conflict
+
+`P-22` and `P-25` are pre-registered **at h18** (`PREREG.md` §5b):
+
+| | |
+|---|---|
+| `P-22` | Δ oracle ceiling **@h18** ≥ −0.005 |
+| `P-25` | \|Δ `crps_all`\| **@h18** ≤ 0.006 |
+
+But `PREREG.md:186` reads *"**Primary endpoints: `h1` AND `h36`.** ⛔ **`h18` is NOT an
+endpoint.**"*, and **device 2** (`:206`) reads *"⛔ **I may not report an `h18` verdict**, in either
+direction."*
+
+⇒ Read bluntly, a `P-22` or `P-25` verdict computed at h18 **is** an h18 verdict.
+
+### ⭐ Resolved on the document's own text, not by interpretation
+
+`PREREG.md` §3's **estimator** slot reads:
+
+> `score_v2_horizons.py`, unchanged, at **h1/6/12/18/24/30/36**, plus the **oracle ceiling** and
+> **retention** per arm
+
+⇒ **The pre-registration itself provisions scoring at h18, and provisions the oracle ceiling.** So
+§6's *"not an endpoint"* and device 2's prohibition scope to **§6's own verdict branch for `P-23`**
+— the CONFIRMS / FALSIFIES / MIXED table — and not to §5b's separate predictions, which were given
+h18 thresholds deliberately and whose method §3 budgets for.
+
+⛔ **Therefore no amendment and no `W-` row.** Device 6 forbids changing the document after the
+numbers exist, and device 3 requires a `W-` row **first** if I argue a pre-registered test was
+inadequate. ⭐ **Neither applies: nothing is being changed, and nothing is being called
+inadequate.** The document is coherent; only the reading needed recording.
+
+### ⚠️ What this does NOT license
+
+- ⛔ **No h18 number in `P-23`'s verdict**, in either direction. That is device 2's actual subject
+  and it stands untouched. EXP-01's own stated design error was choosing h18 because it *"sits
+  almost exactly at the sign change"*, which is why `P-23` was deliberately given h1 and h36.
+- ⛔ **No edit to `PREREG.md`.** `P-25` passes h18 as an **argument** (#542); the frozen
+  instruments' `HORIZONS = (1, 36)` constants are not changed.
+- ⚠️ **`verify_exp02.py:225` and all five `exp03_*.py` tools hardcode `HORIZONS = (1, 36)`** with
+  the comment *"h18 is NOT an endpoint — EXP-01's design error."* That comment is correct **about
+  `P-23`** and should stay; it is not a statement about §5b.
+
+### ⚠️ The residual ambiguity, named rather than resolved
+
+Device 2's wording bans *"an h18 verdict"* without saying **which** verdict. The reading above is
+the only one consistent with §3 and §5b both — a document that budgets for h18 scoring and sets h18
+thresholds cannot also forbid reading them — but a future reader is entitled to disagree, and if
+they do, the consequence is that `P-22` and `P-25` become **unreadable as pre-registered** rather
+than that their numbers become wrong.
