@@ -757,6 +757,14 @@ $$\mathbb{E}\Big[\sum_{i\in M^z_t} y_{it} \,\Big|\, n^z_t\Big]=n^z_t\mu_z, \qqua
 ⛔ The **realisation** is a random sum of heavy-tailed draws, dominated by $\max_k u_k$. With a long
 $W$ a single unit can exceed a typical month's whole total.
 
+⚠️ **Both identities are conditional on the pool's moments existing.** For v1 on a finite pool they
+are finite by construction. Under v3's generalized Pareto tail (§3.7) the **mean exists iff
+$\xi<1$ and the variance iff $\xi<\tfrac12$** — and the all-history fit **violates the second**
+($\hat\xi\approx0.6$, CI excluding $\tfrac12$; §2.1). ⇒ Where it fails, report a **trimmed**
+second moment and say in the sentence that it is trimmed. ⛔ Never quote $n^z_t\sigma^2_z$ under a
+fitted tail without stating $\hat\xi$ beside it. (`/falsify` F-2, 2026-11-04; the matrix row is
+§3.8.)
+
 **P3 · Per-cell law is an order statistic, and depends on other cells.**
 $$y_{it}\,\big|\,\rho_t(i)=k,\ n^z_t \;\sim\; u_{(k)} \;=\; \text{the }k\text{-th order statistic of }n^z_t\text{ draws from }\hat F_z$$
 ⛔ Not $\hat F_z$. ⚠️ And it depends on $n^z_t$, hence on the gate's realisation at **other** units:
@@ -883,7 +891,9 @@ $$\hat F^{\mathrm{v3}}_z(x)=\begin{cases}(1-p^\ast)\,\dfrac{B_\beta(x)}{B_\beta(
 with $q^\ast$ estimated **jointly** with $\beta$ and $(\sigma_{\mathrm{gpd}},\xi)$
 (`MacDonald2011` **C-4462**).
 
-⇒ **P5 becomes unbounded above.** P1 and P4 survive; P2's variance grows and must be reported;
+⇒ **P5 becomes unbounded above.** P1 and P4 survive; ⛔ P2's variance does **not merely grow — it
+is undefined for $\xi\ge\tfrac12$, and its mean for $\xi\ge1$** (the condition is in §3.4, the
+matrix row in §3.8);
 P7's upward bias at the top ranks is then a property of the fitted tail rather than of a finite pool.
 ⭐ $\xi$ is the quantity Epic #230 named as the gap.
 

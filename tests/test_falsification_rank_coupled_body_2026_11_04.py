@@ -11,7 +11,11 @@ the corrected thing:
        that the GPD route needs no kernel and no mass below 1.
   F-2  §3.4 P2 stated ``E[sum] = n * mu_z`` and ``Var[sum] = n * sigma2_z`` unconditionally, but
        under a generalized Pareto tail the variance is undefined for xi >= 1/2 and the mean for
-       xi >= 1. REPAIRED: P2 now reads *"Total is unbiased, not exact."*
+       xi >= 1. REPAIRED: §3.4's P2 now carries that condition -- mean iff xi < 1, variance iff
+       xi < 1/2, with a trimmed second moment required where it fails -- and §3.7 says the
+       variance is undefined rather than merely larger. ⚠️ Its heading also reads "Total is
+       unbiased, not exact", which was NOT by itself the repair F-2 asked for; an earlier
+       version of this docstring cited the heading alone and /review-diff caught it.
   F-3  §3.6 asserted ``d = 46`` where §3.1's ``d_y = 1`` and ``d_h = 16`` give 33, and priced
        storage at 6 GB over all 64,818 x 500 cell-months rather than over ``P_z``, the positives
        only. REPAIRED: §3.6 states d = 33 and **6.02 MB**, ~1000x smaller, which strengthens v2.
@@ -94,7 +98,7 @@ def test_f1_v3_bulk_respects_declared_positive_support(beta: float) -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="F-2, repaired in P2: moments are undefined for xi >= 1/2")
+@pytest.mark.xfail(strict=True, reason="F-2, repaired in §3.4: moments undefined for xi >= 1/2")
 @pytest.mark.parametrize("xi", [0.5, 0.6, 0.9, 1.0, 1.2])
 def test_f2_p2_moments_exist_under_the_v3_tail(xi: float) -> None:
     """§3.4 P2 against §3.7.
