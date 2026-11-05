@@ -256,7 +256,7 @@ def _spread(xs: list[float]) -> tuple[float, float, float]:
 
 def main() -> None:
     print("=" * 110)
-    print("THE CONDITIONAL-MAGNITUDE PROFILE'S NOISE FLOOR -- seed, and pure re-run")
+    print("THE CONDITIONAL-MAGNITUDE PROFILE'S NOISE FLOOR -- seed, and the form axis")
     print("=" * 110)
     print("  ⛔ A spread is not a finding until it is measured against the spread the same")
     print("     instrument produces when the answer should not change.")
@@ -303,17 +303,26 @@ def main() -> None:
         raise SystemExit("⛔ F9 FIRED: insufficient anchored arms for any floor.")
 
     print("\n" + "-" * 110)
-    print("  ⭐ G-N4 · THE RE-RUN PAIRS: identical config, identical seed, different run")
+    print("  ⭐ G-N4 · THE FORM AXIS: control vs UpsampleConv2, matched on seed")
     print("-" * 110)
     print(
-        f"    {'pair':<10} {'AP lander':>18} {'AP orbiter':>18} {'|AP delta|':>11} "
-        f"{'both anchor-exact?':>19}"
+        f"    {'seed':<12} {'AP control':>18} {'AP upctwo':>18} {'AP diff':>11} "
+        f"{'committed diff':>15} {'both exact?':>12}"
     )
-    for la, oa, w in FORM_PAIRS:
-        a1, a2 = results[la]["ap"], results[oa]["ap"]
-        anc = anchor_for(w)
-        both = abs(a1 - anc) <= e1_data.G0_TOL and abs(a2 - anc) <= e1_data.G0_TOL
-        print(f"    {w:<10} {a1:>18.12f} {a2:>18.12f} {abs(a1 - a2):>11.3e} {str(both):>19}")
+    committed_rows = json.loads(_ANCHORS.read_text())
+    for ctl, trt, w in FORM_PAIRS:
+        a1, a2 = results[ctl]["ap"], results[trt]["ap"]
+        both = (
+            abs(a1 - anchor_for(w, "ap_ctl")) <= e1_data.G0_TOL
+            and abs(a2 - anchor_for(w, "ap_trt")) <= e1_data.G0_TOL
+        )
+        committed = next(
+            float(r["diff"]) for r in committed_rows if r.get("seed") == w and r.get("h") == 1
+        )
+        print(
+            f"    {w:<12} {a1:>18.12f} {a2:>18.12f} {a2 - a1:>11.6f} "
+            f"{committed:>15.6f} {str(both):>12}"
+        )
 
     print("\n" + "-" * 110)
     print("  THE FLOORS")
