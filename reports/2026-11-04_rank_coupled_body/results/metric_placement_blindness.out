@@ -1,0 +1,112 @@
+Which distributional metrics can SEE placement? A blindness map, not a verdict.
+
+Programme: ``reports/2026-11-04_rank_coupled_body_programme.md``. ⛔ Committed before it ran (D-5).
+
+⭐ WHAT THIS IS. To know whether a ruler works, measure something whose length you already know.
+Build two forecasts identical in every respect — same cells firing, same list of magnitudes
+handed out, same field total — except that one places the magnitudes **using the truth** and
+the other places them **at random**. The first is certainly better by construction. Hand both to
+every
+metric and see which ones notice.
+
+⇒ Any metric that scores the two equal is **demonstrably blind to placement**, measured rather than
+argued.
+
+ℹ️ **This already exists here for POINT forecasts.** `#444` measured that permuting the oracle's
+event magnitudes moves AP, Brier, FSS1, FSS9, AFSS and hit_rate by **exactly 0.000e+00** while
+`placement_rho` falls 1.000000 → −0.030036. That is how `placement_rho` came to exist. ⇒ What is
+missing, and what this file supplies, is the same test for **distributional** metrics — which are
+what the programme is judged on.
+
+⛔⛔ WHAT THIS IS NOT, and the limits are the point:
+
+  * ⛔ It does **not** say which metric is *good*. A metric can be placement-sensitive and still be
+    improper, biased, or wrong for this population. Sensitivity is necessary, not sufficient.
+  * ⛔ It says **nothing** about whether the rank-coupling mechanism works. The oracle arm uses the
+    truth; device 1 declares an oracle-only improvement a FAIL. ⇒ No number here is a result about
+    any model.
+  * ⚠️ It is one target (`sb`), one horizon (h1), one arm, one pool window. The metrics' sensitivity
+    could differ elsewhere.
+  * ⚠️ A metric that separates the two arms here is sensitive to placement **of magnitudes among
+    already-firing cells**. That is not the same as sensitivity to which cells fire.
+
+**C-351 slots.** Population: 64,818 global ``land`` cells x 7 score months (463–469) = 453,726
+cell-months. Truth: ``lr_sb_best``, raw counts. Gate: the delivered h1 posterior-mean gate. Pool:
+each fold's own six fit months, positives only. Inference: ⭐ DELIVERED AUTOREGRESSIVE h1. Arm:
+``ctlfullzero_fortytwo``.
+
+⛔ THE GATES, declared before the run:
+
+  G-30  ⭐⭐ THE CONTROLS MUST COME OUT IDENTICAL. Several quantities are identical between the two
+        arms **by construction** — the field total, the number of firing cells, the multiset of
+        emitted magnitudes, and anything computed from the gate alone (AP, Brier). If any of those
+        differs, the simulation is wrong and no blindness claim may be made. ⇒ This is the
+        non-vacuity check for the whole file: without it, a metric reading 0 could mean *blind* or
+        could mean *my arms are identical*.
+  G-31  The arms are PAIRED on common random numbers: same gate draws, same drawn magnitudes, in
+        every sample. Asserted, not assumed.
+  G-32  The oracle arm must actually be better on at least ONE metric. If nothing separates them,
+        the test cannot distinguish "every metric is blind" from "the arms are the same", and the
+        run is VOID rather than informative.
+  G-33  Reported over all 7 folds, with the per-fold spread, because one fold cannot resolve the
+        5% scale the programme cares about.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+WHICH METRICS CAN SEE PLACEMENT? oracle-placed vs random-placed, everything else equal
+====================================================================================================
+
+  7 folds, R=300 samples per arm, 150,000 cell pairs for the variogram
+
+----------------------------------------------------------------------------------------------------
+G-30 · THE CONTROLS. These are identical by construction; any difference is a bug.
+----------------------------------------------------------------------------------------------------
+  quantity                            oracle        random   |difference|
+  field total                      4833.2495     4833.2495      0.000e+00
+  n firing (mean)                   268.5705      268.5705      0.000e+00
+  emitted magnitude mean             17.9979       17.9979      0.000e+00
+  emitted magnitude p99             143.5714      143.5714      0.000e+00
+  AP (gate only)                      0.5932        0.5932      0.000e+00
+  Brier (gate only)                   0.0021        0.0021      0.000e+00
+
+  PASS  G-30  every control identical to 1e-9 relative
+
+----------------------------------------------------------------------------------------------------
+THE MAP · does each metric separate oracle placement from random placement?
+  ⚠️ 'sees it' means sensitive to WHERE magnitudes go among already-firing cells.
+  ⛔ It does NOT mean the metric is good, proper, or right for this population.
+----------------------------------------------------------------------------------------------------
+  metric                               oracle       random   rel. diff  folds agreeing  sees it?
+  CRPS plug-in, pooled               0.031065     0.060000     48.23%             7/7   sees it
+  CRPS fair, pooled                  0.030952     0.059824     48.26%             7/7   sees it
+  CRPS plug-in, firing union         0.331237     0.641742     48.38%             7/7   sees it
+  variogram score p=0.5              0.286542     0.950569     69.86%             7/7   sees it
+  Dawid-Sebastiani                  -2.137707    93.199710    102.29%             7/7   sees it
+  point-forecast MAE                 0.040617     0.107495     62.21%             7/7   sees it
+  point-forecast RMSE                1.269312     2.601223     51.20%             7/7   sees it
+  Brier at y>0                       0.002061     0.002061      0.00%             0/7   ⛔ BLIND
+  Brier at y>2                       0.001308     0.001829     28.49%             7/7   sees it
+  Brier at y>10                      0.000660     0.001218     45.83%             7/7   sees it
+  Brier at y>50                      0.000132     0.000331     60.03%             7/7   sees it
+
+  PASS  G-32  at least one metric separates the arms
+  ℓ Dawid-Sebastiani is computed on 5,978 cells with spread; the firing union is 5,978 cells
+
+----------------------------------------------------------------------------------------------------
+G-33 · PER-FOLD, because one fold cannot resolve the 5% scale the programme cares about
+----------------------------------------------------------------------------------------------------
+  metric                               f1       f2       f3       f4       f5       f6       f7
+  CRPS plug-in, pooled             62.4%   49.1%   42.7%   31.0%   57.6%   41.9%   40.6%
+  CRPS fair, pooled                62.4%   49.2%   42.7%   31.0%   57.7%   41.9%   40.6%
+  CRPS plug-in, firing union       62.6%   49.6%   42.7%   31.0%   57.7%   42.1%   40.6%
+  variogram score p=0.5            72.3%   75.5%   66.7%   63.7%   71.8%   71.5%   63.9%
+  Dawid-Sebastiani                102.0%  102.6%  105.4%  100.9%  102.4%  104.3%  103.7%
+  point-forecast MAE               68.3%   66.0%   60.6%   53.9%   66.3%   59.6%   57.0%
+  point-forecast RMSE              73.0%   71.7%   30.4%   22.6%   51.5%   31.0%   35.6%
+  Brier at y>0                      0.0%    0.0%    0.0%    0.0%    0.0%    0.0%    0.0%
+  Brier at y>2                     24.8%   28.5%   26.4%   31.9%   26.8%   31.3%   30.2%
+  Brier at y>10                    56.0%   39.9%   39.0%   43.7%   51.1%   43.2%   44.6%
+  Brier at y>50                    78.6%   73.2%   56.7%   16.8%   67.8%   33.8%   73.1%
+
+  69.8 s, CPU, zero GPU. ⛔ No claim here is about any model.
