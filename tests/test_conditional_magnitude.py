@@ -206,3 +206,22 @@ def test_the_prereg_constants_are_the_ones_the_docstring_declares():
     assert cm.F2_MIN_POSITIVE == 100
     assert (cm.P34_LO, cm.P34_HI) == (3_760, 3_780)
     assert cm.OPEN_SHARE == 0.004473
+
+
+def test_the_obs_conditioned_column_is_named_as_such():
+    """⛔ The one column that violates the module's own rule must SAY so in its name.
+
+    ``ratio_obs_conditioned`` divides mean(obs | obs>0) by mean(pred | obs>0). The denominator
+    selects cells by their outcome, which is the Murphy-Winkler error the docstring says this
+    instrument avoids -- written in by the same author, found by reading the first run's output.
+    It is kept because it is descriptively useful and renamed because a column called ``ratio|pos``
+    reads innocent. ⛔ This pins the name so it cannot be shortened back.
+    """
+    pred, obs = _toy()
+    rows = cm.bin_table(pred, obs, 4)
+    assert "ratio_obs_conditioned" in rows[0], "the outcome-conditioned column lost its warning"
+    assert "ratio_pos" not in rows[0], "the innocent-looking name is back"
+    #: and it must genuinely differ from the clean column, or the warning is about nothing
+    assert any(abs(r["ratio_obs_conditioned"] - r["ratio"]) > 1e-9 for r in rows), (
+        "the two ratios coincide, so this test is not distinguishing them"
+    )

@@ -15,9 +15,23 @@ conditional magnitude.** This does that, once, on one arm.
 statistic on the observation is the Murphy-Winkler calibration-vs-refinement error, and separately
 ``Gneiting2011`` proves a score conditioned on the outcome is **improper** ("the composite score is
 improper, unless the weight" is constant). Our own `S4` event/background split has that defect and
-is flagged for revision; this instrument does not inherit it. ``G-M1`` enforces it mechanically
-rather than by discipline: the bin edges are recomputed after the truth is permuted and must come
-back byte-identical.
+is flagged for revision. ``G-M1`` enforces the BINNING mechanically rather than by discipline: the
+bin edges are recomputed after the truth is permuted and must come back byte-identical.
+
+⛔⛔ ONE COLUMN BREAKS THAT RULE, AND IS NAMED SO IT CANNOT BE USED BY ACCIDENT
+
+``ratio_obs_conditioned`` divides ``mean(observed | observed > 0)`` by ``mean(predicted | observed
+> 0)``. The denominator **selects cells by their outcome**, which is exactly the defect the
+paragraph above says this instrument avoids. It was written into the first committed version of
+this file by the same author who wrote that paragraph, found on reading the first run's output, and
+is kept rather than deleted because the quantity is descriptively useful: *among the cells that did
+have an event, how large was it against what was predicted?*
+
+⇒ ⛔ **It may not be used for any calibration or bias inference.** The clean column is ``ratio``,
+whose numerator and denominator are both taken over the whole prediction bin. ``mean_obs_pos`` is a
+plain description of the outcome distribution inside a prediction bin and is not a ratio, so it
+does not inherit the problem. ``test_the_obs_conditioned_column_is_named_as_such`` pins the name so
+it cannot be quietly shortened back to something that reads innocent.
 
 SLOTS (``C-351`` -- population, transform, estimator, normalisation, named with every number)
 
@@ -131,7 +145,11 @@ def equal_count_edges(x: np.ndarray, b: int) -> np.ndarray:
 
 
 def bin_table(pred: np.ndarray, obs: np.ndarray, b: int) -> list[dict[str, float]]:
-    """-> one row per bin: n, n_pos, mean predicted, mean observed, and the two ratios.
+    """-> one row per bin: n, n_pos, mean predicted, mean observed, and two ratios.
+
+    ⭐ ``ratio`` is the clean one -- both means over the whole bin, nothing selected by outcome.
+    ⛔ ``ratio_obs_conditioned`` restricts both means to cells with a positive outcome and is
+    therefore outcome-conditioned; see the module docstring. Reported, never inferred from.
 
     ⚠️ ``np.searchsorted`` on interior edges only, so the top bin is closed -- otherwise the single
     largest prediction lands in a bin of its own and its ratio is one cell's.
@@ -154,7 +172,7 @@ def bin_table(pred: np.ndarray, obs: np.ndarray, b: int) -> list[dict[str, float
                 "mean_obs": float(o.mean()),
                 "ratio": float(o.mean() / p.mean()) if p.mean() > 0 else float("nan"),
                 "mean_obs_pos": float(o[pos].mean()) if pos.any() else float("nan"),
-                "ratio_pos": (
+                "ratio_obs_conditioned": (
                     float(o[pos].mean() / p[pos].mean())
                     if pos.any() and p[pos].mean() > 0
                     else float("nan")
@@ -219,6 +237,8 @@ def main() -> None:
     )
     print("  ⛔ DELIVERED AUTOREGRESSIVE. Truth lr_sb_best, RAW COUNTS, no transform.")
     print("  ⛔ Binned by PREDICTION ONLY. G-M1 enforces it.")
+    print("  ⛔ The RATIO-OBS-COND column IS outcome-conditioned and may NOT be used for")
+    print("     calibration inference. The clean column is `ratio`.")
 
     grid, cells, m0 = e1_data.truth_grid()
     gate = e1_data.load_gate_h1()
@@ -283,13 +303,13 @@ def main() -> None:
                 continue
             print(
                 f"      {'bin':>4} {'n':>8} {'n_pos':>7} {'mean_pred':>11} {'mean_obs':>11} "
-                f"{'ratio':>9} {'mean_obs|pos':>13} {'ratio|pos':>10}"
+                f"{'ratio':>9} {'mean_obs|pos':>13} {'RATIO-OBS-COND':>15}"
             )
             for r in rows:
                 print(
                     f"      {r['bin']:>4} {r['n']:>8,} {r['n_pos']:>7,} {r['mean_pred']:>11.5f} "
                     f"{r['mean_obs']:>11.5f} {r['ratio']:>9.3f} {r['mean_obs_pos']:>13.3f} "
-                    f"{r['ratio_pos']:>10.3f}"
+                    f"{r['ratio_obs_conditioned']:>15.3f}"
                 )
             fin = [r["ratio"] for r in rows if np.isfinite(r["ratio"]) and r["ratio"] > 0]
             if len(fin) >= 2:
