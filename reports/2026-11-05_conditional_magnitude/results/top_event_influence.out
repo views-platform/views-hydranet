@@ -1,0 +1,51 @@
+==============================================================================================================
+TOP-EVENT INFLUENCE ON THE CONDITIONAL-MAGNITUDE PROFILE
+==============================================================================================================
+  ⛔ EVERY NUMBER HERE IS OUTCOME-CONDITIONED BY DESIGN and is an INFLUENCE figure.
+     None may be quoted as a calibration or bias figure. Removal is a sensitivity
+     probe, NEVER a remedy -- see the docstring on Vesco et al. and Weidmann 2015.
+
+  PASS  G-0  ap 0.5667056384496834  |delta| 0.000e+00
+  PASS  G-5  misaligned []
+  PASS  G-8  842,634 cell-months  2,905 events  max 2482.0
+  PASS  G-T1  priogrid 148759: in-window total 0, month 504 value 113,395
+        ⇒ its influence on every conditional-magnitude number is EXACTLY 0
+  PASS  G-T2  smallest nonzero-month count among the top 12: 49 of 384 (floor 20; the known artefact priogrid 150919 has 6)
+
+  OPEN set 4,481 cells, 1,857 events
+
+  WHERE THE TOP 12 IN-WINDOW OBSERVATIONS LANDED (B=8 prediction bins)
+    rank    value  priogrid  month  open?  predicted  B=8 bin
+       1    2,482    178273    459   True    11.1250        6
+       2    1,301    178273    458   True     5.9375        5
+       3      681    150926    467   True     1.7500        2
+       4      638    178337    464   True    13.5000        7
+       5      552    178273    457   True    15.9375        7
+       6      547    176832    463   True     7.7500        5
+       7      435    178273    460   True     3.9375        4
+       8      435    150926    462   True     0.1250        0
+       9      390    181154    457   True     8.4375        6
+      10      380    176165    461   True     6.4375        5
+      11      244    150926    465   True     0.5625        1
+      12      239    176833    462   True    13.0625        7
+
+  THE PROFILE WITH THE TOP-k OBSERVATIONS REMOVED (open set, B=8 and B=16)
+
+   B=8
+       k       n  events  ratio bin0  ratio top     gap   pooled
+       0   4,481   1,857      18.685      1.043   17.92   1.6848
+       1   4,480   1,856      18.685      1.044   17.90   1.5888
+       5   4,476   1,852      18.685      0.944   19.79   1.4674
+      12   4,469   1,845      12.717      0.925   13.75   1.3654
+      25   4,456   1,832      12.717      0.807   15.76   1.2844
+
+   B=16
+       k       n  events  ratio bin0  ratio top     gap   pooled
+       0   4,481   1,857      19.896      0.934   21.30   1.6848
+       1   4,480   1,856      19.896      0.936   21.26   1.5888
+       5   4,476   1,852      19.896      0.936   21.26   1.4674
+      12   4,469   1,845      19.896      0.936   21.26   1.3654
+      25   4,456   1,832      19.896      0.785   25.36   1.2844
+
+  ⛔ F5 fires if the gap falls below 2.0 at any k. P-35..P-37 are scored
+     in the dossier against the thresholds in this docstring.
