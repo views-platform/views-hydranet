@@ -11,17 +11,44 @@ is the general form: *"is this metric discriminating?" has no answer independent
 family -- only "discriminating against THIS family's noise"*. A spread is not a finding until it is
 measured against the spread the same instrument produces when the answer should not change.
 
-⭐ TWO FLOORS, AND THE SECOND IS TIGHTER THAN THE FIRST
+⛔⛔ VOID, DECLARED NOT REWRITTEN -- THE "RE-RUN FLOOR" HALF OF THIS PRE-REGISTRATION
 
-    SEED floor      five arms, seeds 42/43/44/45/47, one per seed. How much the profile moves
-                    when the seed changes and nothing else does
-    RE-RUN floor    ⭐⭐ five ``lander``/``orbiter`` PAIRS. Each pair is byte-identical in every
-                    config file except its own name -- same ``torch_seed``, same ``np_seed``, same
-                    git sha, same queryset, same partitions. ⇒ Their difference is pure run-to-run
-                    nondeterminism: how much the profile moves when NOTHING changes
+The version of this file committed at e915954 claimed the ``lander``/``orbiter`` directory pairs
+were duplicate runs of one configuration, and built a "re-run floor" on that. ⛔ **It is false.**
+The pairs are the TWO ARCHITECTURES of EXP-02, and ``EXP02_MANIFEST``'s ``arm:`` line says so:
 
-⇒ A signal must clear the seed floor to mean anything about seeds. If it does not clear the RE-RUN
-floor, the instrument is simply unstable and no seed reading is possible at all.
+    calm_lander   -> upctwofullzero_fortytwo     calm_orbiter   -> ctlfullzero_fortytwo
+    keen_lander   -> upctwofullzero_fortythree   keen_orbiter   -> ctlfullzero_fortythree
+    mellow_lander -> upctwofullzero_fortyfour    mellow_orbiter -> ctlfullzero_fortyfour
+    nimble_lander -> upctwofullzero_fortyfive    nimble_orbiter -> ctlfullzero_fortyfive
+    rapid_lander  -> upctwofullzero_fortyseven   rapid_orbiter  -> ctlfullzero_fortyseven
+                                                 quiet_orbiter  -> ctlfullzero_fortysix
+
+⇒ ``upctwo`` is ``UpsampleConv2``, candidate 7 of the 2026-08-24 architecture bake-off. The arms
+are **control vs UpsampleConv2 on five matched seeds**, plus control at seed 46.
+
+⚠️ HOW THE ERROR HAPPENED, because the shape matters more than the fact: I diffed
+``config_hyperparameters.py`` and ``config_queryset.py`` between the two directories, found them
+identical but for their own name, and reported "the arms differ by seed only". The architecture is
+NOT in either config -- both say ``model_name = "violet_visitor"`` -- it is in how the arm was
+BUILT. ⇒ I verified the thing I knew how to check and spent the answer on the thing I had not
+checked. That is the same failure I spent the day correcting in a peer session: a correct narrow
+observation cashed as a broad claim.
+
+⇒ ``P-39`` is **VOID** (its population does not exist). ``P-38``, ``P-40`` and ``P-41`` stand
+unchanged -- they concern the SEED floor, which is real. ``F8`` is void with ``P-39``. The
+architecture contrast is a NEW pre-registration below, ``P-42``/``P-43``, not a rewrite of an old
+one.
+
+⭐ TWO MEASUREMENTS
+
+    SEED floor      five CONTROL arms, ``ctlfullzero_`` x seeds 42/43/44/45/47. How much the
+                    profile moves when only the seed changes
+    ⭐⭐ FORM axis   ``ctlfullzero_`` vs ``upctwofullzero_`` at the SAME seed, five matched pairs.
+                    An architecture difference, paired on seed -- which is exactly the population
+                    the `models` session said we lacked, and which I wrongly told them we lacked
+
+⇒ A profile difference between architectures means something only if it exceeds the seed floor.
 
 ⚠️ Seed **46** (``quiet_orbiter``) is EXCLUDED. ``exp03_pairs.json`` carries committed ``ap_ctl``
 anchors at h1 for 42, 43, 44, 45 and 47 but not 46, so ``G-N0`` -- the void condition -- cannot be
@@ -55,15 +82,24 @@ scripts import it and E-1's result is already published against it.
     G-N1  ``e1_data.ARM`` is restored after every arm. Asserted, not assumed
     G-N2  non-vacuity: the five committed anchors must be DISTINCT. If they were equal, G-N0
           would be satisfied by loading the same arm five times
-    G-N4  ⭐ measurement, not refusal: per pair, the AP delta between members, and whether both
-          reproduce the shared anchor
+    G-N4  ⭐ measurement, not refusal: per matched pair, the control arm must reproduce ap_ctl
+          and the treatment arm must reproduce ap_trt, both from exp03_pairs.json. ⭐ That is a
+          SECOND copy gate the false premise had hidden: the file carries BOTH arms' AP
     G-M2/G-M3  reused from ``conditional_magnitude`` per arm per B
 
 PRE-REGISTERED PREDICTIONS -- next free is P-38
 
     P-38  ⭐⭐ THE ONE THAT MATTERS. The profile's SHAPE clears the seed floor: the across-seed
           spread of the bin0/top gap is less than HALF the gap's own mean. ~70%
-    P-39  The RE-RUN floor is smaller than the SEED floor on the same statistic. ~75%
+    P-39  ⛔ VOID -- its population (duplicate runs of one configuration) does not exist
+    P-42  ⭐ NEW. The FORM difference in the gap is SMALLER than the seed floor on the same
+          statistic, i.e. UpsampleConv2 does not move the conditional-magnitude profile. ~65%.
+          ⭐ Grounded: exp03_pairs.json's own paired AP effect is +0.0049/+0.0047/+0.0010/+0.0064
+          and -0.0063 across the five seeds -- three positive, one negative, one null -- against
+          an unpaired ap_ctl seed range of 0.0112. An architecture whose AP effect is smaller
+          than the seed range is unlikely to reshape magnitude
+    P-43  ⭐ NEW. The sign of the FORM difference in the gap is NOT consistent across the five
+          seeds, mirroring the mixed AP signs above. ~70%
     P-40  The pooled ratio's across-seed sd is below 0.15 on a level of ~1.68. ~60%
     P-41  ⭐ The bin0 ratio is the NOISIEST of the three statistics in relative terms, because it
           is an extreme bin of a skewed distribution. ~80%
@@ -72,9 +108,7 @@ FALSIFIERS
 
     F7  the gap's across-seed spread exceeds the gap's own mean ⇒ ⛔ the conditional-magnitude
         SHAPE is not established, and the finding is withdrawn to "not demonstrated on one arm"
-    F8  the re-run floor EXCEEDS the seed floor ⇒ the instrument is unstable under nothing
-        changing and no seed interpretation is possible. ⛔ Reported as an instrument failure,
-        not as a result about seeds
+    F8  ⛔ VOID with P-39
     F9  fewer than 4 arms pass G-N0 ⇒ insufficient population for any floor
 
 ⛔ WHAT THIS CANNOT SAY
@@ -105,21 +139,14 @@ import e1_data  # noqa: E402
 from lodestar_score import average_precision  # noqa: E402
 
 #: arm directory -> (seed word used by exp03_pairs.json, seed int). ⛔ 46 is absent on purpose.
-SEED_ARMS = {
-    "calm_orbiter": ("fortytwo", 42),
-    "keen_orbiter": ("fortythree", 43),
-    "mellow_orbiter": ("fortyfour", 44),
-    "nimble_orbiter": ("fortyfive", 45),
-    "rapid_orbiter": ("fortyseven", 47),
-}
-#: byte-identical config pairs: same seed, same sha, differing only in their own name.
-RERUN_PAIRS = (
-    ("calm_lander", "calm_orbiter", "fortytwo"),
-    ("keen_lander", "keen_orbiter", "fortythree"),
-    ("mellow_lander", "mellow_orbiter", "fortyfour"),
-    ("nimble_lander", "nimble_orbiter", "fortyfive"),
-    ("rapid_lander", "rapid_orbiter", "fortyseven"),
-)
+SEED_WORDS = ("fortytwo", "fortythree", "fortyfour", "fortyfive", "fortyseven")
+#: ⛔ Keyed by the DELIVERED ARM NAME from EXP02_MANIFEST's `arm:` line, which is what
+#: exp03_arms.arm_dir resolves -- NOT by directory name. Reading the directory name is the error
+#: the void block above records.
+SEED_ARMS = {f"ctlfullzero_{w}": (w, s) for w, s in zip(SEED_WORDS, (42, 43, 44, 45, 47))}
+#: ⭐ the FORM axis: same seed, control vs UpsampleConv2.
+FORM_PAIRS = tuple((f"ctlfullzero_{w}", f"upctwofullzero_{w}", w) for w in SEED_WORDS)
+_ORIGINAL_ARM = e1_data.ARM
 B_REPORT = (8, 16)
 P38_MAX_SPREAD_FRACTION = 0.5
 P40_MAX_POOLED_SD = 0.15
@@ -127,8 +154,11 @@ F9_MIN_ARMS = 4
 _ANCHORS = _REPO / "reports/2026-10-30_upsample_arm_dossier/results/exp03_pairs.json"
 
 
-def anchor_for(seed_word: str) -> float:
-    """-> the committed ``ap_ctl`` at h1 for ONE seed.
+def anchor_for(seed_word: str, which: str = "ap_ctl") -> float:
+    """-> the committed ``ap_ctl`` (control) or ``ap_trt`` (UpsampleConv2) at h1 for ONE seed.
+
+    ⭐ ``exp03_pairs.json`` carries BOTH arms' AP per seed. The false premise in the void block
+    hid that: believing the pairs were duplicate runs, I only ever looked for one column.
 
     ⛔ Deliberately not ``e1_data.anchor_ap``, which hardcodes ``"fortytwo"`` and is lru_cached:
     calling it per arm would return seed 42's anchor five times and G-N0 would pass vacuously.
@@ -150,7 +180,12 @@ def anchor_for(seed_word: str) -> float:
             f"{r['n_org']} origins, not {e1_data.G8_CELL_MONTHS} over {e1_data.N_ORIGINS}. "
             "Comparing it to ours would compare two different populations."
         )
-    return float(r["ap_ctl"])
+    if which not in r:
+        raise SystemExit(
+            f"profile_noise_floor: the {seed_word} record has no {which!r} column; it carries "
+            f"{sorted(r)}. G-N0/G-N4 has no anchor for that arm."
+        )
+    return float(r[which])
 
 
 @contextlib.contextmanager
@@ -169,7 +204,7 @@ def profile(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict[str,
     with _as_arm(arm):
         gate = e1_data.load_gate_h1()
         draws = e1_data.load_draws_h1()
-    if e1_data.ARM != "ctlfullzero_fortytwo":
+    if e1_data.ARM != _ORIGINAL_ARM:
         raise SystemExit(f"⛔ G-N1: e1_data.ARM was left as {e1_data.ARM!r} after loading {arm}.")
 
     origins = sorted(gate)
@@ -241,16 +276,15 @@ def main() -> None:
         raise SystemExit("⛔ a precondition failed. Nothing is reported.")
 
     results: dict[str, dict[str, object]] = {}
-    arms = sorted({a for a in SEED_ARMS} | {a for p in RERUN_PAIRS for a in p[:2]})
+    arms = sorted({a for a in SEED_ARMS} | {a for p in FORM_PAIRS for a in p[:2]})
     print(f"\n  loading {len(arms)} arms, one at a time\n")
     n_anchored = 0
     for arm in arms:
         r = profile(arm, grid, cells, m0)
         results[arm] = r
-        word = SEED_ARMS.get(arm, (None,))[0] or next(
-            (w for la, oa, w in RERUN_PAIRS if arm in (la, oa)), None
-        )
-        anc = anchor_for(word) if word else float("nan")
+        word = next((w for c, t, w in FORM_PAIRS if arm in (c, t)), None)
+        which = "ap_trt" if arm.startswith("upctwo") else "ap_ctl"
+        anc = anchor_for(word, which) if word else float("nan")
         d = abs(r["ap"] - anc)
         hit = d <= e1_data.G0_TOL
         n_anchored += int(hit and arm in SEED_ARMS)
@@ -275,7 +309,7 @@ def main() -> None:
         f"    {'pair':<10} {'AP lander':>18} {'AP orbiter':>18} {'|AP delta|':>11} "
         f"{'both anchor-exact?':>19}"
     )
-    for la, oa, w in RERUN_PAIRS:
+    for la, oa, w in FORM_PAIRS:
         a1, a2 = results[la]["ap"], results[oa]["ap"]
         anc = anchor_for(w)
         both = abs(a1 - anc) <= e1_data.G0_TOL and abs(a2 - anc) <= e1_data.G0_TOL
@@ -300,25 +334,31 @@ def main() -> None:
         ],
     ):
         seed_vals = [getter(results[a]) for a in SEED_ARMS]
-        rerun_vals = [
-            abs(getter(results[la]) - getter(results[oa]))
-            for la, oa, _w in RERUN_PAIRS
-            if getter(results[la]) is not None and getter(results[oa]) is not None
+        form_vals = [
+            getter(results[t]) - getter(results[c])
+            for c, t, _w in FORM_PAIRS
+            if getter(results[c]) is not None and getter(results[t]) is not None
         ]
         if any(v is None for v in seed_vals):
             print(f"\n   {stat_name:<20} ⛔ refused: a per-arm profile was non-vacuous-FAILED")
             continue
         mean, sd, rng = _spread([float(v) for v in seed_vals])
-        rr_mean = float(np.mean(rerun_vals)) if rerun_vals else float("nan")
+        fm = float(np.mean(np.abs(form_vals))) if form_vals else float("nan")
+        signs = "".join("+" if v > 0 else "-" if v < 0 else "0" for v in form_vals)
         print(
-            f"\n   {stat_name:<20} mean {mean:>9.4f}   SEED sd {sd:>8.4f} "
-            f"({sd / mean if mean else float('nan'):>7.2%})   SEED range {rng:>8.4f}   "
-            f"RE-RUN mean|diff| {rr_mean:>8.4f}"
+            f"\n   {stat_name:<20} control mean {mean:>9.4f}   SEED sd {sd:>8.4f} "
+            f"({sd / mean if mean else float('nan'):>7.2%})   SEED range {rng:>8.4f}"
         )
-        print("      per-seed: " + "  ".join(f"{float(v):.4f}" for v in seed_vals))
+        print("      per-seed control:     " + "  ".join(f"{float(v):.4f}" for v in seed_vals))
+        print(
+            f"      FORM mean|upctwo-ctl| {fm:>9.4f}  ⇒ "
+            f"{'BELOW' if fm < rng else 'ABOVE'} the seed range    signs {signs}"
+        )
+        print("      per-seed upctwo-ctl:  " + "  ".join(f"{v:+.4f}" for v in form_vals))
 
-    print("\n  ⛔ F7/F8/F9 and P-38..P-41 are scored in the dossier against the thresholds in")
-    print("     this docstring. Changing a threshold is a change to the pre-registration.")
+    print("\n  ⛔ P-38, P-40, P-41 (seed floor) and the NEW P-42/P-43 (form axis) are scored in")
+    print("     the dossier against the thresholds in this docstring. P-39 and F8 are VOID:")
+    print("     their population -- duplicate runs of one configuration -- does not exist.")
 
 
 if __name__ == "__main__":
