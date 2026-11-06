@@ -2,7 +2,7 @@
 ORDERING BY INDEX — does a higher-resolution index lower 8.61x?
 ================================================================================================================
   PASS  G-E1  no calibration statistic in this file
-  PASS  G-I1  6 indices, every one takes exactly ('draws', 'gate')
+  PASS  G-I1  6 indices: signature exactly ('draws', 'gate'), undecorated, no closure, and no name outside the allow-list
   PASS  G-8   842,634 cell-months  2,905 events  max 2482.0
   ⛔ DISCRIMINATION ONLY. ⭐ Chance is exactly 0.5. ⭐ NO bin edges, NO null.
   ⚠️ Says nothing about whether the SIZES are right — a model 30x too small scores 1.0.

@@ -56,6 +56,51 @@ def test_gate_i1_FIRES_on_an_index_that_ACCEPTS_the_truth(monkeypatch):
     assert "peeking" in detail and "truth" in detail
 
 
+def test_gate_i1_FIRES_on_the_THREE_BYPASSES_THAT_LEAVE_THE_SIGNATURE_INTACT(monkeypatch):
+    """⛔⛔ The gate's first version claimed these were impossible. All three PASSED it.
+
+    `/review-diff` caught the claim before the merge: *"an index that peeked at the truth would
+    have to accept it, and accepting it changes the signature this gate reads"* is false. Each
+    case below reaches a truth array without any parameter change, and each must now fire. ⇒ If
+    any of these starts PASSING, ``G-I1``'s docstring is overstating the gate again.
+    """
+    import functools
+
+    truth = np.array([1.0, 5.0, 900.0])
+
+    def via_global(draws, gate):
+        return _LEAKED_TRUTH  # noqa: F821  — a module global, signature untouched
+
+    def _make():
+        hidden = truth
+
+        def via_closure(draws, gate):
+            return hidden
+
+        return via_closure
+
+    def wrapper(draws, gate, _t=truth):
+        return _t
+
+    cases = {
+        "global": (via_global, "allow-list"),
+        "closure": (_make(), "closes over"),
+        "wraps": (functools.wraps(obi.mean_draw)(wrapper), "DECORATED"),
+    }
+    for label, (fn, expected) in cases.items():
+        monkeypatch.setattr(obi, "INDEXES", (("mean_draw", obi.mean_draw), (label, fn)))
+        ok, detail = obi.gate_i1_indices_cannot_see_the_truth()
+        assert not ok, f"G-I1 accepted truth-peeking via {label}"
+        assert expected in detail, f"{label}: fired, but for the wrong reason — {detail}"
+
+
+def test_gate_i1_allow_list_is_SMALL_enough_to_be_a_real_constraint():
+    """⭐ Non-vacuity: an allow-list that permitted everything would pass anything."""
+    assert len(obi._INDEX_ALLOWED_NAMES) <= 12
+    assert "open" not in obi._INDEX_ALLOWED_NAMES
+    assert "truth" not in obi._INDEX_ALLOWED_NAMES
+
+
 def test_gate_i1_FIRES_on_a_RENAMED_parameter_because_the_check_is_exact(monkeypatch):
     """⚠️ Deliberately strict: ``(draws, obs)`` is refused even though it is truth-blind.
 

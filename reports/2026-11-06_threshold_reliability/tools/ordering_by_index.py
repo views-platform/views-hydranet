@@ -242,20 +242,65 @@ def gate_e1_no_calibration_statistic(source: str | None = None) -> tuple[bool, l
     return not hits, sorted(set(hits))
 
 
-def gate_i1_indices_cannot_see_the_truth() -> tuple[bool, str]:
-    """-> (passed, detail). ⭐⭐ TRUTH-BLINDNESS BY SIGNATURE, not by inspection or by promise.
+#: ⭐ Names an index's body may reference. Everything an honest index needs is an attribute of
+#: its two arguments plus numpy; anything else is a channel through which the truth could arrive.
+_INDEX_ALLOWED_NAMES = frozenset({"mean", "std", "max", "min", "axis", "np", "float64", "astype"})
 
-    Every index takes exactly ``(draws, gate)``. An index that peeked at the truth would have to
-    accept it, and accepting it changes the signature this gate reads. ⇒ The property is enforced
-    by arithmetic on ``inspect.signature``, which is the only form of this check that cannot be
-    satisfied by a comment. ⛔ A sibling's first two attempts at this gate could not fire: one
-    returned True after its arguments were deleted, the other compared two identical expressions.
+
+def gate_i1_indices_cannot_see_the_truth() -> tuple[bool, str]:
+    """-> (passed, detail). ⭐⭐ TRUTH-BLINDNESS, and it took three checks rather than one.
+
+    ⛔⛔ THE FIRST VERSION OF THIS GATE WAS WRONG IN ITS CLAIM, caught by ``/review-diff`` before
+    the merge. It checked ``inspect.signature`` only, and asserted: *"an index that peeked at the
+    truth would have to accept it, and accepting it changes the signature this gate reads."*
+    **False.** Demonstrated, three ways, all of which PASSED the signature check:
+
+      * a module-level global — ``def f(draws, gate): return TRUTH``
+      * a closure over the truth — ``hidden = TRUTH`` in an enclosing scope
+      * ``functools.wraps(mean_draw)`` on a wrapper, because ``inspect.signature`` follows
+        ``__wrapped__`` and so reports the *decorated* function's signature, not the wrapper's
+
+    ⇒ It was another instance of this dossier's own defect class: a guard whose docstring claimed
+    more than its code could see. Rather than weaken the claim, the gate now earns it:
+
+      1. the signature is exactly ``(draws, gate)`` — no extra parameter, no ``*args``
+      2. ⭐ ``__code__.co_freevars`` is EMPTY — no closure, so nothing can be captured
+      3. ⭐ ``__wrapped__`` is absent — undecorated, so the signature read is the real one
+      4. ⭐⭐ every name the body references is in ``_INDEX_ALLOWED_NAMES`` — this is the one that
+         closes the global, since a global read shows up in ``co_names``
+
+    ⛔ (4) is deliberately a tiny allow-list rather than a deny-list. A deny-list has to anticipate
+    what the truth will be called; an allow-list only has to permit what an honest index needs,
+    which is two arrays and numpy. Adding a legitimate index may require adding a name here, and
+    that is the point — it is a decision someone has to make on purpose.
     """
     for name, fn in INDEXES:
         params = list(inspect.signature(fn).parameters)
         if params != ["draws", "gate"]:
             return False, f"index {name!r} takes {params}; only ('draws', 'gate') is permitted"
-    return True, f"{len(INDEXES)} indices, every one takes exactly ('draws', 'gate')"
+        if getattr(fn, "__wrapped__", None) is not None:
+            return False, (
+                f"index {name!r} is DECORATED; inspect.signature would report the wrapped "
+                "function's parameters rather than the wrapper's"
+            )
+        code = getattr(fn, "__code__", None)
+        if code is None:
+            return False, f"index {name!r} has no __code__; it cannot be inspected"
+        if code.co_freevars:
+            return False, (
+                f"index {name!r} closes over {list(code.co_freevars)}; a closure can carry the "
+                "truth without changing the signature"
+            )
+        stray = sorted(set(code.co_names) - _INDEX_ALLOWED_NAMES)
+        if stray:
+            return False, (
+                f"index {name!r} references {stray}, which is not in the allow-list; a global "
+                "read is the remaining way the truth could reach an index"
+            )
+    return True, (
+        f"{len(INDEXES)} indices: signature exactly ('draws', 'gate'), undecorated, no closure, "
+        "and no name outside the allow-list"
+    )
 
 
 def gate_i2_control_reproduces_m98(control_crossing: float) -> tuple[bool, str]:
@@ -389,7 +434,7 @@ def main() -> None:
     if len(per_seed) < N_SEEDS_REQUIRED:
         raise SystemExit("⛔ F35: fewer than five seeds.")
 
-    def agg(name: str, t: float) -> tuple[float, float, int]:
+    def crossing_for(name: str, t: float) -> tuple[float, float, int]:
         xs = [per_seed[w]["indexes"][name][t][0] for w in pnf.SEED_WORDS]
         sup = [per_seed[w]["indexes"][name][t][1] for w in pnf.SEED_WORDS]
         if not all(np.isfinite(x) for x in xs):
@@ -397,7 +442,7 @@ def main() -> None:
         m, sd = _agg(xs)
         return m, sd, min(sup)
 
-    control_070, _sd, _s = agg("mean_draw", 0.70)
+    control_070, _sd, _s = crossing_for("mean_draw", 0.70)
     ok_i2, detail_i2 = gate_i2_control_reproduces_m98(control_070)
     print(f"  {'PASS' if ok_i2 else '⛔ FAIL'}  G-I2  {detail_i2}")
     if not ok_i2:
@@ -413,7 +458,7 @@ def main() -> None:
         cells_txt = []
         rows[name] = {}
         for t in RESOLUTION_TARGETS:
-            m, sd, sup = agg(name, t)
+            m, sd, sup = crossing_for(name, t)
             rows[name][t] = (m, sd, sup)
             if not np.isfinite(m):
                 cells_txt.append(f"{'never':>18}")
@@ -427,14 +472,28 @@ def main() -> None:
     print("\n" + "-" * 112)
     print("  ⭐⭐ THE READOUT: each index's 0.70 crossing against the control's. LOWER IS BETTER.")
     print("-" * 112)
-    base = rows["mean_draw"][0.70][0]
+    base, _bsd, bsup = rows["mean_draw"][0.70]
+    if bsup < MIN_PAIRS:
+        raise SystemExit(
+            f"⛔ F35: the CONTROL's 0.70 crossing rests on {bsup} pairs (floor {MIN_PAIRS}). "
+            "Every figure in this file is a delta against it, so nothing is reported."
+        )
     beats: list[str] = []
     for name, _fn in INDEXES:
         if name == "mean_draw":
             continue
-        m = rows[name][0.70][0]
+        m, _sd, sup = rows[name][0.70]
         if not np.isfinite(m):
             print(f"  {name:>14}  never reaches 0.70            ⇒ strictly worse than the control")
+            continue
+        #: ⛔ The support rule binds HERE too, not only in the table above. Without this a crossing
+        #: read off a PAV block thinner than MIN_PAIRS could be printed ⭐ BETTER and could
+        #: suppress F34 — the rule was enforced in one of the three places that read the number.
+        if sup < MIN_PAIRS:
+            print(
+                f"  {name:>14}  {m:>8.2f}x vs {base:.2f}x   ⛔ UNSUPPORTED        "
+                f"only {sup} pairs behind it (floor {MIN_PAIRS})"
+            )
             continue
         rel = m / base
         if rel < 1.0 - TIE_TOL:
@@ -452,29 +511,40 @@ def main() -> None:
         f"    F34 {'⛔⛔ FIRED' if f34 else 'did not fire'} — no index beats the control at 0.70 "
         "⇒ the EMISSION is not the bottleneck and 8.61x is the model's own resolution"
     )
-    spread = [rows[n][0.70][0] for n, _f in INDEXES if np.isfinite(rows[n][0.70][0])]
+
+    def supported(name: str, t: float) -> float:
+        """-> the crossing, or ``inf`` if it is not supported by at least ``MIN_PAIRS`` pairs.
+
+        ⭐ ONE accessor, used by F36 and by every prediction below, so the support rule cannot be
+        honoured in one place and forgotten in another — which is exactly what ``/review-diff``
+        found before the merge.
+        """
+        m, _sd, sup = rows[name][t]
+        return m if (np.isfinite(m) and sup >= MIN_PAIRS) else float("inf")
+
+    spread = [x for n, _f in INDEXES if np.isfinite(x := supported(n, 0.70))]
     f36 = len(spread) > 1 and (max(spread) - min(spread)) / min(spread) < TIE_TOL
     print(
         f"    F36 {'⛔ FIRED' if f36 else 'did not fire'} — every index lands within "
         f"{TIE_TOL:.0%} of every other ⇒ the crossing is insensitive to the index"
     )
-    g = rows["gate"][0.70][0]
+    g = supported("gate", 0.70)
     print(
         f"    P-73 {'HELD' if np.isfinite(g) and g < base else 'FAILED'} — the GATE's 0.70 "
         f"crossing is {'never' if not np.isfinite(g) else f'{g:.2f}x'} against the control's "
         f"{base:.2f}x"
     )
-    g60 = rows["gate"][0.60][0]
+    g60 = supported("gate", 0.60)
     print(
         f"    P-74 {'HELD' if np.isfinite(g60) else 'FAILED'} — the gate orders magnitude above "
         f"chance at all (0.60 crossing {'never' if not np.isfinite(g60) else f'{g60:.2f}x'})"
     )
-    s = rows["sd_draw"][0.70][0]
+    s = supported("sd_draw", 0.70)
     print(
         f"    P-75 {'HELD' if not (np.isfinite(s) and s < base * (1 - TIE_TOL)) else 'FAILED'} — "
         f"sd_draw at {'never' if not np.isfinite(s) else f'{s:.2f}x'} does not beat the control"
     )
-    c = rows["gate_x_mean"][0.70][0]
+    c = supported("gate_x_mean", 0.70)
     print(
         f"    P-76 {'HELD' if not (np.isfinite(c) and c < base * (1 - TIE_TOL)) else 'FAILED'} — "
         f"gate_x_mean at {'never' if not np.isfinite(c) else f'{c:.2f}x'} does not beat it either"
