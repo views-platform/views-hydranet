@@ -236,6 +236,10 @@ SIMON_BANDS = ((1.0, 25.0), (25.0, 100.0), (100.0, 500.0), (500.0, np.inf))
 N_SEEDS_REQUIRED = 5
 N_PERMUTATIONS = 200
 MIN_PAIRS = 30
+
+#: Float slack for the crossing's ``fit >= target`` comparison. Same constant and same purpose as
+#: ``threshold_reliability.IDENTITY_TOL``; named locally because this file imports nothing from it.
+CROSSING_TOL = 1e-12
 FLOOR_Q = 0.99
 SELF_TEST_TOL = 1e-12
 NULL_SEED = 20261106
@@ -272,7 +276,16 @@ def gate_e1_no_calibration_statistic(source: str | None = None) -> tuple[bool, l
 
 # ── the pair set, built ONCE from the truth alone ────────────────────────────────────────────
 
-N_ROWS = len(RATIO_EDGES) - 1
+
+def n_rows() -> int:
+    """-> the binned row count. ⛔ A FUNCTION, not a snapshot, and that is deliberate.
+
+    ``N_ROWS = len(RATIO_EDGES) - 1`` used to be evaluated at import. Six sites read the snapshot
+    while ``main`` spelled the expression out twice, so rebinding ``RATIO_EDGES`` alone — which
+    this file's own docstring licenses by calling it PRESENTATIONAL — left every pair rowed against
+    the stale count and then raised ``IndexError`` mid-table. Reproduced on the 11-bin scheme.
+    """
+    return len(RATIO_EDGES) - 1
 
 
 class PairSet:
@@ -304,7 +317,7 @@ class PairSet:
         self.ratio_row = np.clip(
             np.searchsorted(np.asarray(RATIO_EDGES[1:-1]), self.ratio, side="right"),
             0,
-            N_ROWS - 1,
+            n_rows() - 1,
         ).astype(np.int64)
         self.high = self.t_small >= LEVEL_SPLIT
         self.truth = truth
@@ -352,11 +365,11 @@ class PairView:
         self.n_per_code = np.bincount(self.ratio_code, minlength=pairs.n_codes).astype(np.int64)
         self.code_occupied = self.n_per_code > 0
         ratio = pairs.ratio[sel]
-        self.n_per_row = np.bincount(self.ratio_row, minlength=N_ROWS).astype(np.int64)
+        self.n_per_row = np.bincount(self.ratio_row, minlength=n_rows()).astype(np.int64)
         self.median_ratio = np.array(
             [
                 float(np.median(ratio[self.ratio_row == r])) if self.n_per_row[r] else float("nan")
-                for r in range(N_ROWS)
+                for r in range(n_rows())
             ]
         )
 
@@ -370,8 +383,8 @@ def concordance(view: PairView, pred: np.ndarray) -> np.ndarray:
     """
     right = (pred[view.big] > pred[view.small]).astype(np.float64)
     tied = (pred[view.big] == pred[view.small]).astype(np.float64)
-    r = np.bincount(view.ratio_row, weights=right, minlength=N_ROWS)
-    t = np.bincount(view.ratio_row, weights=tied, minlength=N_ROWS)
+    r = np.bincount(view.ratio_row, weights=right, minlength=n_rows())
+    t = np.bincount(view.ratio_row, weights=tied, minlength=n_rows())
     with np.errstate(invalid="ignore", divide="ignore"):
         out = (r + 0.5 * t) / view.n_per_row
     return np.where(view.n_per_row > 0, out, np.nan)
@@ -380,9 +393,13 @@ def concordance(view: PairView, pred: np.ndarray) -> np.ndarray:
 def pav(x: np.ndarray, w: np.ndarray) -> np.ndarray:
     """-> the weighted isotonic (non-decreasing) least-squares fit of ``x`` with weights ``w``.
 
-    ⛔ WET. Byte-identical to ``threshold_reliability.pav`` in this same dossier, and a test pins
-    the two copies equal. A shared module would couple two instruments whose results are already
-    committed; the duplication is the cheaper of the two risks.
+    ⛔ WET, one of THREE copies — here, ``threshold_reliability.py`` and
+    ``ranking_within_events.py`` — each pinned against the hub by a test. A shared module would
+    couple instruments whose results are already committed; the duplication is the cheaper risk.
+
+    ⚠️ The pin compares BODIES, not bytes: the test strips both docstrings first. So this used to
+    say "byte-identical", which is literally false (the docstrings differ in length) and overstates
+    what a failure of that test can detect. The bodies are identical; the prose is not.
 
     Pool-adjacent-violators in its standard stack form. Each stack entry is one pooled block: its
     weighted mean, its total weight, and how many original points it covers. A new point is
@@ -403,7 +420,7 @@ def pav(x: np.ndarray, w: np.ndarray) -> np.ndarray:
             means.pop()
             weights.pop()
             counts.pop()
-    return np.repeat(np.asarray(means), np.asarray(counts))
+    return np.repeat(np.asarray(means, np.float64), np.asarray(counts, np.intp))
 
 
 def resolution_curve(view: PairView, pred: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -424,8 +441,12 @@ def resolution_curve(view: PairView, pred: np.ndarray) -> tuple[np.ndarray, np.n
     ``~/brain/4_notes/2026-11-06_resolution_not_ranking.md`` and it is NOT settled here; settling
     it needs a sweep over grouping width AND offset, which this instrument does not do.
 
-    ⭐ The fit is IN-SAMPLE, like ``S_rc`` in ``threshold_reliability``, so it is optimistic and
-    must be read against the permutation null — ``null_reach`` below, not against 0.5.
+    ⭐ The fit is IN-SAMPLE, like ``S_rc`` in ``threshold_reliability``, so it is optimistic.
+    ⛔ It had a permutation null; that null measured where the ratio axis goes SPARSE rather than
+    the null's skill, and it is DELETED — see the retraction block above ``band_concordance``.
+    ⇒ The existence of ordering skill rests on the BINNED rows' per-row floors, which are valid
+    nulls. This curve quantifies the skill; it does not establish it, and it may not be compared
+    to 0.5 either, because an in-sample PAV fit on a sparse right tail reaches 1.0 on pure noise.
     """
     right = (pred[view.big] > pred[view.small]).astype(np.float64)
     tied = (pred[view.big] == pred[view.small]).astype(np.float64)
@@ -435,45 +456,145 @@ def resolution_curve(view: PairView, pred: np.ndarray) -> tuple[np.ndarray, np.n
     return view.uniq_ratio[occ], pav(hit[occ] / w, w)
 
 
+def _decile_curve(view: PairView, pred: np.ndarray) -> list[tuple[float, float, int]]:
+    """-> ten ``(median ratio, RAW concordance, pairs)`` points at equal pair counts.
+
+    ⭐⭐ THE RAW CURVE, BEFORE PAV. Two jobs, and both were missing:
+
+      * it is the *printed curve* this file's docstring promised and never printed, so a reader
+        can read off a target ``RESOLUTION_TARGETS`` did not include without re-running the job;
+      * ⛔ it is the only thing that shows whether the shape is actually non-decreasing.
+        ``resolution_curve`` IMPOSES monotonicity, so a declining stretch comes back as a flat
+        envelope and the crossing silently lands at the end of it. ⚠️ Whether coarsening can
+        REDUCE ordering skill is the open question in
+        ``~/brain/4_notes/2026-11-06_resolution_not_ranking.md``; these ten points are evidence
+        about the shape on OUR data and are NOT a test of it — a test needs a sweep over grouping
+        width AND offset, which this instrument still does not do.
+
+    ⚠️ Equal PAIR counts, not equal ratio spans, so each point carries the same weight. The
+    deciles are a display; nothing is scored off them.
+    """
+    occ = view.code_occupied
+    w = view.n_per_code[occ].astype(np.float64)
+    right = (pred[view.big] > pred[view.small]).astype(np.float64)
+    tied = (pred[view.big] == pred[view.small]).astype(np.float64)
+    hit = np.bincount(view.ratio_code, weights=right + 0.5 * tied, minlength=view.n_codes)[occ]
+    ratios = view.uniq_ratio[occ]
+    edges = np.searchsorted(np.cumsum(w) / w.sum(), np.linspace(0.1, 1.0, 10))
+    out: list[tuple[float, float, int]] = []
+    lo = 0
+    for hi in edges:
+        hi = int(min(hi, w.size - 1))
+        if hi < lo:
+            continue
+        ww = w[lo : hi + 1]
+        out.append(
+            (
+                float(np.median(ratios[lo : hi + 1])),
+                float(hit[lo : hi + 1].sum() / ww.sum()),
+                int(ww.sum()),
+            )
+        )
+        lo = hi + 1
+    return out
+
+
 def crossing(ratios: np.ndarray, fit: np.ndarray, target: float) -> float:
     """-> the smallest separation whose isotonic fit reaches ``target``; ``inf`` if it never does.
 
     ⭐ Well defined BECAUSE the fit is non-decreasing: the set of ratios at or above the target is
     an upper set, so "the smallest" is its one left endpoint and there is no first-crossing
     ambiguity to resolve with a convention.
+
+    ⚠️ The comparison carries ``CROSSING_TOL``. An exact ``fit >= target`` can skip a whole PAV
+    block when the block's accumulated weighted mean lands a couple of ulps below a target it
+    mathematically equals — 5 cases in 47,294 realistic configurations, and at ~129 codes per
+    block that moves the reported separation by a block width.
     """
-    at = np.flatnonzero(fit >= target)
+    at = np.flatnonzero(fit >= target - CROSSING_TOL)
     return float(ratios[at[0]]) if at.size else float("inf")
 
 
-def null_crossing_floor(
-    view: PairView, pred: np.ndarray, rng: np.random.Generator
-) -> dict[float, float]:
-    """-> per target, the separation a PERMUTED prediction needs to reach it, at the 1% quantile.
+def crossing_support(fit: np.ndarray, weights: np.ndarray, ratio_index: int) -> int:
+    """-> how many PAIRS sit in the PAV block that the crossing is read off.
 
-    ⛔⛔ THE FLOOR IS ON THE CROSSING, NOT ON THE CURVE'S PEAK, and the first version of this
-    function got that wrong. It returned the ``FLOOR_Q`` quantile of the fit's highest value, and
-    a test showed that quantity **saturates at exactly 1.0 under pure noise**: the far-right tail
-    of distinct ratios is singleton-dominated — one pair at a ratio means a raw group mean of 0 or
-    1 — and PAV only pools DOWNWARD violations, so a rightmost 1.0 survives untouched. ⇒ "the fit
-    reaches 0.97" is a statement about how sparse the widest separations are, not about the model,
-    and comparing it to a null that also reaches 1.0 compares nothing.
+    ⛔⛔ WHY THIS EXISTS. ``MIN_PAIRS`` is enforced on every binned row and on every band-matrix
+    cell, and was enforced NOWHERE on the headline axis. ``code_occupied`` admits groups of ONE
+    pair, so a crossing can be the left endpoint of a block thinner than the file's own floor.
+    Measured on a SYNTHETIC population matched to ours in shape: the 0.80 crossing's entire block
+    held **28 pairs** — below ``MIN_PAIRS`` — and the crossing code itself held 8.
 
-    ⭐ The crossing does not have that failure. It is the LEFT endpoint of an upper set, and PAV
-    protects it from exactly the singleton that breaks the peak: an isolated 1.0 at a modest ratio
-    violates monotonicity against its neighbours and is pooled down into them.
+    ⚠️⚠️ ON OUR REAL POPULATION THE PROBLEM IS SMALLER THAN THAT, and the figures above are
+    labelled synthetic because they are. Measured on the committed truth: **641 of 5,935 codes are
+    singletons (10.8%)**, and the right tail is DENSE — the rightmost code (ratio 2,482) holds
+    **529** pairs, and among the rightmost 50 codes the minimum is 41 and the median 314. The
+    reason is simple and was there to be looked at: 529 of the 2,905 events have truth exactly 1,
+    so every ratio of the form ``max/1`` is shared by 529 pairs. ⇒ The guard stays, because the
+    support belongs beside the number either way — but it is a guard against a hazard that is
+    mostly absent here, not a correction to the published figures.
 
-    ⭐ DIRECTION: smaller is better here — a skilful model needs LESS separation. So the floor is
-    the ``1 - FLOOR_Q`` quantile of the null's crossings, and a claim survives only if the
-    observed crossing is below it. ``inf`` (noise never reached the target) is kept in the array
-    rather than dropped, so a target noise rarely reaches gets the distant floor it has earned.
+    ⭐ The block, not the single code, is the right unit: PAV pools a lucky singleton into its
+    neighbours, so the fitted value at the crossing is an average over the whole block and the
+    block's weight is what actually stands behind the number.
     """
-    draws = {t: np.empty(N_PERMUTATIONS, np.float64) for t in RESOLUTION_TARGETS}
-    for k in range(N_PERMUTATIONS):
-        ratios, fit = resolution_curve(view, rng.permutation(pred))
-        for t in RESOLUTION_TARGETS:
-            draws[t][k] = crossing(ratios, fit, t)
-    return {t: float(np.quantile(d, 1.0 - FLOOR_Q)) for t, d in draws.items()}
+    v = fit[ratio_index]
+    lo = ratio_index
+    while lo > 0 and fit[lo - 1] == v:
+        lo -= 1
+    hi = ratio_index
+    while hi + 1 < fit.size and fit[hi + 1] == v:
+        hi += 1
+    return int(weights[lo : hi + 1].sum())
+
+
+#: ⛔⛔⛔ ``null_crossing_floor`` WAS HERE AND IS DELETED, 2026-11-06. THE NULL WAS INVALID.
+#:
+#: It permuted the prediction and took the 1% quantile of the permuted crossing as a floor, and
+#: the committed run read *"0.70 crossed at 8.61x against a null needing 445x — margin 435x"*.
+#: ⛔ That margin was not evidence of anything.
+#:
+#: Under a permutation the dense LEFT of the ratio axis pools to ~0.5, so a permuted curve cannot
+#: reach 0.70 until the group weights fall to ~1 — i.e. until the axis goes SPARSE. ⇒ The floor
+#: measured where our data runs out, not the null's ordering skill. Two measurements, the second
+#: mine:
+#:   * holding the null's skill fixed at 0.5 and growing only the population, the 0.70 floor moves
+#:     36.0 -> 42.8 -> 114.9 -> 149.9 for n = 400/700/1400/2400 while the observed crossing stays
+#:     at ~2.8-3.4x (``/code-review max``);
+#:   * ⭐ a model EIGHT TIMES noisier, whose 0.70 crossing is **269.83x** against this model's
+#:     3.00x on the same synthetic — ninety times worse — still read ⭐ RESOLVES at both 0.60 and
+#:     0.70 (verified here).
+#: ⇒ The test had essentially no power. "RESOLVES" was consistent with any crossing from 2x to
+#: several hundred, and ``P-69``/``P-71``, which were scored on it, are VOID.
+#:
+#: ⚠️ It was also broken in code, independently: ``np.quantile(d, 0.01)`` interpolates between
+#: order statistics #2 and #3, so with fewer than three finite draws numpy computes ``inf - inf``
+#: = **NaN** — and the NaN inverted the verdict, printing ⛔ WITHIN NOISE on the strongest
+#: possible null evidence. ⛔ And the published 0.80 floor sat about THREE finite draws of 200
+#: from that cliff, because a permuted fit rarely reaches 0.80 at all: measured on the real pair
+#: structure, the pure-noise fit peak has median **0.5921** over 25 draws (min 0.4923, max
+#: 0.9773). So the 0.80 row was one unlucky seed from printing ``nan``.
+#:
+#: ⛔⛔ AND A FALSE PREMISE OF MINE, RETRACTED. Both the deleted null and the amendment of ``P-69``
+#: were justified here by *"the widest separations are singleton groups, so the fit's right end
+#: saturates at 1.0 under pure noise"*. **That is false on this population** — see
+#: ``crossing_support`` for the measurement; the right tail is dense (529 pairs at the widest
+#: ratio) and the noise peak is ~0.59, not 1.0. ⇒ ``P-69``'s ORIGINAL form (*"the fit clears its
+#: null at the widest separation"*) would have been a real test, since the observed 0.9520 sits far
+#: outside a null centred near 0.59. The amendment preceded any real-data run, so ``D-5`` holds,
+#: but **the recorded reason for it was wrong**, and it was wrong because I measured the premise on
+#: a unit-test fixture (``np.unique(rng.integers(1, 500, 80))`` — 75 distinct truths over 75 cells,
+#: which forces singleton tails) and wrote it down as a fact about the real data. One tool call
+#: would have caught it.
+#:
+#: ⭐ WHAT CARRIES THE EXISTENCE CLAIM INSTEAD, and it was always the stronger thing: the binned
+#: table's PER-ROW permutation floors. Permuting predictions within a FIXED row is a proper null
+#: for that row's concordance — the row membership is truth-only and cannot move, which ``G-P2``
+#: proves — and all six rows clear their own floors. ⇒ *"the model orders events by magnitude"*
+#: rests on those six rows. The crossing does not establish that; it QUANTIFIES it.
+#:
+#: ⛔ AND WHAT IS NOW OWED AND ABSENT: there is no sampling-uncertainty interval on the crossing.
+#: The ± printed beside it is across-SEED spread only, which is model variation at a fixed
+#: population. A bootstrap over event cells is the honest interval and is NOT built.
 
 
 def band_concordance(pairs: PairSet, pred: np.ndarray) -> dict[tuple[int, int], tuple[float, int]]:
@@ -521,7 +642,7 @@ def gate_p2_rows_are_truth_only(view: PairView, pred: np.ndarray) -> tuple[bool,
          row's denominator is its full pair count — so a denominator that dropped, double-counted
          or re-grouped pairs breaks it, whatever the cause.
     """
-    recount = np.bincount(view.ratio_row, minlength=N_ROWS).astype(np.int64)
+    recount = np.bincount(view.ratio_row, minlength=n_rows()).astype(np.int64)
     if not np.array_equal(recount, view.n_per_row):
         return False, f"independent recount disagrees: {recount} vs {view.n_per_row}"
     flat = concordance(view, np.ones_like(pred))
@@ -565,7 +686,35 @@ def gate_p4_self_test(view: PairView, truth: np.ndarray) -> tuple[bool, str]:
         return False, f"truth-as-prediction scored {perfect[live]}, not all 1.0"
     if np.any(np.abs(reversed_[live]) > SELF_TEST_TOL):
         return False, f"negated truth scored {reversed_[live]}, not all 0.0"
-    return True, "truth-as-prediction scores 1.0 and its negation 0.0, on every row"
+
+    #: ⛔⛔ EXTENDED 2026-11-06 TO THE PROMOTED AXIS. Every gate in this file had stayed on the
+    #: binned rows: ``G-P1``/``G-P2``/``G-P3``/``G-P4`` all read ``ratio_row``/``n_per_row`` and
+    #: none touched ``ratio_code`` or ``resolution_curve``, which runs ungated on the real
+    #: population and produces the headline. Meanwhile this gate's PASS line prints three lines
+    #: above the readout, so a reader took it to cover those figures. It now does.
+    _r, fit = resolution_curve(view, truth)
+    if np.any(np.abs(fit - 1.0) > SELF_TEST_TOL):
+        return False, (
+            f"truth-as-prediction fits {fit.min():.6f}-{fit.max():.6f} on the edge-free curve, "
+            "not all 1.0"
+        )
+    _r2, fit2 = resolution_curve(view, -truth)
+    if np.any(np.abs(fit2) > SELF_TEST_TOL):
+        return False, (
+            f"negated truth fits {fit2.min():.6f}-{fit2.max():.6f} on the edge-free curve, "
+            "not all 0.0"
+        )
+    #: ⭐ And the crossing must be the leftmost ratio for a perfect ranker at every target.
+    for t in RESOLUTION_TARGETS:
+        x = crossing(_r, fit, t)
+        if x != _r[0]:
+            return False, (
+                f"a perfect ranker's {t:.2f} crossing is {x}, not the leftmost ratio {_r[0]}"
+            )
+    return True, (
+        "truth-as-prediction scores 1.0 and its negation 0.0, on every binned row AND on the "
+        "edge-free curve; a perfect ranker crosses every target at the smallest separation"
+    )
 
 
 def floor_by_row(view: PairView, pred: np.ndarray, rng: np.random.Generator) -> np.ndarray:
@@ -575,7 +724,7 @@ def floor_by_row(view: PairView, pred: np.ndarray, rng: np.random.Generator) -> 
     it. ⛔ This is that scatter, on this row's own pair structure, so a thin row cannot be read as
     a finding — the correction the first threshold-reliability run shipped without.
     """
-    draws = np.empty((N_PERMUTATIONS, N_ROWS))
+    draws = np.empty((N_PERMUTATIONS, n_rows()))
     for k in range(N_PERMUTATIONS):
         draws[k] = concordance(view, rng.permutation(pred))
     with np.errstate(invalid="ignore"):
@@ -603,6 +752,15 @@ def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int, cache: 
     with pnf._as_arm(arm):
         gate = e1_data.load_gate_h1()
         draws_by_origin = e1_data.load_draws_h1()
+
+    #: ⛔⛔ ``G-P5``, BEFORE the forecast and the truth are paired. Nothing downstream can see a
+    #: mis-pairing: every statistic here is computed from the joined arrays and is internally
+    #: consistent for whatever truth it was handed. ⚠️ ``e1_data.gate_5_alignment`` already did
+    #: this and was called by NONE of the six instruments built on 2026-11-06.
+    ok5, bad5 = e1_data.gate_5_alignment(gate, draws_by_origin, cells)
+    if not ok5:
+        raise SystemExit(f"⛔ F31: G-P5 failed on {arm} — origins {bad5} are misaligned")
+
     origins = sorted(gate)
 
     obs_all = np.concatenate(
@@ -646,11 +804,30 @@ def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int, cache: 
     if not ok3:
         raise SystemExit(f"⛔ F31: G-P3 failed on {arm} — {detail3}")
 
-    #: ⭐⭐ The edge-free readout. Seeded from its own stream so adding it cannot move a single
-    #: committed row of the binned table — the same discipline that ``G-P2``'s reseeding needed.
-    rng_fit = np.random.default_rng(NULL_SEED + 1_000 + pnf.SEED_ARMS[arm][1])
-    ratios, fit = resolution_curve(cache["all"], pred)
-    null_floor = null_crossing_floor(cache["all"], pred, rng_fit)
+    #: ⭐⭐ The edge-free readout. ⛔ No permutation null — see the retraction block above
+    #: ``band_concordance``; the one that was here measured sparsity, not skill, and is deleted.
+    #: ⭐⭐ ON ALL THREE VIEWS, not just the pooled one. The first version computed this on
+    #: ``cache["all"]`` alone — 85% of whose pairs have a smaller member under 10 fatalities — so
+    #: the headline was a low-magnitude figure presented as the model's. ``LEVEL_SPLIT``'s whole
+    #: stated purpose is to keep "is it worse at the top?" alive, and the promoted readout had
+    #: left it behind on the demoted table.
+    curves: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    cross: dict[str, dict[float, tuple[float, int]]] = {}
+    for key in ("all", "low", "high"):
+        v = cache[key]
+        ratios, fit = resolution_curve(v, pred)
+        curves[key] = (ratios, fit)
+        w_codes = v.n_per_code[v.code_occupied]
+        out: dict[float, tuple[float, int]] = {}
+        for t in RESOLUTION_TARGETS:
+            x = crossing(ratios, fit, t)
+            if not np.isfinite(x):
+                out[t] = (x, 0)
+                continue
+            idx = int(np.flatnonzero(ratios == x)[0])
+            out[t] = (x, crossing_support(fit, w_codes, idx))
+        cross[key] = out
+    ratios, fit = curves["all"]
 
     return {
         "ap": ap,
@@ -659,10 +836,17 @@ def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int, cache: 
         "high": concordance(cache["high"], pred),
         "floor": floor,
         "matrix": band_concordance(pairs, pred),
-        "fit_peak": float(fit[-1]),
         "fit_blocks": int(np.unique(fit).size),
-        "null_floor": null_floor,
-        "crossing": {t: crossing(ratios, fit, t) for t in RESOLUTION_TARGETS},
+        "fit_peak": float(fit[-1]),
+        "crossing": {t: cross["all"][t][0] for t in RESOLUTION_TARGETS},
+        "support": {t: cross["all"][t][1] for t in RESOLUTION_TARGETS},
+        "crossing_by_half": {
+            k: {t: cross[k][t][0] for t in RESOLUTION_TARGETS} for k in ("low", "high")
+        },
+        #: ⭐ The CURVE itself, summarised at equal-pair deciles, so a reader can read off a
+        #: target this run did not report and can SEE whether the shape is monotone before PAV
+        #: imposes it. ⛔ The docstring used to promise "the printed curve" and print none.
+        "deciles": {k: _decile_curve(cache[k], pred) for k in ("all", "low", "high")},
     }
 
 
@@ -730,45 +914,91 @@ def main() -> None:
     print("\n" + "=" * 112)
     print("  ⭐⭐ THE READOUT — and it has NO bin edges. Isotonic fit over every DISTINCT ratio.")
     print("=" * 112)
-    peak = _agg([per_seed[w]["fit_peak"] for w in pnf.SEED_WORDS])
-    blocks = _agg([float(per_seed[w]["fit_blocks"]) for w in pnf.SEED_WORDS])
+    blocks = [per_seed[w]["fit_blocks"] for w in pnf.SEED_WORDS]
     print(f"  {cache['all'].n_codes:,} distinct ratios over {cache['pairs'].n_pairs():,} pairs")
-    print(f"  the monotone fit has {blocks[0]:.1f} distinct levels  ⚠️ descriptive, not a test")
-    print(
-        f"  ⚠️ it tops out at {peak[0]:.4f}, which is NOT a result — the widest separations are "
-        "singleton"
-    )
-    print("     groups, so the fit's right end saturates under pure noise too. Read the")
-    print("     CROSSINGS below, each against its own permuted null.")
+    print(f"  the monotone fit has {min(blocks)}-{max(blocks)} distinct levels (descriptive)")
+    print("  ⛔ THERE IS NO NULL ON THIS AXIS. The one that was here measured where the ratio")
+    print("     axis goes SPARSE, not the null's skill — a model 90x worse still passed it. It")
+    print("     is deleted and P-69/P-71 are VOID. ⭐ That the model orders events at all rests")
+    print("     on the BINNED rows below, whose per-row permutation floors are valid nulls.")
+    print("  ⚠️ The ± below is across-SEED spread only. It is NOT sampling uncertainty over")
+    print("     events; a bootstrap is the honest interval and is NOT built. Read it as a")
+    print("     point estimate with a reproducibility band.")
     print()
-    print(f"  {'target':>8} {'separation needed':>20} {'noise needs':>14} {'margin':>9}   VERDICT")
-    print(f"  {'':>8} {'± seed sd':>20} {f'(q{1 - FLOOR_Q:.2f})':>14} {'':>9}")
+    pct_low = 100.0 * cache["low"].n_per_code.sum() / cache["all"].n_per_code.sum()
+    print(f"  {'target':>8} {'separation needed':>22} {'pairs behind it':>16} {'seeds':>7}")
     held = {}
     for t in RESOLUTION_TARGETS:
         xs = [per_seed[w]["crossing"][t] for w in pnf.SEED_WORDS]
-        fl = _agg([per_seed[w]["null_floor"][t] for w in pnf.SEED_WORDS])
+        sup = [per_seed[w]["support"][t] for w in pnf.SEED_WORDS]
         finite = [x for x in xs if np.isfinite(x)]
+        n_seeds = f"{len(finite)}/{len(xs)}"
         if not finite:
             held[t] = False
-            print(f"  {t:>8.2f} {'never reached':>20} {fl[0]:>14.2f} {'—':>9}   NOT RESOLVABLE")
+            print(f"  {t:>8.2f} {'never reached':>22} {'—':>16} {n_seeds:>7}")
             continue
-        m, sd = _agg(xs)
         if len(finite) < len(xs):
+            #: ⛔ G-C2 is FIVE SEEDS OR NOTHING. A crossing some seeds never reach is not a
+            #: number, and the earlier version printed a subset mean here as if it were one.
             held[t] = False
-            shown = f"{min(finite):.2f}x–never"
             print(
-                f"  {t:>8.2f} {shown:>20} {fl[0]:>14.2f} {'—':>9}   "
-                f"NOT RESOLVABLE ({len(finite)}/{len(xs)} seeds)"
+                f"  {t:>8.2f} {f'>= {min(finite):.2f}x, unbounded':>22} {'—':>16} {n_seeds:>7}"
+                "   ⛔ NOT RESOLVABLE — not every seed reaches it"
             )
             continue
-        #: ⭐ Seed-conservative AND direction-aware: smaller separation is better, so the claim is
-        #: tested at the UPPER end of the seed spread. It can only strengthen with more seeds.
-        ok = (m + sd) < fl[0]
-        held[t] = ok
+        m, sd = _agg(xs)
+        thin = min(sup) < MIN_PAIRS
+        held[t] = not thin
+        flag = f"   ⛔ UNSUPPORTED (< {MIN_PAIRS})" if thin else ""
         print(
-            f"  {t:>8.2f} {f'{m:.2f}x ± {sd:.2f}':>20} {fl[0]:>14.2f} "
-            f"{fl[0] - (m + sd):>9.2f}   {'⭐ RESOLVES' if ok else '⛔ WITHIN NOISE'}"
+            f"  {t:>8.2f} {f'{m:.2f}x ± {sd:.2f}':>22} {f'{min(sup):,}-{max(sup):,}':>16} "
+            f"{n_seeds:>7}{flag}"
         )
+
+    print()
+    print("  ⭐⭐ THE SAME TARGETS SPLIT BY THE SIZE OF THE SMALLER EVENT — and this is the")
+    print(f"     finding, not a footnote. {pct_low:.0f}% of pairs have a smaller member under")
+    print(
+        f"     {LEVEL_SPLIT:.0f} fatalities, so the pooled column above is largely THEIR number."
+    )
+    print(
+        f"  {'target':>8} {'pooled':>14} {f'small < {LEVEL_SPLIT:.0f}':>14} "
+        f"{f'small >= {LEVEL_SPLIT:.0f}':>14}   ratio"
+    )
+    for t in RESOLUTION_TARGETS:
+
+        def _half(key, t=t):
+            v = [per_seed[w]["crossing_by_half"][key][t] for w in pnf.SEED_WORDS]
+            return _agg(v)[0] if all(np.isfinite(x) for x in v) else float("inf")
+
+        a = _agg([per_seed[w]["crossing"][t] for w in pnf.SEED_WORDS])[0]
+        lo_x, hi_x = _half("low"), _half("high")
+        gap = hi_x / lo_x if np.isfinite(hi_x) and lo_x > 0 else float("inf")
+        fmt = lambda x: "never" if not np.isfinite(x) else f"{x:.2f}x"  # noqa: E731
+        print(
+            f"  {t:>8.2f} {fmt(a):>14} {fmt(lo_x):>14} {fmt(hi_x):>14}   "
+            f"{'—' if not np.isfinite(gap) else f'{gap:.2f}x' + (' worse' if gap > 1 else ' BETTER')}"
+        )
+    print("  ⚠️⚠️ ⛔ NOT a clean statement that the model is worse at high magnitudes. The high")
+    print("     half cannot REACH the widest ratios (its smaller member is >= 10, so its maximum")
+    print("     ratio is ~248 against ~2,482), so the two columns are read over different ratio")
+    print("     ranges. The matched-separation comparison is the binned table below, and it says")
+    print("     something much milder. ⇒ What IS established: the pooled headline is dominated by")
+    print("     low-magnitude pairs and the halves are far apart. Which part of that gap is")
+    print("     declining ability and which is the available range is NOT measured.")
+
+    print()
+    print("  ⭐ THE RAW CURVE, before PAV imposes monotonicity — ten points at equal pair counts.")
+    print("     ⛔ Read your own target off this; the three above are not privileged.")
+    for key, label in (
+        ("all", "pooled"),
+        ("low", f"small < {LEVEL_SPLIT:.0f}"),
+        ("high", f"small >= {LEVEL_SPLIT:.0f}"),
+    ):
+        pts = per_seed[pnf.SEED_WORDS[0]]["deciles"][key]
+        print(f"     {label:>14}  ratio " + " ".join(f"{r:>7.1f}" for r, _c, _n in pts))
+        print(f"     {'':>14}  conc  " + " ".join(f"{c:>7.3f}" for _r, c, _n in pts))
+    print("     ⚠️ One seed's curve (the across-seed spread is in the tables above).")
 
     print("\n" + "-" * 112)
     print("  ⚠️ SECONDARY — the same pairs under RATIO_EDGES. ⛔ PRESENTATIONAL. The headline came")
@@ -881,37 +1111,56 @@ def main() -> None:
     print()
     f32 = not any(held.values())
     print(
-        f"    F32 {'⛔ FIRED' if f32 else 'did not fire'} — NO target's crossing beats its "
-        "permuted null ⇒ no separation figure is quotable at all"
+        f"    F32 {'⛔ FIRED' if f32 else 'did not fire'} — no target has a crossing that every "
+        f"seed reaches on a block of at least {MIN_PAIRS} pairs ⇒ no separation figure is quotable"
     )
-    f33 = blocks[0] <= 1.0
+    f33 = max(blocks) <= 1
     print(
         f"    F33 {'⛔ FIRED' if f33 else 'did not fire'} — PAV pooled the whole curve into one "
         "block ⇒ the data cannot separate separations and no resolution exists"
     )
-    c70 = _agg([per_seed[w]["crossing"][0.70] for w in pnf.SEED_WORDS])
-    c60 = _agg([per_seed[w]["crossing"][0.60] for w in pnf.SEED_WORDS])
-    c80 = [per_seed[w]["crossing"][0.80] for w in pnf.SEED_WORDS]
+
+    def _cross(t):
+        xs = [per_seed[w]["crossing"][t] for w in pnf.SEED_WORDS]
+        return _agg(xs) if all(np.isfinite(x) for x in xs) else (float("nan"), float("nan"))
+
+    #: ⛔ Indexed BY POSITION in RESOLUTION_TARGETS, never by a float literal. The first version
+    #: wrote ``[0.70]``/``[0.60]``/``held.get(0.80)`` against dicts keyed off that constant, so
+    #: editing the constant — which this file's docstring presents as the adjustable one — raised
+    #: KeyError after all five seeds and every permutation had run, or worse, left
+    #: ``held.get(0.80)`` returning None and printed a confident FAILED for a target never scored.
+    t_lo, t_mid, t_hi = RESOLUTION_TARGETS
+    c70, c60 = _cross(t_mid), _cross(t_lo)
     print(
-        f"    P-69 {'HELD' if held.get(0.70) else 'FAILED'} — the 0.70 crossing beats its "
-        f"permuted null (crossing {'never' if not np.isfinite(c70[0]) else f'{c70[0]:.2f}x'})"
+        "    P-69 ⛔ VOID — scored against a permutation null that measured sparsity, not skill. "
+        "A model 90x worse passed it. The null is deleted; nothing replaces the verdict."
     )
-    print(
-        f"    P-70 {'HELD' if 4.0 <= c70[0] <= 16.0 else 'FAILED'} — 0.70 is crossed at "
-        f"{c70[0]:.2f}x (predicted 4x–16x)"
-    )
-    print(
-        f"    P-71 {'HELD' if held.get(0.80) else 'FAILED'} — the 0.80 crossing beats its "
-        f"permuted null ({sum(np.isfinite(x) for x in c80)} of {len(c80)} seeds reach 0.80)"
-    )
-    print(
-        f"    P-72 {'HELD' if 2.0 <= c60[0] <= 5.0 else 'FAILED'} — 0.60 is crossed at "
-        f"{c60[0]:.2f}x (predicted 2x–5x)"
-    )
+    if np.isfinite(c70[0]):
+        print(
+            f"    P-70 {'HELD' if 4.0 <= c70[0] <= 16.0 else 'FAILED'} — {t_mid:.2f} crossed at "
+            f"{c70[0]:.2f}x (predicted 4x-16x)"
+        )
+    else:
+        print(f"    P-70 ⛔ NOT RESOLVABLE — {t_mid:.2f} is not reached on every seed")
+    print(f"    P-71 ⛔ VOID — same deleted null as P-69 (target {t_hi:.2f}).")
+    if np.isfinite(c60[0]):
+        print(
+            f"    P-72 {'HELD' if 2.0 <= c60[0] <= 5.0 else 'FAILED'} — {t_lo:.2f} crossed at "
+            f"{c60[0]:.2f}x (predicted 2x-5x)"
+        )
+    else:
+        print(f"    P-72 ⛔ NOT RESOLVABLE — {t_lo:.2f} is not reached on every seed")
 
     print("\n  ⛔ Chance is 0.5. ⛔ This says the ORDER is right, never that the SIZE is.")
     print("  ⛔ Every separation figure above belongs to a TARGET. Quoting one alone is the")
     print("     defect that held this branch on 2026-11-06.")
+    print("  ⛔⛔ AND A CORRECTION TO THIS FILE'S OWN EARLIER CLAIM: it is NOT true that")
+    print("     'no reported number depends on RATIO_EDGES'. The CROSSINGS do not. But F28's")
+    print("     spread, F29, and the HELD/FAILED tokens for P-65, P-67 and P-68 are all read")
+    print("     off the binned rows, so they move with the edges — and P-68's own criterion")
+    print("     (at most 2 of 6) is a function of the ROW COUNT. ⇒ P-67 and P-68 have exactly")
+    print("     the kind of edge-set subject that P-66 was retired for. They are NOT re-scored")
+    print("     here; they are flagged, and a sweep is owed before either is cited again.")
 
 
 if __name__ == "__main__":

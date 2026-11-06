@@ -84,9 +84,9 @@ def _as_if_computed_on(n_k, s_k, wrong_s_k, levels=LEVELS):
 def test_gate_r1_passes_on_a_realistic_table():
     """⭐ Non-vacuity: the gate must accept something, or it rejects everything."""
     n_k, s_k = _honest_table()
-    ok, detail = tr.gate_r1_one_population(tr.brier_parts(n_k, s_k, LEVELS), n_k, s_k)
+    ok, detail = tr.gate_r1_internally_consistent(tr.brier_parts(n_k, s_k, LEVELS), n_k, s_k)
     assert ok, f"the gate refused a well-formed table: {detail}"
-    assert "one population" in detail
+    assert "MCB" in detail and "DSC" in detail
 
 
 def test_gate_r1_FIRES_when_ybar_UNC_and_DSC_ALL_come_from_the_wrong_population():
@@ -99,25 +99,51 @@ def test_gate_r1_FIRES_when_ybar_UNC_and_DSC_ALL_come_from_the_wrong_population(
     n_k, s_k = _honest_table()
     parts = _as_if_computed_on(n_k, s_k, s_k * 0.02)
     assert parts["dsc"] < 0.0, "the fixture did not reproduce the negative DSC"
-    ok, detail = tr.gate_r1_one_population(parts, n_k, s_k)
+    ok, detail = tr.gate_r1_internally_consistent(parts, n_k, s_k)
     assert not ok, "G-R1 accepted a decomposition built on two populations"
     assert "ybar" in detail and "base rate" in detail
+
+
+def _retracted_gate_r1_identity(parts):
+    """⛔ A LITERAL COPY of the gate retracted on 2026-11-06, kept only so the retraction is
+    testable. Nothing imports it; it no longer exists in the instrument.
+
+        def gate_r1_identity(parts):
+            lhs = parts["s_bar"]
+            rhs = parts["mcb"] - parts["dsc"] + parts["unc"]
+            return abs(lhs - rhs) <= IDENTITY_TOL, abs(lhs - rhs)
+    """
+    lhs = parts["s_bar"]
+    rhs = parts["mcb"] - parts["dsc"] + parts["unc"]
+    return abs(lhs - rhs) <= tr.IDENTITY_TOL, abs(lhs - rhs)
 
 
 def test_the_RETRACTED_identity_passes_on_a_wrong_population():
     """⛔⛔ Why G-R1 was replaced, as a test rather than as a claim in a docstring.
 
-    The old gate's whole content, evaluated on the input above. If this ever starts FAILING, the
-    retraction in ``threshold_reliability``'s docstring is wrong and must be corrected.
+    ⚠️ REWRITTEN: the first version re-derived the identity inline against ``abs=1e-15``, so it
+    never called the retracted gate — while three documents cited it as *"a test showing the old
+    form passing"*. It now calls a literal copy, at the gate's own ``IDENTITY_TOL``.
+
+    If this ever starts FAILING, the retraction in ``threshold_reliability``'s docstring is wrong
+    and must be corrected.
     """
     n_k, s_k = _honest_table()
     parts = _as_if_computed_on(n_k, s_k, s_k * 0.02)
-    residual = abs(parts["s_bar"] - (parts["mcb"] - parts["dsc"] + parts["unc"]))
-    assert residual == pytest.approx(0.0, abs=1e-15), (
-        f"the retracted identity would have FAILED here (residual {residual:.3e}); the "
-        "retraction in the module docstring overstates the defect and must be amended"
+    passed, residual = _retracted_gate_r1_identity(parts)
+    assert passed, (
+        f"the retracted identity FAILED here (residual {residual:.3e}); the retraction in the "
+        "module docstring overstates the defect and must be corrected"
     )
-    assert parts["dsc"] < 0.0
+    assert residual == pytest.approx(0.0, abs=1e-15)
+    #: ⛔ The committed figure, pinned. It was first published as −0.1622, which this fixture —
+    #: and no other committed fixture — reproduces.
+    assert parts["dsc"] == pytest.approx(-0.0503, abs=5e-5), (
+        f"DSC is {parts['dsc']:.4f}; the figure quoted in the module docstring, HOW_TO_READ and "
+        "RESULTS_LEDGER must be updated to match this fixture"
+    )
+    #: ⭐ And the replacement catches what the retracted gate waved through.
+    assert tr.gate_r1_internally_consistent(parts, n_k, s_k)[0] is False
 
 
 def test_gate_r1_FIRES_on_a_base_rate_that_is_not_the_scored_populations():
@@ -125,33 +151,120 @@ def test_gate_r1_FIRES_on_a_base_rate_that_is_not_the_scored_populations():
     n_k, s_k = _honest_table()
     parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
     parts["ybar"] += 1e-9
-    ok, detail = tr.gate_r1_one_population(parts, n_k, s_k)
+    ok, detail = tr.gate_r1_internally_consistent(parts, n_k, s_k)
     assert not ok, "G-R1 accepted a ybar that is not the scored population's base rate"
     assert "base rate" in detail
 
 
-def test_gate_r1_FIRES_when_UNC_is_not_ybar_times_one_minus_ybar():
+def test_gate_r1_FIRES_when_UNC_alone_is_corrupted_via_the_TRANSCRIPTION_check():
+    """⭐ And the branch that catches it is the identity — which is why it was restored.
+
+    ``unc`` appears in the identity, so corrupting it alone breaks the transcription before the
+    ybar branch is reached. ⚠️ The firing ORDER is asserted here because three documents gave
+    three different and all-wrong accounts of which branch fires on what.
+    """
     n_k, s_k = _honest_table()
     parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
     parts["unc"] *= 1.5
-    ok, detail = tr.gate_r1_one_population(parts, n_k, s_k)
-    assert not ok and "ybar(1-ybar)" in detail
+    ok, detail = tr.gate_r1_internally_consistent(parts, n_k, s_k)
+    assert not ok and "transcribe" in detail
+
+
+def test_gate_r1_FIRES_when_UNC_AND_DSC_move_together_so_the_identity_still_holds():
+    """⛔ The consistent corruption: ``unc`` and ``dsc`` both wrong, identity intact.
+
+    This is the shape ``brier_parts`` would actually produce, and it is the ybar branch's job.
+    """
+    n_k, s_k = _honest_table()
+    parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
+    parts["unc"] *= 1.5
+    parts["dsc"] = parts["unc"] - parts["s_rc"]
+    resid = abs(parts["s_bar"] - (parts["mcb"] - parts["dsc"] + parts["unc"]))
+    assert resid < tr.IDENTITY_TOL, "the fixture must keep the identity intact to be the point"
+    ok, detail = tr.gate_r1_internally_consistent(parts, n_k, s_k)
+    assert not ok, "G-R1 accepted a UNC that is not the scored counts' base rate"
+    assert "ybar(1-ybar)" in detail
+
+
+def test_gate_r1_FIRES_on_a_WRONG_SCALE_for_DSC_which_the_theorems_alone_CANNOT_see():
+    """⛔⛔ Why deleting the identity was a mistake, as a test.
+
+    ``/code-review max`` measured this: mutating ``brier_parts`` to ``dsc = 2 * (unc - s_rc)``
+    left all 37 tests green and the identity-free gate PASSING, while ``DSC/UNC`` is ``M95``'s
+    headline. A doubled DSC is still positive, so neither theorem sees it. Only the identity does.
+    """
+    n_k, s_k = _honest_table()
+    parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
+    parts["dsc"] *= 2.0
+    assert parts["dsc"] > 0.0, "the fixture must stay sign-valid, or the theorem catches it"
+    ok, detail = tr.gate_r1_internally_consistent(parts, n_k, s_k)
+    assert not ok, "G-R1 accepted a DSC with a wrong scale factor"
+    assert "transcribe" in detail
+
+
+def test_gate_r1_CANNOT_detect_a_MIS_PAIRED_population_and_G_R5_is_why():
+    """⛔⛔ The second retraction, pinned. ``G-R1`` does NOT check the population.
+
+    ``group_table`` returns an internally consistent ``(n_k, s_k)`` for whatever truth it is
+    handed, so a forecast scored against the WRONG truth produces parts that satisfy every branch
+    of this gate. ⇒ If this test ever starts FAILING, ``G-R1``'s docstring is understating the
+    gate and the ``G-R5`` split can be reconsidered.
+    """
+    rng = np.random.default_rng(0)
+    draws = rng.integers(0, 4, (4000, 16)).astype(np.float64)
+    right = rng.integers(0, 3, 4000).astype(np.float64)
+    wrong = rng.permutation(right)
+    for label, obs in (("matched", right), ("permuted truth", wrong)):
+        n_k, s_k = tr.group_table(draws, obs, 0)
+        ok, detail = tr.gate_r1_internally_consistent(tr.brier_parts(n_k, s_k, LEVELS), n_k, s_k)
+        assert ok, f"{label}: the gate refused a self-consistent table — {detail}"
+
+
+def test_gate_r1_FIRES_on_a_PHANTOM_count_at_an_unoccupied_level():
+    """⚠️ The unstated premise of both theorems, now checked: s_k == 0 wherever n_k == 0.
+
+    Inject a count at an empty level and MCB goes negative on 57% of random tables, so the
+    derivations stop holding. The gate refuses the input rather than relying on the premise.
+    """
+    n_k, s_k = _honest_table()
+    n_k[3] = 0.0
+    s_k[3] = 7.0
+    ok, detail = tr.gate_r1_internally_consistent(tr.brier_parts(n_k, s_k, LEVELS), n_k, s_k)
+    assert not ok and "unoccupied level" in detail
 
 
 def test_gate_r1_FIRES_on_a_negative_MCB():
-    """⛔ ``S_rc > S_bar`` means the PAV refit scored worse than what it refits — impossible."""
+    """⛔ ``S_rc > S_bar`` means the PAV refit scored worse than what it refits — impossible.
+
+    ⭐ ``s_bar`` is moved with ``mcb`` so the identity still transcribes, isolating the theorem.
+    """
     n_k, s_k = _honest_table()
     parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
-    parts["mcb"] = -1e-6
-    ok, detail = tr.gate_r1_one_population(parts, n_k, s_k)
-    assert not ok and "MCB is negative" in detail
+    shift = parts["mcb"] + 1e-6
+    parts["mcb"] -= shift
+    parts["s_bar"] -= shift
+    ok, detail = tr.gate_r1_internally_consistent(parts, n_k, s_k)
+    assert not ok, "G-R1 accepted a negative MCB"
+    assert "MCB is negative" in detail
 
 
 def test_gate_r1_FIRES_on_an_empty_population():
     n_k = np.zeros(LEVELS)
     s_k = np.zeros(LEVELS)
-    ok, detail = tr.gate_r1_one_population({"ybar": 0.0, "unc": 0.0}, n_k, s_k)
+    parts = dict.fromkeys(("s_bar", "s_rc", "unc", "mcb", "dsc", "ybar"), 0.0)
+    ok, detail = tr.gate_r1_internally_consistent(parts, n_k, s_k)
     assert not ok and "empty" in detail
+
+
+def test_gate_r1_FIRES_on_a_NaN_in_any_part():
+    """⛔ Every branch is a one-sided comparison, all False on NaN, so finiteness comes FIRST."""
+    n_k, s_k = _honest_table()
+    for key in ("s_bar", "s_rc", "unc", "mcb", "dsc", "ybar"):
+        parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
+        parts[key] = float("nan")
+        ok, detail = tr.gate_r1_internally_consistent(parts, n_k, s_k)
+        assert not ok, f"G-R1 accepted a NaN {key}"
+        assert key in detail and "not finite" in detail
 
 
 def test_MCB_and_DSC_are_NONNEGATIVE_on_random_tables():
@@ -169,7 +282,7 @@ def test_MCB_and_DSC_are_NONNEGATIVE_on_random_tables():
         parts = tr.brier_parts(n_k, s_k, LEVELS)
         assert parts["mcb"] >= -1e-12, f"seed {seed}: MCB {parts['mcb']:.3e} < 0"
         assert parts["dsc"] >= -1e-12, f"seed {seed}: DSC {parts['dsc']:.3e} < 0"
-        assert tr.gate_r1_one_population(parts, n_k, s_k)[0], f"seed {seed} refused"
+        assert tr.gate_r1_internally_consistent(parts, n_k, s_k)[0], f"seed {seed} refused"
 
 
 # ── G-R2 · the grouping is a function of the forecast alone ─────────────────────────────────
@@ -423,7 +536,7 @@ def test_a_forecast_of_zero_everywhere_gives_MCB_equal_to_the_squared_base_rate(
     assert parts["s_bar"] == pytest.approx(ybar)
     assert parts["mcb"] == pytest.approx(ybar**2)
     assert parts["dsc"] == pytest.approx(0.0, abs=1e-15)
-    assert tr.gate_r1_one_population(parts, n_k, s_k)[0] is True
+    assert tr.gate_r1_internally_consistent(parts, n_k, s_k)[0] is True
 
 
 def test_the_group_table_accounts_for_EVERY_cell_and_every_event():

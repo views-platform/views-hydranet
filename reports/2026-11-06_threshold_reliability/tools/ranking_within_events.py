@@ -233,7 +233,7 @@ def pav(x: np.ndarray, w: np.ndarray) -> np.ndarray:
             means.pop()
             weights.pop()
             counts.pop()
-    return np.repeat(np.asarray(means), np.asarray(counts))
+    return np.repeat(np.asarray(means, np.float64), np.asarray(counts, np.intp))
 
 
 def discrimination(rank_values: np.ndarray, exceeded: np.ndarray) -> tuple[float, float]:

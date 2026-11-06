@@ -2641,6 +2641,69 @@ ledger. ⛔ And `M98` still ranks by the **delivered composed emission**, so it 
 ranking carries no information* from *the composition destroyed it*. That is the next measurement,
 not a correction to this one.
 
+### ⛔⛔ N8 — A SECOND `/code-review max` ON THE FIX ITSELF. FOUR OF `N7`'s STATEMENTS ARE WRONG.
+
+⛔ Added, nothing above removed. `N7` was written three hours earlier in the same session and
+announced `H1` and `H3` cleared. ⭐ **They are cleared** — the figures below stand and are better
+grounded than `N7`'s. ⛔ But four of the things `N7` said while clearing them were false, and the
+pattern is the one this report exists to record: **each error ran toward the account I had already
+formed, and each was cheap to check and was not checked.**
+
+| `N7` said | what is true | how it was caught |
+|---|---|---|
+| *"the widest separations are singleton groups, so the fit's right end saturates under pure noise"* — the stated reason for amending `P-69` and for deleting the peak comparison | ⛔ **FALSE on this population.** 641 of 5,935 codes are singletons (10.8%) and **the right tail is dense**: the rightmost code (ratio 2,482) holds **529** pairs, and among the rightmost 50 codes the minimum is 41 and the median 314. The reason is plain — 529 of the 2,905 events have truth exactly 1, so every ratio `max/1` is shared by 529 pairs. Pure-noise fit peak is median **0.5921**, not 1.0. ⇒ `P-69`'s ORIGINAL form would have been a real test, since 0.9520 sits far outside that null. `D-5` holds (the amendment preceded the run) but **the recorded reason was wrong** | I measured the premise on a **unit-test fixture** — `np.unique(rng.integers(1, 500, 80))`, 75 distinct truths over 75 cells, which forces singleton tails — and wrote it down as a fact about the real data. ⭐ One tool call on the real truth would have caught it |
+| *"`DSC` was −0.1622"*, cited in three documents as the measurement behind `H3`'s retraction | ⛔ **Reproduced by NO committed fixture.** The committed fixture gives **−0.0503**. The −0.1622 came from an uncommitted scratch probe. The qualitative claim — PASS at residual 0.00e+00 with a negative `DSC` — is real and is now pinned | `/code-review max`. ⛔ This is the repository's own named failure twice over: a number without its population, and describing an artifact nobody opened |
+| *"a test rebinds `RATIO_EDGES` to four schemes and requires the crossing to be bit-identical"*, cited as the measurement that cleared `H1` | ⚠️ **That test cannot fail for any fixture.** `resolution_curve` structurally never reads `RATIO_EDGES`, so the assertion is true regardless of the data. It is a sound forward-looking coupling guard; it was **not** evidence. A paired test now couples a readout to the edges on purpose and requires the guard to notice, which is what was missing | `/code-review max` — and it is the same shape as the `G-P2` tautology repaired two commits earlier, reintroduced in the block written to close it |
+| *"`RATIO_EDGES` survives only to format a table and no reported number depends on it"* | ⛔ **FALSE.** The crossings do not depend on it. But `F28`'s spread, `F29`, and the HELD/FAILED tokens for `P-65`, `P-67` and `P-68` are all read off the binned rows — and `P-68`'s criterion (*at most 2 of 6*) is itself a function of the row count, becoming *at most 7 of 11* under an eleven-bin scheme. ⇒ **`P-67` and `P-68` have exactly the edge-set subject `P-66` was retired for.** They are flagged, not re-scored; a sweep is owed before either is cited | `/code-review max` |
+
+### ⛔ AND THE PERMUTATION NULL BEHIND `N7`'s HEADLINE WAS INVALID. IT IS DELETED.
+
+`N7` reported *"8.61x against a null needing 445x — a margin of 435x"*. ⛔ That margin was not
+evidence. Under a permutation the dense left of the ratio axis pools to ~0.5, so the floor measured
+**where our data runs out**, not the null's skill. Two measurements, the second mine:
+
+* at constant null skill, growing only the population moves the 0.70 floor 36.0 → 42.8 → 114.9 →
+  149.9 for n = 400/700/1400/2400, while the observed crossing stays at ~3x;
+* ⭐⭐ **a model eight times noisier — 0.70 crossing 269.83x against this model's 3.00x on the same
+  synthetic, ninety times worse — still read ⭐ RESOLVES at both 0.60 and 0.70.** The test had
+  essentially no power.
+
+⇒ Deleted. `P-69` and `P-71` are **VOID**. ⭐ What carries the existence claim instead was always
+the stronger thing and was sitting right there: **the binned table's per-row permutation floors**,
+which are valid — row membership is truth-only and cannot move under permutation, which `G-P2`
+proves — and all six rows clear theirs. The crossing does not establish that the model orders
+events; it **quantifies** it. ⛔ There is now no sampling-uncertainty interval on the crossing at
+all; the ± is across-seed reproducibility only, and a bootstrap over event cells is **owed**.
+
+### ⭐⭐ N8b — THE FINDING THAT CAME OUT OF THIS, AND IT IS SIMON'S QUESTION
+
+The promoted readout was computed on the **pooled** view only, while `LEVEL_SPLIT` exists precisely
+to keep *"is it worse at the top?"* alive. 85% of pairs have a smaller member under 10 fatalities,
+so the headline was largely a low-magnitude number presented as the model's. Split:
+
+| target | pooled | smaller < 10 | smaller ≥ 10 |
+|---|---|---|---|
+| 0.60 | 2.98× | 3.13× | **2.85×** (better) |
+| 0.70 | 8.61× | 8.60× | ⛔ **never reached** |
+| 0.80 | 26.71× | 26.74× | ⛔ **never reached** |
+
+⚠️⚠️ **And this is NOT the declining-ability result it looks like.** The high half's smaller member
+is ≥ 10, so its maximum ratio is ~248 against ~2,482 — the two columns are read over different
+ratio ranges, and the high half is **never offered** the wide separations where the low half earns
+0.70. The raw curve shows it: at a matched ratio near 10 the low half reads **0.727** and the high
+half **0.676**; near 4–5× the high half reads **0.658** against the low half's **0.625**, i.e.
+slightly *better*. ⇒ `M98`'s *"not supported"* for the declining-ability hypothesis **survives**,
+now on the edge-free axis too. What is established is narrower and still worth having: **the pooled
+headline is a low-magnitude figure, and how much of the gap is ability versus available range is
+NOT measured.**
+
+⭐ The raw curve is now printed at ten equal-pair deciles for all three views — which is also the
+first direct evidence on the monotonicity question raised in
+`~/brain/4_notes/2026-11-06_resolution_not_ranking.md`: **on our data, on this axis, the raw curve
+is monotone in all three views** (pooled 0.526 → 0.817; low 0.536 → 0.820; high 0.510 → 0.676).
+⛔ That is evidence about the shape, **not a test of it** — a test needs a sweep over grouping width
+AND offset, which this instrument still does not do.
+
 ### ⚠️ Further findings recorded at the reviewer's weight, not re-verified here
 
 ⛔ These are **[reviewer, not re-verified]**. They are written down because leaving them in a chat

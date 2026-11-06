@@ -17,7 +17,9 @@ arithmetic, but because each one was restated loosely in a later message.
 > tautology**: `brier_parts` defines `mcb = s_bar - s_rc` and `dsc = unc - s_rc`, so
 > `mcb - dsc + unc` expands to `s_bar` identically, whatever `unc` is. Verified here — with `UNC`
 > from a deliberately wrong population the gate returns **PASS at residual 0.00e+00** while `DSC`
-> is **−0.1622**, a negative discrimination. ⇒ The three numbers *are* computed correctly, but
+> is **−0.0503** on the committed fixture, a negative discrimination.
+> ⚠️ *Corrected later the same day: this read **−0.1622**, which no committed fixture reproduces —
+> it came from an uncommitted scratch probe. The negative-DSC claim itself is reproduced by a test.* ⇒ The three numbers *are* computed correctly, but
 > **nothing proves it**, and §7's claim that *"a guard that could not fire"* is closed is false.
 >
 > **2. §7's last two rows overstate what is protected.** *"Every gate has a test that makes it
@@ -81,7 +83,7 @@ The Brier score at each threshold splits exactly three ways (CORP, `Arnold2024` 
 `Dimitriadis2021`):
 
 ```
-S_bar  =  MCB  -  DSC  +  UNC        exactly, to 1e-12, checked by G-R1 on every row
+S_bar  =  MCB  -  DSC  +  UNC        exactly, BY DEFINITION — a transcription check, not evidence; see §2's correction
 ```
 
 | | name | what it means | who it is about |
@@ -90,11 +92,21 @@ S_bar  =  MCB  -  DSC  +  UNC        exactly, to 1e-12, checked by G-R1 on every
 | **MCB** | miscalibration | **how wrong our probabilities are** | ⭐ us, the defect |
 | **DSC** | discrimination | how much our ranking separates events from non-events | ⭐ us, the skill |
 
-⛔ **Why the identity matters more than any of the three numbers.** On 2026-11-06 a figure was
-withdrawn for being a composite — an occurrence error multiplied by a magnitude error, reported as
-the latter. The identity makes that impossible here: the three parts provably sum to the score, so
-none of them can be a ratio of unlike things, **and a reader can check the arithmetic in the
-printed row**.
+⛔ **What stops a composite here — CORRECTED 2026-11-06.** On 2026-11-06 a figure was withdrawn
+for being a composite — an occurrence error multiplied by a magnitude error, reported as the
+latter.
+
+⛔⛔ This paragraph used to read *"the identity makes that impossible here: the three parts
+**provably** sum to the score, so none of them can be a ratio of unlike things."* **That was
+wrong.** `MCB` and `DSC` are DEFINED as `S_bar − S_rc` and `UNC − S_rc`, so the identity holds for
+any `UNC` at all, including one from the wrong population. It is a **transcription check** — worth
+having, because it is the only thing that catches a wrong scale factor on a reported part, and a
+reader can still check the arithmetic in the printed row — but it is not evidence.
+
+⭐ What actually stops a composite is two things that CAN fail: **`G-R5`**, which asserts the
+forecast and the truth are aligned per origin before they are ever paired, and **`G-R1`'s two sign
+theorems**, `MCB >= 0` and `DSC >= 0`, which a wrong base rate violates. Say *"the parts are one
+population's, by assertions that can fail"*. ⛔ Never say the identity proves it.
 
 ---
 
@@ -240,7 +252,7 @@ our signal      DSC/UNC <at t=0>% -> <at the top>%       (⭐ discrimination)
 
 | failure, 5–6 Nov | what prevents it here |
 |---|---|
-| a composite reported as one of its factors | `G-R1`: the three parts sum to the score, to 1e-12, on every row |
+| a composite reported as one of its factors | `G-R1`: finite, transcribes to 1e-12, and ⭐ `MCB >= 0` / `DSC >= 0` (theorems). ⛔ NOT a population check — that is `G-R5` |
 | the statistic moved with its bin count | ⭐ **no free parameter** — `p` takes 17 values, so the table is exact |
 | conditioned on the outcome | `G-R2`: permute the truth, every group size must be bit-identical |
 | a single-seed number | `G-C2`: five seeds or nothing, sd printed in the same cell |

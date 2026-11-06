@@ -11,23 +11,51 @@ ORDERING BY SEPARATION — how far apart must two events be before the model kno
    ctlfullzero_fortyfive      G-0 exact · G-P2 pass · G-P3 pass
    ctlfullzero_fortyseven     G-0 exact · G-P2 pass · G-P3 pass
   PASS  G-P1  3,938,827 comparable, 279,233 dropped as truth-tied
-  PASS  G-P4  truth-as-prediction scores 1.0 and its negation 0.0, on every row
+  PASS  G-P4  truth-as-prediction scores 1.0 and its negation 0.0, on every binned row AND on the edge-free curve; a perfect ranker crosses every target at the smallest separation
   PASS  G-C2  5 seeds (floor 5)
 
 ================================================================================================================
   ⭐⭐ THE READOUT — and it has NO bin edges. Isotonic fit over every DISTINCT ratio.
 ================================================================================================================
   5,935 distinct ratios over 3,938,827 pairs
-  the monotone fit has 46.2 distinct levels  ⚠️ descriptive, not a test
-  ⚠️ it tops out at 0.9520, which is NOT a result — the widest separations are singleton
-     groups, so the fit's right end saturates under pure noise too. Read the
-     CROSSINGS below, each against its own permuted null.
+  the monotone fit has 42-54 distinct levels (descriptive)
+  ⛔ THERE IS NO NULL ON THIS AXIS. The one that was here measured where the ratio
+     axis goes SPARSE, not the null's skill — a model 90x worse still passed it. It
+     is deleted and P-69/P-71 are VOID. ⭐ That the model orders events at all rests
+     on the BINNED rows below, whose per-row permutation floors are valid nulls.
+  ⚠️ The ± below is across-SEED spread only. It is NOT sampling uncertainty over
+     events; a bootstrap is the honest interval and is NOT built. Read it as a
+     point estimate with a reproducibility band.
 
-    target    separation needed    noise needs    margin   VERDICT
-                      ± seed sd        (q0.01)          
-      0.60         2.98x ± 0.22         122.99    119.78   ⭐ RESOLVES
-      0.70         8.61x ± 0.76         444.97    435.60   ⭐ RESOLVES
-      0.80        26.71x ± 7.33         667.59    633.55   ⭐ RESOLVES
+    target      separation needed  pairs behind it   seeds
+      0.60           2.98x ± 0.22   15,078-337,191     5/5
+      0.70           8.61x ± 0.76      656-216,386     5/5
+      0.80          26.71x ± 7.33    19,950-64,419     5/5
+
+  ⭐⭐ THE SAME TARGETS SPLIT BY THE SIZE OF THE SMALLER EVENT — and this is the
+     finding, not a footnote. 85% of pairs have a smaller member under
+     10 fatalities, so the pooled column above is largely THEIR number.
+    target         pooled     small < 10    small >= 10   ratio
+      0.60          2.98x          3.13x          2.85x   0.91x BETTER
+      0.70          8.61x          8.60x          never   —
+      0.80         26.71x         26.74x          never   —
+  ⚠️⚠️ ⛔ NOT a clean statement that the model is worse at high magnitudes. The high
+     half cannot REACH the widest ratios (its smaller member is >= 10, so its maximum
+     ratio is ~248 against ~2,482), so the two columns are read over different ratio
+     ranges. The matched-separation comparison is the binned table below, and it says
+     something much milder. ⇒ What IS established: the pooled headline is dominated by
+     low-magnitude pairs and the halves are far apart. Which part of that gap is
+     declining ability and which is the available range is NOT measured.
+
+  ⭐ THE RAW CURVE, before PAV imposes monotonicity — ten points at equal pair counts.
+     ⛔ Read your own target off this; the three above are not privileged.
+             pooled  ratio     1.2     1.7     2.2     2.7     3.4     4.8     6.9    10.0    17.2    48.3
+                     conc    0.526   0.547   0.577   0.587   0.622   0.641   0.669   0.704   0.748   0.817
+         small < 10  ratio     1.4     1.8     2.5     3.4     4.4     6.1     8.4    12.3    20.2    64.2
+                     conc    0.536   0.542   0.582   0.628   0.625   0.655   0.680   0.727   0.764   0.820
+        small >= 10  ratio     1.1     1.2     1.4     1.6     1.9     2.2     2.7     3.4     4.7    10.4
+                     conc    0.510   0.515   0.535   0.547   0.557   0.582   0.603   0.627   0.658   0.676
+     ⚠️ One seed's curve (the across-seed spread is in the tables above).
 
 ----------------------------------------------------------------------------------------------------------------
   ⚠️ SECONDARY — the same pairs under RATIO_EDGES. ⛔ PRESENTATIONAL. The headline came
@@ -75,13 +103,20 @@ ORDERING BY SEPARATION — how far apart must two events be before the model kno
     P-67 FAILED — narrowest row 1.0–1.5x is ORDERS
     P-68 HELD — high is worse in 1 of 6 comparable rows (holds if <= 2)
 
-    F32 did not fire — NO target's crossing beats its permuted null ⇒ no separation figure is quotable at all
+    F32 did not fire — no target has a crossing that every seed reaches on a block of at least 30 pairs ⇒ no separation figure is quotable
     F33 did not fire — PAV pooled the whole curve into one block ⇒ the data cannot separate separations and no resolution exists
-    P-69 HELD — the 0.70 crossing beats its permuted null (crossing 8.61x)
-    P-70 HELD — 0.70 is crossed at 8.61x (predicted 4x–16x)
-    P-71 HELD — the 0.80 crossing beats its permuted null (5 of 5 seeds reach 0.80)
-    P-72 HELD — 0.60 is crossed at 2.98x (predicted 2x–5x)
+    P-69 ⛔ VOID — scored against a permutation null that measured sparsity, not skill. A model 90x worse passed it. The null is deleted; nothing replaces the verdict.
+    P-70 HELD — 0.70 crossed at 8.61x (predicted 4x-16x)
+    P-71 ⛔ VOID — same deleted null as P-69 (target 0.80).
+    P-72 HELD — 0.60 crossed at 2.98x (predicted 2x-5x)
 
   ⛔ Chance is 0.5. ⛔ This says the ORDER is right, never that the SIZE is.
   ⛔ Every separation figure above belongs to a TARGET. Quoting one alone is the
      defect that held this branch on 2026-11-06.
+  ⛔⛔ AND A CORRECTION TO THIS FILE'S OWN EARLIER CLAIM: it is NOT true that
+     'no reported number depends on RATIO_EDGES'. The CROSSINGS do not. But F28's
+     spread, F29, and the HELD/FAILED tokens for P-65, P-67 and P-68 are all read
+     off the binned rows, so they move with the edges — and P-68's own criterion
+     (at most 2 of 6) is a function of the ROW COUNT. ⇒ P-67 and P-68 have exactly
+     the kind of edge-set subject that P-66 was retired for. They are NOT re-scored
+     here; they are flagged, and a sweep is owed before either is cited again.

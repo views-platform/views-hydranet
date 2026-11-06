@@ -5,11 +5,11 @@ THRESHOLD RELIABILITY — the predictive distribution against the real one, h1, 
   ⛔ Control arms only. No UpsampleConv2 here.
   ⚠️ p is quantised at 1/16 = 0.0625.
   ⭐ No free parameter: the table below has no bin count to sweep.
-   ctlfullzero_fortytwo       G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
-   ctlfullzero_fortythree     G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
-   ctlfullzero_fortyfour      G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
-   ctlfullzero_fortyfive      G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
-   ctlfullzero_fortyseven     G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
+   ctlfullzero_fortytwo       G-0 exact · G-R1 pass · G-R2 pass · G-R3 pass · G-R5 pass
+   ctlfullzero_fortythree     G-0 exact · G-R1 pass · G-R2 pass · G-R3 pass · G-R5 pass
+   ctlfullzero_fortyfour      G-0 exact · G-R1 pass · G-R2 pass · G-R3 pass · G-R5 pass
+   ctlfullzero_fortyfive      G-0 exact · G-R1 pass · G-R2 pass · G-R3 pass · G-R5 pass
+   ctlfullzero_fortyseven     G-0 exact · G-R1 pass · G-R2 pass · G-R3 pass · G-R5 pass
 
   PASS  G-C2  5 seeds (floor 5) — no statistic is printed from fewer
 

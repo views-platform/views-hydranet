@@ -169,7 +169,7 @@ def test_gate_p4_FIRES_when_TIES_ARE_SCORED_AS_CORRECT(monkeypatch):
 
     def sloppy(view, pred):
         right = (pred[view.big] >= pred[view.small]).astype(np.float64)
-        r = np.bincount(view.ratio_row, weights=right, minlength=obs.N_ROWS)
+        r = np.bincount(view.ratio_row, weights=right, minlength=obs.n_rows())
         with np.errstate(invalid="ignore", divide="ignore"):
             out = r / view.n_per_row
         return np.where(view.n_per_row > 0, out, np.nan)
@@ -204,10 +204,10 @@ def test_gate_p2_FIRES_on_a_concordance_that_GROUPS_BY_THE_PREDICTION(monkeypatc
     view = obs.PairView(_set(truth))
 
     def grouped_by_prediction(v, pred):
-        rows = np.digitize(pred[v.big], np.linspace(0, 1, obs.N_ROWS + 1)[1:-1])
+        rows = np.digitize(pred[v.big], np.linspace(0, 1, obs.n_rows() + 1)[1:-1])
         right = (pred[v.big] > pred[v.small]).astype(np.float64)
-        r = np.bincount(rows, weights=right, minlength=obs.N_ROWS)
-        n = np.bincount(rows, minlength=obs.N_ROWS)
+        r = np.bincount(rows, weights=right, minlength=obs.n_rows())
+        n = np.bincount(rows, minlength=obs.n_rows())
         with np.errstate(invalid="ignore", divide="ignore"):
             return np.where(n > 0, r / np.maximum(n, 1), np.nan)
 
@@ -337,12 +337,38 @@ def _rising_pred(truth):
 
 
 def test_the_distinct_ratio_codes_are_a_function_of_the_TRUTH_ALONE():
-    """⭐ The property the whole design rests on: a permutation cannot move a group membership."""
-    truth = np.array([1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0])
-    a, b = _set(truth), _set(truth)
-    assert np.array_equal(a.ratio_code, b.ratio_code)
-    assert np.array_equal(a.uniq_ratio, b.uniq_ratio)
-    assert a.n_codes == np.unique(a.ratio).size
+    """⭐ The property the whole design rests on: a permutation cannot move a group membership.
+
+    ⛔⛔ REWRITTEN. The first version built two ``PairSet``s from the SAME truth and compared them
+    with each other, with no prediction anywhere in scope — two identical constructions, so it
+    could not fail. That is the exact shape of the ``G-P2`` tautology repaired in ``4ed80b6``,
+    reintroduced in the block written to close it. ⇒ It now does what ``G-P2`` does: permute a
+    prediction many times and require every truth-derived member to come back bit-identical, and
+    require the SCORE to move so the permutation is not a no-op.
+    """
+    rng = np.random.default_rng(2)
+    truth = np.unique(rng.integers(1, 200, 40).astype(np.float64))
+    pairs = _set(truth)
+    view = obs.PairView(pairs)
+    base_code = view.ratio_code.copy()
+    base_n = view.n_per_code.copy()
+    base_uniq = view.uniq_ratio.copy()
+    base_occ = view.code_occupied.copy()
+
+    pred = _rising_pred(truth) + rng.normal(0, 20, truth.size)
+    scores = set()
+    for _ in range(25):
+        shuffled = rng.permutation(pred)
+        _r, fit = obs.resolution_curve(view, shuffled)
+        scores.add(round(float(fit[-1]), 12))
+        assert np.array_equal(view.ratio_code, base_code), "a permutation moved ratio_code"
+        assert np.array_equal(view.n_per_code, base_n), "a permutation moved n_per_code"
+        assert np.array_equal(view.uniq_ratio, base_uniq), "a permutation moved uniq_ratio"
+        assert np.array_equal(view.code_occupied, base_occ), "a permutation moved code_occupied"
+    assert len(scores) > 1, (
+        "every permutation produced the same fit, so the permutation is a no-op here and the "
+        "invariance above is vacuous — rebuild the fixture"
+    )
 
 
 def test_every_pair_lands_in_exactly_one_distinct_ratio_group():
@@ -424,15 +450,60 @@ def test_the_REPORTED_CROSSING_DOES_NOT_MOVE_WHEN_RATIO_EDGES_MOVE():
     try:
         for edges in schemes:
             obs.RATIO_EDGES = edges
-            obs.N_ROWS = len(edges) - 1
             view = obs.PairView(obs.PairSet(truth))
             ratios, fit = obs.resolution_curve(view, pred)
             seen.append(tuple(obs.crossing(ratios, fit, t) for t in obs.RESOLUTION_TARGETS))
     finally:
         obs.RATIO_EDGES = original
-        obs.N_ROWS = len(original) - 1
 
     assert len(set(seen)) == 1, f"the crossing moved with RATIO_EDGES: {seen}"
+
+
+def test_that_edge_independence_guard_CAN_ACTUALLY_FIRE():
+    """⛔⛔ Non-vacuity for the test above, and it needed it.
+
+    `/code-review max` found that the guard above cannot fail for ANY fixture: ``resolution_curve``
+    and ``crossing`` read only ``big``/``small``/``ratio_code``/``n_codes``/``n_per_code``/
+    ``code_occupied``/``uniq_ratio``, none of which derives from ``RATIO_EDGES``, so
+    ``len(set(seen)) == 1`` is structurally true. ⇒ It is a sound FORWARD-LOOKING guard against
+    someone later coupling the readout to the edges — but on its own it is not evidence, and the
+    RESULTS_LEDGER and the evaluation report both cited it as the measurement that cleared `H1`.
+    Those citations are corrected; this test supplies what was missing, by coupling the readout on
+    purpose and requiring the guard to notice.
+    """
+    rng = np.random.default_rng(7)
+    truth = np.unique(rng.integers(1, 2000, 120).astype(np.float64))
+    pred = _rising_pred(truth) + rng.normal(0, 150, truth.size)
+
+    def coupled(view, pred):
+        """A readout that groups by the BINNED row instead of the distinct ratio."""
+        right = (pred[view.big] > pred[view.small]).astype(np.float64)
+        tied = (pred[view.big] == pred[view.small]).astype(np.float64)
+        hit = np.bincount(view.ratio_row, weights=right + 0.5 * tied, minlength=obs.n_rows())
+        live = view.n_per_row > 0
+        w = view.n_per_row[live].astype(np.float64)
+        return np.arange(1, live.sum() + 1, dtype=np.float64), obs.pav(hit[live] / w, w)
+
+    seen = []
+    original = obs.RATIO_EDGES
+    try:
+        for edges in [
+            (1.0, 1.5, 2.0, 4.0, 8.0, 16.0, np.inf),
+            (1.0, 2.0, 8.0, np.inf),
+            (1.0, 1.1, 1.3, 1.7, 2.3, 3.1, 4.5, 6.0, 9.0, 14.0, 30.0, np.inf),
+        ]:
+            obs.RATIO_EDGES = edges
+            view = obs.PairView(obs.PairSet(truth))
+            ratios, fit = coupled(view, pred)
+            seen.append(tuple(obs.crossing(ratios, fit, t) for t in obs.RESOLUTION_TARGETS))
+    finally:
+        obs.RATIO_EDGES = original
+
+    assert len(set(seen)) > 1, (
+        "a readout deliberately coupled to RATIO_EDGES produced the SAME crossing under three "
+        "very different edge schemes, so the guard above could not have detected the coupling "
+        "it exists to detect — rebuild this fixture before trusting it"
+    )
 
 
 def test_the_BINNED_table_DOES_move_with_RATIO_EDGES_which_is_why_it_is_presentational():
@@ -449,12 +520,10 @@ def test_the_BINNED_table_DOES_move_with_RATIO_EDGES_which_is_why_it_is_presenta
     try:
         for edges in [(1.0, 2.0, 16.0, np.inf), (1.0, 2.0, 4.0, np.inf)]:
             obs.RATIO_EDGES = edges
-            obs.N_ROWS = len(edges) - 1
             view = obs.PairView(obs.PairSet(truth))
             tops.append(obs.concordance(view, pred)[-1])
     finally:
         obs.RATIO_EDGES = original
-        obs.N_ROWS = len(original) - 1
 
     assert tops[0] != pytest.approx(tops[1]), (
         "the binned top row did NOT move with the edges, so the regression test above proves "
@@ -481,31 +550,40 @@ def test_the_FIT_PEAK_SATURATES_UNDER_PURE_NOISE_and_is_therefore_not_a_result()
     )
 
 
-def test_the_null_CROSSING_floor_is_far_to_the_RIGHT_of_a_skilful_models():
-    """⭐ The floor is direction-aware: noise needs MORE separation, so its crossing is larger.
-
-    Non-vacuity for the verdict arithmetic — if the null's crossing were not reliably worse than
-    a real model's, the RESOLVES verdict could never be earned by anything.
+def test_the_crossing_reports_the_PAIR_COUNT_BEHIND_IT_and_singletons_are_visible():
+    """⛔⛔ The missing support rule. ``MIN_PAIRS`` was enforced on every binned row and the band
+    matrix, and NOWHERE on the headline axis, while ``code_occupied`` admits groups of one pair.
     """
-    rng = np.random.default_rng(5)
-    truth = np.unique(rng.integers(1, 1200, 110).astype(np.float64))
-    view = obs.PairView(_set(truth))
-    good = _rising_pred(truth) + rng.normal(0, 60, truth.size)
-    floors = obs.null_crossing_floor(view, good, np.random.default_rng(21))
-    skilful = obs.crossing(*obs.resolution_curve(view, good), 0.70)
-    assert np.isfinite(skilful), "the fixture's model never reaches 0.70; nothing to compare"
-    assert skilful < floors[0.70], (
-        f"a model that orders well needed {skilful:.2f}x while noise needed only "
-        f"{floors[0.70]:.2f}x — the floor is pointing the wrong way"
-    )
+    ratios = np.array([1.5, 2.0, 4.0, 8.0, 16.0])
+    weights = np.array([1000, 900, 20, 5, 1])
+    fit = np.array([0.50, 0.55, 0.70, 0.70, 0.95])
+    idx = int(np.flatnonzero(ratios == obs.crossing(ratios, fit, 0.70))[0])
+    assert idx == 2
+    #: the 0.70 block spans indices 2-3, so its support is 20 + 5 = 25 pairs, under MIN_PAIRS
+    assert obs.crossing_support(fit, weights, idx) == 25
+    assert obs.crossing_support(fit, weights, idx) < obs.MIN_PAIRS
+    #: the whole BLOCK counts, not just the crossing's own code — PAV averaged over both
+    assert obs.crossing_support(fit, weights, 0) == 1000
+    assert obs.crossing_support(fit, weights, 4) == 1
 
 
-def test_the_null_floor_covers_every_reported_target():
-    rng = np.random.default_rng(6)
-    truth = np.unique(rng.integers(1, 600, 60).astype(np.float64))
-    view = obs.PairView(_set(truth))
-    floors = obs.null_crossing_floor(view, rng.normal(0, 1, truth.size), np.random.default_rng(1))
-    assert set(floors) == set(obs.RESOLUTION_TARGETS)
+def test_crossing_support_counts_a_single_pooled_block_as_one_unit():
+    fit = np.array([0.6, 0.6, 0.6, 0.6])
+    weights = np.array([3, 4, 5, 6])
+    assert all(obs.crossing_support(fit, weights, i) == 18 for i in range(4))
+
+
+def test_the_crossing_tolerance_does_not_skip_a_block_that_mathematically_equals_the_target():
+    """⚠️ An exact `fit >= target` can skip a block whose weighted mean lands ulps low."""
+    ratios = np.array([2.0, 4.0, 8.0])
+    fit = np.array([0.5, 0.7 - 5e-17, 0.9])
+    assert obs.crossing(ratios, fit, 0.70) == 4.0
+
+
+def test_pav_does_not_crash_on_an_EMPTY_group_set():
+    """⛔ Reachable through an empty masked view, where `concordance` returns clean NaNs."""
+    out = obs.pav(np.array([], float), np.array([], float))
+    assert out.size == 0
 
 
 def test_the_duplicated_pav_is_byte_identical_to_the_published_instrument():

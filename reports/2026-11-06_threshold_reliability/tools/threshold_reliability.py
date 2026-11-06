@@ -52,13 +52,21 @@ identity and was credited here with being "the structural answer" to the withdra
 **It proved nothing.** ``MCB`` and ``DSC`` are DEFINED as ``S_bar - S_rc`` and ``UNC - S_rc``, so
 the right-hand side collapses to ``S_bar`` for any ``UNC`` whatsoever — the equation is an
 identity, not a measurement, and it passed at residual 0.00e+00 on a table whose ``UNC`` came from
-the wrong population and whose ``DSC`` was −0.1622. ⇒ A reader CAN still check the arithmetic in
+the wrong population and whose ``DSC`` was −0.0503. ⇒ A reader CAN still check the arithmetic in
 the printed table, and that is worth having, but it is a transcription check and nothing more.
 
-⭐ ``G-R1`` now asserts the POPULATION instead: that ``ybar`` recomputed from the same counts that
-produced ``S_bar`` is the reported ``ybar``, and that ``MCB >= 0`` and ``DSC >= 0`` — both
-theorems, because ``p_k`` and the constant ``ybar`` are each feasible isotonic candidates that PAV
-cannot be beaten by. A mismatched ``UNC`` breaks the third. See ``gate_r1_one_population``.
+⛔⛔ AND SO WAS ITS FIRST REPLACEMENT, retracted the same day. ``gate_r1_one_population`` claimed
+to assert the POPULATION by recomputing ``ybar`` from the scored counts. ⛔ That is a bit-identical
+re-derivation — ``brier_parts`` computed ``ybar`` from those arrays — so it catches a
+corrupted ``parts`` dict and **not** a wrong population. Measured: seed A's draws against
+seed B's truth, a fully permuted truth, and a truth from an entirely different distribution
+all PASS. ⇒ Once you hold ``(n_k, s_k)`` there is no internal evidence of a mismatch at all.
+
+⭐ WHAT IS TRUE NOW. ``G-R1`` is renamed ``gate_r1_internally_consistent`` and claims only what it
+does: finiteness, the transcription identity (restored — it is the only thing that catches a wrong
+SCALE on the reported ``MCB``/``DSC``, which the replacement had silently given up), and ⭐⭐
+``MCB >= 0`` and ``DSC >= 0``, which are theorems and are the only two statements with content. The
+population is checked by ``G-R5``, at the point where the forecast and the truth are paired.
 
 The recalibrated score ``S_rc`` is the Brier score of the isotonic (PAV) refit of the outcome on
 the forecast. ``MCB = S_bar - S_rc`` and ``DSC = UNC - S_rc``.
@@ -131,9 +139,14 @@ SLOTS (``C-351``)
     G-0    ⭐⭐ VOID. All five control arms reproduce their own committed ``ap_ctl`` exactly via
            the FROZEN ``average_precision``. Nothing is reported on failure
     G-8    structural: 842,634 cell-months / 2,905 events / max 2,482, recomputed
-    G-R1   ⭐⭐ ONE POPULATION. ``ybar`` recomputed from the scored counts, and ``MCB >= 0`` and
-           ``DSC >= 0``, every threshold, every seed. ⛔ Its previous form — the identity
-           ``S_bar == MCB - DSC + UNC`` — was a tautology and is retracted above
+    G-R1   ⭐ INTERNALLY CONSISTENT: finite, transcribes to 1e-12, ``ybar``/``UNC`` agree with
+           the counts, and ⭐⭐ ``MCB >= 0`` and ``DSC >= 0``, which are the only two statements
+           here with content. ⛔⛔ It does **NOT** detect a mis-paired forecast and truth; two
+           earlier forms of this gate claimed to and could not. See its docstring
+    G-R5   ⭐⭐ THE POPULATION GATE, and the one G-R1 was wrongly credited with being. Per origin
+           the gate's cell ids, the draws' cell ids and the expected ``cells`` must be equal and
+           the months must agree. ⚠️ Reuses ``e1_data.gate_5_alignment``, which existed all along
+           and was called by NONE of the six instruments built on 2026-11-06
     G-R2   ⭐⭐ PREDICTION-GROUPED. Permuting the truth leaves every ``n_k`` bit-identical
     G-R3   the PAV refit is a real isotonic fit: non-decreasing, and weighted-mean preserving
     G-R4   ⭐ no MCB is printed without its ``MCB_0``, and no verdict without both. ⭐ And the
@@ -308,9 +321,16 @@ def gate_r2_grouped_by_prediction(
 def pav(x: np.ndarray, w: np.ndarray) -> np.ndarray:
     """-> the weighted isotonic (non-decreasing) least-squares fit of ``x`` with weights ``w``.
 
-    Pool-adjacent-violators in its standard stack form, on at most ``N_DRAWS + 1`` points. ⭐
-    Written here rather than taken from ``sklearn`` so the identity ``G-R1`` asserts rests on
-    arithmetic a reader can follow in this file, and because the input is 17 numbers.
+    Pool-adjacent-violators in its standard stack form. ⭐ Written here rather than taken from
+    ``sklearn`` so the arithmetic ``G-R1`` checks is one a reader can follow in this file.
+
+    ⚠️ CORRECTION: this used to say *"on at most ``N_DRAWS + 1`` points ... because the input is
+    17 numbers"*. True of THIS caller, false of the dossier — ``ordering_by_separation`` holds a
+    copy pinned equal to this one and calls it on **5,935** points, 1,005 times per seed.
+    Measured: it is O(n) amortised (pushes exactly n, pops bounded by n, time per point flat at
+    318-328 ns across a 400x range in n), so the copy is sound at that size — but the reason given
+    here was not. ``sklearn.isotonic`` is 13x faster and would save ~1.8 s of an ~81 s run, which
+    does not buy out the byte-identity pin across the three copies.
 
     Each stack entry is one pooled block: its weighted mean, its total weight, and how many of the
     original points it covers. A new point is pushed, then merged leftward while it violates
@@ -331,7 +351,7 @@ def pav(x: np.ndarray, w: np.ndarray) -> np.ndarray:
             means.pop()
             weights.pop()
             counts.pop()
-    return np.repeat(np.asarray(means), np.asarray(counts))
+    return np.repeat(np.asarray(means, np.float64), np.asarray(counts, np.intp))
 
 
 def gate_r3_pav_is_isotonic(fit: np.ndarray, x: np.ndarray, w: np.ndarray) -> tuple[bool, str]:
@@ -408,70 +428,119 @@ def gate_r4_floor_present(parts: dict[str, float]) -> tuple[bool, str]:
     return True, "MCB, its null mean and its decision floor are all present and finite"
 
 
-def gate_r1_one_population(
+def gate_r1_internally_consistent(
     parts: dict[str, float], n_k: np.ndarray, s_k: np.ndarray
 ) -> tuple[bool, str]:
-    """-> (passed, detail). ⭐⭐ The three parts came from ONE population. ⛔ NOT an identity.
+    """-> (passed, detail). ⛔⛔ READ THE NAME. This gate does **NOT** detect two populations.
 
-    ⛔⛔ THE PREVIOUS FORM OF THIS GATE COULD NOT FAIL, and it is retracted rather than deleted.
+    ⛔⛔ TWO RETRACTIONS, both of my own work, both on 2026-11-06, in one day.
 
-    It asserted ``S_bar == MCB - DSC + UNC``. But ``brier_parts`` DEFINES ``MCB = S_bar - S_rc``
-    and ``DSC = UNC - S_rc``, so the right-hand side expands to
+    **(1) The original form was a tautology.** It asserted ``S_bar == MCB - DSC + UNC``, but
+    ``brier_parts`` DEFINES ``MCB = S_bar - S_rc`` and ``DSC = UNC - S_rc``, so the right-hand
+    side expands to ``S_bar`` identically. Measured: PASS at residual 0.00e+00 with ``DSC``
+    = −0.0503 on the committed fixture, a negative discrimination, which cannot occur.
+    ⚠️ This figure was first written as **−0.1622**, which is reproduced by no committed fixture
+    and came from an uncommitted scratch probe. Retracted as a number; the claim it supports —
+    PASS at residual 0.00e+00 with a negative DSC — is reproduced by
+    ``test_the_RETRACTED_identity_passes_on_a_wrong_population``, which calls a literal copy of
+    the retracted gate rather than re-deriving it inline.
 
-        (S_bar - S_rc) - (UNC - S_rc) + UNC  ==  S_bar
+    **(2) Its replacement was ALSO vacuous for the failure it was named for, and worse, it
+    deleted a check that worked.** It was called ``gate_r1_one_population`` and claimed three
+    statements "true BECAUSE one population generated all three parts". ⛔ False. ``brier_parts``
+    derives ``ybar``, ``unc`` and ``dsc`` from the one ``(n_k, s_k)`` it is handed, so
+    recomputing ``ybar`` from those same arrays is a **bit-identical re-derivation** — residual
+    exactly 0.0. Measured by ``/code-review max`` and reproduced: a mis-paired forecast and truth
+    (seed A's draws against seed B's truth), a fully permuted truth, and a truth from an entirely
+    different distribution (``ybar`` 0.938 vs 0.083) **all PASS**. Once you hold ``(n_k, s_k)``
+    there is no internal evidence of a mismatch, because ``group_table`` always returns an
+    internally consistent pair for whatever truth it is given. ⇒ The population check cannot live
+    here. It lives in ``G-R5``, at the point where the forecast and the truth are paired.
 
-    identically — ``UNC`` and ``S_rc`` both cancel. The equation therefore holds for ANY value of
-    ``UNC``, including one computed on the wrong population, which is the single failure the gate
-    was credited with excluding. Verified on 2026-11-06: with ``UNC`` taken from a deliberately
-    wrong population the old gate returned PASS at residual 0.00e+00 while ``DSC`` was −0.1622, a
-    negative discrimination, which cannot occur. ⇒ It was an instance of the "guard that cannot
-    fire" class that this dossier was built to close.
+    ⚠️ And removing the identity removed the only constraint on ``DSC``'s **scale**. Measured:
+    mutating ``brier_parts`` to ``"dsc": 2.0 * (unc - s_rc)`` left all 37 tests passing and the
+    replacement gate PASSING, while the old identity caught it at residual 1.483e-01 — and
+    ``DSC/UNC`` is ``M95``'s headline. ⇒ The identity is **restored below**, as what it always
+    was.
 
-    ⚠️ Its test could not fail either, for a related reason: it mutated ``parts["unc"]`` alone and
-    left ``parts["dsc"]`` correct. That DOES break the identity — but it is a state the code path
-    cannot reach, because ``dsc`` is computed FROM ``unc``. A real population mismatch moves both
-    together.
+    ⭐ WHAT THIS GATE ACTUALLY ESTABLISHES, stated so no document can over-claim it again:
 
-    ⭐ WHAT REPLACES IT: three statements that are true BECAUSE one population generated all three
-    parts, and false the moment one of them did not.
-
-      1. ``ybar`` recomputed from the very ``(n_k, s_k)`` that produced ``S_bar`` must equal the
-         reported ``ybar``, and ``UNC`` must equal ``ybar (1 - ybar)``. This reads the population
-         rather than rearranging the definitions.
-      2. ``MCB >= 0``. The forecast levels ``p_k = k/(levels-1)`` are non-decreasing, so they are
-         a feasible isotonic candidate; PAV returns the optimum over that set and so cannot score
-         worse: ``S_rc <= S_bar``.
-      3. ``DSC >= 0``. The constant ``ybar`` is also a feasible isotonic candidate and its Brier
-         score is exactly ``UNC``; PAV cannot score worse: ``S_rc <= UNC``.
-
-    ⭐ (3) is the one that fires on a mismatched ``UNC`` — a wrong base rate makes ``S_rc`` exceed
-    ``UNC``, and the negative ``DSC`` that the old gate rendered as a number is refused here.
+      1. **Finiteness.** No part reaches a table as NaN or inf.
+      2. **Transcription.** ``S_bar == MCB - DSC + UNC`` to 1e-12. ⛔ This is TRUE BY DEFINITION
+         of ``MCB`` and ``DSC``, so it proves nothing about the statistics — but it is not
+         worthless: it catches any later corruption of the REPORTED ``mcb``/``dsc`` relative to
+         ``s_bar``/``s_rc``/``unc``, including a wrong scale factor, which nothing else here sees.
+      3. **``ybar`` and ``UNC`` agree with the counts in hand.** ⛔ A re-derivation, so it catches
+         a corrupted ``parts`` dict and NOT a wrong population.
+      4. **``MCB >= 0`` and ``DSC >= 0``.** ⭐ These two are **theorems**, and they are the only
+         statements here with content: Brier at threshold ``t`` is weighted least squares with
+         weights ``n_k`` and targets ``s_k/n_k``, so PAV's L2 optimum is the Brier optimum over
+         any candidate set; the forecast levels ``p_k`` restricted to the occupied levels are a
+         subsequence of a non-decreasing sequence, hence feasible, giving ``S_rc <= S_bar``; and
+         the constant ``ybar`` is feasible and scores exactly ``UNC``, giving ``S_rc <= UNC``. An
+         unoccupied level contributes 0 for every candidate, so the zero-fill cancels.
+         ⚠️ UNSTATED PREMISE, now stated: these require ``s_k == 0`` wherever ``n_k == 0``.
+         Guaranteed on both real paths — ``group_table`` bincounts the same ``k``, and
+         ``Binomial(0, p) = 0`` — but inject a phantom ``s_k`` at an empty level and ``MCB`` goes
+         negative on 57% of random tables. ⇒ Checked explicitly below rather than assumed.
     """
+    for key in ("s_bar", "s_rc", "unc", "mcb", "dsc", "ybar"):
+        if key not in parts or not np.isfinite(parts[key]):
+            return False, f"{key} is missing or not finite: {parts.get(key)!r}"
     total = float(n_k.sum())
     if total <= 0.0:
         return False, "the scored population is empty: no part of the decomposition is defined"
+    if np.any(s_k[n_k <= 0] != 0.0):
+        return False, (
+            "an unoccupied level carries a positive count, which breaks the MCB >= 0 and "
+            "DSC >= 0 derivations below"
+        )
+    resid = abs(parts["s_bar"] - (parts["mcb"] - parts["dsc"] + parts["unc"]))
+    if resid > IDENTITY_TOL:
+        return False, (
+            f"the reported parts do not transcribe the score: residual {resid:.3e}. ⛔ This is "
+            "an arithmetic slip or a wrong scale factor, NOT a population mismatch"
+        )
     ybar = float(s_k.sum()) / total
     if abs(parts["ybar"] - ybar) > IDENTITY_TOL:
-        return False, (
-            f"ybar {parts['ybar']:.12e} is not the base rate of the scored population "
-            f"({ybar:.12e}) — UNC and S_bar do not come from the same cells"
-        )
+        return False, f"ybar {parts['ybar']:.12e} != the counts' base rate {ybar:.12e}"
     if abs(parts["unc"] - ybar * (1.0 - ybar)) > IDENTITY_TOL:
-        return False, (f"UNC {parts['unc']:.12e} != ybar(1-ybar) = {ybar * (1.0 - ybar):.12e}")
+        return False, f"UNC {parts['unc']:.12e} != ybar(1-ybar) = {ybar * (1.0 - ybar):.12e}"
     if parts["mcb"] < -IDENTITY_TOL:
         return False, (
             f"MCB is negative ({parts['mcb']:.6e}): the PAV refit scored WORSE than the forecast "
-            "it refits, which is impossible on one population"
+            "it refits, which the least-squares argument forbids"
         )
     if parts["dsc"] < -IDENTITY_TOL:
         return False, (
             f"DSC is negative ({parts['dsc']:.6e}): S_rc {parts['s_rc']:.6e} exceeds UNC "
-            f"{parts['unc']:.6e}, so the base rate is not this population's"
+            f"{parts['unc']:.6e}, which the least-squares argument forbids"
         )
     return True, (
-        f"one population: ybar {ybar:.6e}, MCB {parts['mcb']:.3e} >= 0, "
+        f"finite, transcribes to {resid:.1e}, ybar {ybar:.6e}, MCB {parts['mcb']:.3e} >= 0, "
         f"DSC {parts['dsc']:.3e} >= 0"
     )
+
+
+def gate_r5_forecast_and_truth_are_aligned(
+    gate: dict, draws_by_origin: dict, cells: np.ndarray
+) -> tuple[bool, str]:
+    """-> (passed, detail). ⭐⭐ THE POPULATION GATE. The one ``G-R1`` was wrongly credited with.
+
+    ⛔ A mis-paired forecast and truth is invisible downstream of ``group_table`` — see ``G-R1``'s
+    docstring for the measurement. It is visible HERE, where the two halves are joined, so this is
+    where it is checked: per origin, the gate's cell ids, the draws' cell ids and the expected
+    ``cells`` must all be equal, the months must agree, and the loaded months must be the ones the
+    truth is read at.
+
+    ⚠️ ``e1_data.gate_5_alignment`` already did this and **was called by none of the six
+    instruments built on 2026-11-06**, which is how the hole stayed open. It is reused rather than
+    reimplemented, so there is one definition of alignment in the dossier.
+    """
+    ok, bad = e1_data.gate_5_alignment(gate, draws_by_origin, cells)
+    if not ok:
+        return False, f"origins {bad} have misaligned cell ids, months or counts"
+    return True, f"{len(gate)} origins: cell ids, months and counts all aligned"
 
 
 def mcb_null(n_k: np.ndarray, levels: int, rng: np.random.Generator) -> tuple[float, float]:
@@ -496,6 +565,13 @@ def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict
     with pnf._as_arm(arm):
         gate = e1_data.load_gate_h1()
         draws_by_origin = e1_data.load_draws_h1()
+
+    #: ⛔⛔ BEFORE anything is paired. ``G-R1`` cannot see a mis-paired forecast and truth and is
+    #: no longer credited with it; this is where that is caught.
+    ok_r5, detail_r5 = gate_r5_forecast_and_truth_are_aligned(gate, draws_by_origin, cells)
+    if not ok_r5:
+        raise SystemExit(f"⛔ F16: G-R5 failed on {arm} — {detail_r5}")
+
     origins = sorted(gate)
 
     y_bin = np.concatenate(
@@ -527,7 +603,7 @@ def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict
             raise SystemExit(f"⛔ F19: G-R2 failed on {arm} at t={t} — {detail_r2}")
         n_k, s_k = group_table(draws, obs, t)
         parts = brier_parts(n_k, s_k, levels)
-        ok_r1, detail_r1 = gate_r1_one_population(parts, n_k, s_k)
+        ok_r1, detail_r1 = gate_r1_internally_consistent(parts, n_k, s_k)
         if not ok_r1:
             raise SystemExit(f"⛔ F16: G-R1 failed on {arm} at t={t} — {detail_r1}")
         parts["mcb_null_mean"], parts["mcb_null_decision"] = mcb_null(n_k, levels, rng)
@@ -596,7 +672,7 @@ def main() -> None:
     for w in pnf.SEED_WORDS:
         arm = f"ctlfullzero_{w}"
         per_seed[w] = profile_seed(arm, grid, cells, m0)
-        print(f"   {arm:<26} G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass")
+        print(f"   {arm:<26} G-0 exact · G-R1 pass · G-R2 pass · G-R3 pass · G-R5 pass")
 
     ok_c2 = len(per_seed) >= N_SEEDS_REQUIRED
     print(
