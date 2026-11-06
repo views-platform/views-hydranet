@@ -2604,6 +2604,43 @@ weight.
 | **H2** | `N3`'s *"the free parameter is **gone**, not swept"*, and the same sentence in `ordering_by_separation.py`'s docstring | ⛔ **[verified here]** True of the **magnitude** axis, **false of the ratio axis the numbers are read on.** ⇒ `F24`'s failure mode did not go away; it moved to a different axis under a different name, in the instrument written to end it. ⭐ `N3`'s transferable *method* lesson — *ask whether the binning variable is the quantity you mean before sweeping it* — **survives, and is in fact the lesson this failure teaches twice** | ⚠️ **PARTLY HELD.** The method lesson stands. The claim that this instrument escaped the problem does not |
 | **H3** | `N4`'s *"every score here now carries a null floor"* and `HOW_TO_READ` §2/§7's claim that `G-R1` makes a composite *"impossible"* | ⛔ **[verified here]** `G-R1` is an **algebraic tautology**. `brier_parts` defines `mcb = s_bar - s_rc` and `dsc = unc - s_rc`, so `mcb - dsc + unc` expands to `s_bar` identically, for **any** `unc` and any `s_rc`. Measured: with `UNC` taken from a deliberately wrong population the gate returns **PASS at residual 0.00e+00** while `DSC` is **−0.1622** — a negative discrimination, which is impossible. ⇒ The dossier's headline structural guarantee **cannot fail**, which is this repository's own named defect class, inside the instrument presented as its remedy | ⛔ **ON HOLD.** The invariant has to be asserted on the **population** (that `ybar` comes from the same `n_k`/`s_k` as the score), not on a rearrangement of the definitions |
 
+### ⭐⭐ N7 — `H1` AND `H3` ARE CLEARED, 2026-11-06, LATER THE SAME DAY. `H2` IS CLEARED IN PART.
+
+⛔ Added, nothing above removed. The `N0` table and its three HOLDs stay exactly as written,
+because what they recorded was true when they were written and the record of having been wrong is
+the point. This block says what was done about them.
+
+| # | what was wrong | what was done | where it now stands |
+|---|---|---|---|
+| **H1** | The headline was a label on `RATIO_EDGES`, a constant chosen in the file and never swept | ⭐⭐ **The edges were not swept — they were taken off the measurement entirely.** `resolution_curve` groups pairs by their **exact truth ratio**, one group per distinct value (5,935 of them over 3,938,827 pairs), and projects the group means onto the non-decreasing functions by **PAV**. No edges, no bandwidth, no link function | ⭐ **CLEARED, and the number is now sharper than the one it replaces.** The 0.70 target is crossed at **8.61× ± 0.76** separation, against a permuted null that needs **445×**. Also 0.60 at **2.98× ± 0.22** and 0.80 at **26.71× ± 7.33**. ⇒ *"about a factor of ten"* was roughly right and badly grounded; it is now **a factor of 8.6 at the 0.70 target**, and it does not move if `RATIO_EDGES` does — a test rebinds that constant to four schemes, including a single bin and an eleven-bin one, and requires the crossing to be bit-identical |
+| **H2** | *"the free parameter is gone, not swept"* was false on the ratio axis | The sentence is **retracted in place** in the docstring rather than deleted, with the five alternative edge readings printed beside it. ⚠️ `RATIO_EDGES` still exists and still formats a table — it is now labelled **PRESENTATIONAL**, and no reported number depends on it | ⚠️ **CLEARED FOR THE REPORTED FIGURES, NOT FOR THE FILE.** The axis the numbers are read from has no free parameter. One parameter is irreducible and is now **stated rather than hidden**: a resolution needs a skill threshold, so three targets are reported and ⛔ a figure may never be quoted without its target |
+| **H3** | `G-R1` was an algebraic tautology — the dossier's headline structural guarantee could not fail | `G-R1` now asserts the **population**: `ybar` recomputed from the same `(n_k, s_k)` that produced `S_bar`, plus `MCB >= 0` and `DSC >= 0`. Both inequalities are **theorems** — `p_k` and the constant `ybar` are each feasible isotonic candidates PAV cannot be beaten by — so a mismatched `UNC` breaks the second | ⭐ **CLEARED.** And the retraction is pinned by a test that shows the **old** form passing at residual 0.00e+00 on exactly the input it was credited with catching; if that ever stops being true, the retraction written above is wrong and the suite says so. ⭐ The whole instrument re-ran **bit-identical except the two changed labels** ⇒ the vacuous gate was not hiding a defect, it simply was not checking |
+
+⭐⭐ **THE METHOD LESSON, and it is not the one I drew this morning.** `N3` said: when a readout
+moves with its bins, ask whether the binning variable is the quantity you mean. That still holds.
+⭐ But the stronger move was available and was not taken for most of a day: **when a grouping is a
+free parameter, the finest grouping the data admits is not a choice — and it is often computable.**
+The truths are integers, so "every distinct ratio" is a well-defined grouping with 5,935 cells, and
+a monotone projection over it needs no parameter at all. ⇒ Sweeping a constant proves instability;
+*deleting the need for it* produces a number. Two instruments this week swept, and one of them
+(`F24`) destroyed its own headline by sweeping. The third did not have to.
+
+⚠️ **AND A DEFECT I FOUND IN MY OWN REPLACEMENT, recorded because it was found by a test and not by
+thinking.** The first version of the new readout compared the isotonic fit's **peak** to a
+permutation null. That quantity **saturates at exactly 1.0 under pure noise**: the widest
+separations are singleton groups, so a raw group mean is 0 or 1, and PAV pools only *downward*, so
+a rightmost 1.0 survives untouched. ⇒ The comparison compared nothing, and `P-69` as first drafted
+was near-vacuous. It was amended **before the instrument ran on real data**, with the reason in the
+docstring. The reported quantity is the **crossing**, which PAV protects from the same singleton.
+⭐ The observed fit does top out at **0.9520** — printed, and explicitly labelled *not a result*.
+
+⛔ **WHAT IS STILL OWED AND IS NOT CLEARED BY ANY OF THIS:** the reviewer-weight findings in the
+next section, unchanged — `ordering_within_bands`'s 200-permutation floor and its uncorrected
+quantile over 43 rows, `ranking_within_events`'s 24 rows, and the 22-row hole in the prediction
+ledger. ⛔ And `M98` still ranks by the **delivered composed emission**, so it cannot separate *the
+ranking carries no information* from *the composition destroyed it*. That is the next measurement,
+not a correction to this one.
+
 ### ⚠️ Further findings recorded at the reviewer's weight, not re-verified here
 
 ⛔ These are **[reviewer, not re-verified]**. They are written down because leaving them in a chat

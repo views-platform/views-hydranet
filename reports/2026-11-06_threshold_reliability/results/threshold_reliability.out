@@ -5,16 +5,17 @@ THRESHOLD RELIABILITY — the predictive distribution against the real one, h1, 
   ⛔ Control arms only. No UpsampleConv2 here.
   ⚠️ p is quantised at 1/16 = 0.0625.
   ⭐ No free parameter: the table below has no bin count to sweep.
-   ctlfullzero_fortytwo       G-0 exact · G-R1 identity · G-R2 pass · G-R3 pass
-   ctlfullzero_fortythree     G-0 exact · G-R1 identity · G-R2 pass · G-R3 pass
-   ctlfullzero_fortyfour      G-0 exact · G-R1 identity · G-R2 pass · G-R3 pass
-   ctlfullzero_fortyfive      G-0 exact · G-R1 identity · G-R2 pass · G-R3 pass
-   ctlfullzero_fortyseven     G-0 exact · G-R1 identity · G-R2 pass · G-R3 pass
+   ctlfullzero_fortytwo       G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
+   ctlfullzero_fortythree     G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
+   ctlfullzero_fortyfour      G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
+   ctlfullzero_fortyfive      G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
+   ctlfullzero_fortyseven     G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass
 
   PASS  G-C2  5 seeds (floor 5) — no statistic is printed from fewer
 
 ======================================================================================================================
-  TABLE 1 — the raw decomposition. S_bar = MCB − DSC + UNC exactly (G-R1).
+  TABLE 1 — the raw decomposition. S_bar = MCB − DSC + UNC by definition;
+     ⛔ that is a transcription check, NOT evidence. G-R1 checks the population.
 ======================================================================================================================
       t     n>t  lv         UNC       S_bar                    MCB  MCB_0 q995         DSC
          events      difficulty   our score       defect ± seed sd  null floor  our signal

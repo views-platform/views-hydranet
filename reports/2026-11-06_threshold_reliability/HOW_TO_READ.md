@@ -33,6 +33,29 @@ arithmetic, but because each one was restated loosely in a later message.
 > live definitions** — §4 locks it as *"across-seed sd exceeds the statistic"*, while the three
 > later instruments also emit it for *too few pairs* and for *distance from chance*. This file was
 > never amended when they landed. Reviewer's finding, not re-verified here.
+>
+> ---
+>
+> ### ⭐⭐ CLEARED — 2026-11-06, later the same day. Point 1 is fixed; point 2 stands in part.
+>
+> **1. `G-R1` now asserts the POPULATION, and §2/§7 may be read as written again — with one word
+> changed.** The gate checks that `ybar` recomputed from the same `(n_k, s_k)` that produced
+> `S_bar` is the reported `ybar`, and that `MCB >= 0` and `DSC >= 0`. Both inequalities are
+> **theorems**: the forecast levels `p_k` and the constant `ybar` are each feasible isotonic
+> candidates, and PAV returns the optimum over that set, so it cannot be beaten by either. ⇒ A
+> mismatched `UNC` pushes `S_rc` above `UNC` and the second one fires. ⭐ The retraction is pinned
+> by a test showing the **old** form passing at residual 0.00e+00 on exactly the input it was
+> credited with catching. ⛔ **The word that changed:** the identity `S_bar = MCB − DSC + UNC` is a
+> **transcription check**, not evidence — it is true by definition. Say *"the three parts are one
+> population's, by two assertions that can fail"*. ⛔ Never say the identity *proves* anything.
+>
+> **2. Still true as written.** `G-B2`, `G-B4` and `G-P3` did not exist and `G-P2` was a tautology;
+> all four were repaired. §7's claim that the class was closed was false when made, and the honest
+> form is that the class is **actively policed and keeps producing instances** — `G-R1` was the
+> fifth this week, found inside the instrument presented as the remedy.
+>
+> ⚠️ **`NOT RESOLVABLE`'s two definitions are NOT fixed.** Still open, still at the reviewer's
+> weight.
 
 ## 1 · The question, and why one table answers all of it
 

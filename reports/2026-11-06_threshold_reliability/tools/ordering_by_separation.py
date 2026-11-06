@@ -732,7 +732,7 @@ def main() -> None:
     print("=" * 112)
     peak = _agg([per_seed[w]["fit_peak"] for w in pnf.SEED_WORDS])
     blocks = _agg([float(per_seed[w]["fit_blocks"]) for w in pnf.SEED_WORDS])
-    print(f"  {cache['all'].n_codes:,} distinct ratios over {cache['all'].n_pairs():,} pairs")
+    print(f"  {cache['all'].n_codes:,} distinct ratios over {cache['pairs'].n_pairs():,} pairs")
     print(f"  the monotone fit has {blocks[0]:.1f} distinct levels  ⚠️ descriptive, not a test")
     print(
         f"  ⚠️ it tops out at {peak[0]:.4f}, which is NOT a result — the widest separations are "
@@ -894,7 +894,7 @@ def main() -> None:
     c80 = [per_seed[w]["crossing"][0.80] for w in pnf.SEED_WORDS]
     print(
         f"    P-69 {'HELD' if held.get(0.70) else 'FAILED'} — the 0.70 crossing beats its "
-        f"permuted null (margin {'n/a' if not np.isfinite(c70[0]) else f'{c70[0]:.2f}x'})"
+        f"permuted null (crossing {'never' if not np.isfinite(c70[0]) else f'{c70[0]:.2f}x'})"
     )
     print(
         f"    P-70 {'HELD' if 4.0 <= c70[0] <= 16.0 else 'FAILED'} — 0.70 is crossed at "

@@ -5,18 +5,35 @@ ORDERING BY SEPARATION — how far apart must two events be before the model kno
   PASS  G-8   842,634 cell-months  2,905 events  max 2482.0
   ⛔ DISCRIMINATION ONLY. ⭐ Chance is exactly 0.5. ⭐ NO magnitude cut point.
   ⚠️ Says nothing about whether the SIZES are right — a model 30x too small scores 1.0.
-   ctlfullzero_fortytwo       G-0 exact · G-P2 pass
-   ctlfullzero_fortythree     G-0 exact · G-P2 pass
-   ctlfullzero_fortyfour      G-0 exact · G-P2 pass
-   ctlfullzero_fortyfive      G-0 exact · G-P2 pass
-   ctlfullzero_fortyseven     G-0 exact · G-P2 pass
+   ctlfullzero_fortytwo       G-0 exact · G-P2 pass · G-P3 pass
+   ctlfullzero_fortythree     G-0 exact · G-P2 pass · G-P3 pass
+   ctlfullzero_fortyfour      G-0 exact · G-P2 pass · G-P3 pass
+   ctlfullzero_fortyfive      G-0 exact · G-P2 pass · G-P3 pass
+   ctlfullzero_fortyseven     G-0 exact · G-P2 pass · G-P3 pass
   PASS  G-P1  3,938,827 comparable, 279,233 dropped as truth-tied
   PASS  G-P4  truth-as-prediction scores 1.0 and its negation 0.0, on every row
   PASS  G-C2  5 seeds (floor 5)
 
 ================================================================================================================
-  ⭐⭐ THE CURVE. If two events differ by this much, how often is the order right?
+  ⭐⭐ THE READOUT — and it has NO bin edges. Isotonic fit over every DISTINCT ratio.
 ================================================================================================================
+  5,935 distinct ratios over 3,938,827 pairs
+  the monotone fit has 46.2 distinct levels  ⚠️ descriptive, not a test
+  ⚠️ it tops out at 0.9520, which is NOT a result — the widest separations are singleton
+     groups, so the fit's right end saturates under pure noise too. Read the
+     CROSSINGS below, each against its own permuted null.
+
+    target    separation needed    noise needs    margin   VERDICT
+                      ± seed sd        (q0.01)          
+      0.60         2.98x ± 0.22         122.99    119.78   ⭐ RESOLVES
+      0.70         8.61x ± 0.76         444.97    435.60   ⭐ RESOLVES
+      0.80        26.71x ± 7.33         667.59    633.55   ⭐ RESOLVES
+
+----------------------------------------------------------------------------------------------------------------
+  ⚠️ SECONDARY — the same pairs under RATIO_EDGES. ⛔ PRESENTATIONAL. The headline came
+     off these rows until 2026-11-06 and moved with them; it now comes off the fit
+     above. These rows are a view for reading, and no claim rests on them.
+----------------------------------------------------------------------------------------------------------------
     separation        pairs   median          concordance  floor q99   VERDICT
                  comparable    ratio    correct ± seed sd      noise
       1.0–1.5x      366,905     1.25    0.5272 ± 0.0023       0.5065   ORDERS
@@ -52,8 +69,19 @@ ORDERING BY SEPARATION — how far apart must two events be before the model kno
     F29 did not fire — no row clears its floor ⇒ no ordering ability at any separation
     F28 did not fire — curve spread 0.2848 (fires at or below 0.02)
     P-65 HELD — concordance rises with separation, each row within one sd of the row below
-    P-66 HELD — top row >16.0x at 0.8120 (threshold 0.70)
+    P-66 ⛔ UNSCOREABLE — its subject is 'the top row', which is not defined without RATIO_EDGES.
+         Committed edges: 0.8120 vs 0.70. Top edge of 2: 0.6775.
+         ⇒ Withdrawn as a prediction about the model. P-69..P-72 replace it.
     P-67 FAILED — narrowest row 1.0–1.5x is ORDERS
     P-68 HELD — high is worse in 1 of 6 comparable rows (holds if <= 2)
 
+    F32 did not fire — NO target's crossing beats its permuted null ⇒ no separation figure is quotable at all
+    F33 did not fire — PAV pooled the whole curve into one block ⇒ the data cannot separate separations and no resolution exists
+    P-69 HELD — the 0.70 crossing beats its permuted null (crossing 8.61x)
+    P-70 HELD — 0.70 is crossed at 8.61x (predicted 4x–16x)
+    P-71 HELD — the 0.80 crossing beats its permuted null (5 of 5 seeds reach 0.80)
+    P-72 HELD — 0.60 is crossed at 2.98x (predicted 2x–5x)
+
   ⛔ Chance is 0.5. ⛔ This says the ORDER is right, never that the SIZE is.
+  ⛔ Every separation figure above belongs to a TARGET. Quoting one alone is the
+     defect that held this branch on 2026-11-06.
