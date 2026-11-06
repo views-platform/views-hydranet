@@ -67,14 +67,63 @@ tried. `test_the_FALSE_POSITIVE_RATE_is_actually_controlled` pins the correction
 
 ---
 
+## 3b · ⭐⭐ Read the SCALE-FREE table, not the verdict column
+
+⛔ **The verdict column measures our power to detect a defect, not the size of the defect.** The
+first run made this mistake readable as a finding: `MCB / floor` fell `7.2 → 0.10` across the
+table, which reads as *"the tail is fine"*. It is not what happened — the event count falls
+**2,905 → 6**, so low thresholds are simply far easier to convict.
+
+On the scale-free `MCB / UNC` the defect is roughly **flat at 0.9%–4.3% everywhere**.
+
+So Table 2 prints three columns, all as fractions of `UNC`, which puts them on one scale:
+
+| column | question it answers |
+|---|---|
+| `MCB/UNC` | **how wrong** we are |
+| `MCB_0/UNC` | ⭐ **what noise looks like at this row's sample size.** At `t = 250` it is 11.9% of `UNC`, so that row's 4.3% `MCB` is nothing |
+| `DSC/UNC` | ⭐⭐ **how much of the question our ranking actually answers** |
+
+### ⭐⭐ And `DSC/UNC` is where the tail story actually is
+
+It collapses from **33.8% at `t = 0` to 0.13% at `t = 250`**.
+
+⇒ **The tail failure is a discrimination failure, not a calibration failure.** The probabilities up
+there are not too high and not too low — they carry almost no information about *which* cells will
+exceed the threshold. That is `recall is free, placement is everything`, measured on the
+distribution for the first time, and it is consistent with the top-event table's scatter
+(2,482 predicted as 11.1; 435 predicted as 0.125).
+
+⛔ **This is a third thing, and it is why "too high" and "can't capture the tail" both sounded
+true.** Neither was the right word.
+
+---
+
+## 3c · ⚠️ The verdict is seed-conservative, and the amendment is declared
+
+On the first run `t = 0` came back `MISCALIBRATED 7.2x` on an `MCB` of `4.87e-05 ± 3.25e-05` — an
+across-seed sd two thirds the size of the statistic, so the factor was anywhere in `2.4x…12x`
+depending on which seeds you drew.
+
+⇒ The factor is now computed from **`MCB − sd`**, the edge all five seeds support, so a stated
+factor **can only move up with more seeds, never down**. Two rows (`t = 25`, `t = 50`) move from
+`MISCALIBRATED` to `CALIBRATED` under the stricter rule.
+
+⛔ Both verdicts are printed, the pre-registered one beside the headline, and the first run's output
+is kept at `results/threshold_reliability_v1_prereg.out`. **The amendment was made after seeing the
+data and says so** — it is not swapped in silently, and `test_the_conservative_factor_is_NEVER_LARGER_than_the_pre_registered_one`
+pins that it can only ever weaken a claim.
+
+---
+
 ## 4 · ⛔ The fixed vocabulary — exactly four tokens
 
 Assigned by arithmetic, in this order. **No other sentence may be used to state a row.**
 
 | token | assigned when | what may be said |
 |---|---|---|
-| `CALIBRATED` | `MCB ≤ MCB_0`'s 99.5th pct | ⛔ **no defect is quotable for this row** |
-| `MISCALIBRATED Nx` | `MCB` exceeds it by factor `N` | the probabilities at this threshold are wrong, by `N` times the noise floor |
+| `CALIBRATED` | `MCB − sd ≤ MCB_0`'s 99.5th pct | ⛔ **no defect is quotable for this row.** ⚠️ It means *not detectably miscalibrated at this sample size* — check `MCB_0/UNC` before reading it as *right* |
+| `MISCALIBRATED Nx` | `MCB − sd` exceeds it by factor `N` | the probabilities at this threshold are wrong, by `N` times the noise floor — ⭐ a floor all five seeds clear |
 | `NO FORECAST ISSUED` | every cell got `p = 0` | ⛔ **neither "too high" nor "too low" is sayable** — the model assigns no probability to exceeding `t` anywhere |
 | `NOT RESOLVABLE` | across-seed sd of `MCB` exceeds `MCB` | ⛔ five seeds cannot separate this row from noise; **no verdict** |
 
@@ -105,9 +154,9 @@ estimator    Brier, plug-in; CORP three-way split; MCB vs its 99.5th-pct null fl
   P(Y > 1   ) : <TOKEN>
   ...
 
-larger defect   <MCB/floor of the worst live row> at t=<t>
-best row        <t> at <ratio>x its floor
-silent above    t = <lowest NO FORECAST ISSUED threshold>
+how wrong       MCB/UNC <lo>%..<hi>% across live rows   (scale-free; the DEFECT)
+our power       MCB/floor <lo>..<hi>                    (⛔ NOT the defect)
+our signal      DSC/UNC <at t=0>% -> <at the top>%       (⭐ discrimination)
 ```
 
 ### Three rules on top of the template
@@ -116,7 +165,10 @@ silent above    t = <lowest NO FORECAST ISSUED threshold>
    fine"; `MISCALIBRATED 1.4x` does not become "a serious defect". The factor is the adjective.
 2. ⛔ **No scalar without its decomposition beside it.** Both of this week's errors were scalars
    that had travelled away from their parts.
-3. ⛔ **Every number names its population, transform, estimator and normalisation** (`C-351`). The
+3. ⛔ **Never quote `MCB/floor` as the size of a defect.** It is a signal-to-noise ratio and it
+   varies 70-fold across this table purely because the event count varies 500-fold. Quote
+   `MCB/UNC` for size and `MCB/floor` only for confidence.
+4. ⛔ **Every number names its population, transform, estimator and normalisation** (`C-351`). The
    template's header block is that, pre-filled.
 
 ---
@@ -130,6 +182,7 @@ silent above    t = <lowest NO FORECAST ISSUED threshold>
 | ⚠️ | h1 only, target `sb` only, control architecture only, one checkpoint |
 | ⚠️ | It describes the **delivered composed emission**. Where `threshold_gate` closed, the body is unrecoverable, so this is the emission's calibration, not the head's |
 | ⛔ | It does **not** say whether v1 (the rank-coupled body) would help, and it does not rank arms |
+| ⛔ | `CALIBRATED` at `t ≥ 50` rests on 6–213 events. It means *undetectable at this sample size*, and `MCB_0/UNC` there runs 1.2%–13.6%. ⚠️ **It is not a tail result.** The tail statement this instrument does support is the `DSC/UNC` collapse, which does not depend on convicting a calibration error |
 
 ---
 
@@ -144,3 +197,5 @@ silent above    t = <lowest NO FORECAST ISSUED threshold>
 | a number quoted without its noise floor | `G-R4`: no MCB reaches the table without `MCB_0`; no verdict without both |
 | a verdict restated loosely next message | §4's closed vocabulary and §5's template |
 | a guard that could not fire | every gate has a test that makes it fire; `G-R4`'s first version could not, and that is recorded in its docstring |
+| a verdict that depended on which seeds were drawn | §3c: the factor is computed from `MCB − sd`, so it can only move up |
+| a power statistic read as a defect size | §3b: three columns on the `UNC` scale, and rule 3 in §5 |

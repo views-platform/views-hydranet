@@ -363,3 +363,42 @@ def test_this_module_name_is_not_one_that_already_exists_elsewhere():
         if p.resolve() != (_TOOLS / "threshold_reliability.py").resolve()
     ]
     assert not collisions, f"the module name collides with {collisions}"
+
+
+# ── the post-run amendment: the verdict must be seed-robust ─────────────────────────────────
+
+
+def test_the_conservative_verdict_DEMOTES_a_row_whose_seed_sd_EATS_THE_MARGIN():
+    """⭐⭐ AMENDMENT (a), and the anti-flip property this instrument exists for.
+
+    On the first run ``t = 0`` came back ``MISCALIBRATED 7.2x`` on an MCB whose across-seed sd was
+    two thirds of the statistic — so the factor was anywhere in 2.4x..12x depending on which
+    seeds you drew. ⛔ A verdict that depends on the draw is the failure the dossier exists to
+    end, so the factor is computed from the edge all five seeds support.
+    """
+    mcb, sd, floor = 5.46e-06, 3.0e-06, 4.12e-06
+    assert tr.verdict(mcb, sd, floor, False, conservative=False).startswith("MISCALIBRATED")
+    assert tr.verdict(mcb, sd, floor, False, conservative=True) == "CALIBRATED"
+
+
+def test_the_conservative_factor_is_NEVER_LARGER_than_the_pre_registered_one():
+    """⛔ The amendment may only ever weaken a claim, never strengthen one."""
+    rng = np.random.default_rng(31)
+    for _ in range(200):
+        mcb = float(rng.random() * 1e-4)
+        sd = float(rng.random() * 1e-4)
+        floor = float(rng.random() * 1e-5) + 1e-12
+        cons = tr.verdict(mcb, sd, floor, False, conservative=True)
+        pre = tr.verdict(mcb, sd, floor, False, conservative=False)
+        if cons.startswith("MISCALIBRATED"):
+            assert pre.startswith("MISCALIBRATED"), (
+                f"the conservative rule convicted where the pre-registered one did not: "
+                f"mcb={mcb:.3e} sd={sd:.3e} floor={floor:.3e}"
+            )
+            assert float(cons.split()[1].rstrip("x")) <= float(pre.split()[1].rstrip("x")) + 1e-9
+
+
+def test_conservative_is_the_DEFAULT_so_a_careless_call_cannot_overstate():
+    """⛔ The safe rule must be what you get for free."""
+    mcb, sd, floor = 5.46e-06, 3.0e-06, 4.12e-06
+    assert tr.verdict(mcb, sd, floor, False) == tr.verdict(mcb, sd, floor, False, True)

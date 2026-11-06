@@ -130,6 +130,43 @@ SLOTS (``C-351``)
            instrument's own false-positive rate is pinned by a test, not asserted in prose
     G-C2   ⭐⭐ FIVE SEEDS OR NOTHING (reused). Any statistic backed by < 5 seeds is refused
 
+⚠️⚠️ AMENDMENT, MADE AFTER THE FIRST RUN ON 2026-11-06 -- declared, not slipped in
+
+The first run passed every gate and produced a readout that was nevertheless misleading in two
+ways. Both are fixed below, and ⛔ **the pre-registered verdict is still printed beside the new
+one** so nothing is swapped silently. The first run's output is committed at
+``results/threshold_reliability_v1_prereg.out``.
+
+    (a) ⛔ THE VERDICT WAS NOT SEED-ROBUST. ``t = 0`` came back ``MISCALIBRATED 7.2x`` on an MCB
+        of 4.87e-05 +- 3.25e-05 -- an across-seed sd two thirds the size of the statistic. The
+        factor was therefore anywhere in 2.4x..12x depending on which seeds you drew.
+        ⇒ The verdict now uses the CONSERVATIVE edge ``MCB - sd`` against the floor, so the
+        stated factor is one all five seeds support and can only move UP with more seeds, never
+        down. ⭐ That is the anti-flip property this instrument exists for, and the first version
+        did not have it. Two rows (t = 25, t = 50) move from MISCALIBRATED to CALIBRATED.
+
+    (b) ⛔⛔ THE VERDICT COLUMN MEASURED OUR POWER, NOT THE DEFECT. ``MCB / floor`` fell 7.2 ->
+        0.10 across the table, which reads as "the tail is fine". It is not what happened: the
+        event count falls 2,905 -> 6, the floor rises as a FRACTION of the question, and low
+        thresholds are simply easier to convict. On the scale-free ``MCB / UNC`` the defect is
+        roughly FLAT at 0.9%-4.3% everywhere.
+        ⇒ Three scale-free columns are now printed, all as fractions of ``UNC``, so "how wrong",
+        "what noise looks like" and "how much signal" are read on one scale:
+
+            MCB/UNC     how wrong we are
+            MCB_0/UNC   ⭐ what noise looks like AT THIS ROW'S SAMPLE SIZE. At t = 250 it is
+                        11.9% of UNC, so that row's 4.3% MCB is nothing -- which the raw
+                        MCB/floor column said, but only to a reader who already knew to look
+            DSC/UNC     ⭐⭐ how much of the question our ranking actually answers
+
+⭐⭐ (b) IS THE FINDING, AND IT IS A THIRD THING -- NEITHER "TOO HIGH" NOR "TOO LOW"
+
+``DSC / UNC`` collapses from **33.8% at t = 0 to 0.13% at t = 250**. The tail failure is not that
+the probabilities are wrong; it is that they carry almost no information about WHICH cells will
+exceed the threshold. ⇒ ``recall is free, placement is everything``, measured on the distribution
+for the first time, and consistent with the 2,482-predicted-as-11.1 / 435-predicted-as-0.125
+scatter the top-event table showed.
+
 PRE-REGISTERED PREDICTIONS -- next free is P-53
 
     P-53  ⭐⭐ THE ONE THAT MATTERS. ``t = 0`` is the best-calibrated row: its ``MCB / MCB_0_p95``
@@ -442,23 +479,30 @@ def _agg(vals: list[float]) -> tuple[float, float]:
     return float(a.mean()), float(a.std())
 
 
-def verdict(mcb: float, mcb_sd: float, floor: float, degenerate: bool) -> str:
+def verdict(
+    mcb: float, mcb_sd: float, floor: float, degenerate: bool, conservative: bool = True
+) -> str:
     """-> one of exactly four tokens. ⛔ The only permitted way to state a row.
 
     ⭐⭐ Assigned by arithmetic, in this order, so the same numbers always produce the same
     sentence and a row cannot be re-described in a later message.
+
+    ``conservative`` is the AMENDMENT (a): the factor is computed from ``MCB - sd``, the edge all
+    five seeds support, so it can only move UP with more seeds. ⛔ ``conservative=False``
+    reproduces the pre-registered rule exactly and is printed beside it, never instead of it.
     """
     if degenerate:
         return "NO FORECAST ISSUED"
     if mcb_sd > abs(mcb):
         return "NOT RESOLVABLE"
-    if mcb <= floor:
-        return "CALIBRATED"
     #: ⚠️ A floor of exactly zero makes the factor undefined. It is not reported as an infinite
     #: miscalibration — it is reported as a floor this sample cannot locate.
     if floor <= 0.0:
         return "NOT RESOLVABLE"
-    return f"MISCALIBRATED {mcb / floor:.1f}x"
+    effective = mcb - mcb_sd if conservative else mcb
+    if effective <= floor:
+        return "CALIBRATED"
+    return f"MISCALIBRATED {effective / floor:.1f}x"
 
 
 def main() -> None:
@@ -489,17 +533,16 @@ def main() -> None:
     if not ok_c2:
         raise SystemExit("⛔ F19: fewer than five seeds. Nothing is reported.")
 
-    print("\n" + "-" * 118)
-    print("  Every cell is mean ± across-seed sd over 5 control seeds.")
-    print("  ⭐⭐ S_bar = MCB − DSC + UNC exactly (G-R1). MCB is read against MCB_0, never zero.")
-    print("-" * 118)
+    print("\n" + "=" * 118)
+    print("  TABLE 1 — the raw decomposition. S_bar = MCB − DSC + UNC exactly (G-R1).")
+    print("=" * 118)
     print(
-        f"  {'t':>5} {'n>t':>7} {'lv':>3} {'UNC':>11} {'S_bar':>11} {'MCB':>11} "
-        f"{'MCB_0 q995':>11} {'DSC':>11}   VERDICT"
+        f"  {'t':>5} {'n>t':>7} {'lv':>3} {'UNC':>11} {'S_bar':>11} {'MCB':>22} "
+        f"{'MCB_0 q995':>11} {'DSC':>11}"
     )
     print(
         f"  {'':>5} {'events':>7} {'':>3} {'difficulty':>11} {'our score':>11} "
-        f"{'defect':>11} {'null floor':>11} {'our signal':>11}"
+        f"{'defect ± seed sd':>22} {'null floor':>11} {'our signal':>11}"
     )
 
     rows = []
@@ -517,20 +560,66 @@ def main() -> None:
         lv = _agg(g("n_levels"))
         degenerate = all(per_seed[w]["thresholds"][t]["degenerate"] for w in pnf.SEED_WORDS)
         v = verdict(mcb[0], mcb[1], floor[0], degenerate)
-        rows.append({"t": t, "mcb": mcb, "floor": floor, "dsc": dsc, "verdict": v})
+        v_prereg = verdict(mcb[0], mcb[1], floor[0], degenerate, conservative=False)
+        rows.append(
+            {
+                "t": t,
+                "n_pos": n_pos,
+                "unc": unc,
+                "mcb": mcb,
+                "floor": floor,
+                "dsc": dsc,
+                "verdict": v,
+                "verdict_prereg": v_prereg,
+            }
+        )
 
-        shown = "—" if degenerate else f"{mcb[0]:>7.2e}±{mcb[1]:<.0e}"
+        shown = "—" if degenerate else f"{mcb[0]:>9.3e} ± {mcb[1]:<9.3e}"
         print(
             f"  {t:>5} {n_pos[0]:>7.0f} {lv[0]:>3.0f} {unc[0]:>11.4e} {s_bar[0]:>11.4e} "
-            f"{shown:>11} {floor[0]:>11.4e} {dsc[0]:>11.4e}   {v}"
+            f"{shown:>22} {floor[0]:>11.4e} {dsc[0]:>11.4e}"
         )
 
     live = [r for r in rows if "NO FORECAST" not in r["verdict"]]
+
+    #: ⭐⭐ AMENDMENT (b). Every column a fraction of UNC, so "how wrong", "what noise looks like"
+    #: and "how much signal" are read on ONE scale. The raw MCB/floor column below fell 7.2 ->
+    #: 0.10 across the table and reads as "the tail is fine"; it is measuring our POWER, because
+    #: the event count falls 2,905 -> 6.
+    print("\n" + "=" * 118)
+    print("  TABLE 2 — ⭐ SCALE-FREE, every column as a fraction of UNC. Read this one.")
+    print("=" * 118)
+    print(
+        f"  {'t':>5} {'n>t':>7} {'MCB/UNC':>10} {'MCB_0/UNC':>11} {'DSC/UNC':>10} "
+        f"{'MCB/floor':>10}   VERDICT (seed-conservative)"
+    )
+    print(
+        f"  {'':>5} {'events':>7} {'how wrong':>10} {'noise here':>11} {'our signal':>10} "
+        f"{'our power':>10}"
+    )
+    for r in rows:
+        u = r["unc"][0]
+        print(
+            f"  {r['t']:>5} {r['n_pos'][0]:>7.0f} {r['mcb'][0] / u:>9.2%} "
+            f"{r['floor'][0] / u:>10.2%} {r['dsc'][0] / u:>9.2%} "
+            f"{r['mcb'][0] / r['floor'][0]:>10.2f}   {r['verdict']}"
+        )
+
     print("\n" + "=" * 118)
     print("  THE READOUT, in the fixed vocabulary. ⛔ These sentences are the result.")
     print("=" * 118)
+    print("    threshold            SEED-CONSERVATIVE (headline)   |   as PRE-REGISTERED")
     for r in rows:
-        print(f"    P(Y > {r['t']:<4}) : {r['verdict']}")
+        print(f"    P(Y > {r['t']:<4}) :  {r['verdict']:<28}   |   {r['verdict_prereg']}")
+
+    d0 = rows[0]["dsc"][0] / rows[0]["unc"][0]
+    dlast = min(r["dsc"][0] / r["unc"][0] for r in rows)
+    print(
+        f"\n  ⭐⭐ DSC/UNC collapses {d0:.2%} at t=0 -> {dlast:.2%} at the top. ⇒ the tail failure"
+    )
+    print("     is a DISCRIMINATION failure, not a calibration one: the probabilities up there")
+    print("     carry almost no information about WHICH cells exceed the threshold.")
+    print("  ⛔ That is neither 'too high' nor 'too low'. It is a third thing.")
 
     print("\n  FALSIFIERS")
     f17 = live and all(r["verdict"] == "CALIBRATED" for r in live)
