@@ -975,10 +975,11 @@ def main() -> None:
         lo_x, hi_x = _half("low"), _half("high")
         gap = hi_x / lo_x if np.isfinite(hi_x) and lo_x > 0 else float("inf")
         fmt = lambda x: "never" if not np.isfinite(x) else f"{x:.2f}x"  # noqa: E731
-        print(
-            f"  {t:>8.2f} {fmt(a):>14} {fmt(lo_x):>14} {fmt(hi_x):>14}   "
-            f"{'—' if not np.isfinite(gap) else f'{gap:.2f}x' + (' worse' if gap > 1 else ' BETTER')}"
-        )
+        if not np.isfinite(gap):
+            gap_txt = "—"
+        else:
+            gap_txt = f"{gap:.2f}x" + (" worse" if gap > 1 else " BETTER")
+        print(f"  {t:>8.2f} {fmt(a):>14} {fmt(lo_x):>14} {fmt(hi_x):>14}   {gap_txt}")
     print("  ⚠️⚠️ ⛔ NOT a clean statement that the model is worse at high magnitudes. The high")
     print("     half cannot REACH the widest ratios (its smaller member is >= 10, so its maximum")
     print("     ratio is ~248 against ~2,482), so the two columns are read over different ratio")
