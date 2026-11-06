@@ -2704,6 +2704,65 @@ is monotone in all three views** (pooled 0.526 → 0.817; low 0.536 → 0.820; h
 ⛔ That is evidence about the shape, **not a test of it** — a test needs a sweep over grouping width
 AND offset, which this instrument still does not do.
 
+### ⭐⭐⭐ N9 — THE ANSWER TO THE QUESTION `N7`/`N8` WERE BUILT TO ASK: THE EMISSION IS LOSING IT
+
+⛔ Added 2026-11-07, nothing above removed. `M99`, `ordering_by_index.py`, committed before it ran.
+
+The question `M95` and `M98` left open was whether `8.61×` is the **model's** resolution or the
+**emission's**. It is partly the emission's.
+
+| index | 0.60 | 0.70 | 0.80 | |
+|---|---|---|---|---|
+| **`gate`** | **2.38× ± 0.01** | **6.32× ± 0.40** | **22.39× ± 0.53** | ⭐ wins at every target |
+| `mean_draw` | 2.98× ± 0.22 | **8.61× ± 0.76** | 26.71× ± 7.33 | ⭐ the control, pinned to `M98` |
+| `gate_x_mean` | 2.81× (thin) | 8.14× ± 1.18 | 23.13× ± 0.54 | — indistinguishable |
+| `sd_draw` | 3.12× ± 0.04 | 9.24× ± 0.17 | 31.62× ± 8.97 | — indistinguishable |
+| `frac_above_0` | 3.10× ± 0.00 | 9.93× ± 1.26 | 31.88× ± 9.30 | ⛔ worse |
+| `max_draw` | 3.12× ± 0.04 | 10.03× ± 1.17 | 31.82× ± 8.79 | ⛔ worse |
+
+⭐⭐ **The ordering of the six is exactly what the resolution hypothesis predicts, and that is the
+strongest thing here** — stronger than any single number. The two indices with the *least*
+resolution are the two that lose: `frac_above_0` takes at most 17 values, and `max_draw` is capped
+at 728 against a truth maximum of 2,482. The gate takes **64,732 distinct values over 64,818
+cells**. ⭐ And the gate's across-seed spread is **one fourteenth** of the control's at 0.80 (±0.53
+against ±7.33) — the quantisation showing up as irreproducibility rather than as bias.
+
+⚠️ **But the win is 1.36×, not a transformation.** 8.61× → 6.32×. ⇒ The emission *is* a
+bottleneck and it is **not the whole story.** For v1 that cuts both ways: the ceiling is better
+than `M98` implied, and it is still coarse. ⛔ Any v1 claim has to carry that sentence.
+
+⛔⛔ **THE CONFOUND, NOT CLOSED.** The gate is an **occurrence** probability. Part of its
+magnitude-ordering ability may come from *big events happen where conflict is likely* rather than
+from magnitude information — and `R-75` confirms that correlation exists, at the tightest seed
+spread in the dossier. ⇒ *"the gate ranks magnitude better than the delivered draws"* is
+**established**. *"The model knows more about magnitude than it emits"* is **supported, not
+proven**. Separating the two needs `mu`, the body's mean field, which is **NOT ON DISK** for any
+delivered run — that is `S8` (#568) and it needs a re-emit, so it is not a CPU afternoon.
+
+⭐ **The one genuinely new design fact**, from `R-74` and `R-77` read together: the gate **alone**
+beats the draws, and the gate **times** the draws does not. ⇒ The composition is not merely failing
+to add information — it is **cancelling the gate's advantage**. That is a statement about
+`compose_samples`, not about the heads, and it is the most actionable thing in this section.
+
+### ⭐ AND THE METHOD NOTE, because it is the first time this worked first time
+
+`ordering_by_index.py` is the fifth instrument in this dossier and the first whose headline did not
+have to be withdrawn. Three things were different, and they are cheap to repeat:
+
+1. ⭐⭐ **The estimator is IMPORTED from the instrument it is compared against, not copied**, and a
+   test asserts the *same function objects*. Every earlier comparison in this dossier was against a
+   near-copy, and `M98`'s two HOLDs were both about a baseline that moved.
+2. ⭐⭐ **`G-I2` pins the control to the published figure by arithmetic.** `mean_draw` had to
+   reproduce `M98`'s `8.61×` to 0.05 or the run refuses to print. It came back `8.6067×`. ⇒ The
+   comparison is legitimate because a gate says so, not because I believed it was.
+3. ⭐ **The free parameter is the swept axis.** The index is the thing in question, so it is the
+   thing varied — six of them — and the readout is the table. There is no single number to move.
+
+⛔ What is still owed and is NOT improved by any of this: a bootstrap interval on the crossing; the
+`P-67`/`P-68` sweep; `_agg`'s four copies in two incompatible behaviours; `GLOSSARY.md` has no row
+for `resolution`, `crossing` or `concordance`, while *"resolution"* is already Murphy's name for
+the `DSC` term this same dossier computes.
+
 ### ⚠️ Further findings recorded at the reviewer's weight, not re-verified here
 
 ⛔ These are **[reviewer, not re-verified]**. They are written down because leaving them in a chat
