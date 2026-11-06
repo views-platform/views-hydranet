@@ -1,0 +1,81 @@
+============================================================================================================
+OCCURRENCE vs MAGNITUDE — splitting the number withdrawn on 2026-11-06
+============================================================================================================
+  PASS  G-C1  no composite mean(obs)/mean(pred) in this file
+  PASS  G-8   842,634 cell-months  2,905 events  max 2482.0
+  ⛔ Control arms only. No UpsampleConv2 here.
+  ⚠️ p_hat is quantised at 1/16 = 0.0625.
+   ctlfullzero_fortytwo       G-0 exact · G-C3 pass · G-C4 pass
+   ctlfullzero_fortythree     G-0 exact · G-C3 pass · G-C4 pass
+   ctlfullzero_fortyfour      G-0 exact · G-C3 pass · G-C4 pass
+   ctlfullzero_fortyfive      G-0 exact · G-C3 pass · G-C4 pass
+   ctlfullzero_fortyseven     G-0 exact · G-C3 pass · G-C4 pass
+
+  PASS  G-C2  5 seeds (floor 5) — no statistic is printed from fewer
+
+------------------------------------------------------------------------------------------------------------
+  B = 4   every cell is mean ± across-seed sd over 5 seeds [range in brackets]
+------------------------------------------------------------------------------------------------------------
+  bin      n          ev rate       mean p_hat   OCCURRENCE err |        obs|pos     mean m_hat   MAGNITUDE err
+                     observed            model   obs_rate/p_hat |  truth-side ⚠️          model   obs_pos/m_hat
+    0   1168   0.2129±0.0211    0.1214±0.0094      1.76±0.18    |    9.93±1.68      3.54±0.36       2.82±0.52  
+    1   1183   0.3110±0.0375    0.2669±0.0258      1.18±0.21    |   13.97±4.57     10.46±1.29       1.32±0.31  
+    2   1176   0.4777±0.0475    0.4221±0.0301      1.14±0.18    |   19.64±2.86     18.38±2.18       1.08±0.16  
+    3   1176   0.6419±0.0218    0.5464±0.0521      1.18±0.11    |   34.07±2.47     42.78±6.51       0.82±0.17  
+
+   LOWEST BIN — occurrence err 1.76 ± 0.18 vs magnitude err 2.82 ± 0.52
+      ⇒ larger component: MAGNITUDE   factor between them 1.61
+      F13 did not fire (fires below 1.25)
+      OCCURRENCE  across-bin range    0.62   mean across-seed sd    0.17   F14 did not fire
+      MAGNITUDE   across-bin range    2.00   mean across-seed sd    0.29   F14 did not fire
+
+------------------------------------------------------------------------------------------------------------
+  B = 8   every cell is mean ± across-seed sd over 5 seeds [range in brackets]
+------------------------------------------------------------------------------------------------------------
+  bin      n          ev rate       mean p_hat   OCCURRENCE err |        obs|pos     mean m_hat   MAGNITUDE err
+                     observed            model   obs_rate/p_hat |  truth-side ⚠️          model   obs_pos/m_hat
+    0    538   0.1882±0.0242    0.0829±0.0047      2.27±0.25    |    9.69±1.93      1.87±0.22       5.19±0.91  
+    1    630   0.2340±0.0233    0.1548±0.0154      1.52±0.16    |   10.06±1.69      5.00±0.62       2.04±0.41  
+    2    592   0.2706±0.0407    0.2299±0.0235      1.19±0.21    |   14.22±4.39      8.58±1.09       1.63±0.32  
+    3    591   0.3518±0.0396    0.3040±0.0281      1.17±0.21    |   13.81±5.30     12.33±1.54       1.11±0.34  
+    4    587   0.4361±0.0541    0.3819±0.0305      1.16±0.21    |   16.66±3.25     15.89±2.01       1.05±0.13  
+    5    589   0.5192±0.0480    0.4621±0.0321      1.13±0.16    |   22.18±3.97     20.87±2.42       1.08±0.23  
+    6    588   0.6059±0.0322    0.5269±0.0353      1.16±0.12    |   26.63±2.35     27.97±2.39       0.95±0.05  
+    7    588   0.6778±0.0379    0.5659±0.0697      1.21±0.11    |   40.59±5.62     57.56±10.84      0.75±0.23  
+
+   LOWEST BIN — occurrence err 2.27 ± 0.25 vs magnitude err 5.19 ± 0.91
+      ⇒ larger component: MAGNITUDE   factor between them 2.29
+      F13 did not fire (fires below 1.25)
+      OCCURRENCE  across-bin range    1.14   mean across-seed sd    0.18   F14 did not fire
+      MAGNITUDE   across-bin range    4.44   mean across-seed sd    0.33   F14 did not fire
+
+------------------------------------------------------------------------------------------------------------
+  B = 16   every cell is mean ± across-seed sd over 5 seeds [range in brackets]
+------------------------------------------------------------------------------------------------------------
+  bin      n          ev rate       mean p_hat   OCCURRENCE err |        obs|pos     mean m_hat   MAGNITUDE err
+                     observed            model   obs_rate/p_hat |  truth-side ⚠️          model   obs_pos/m_hat
+    0    201   0.1670±0.0325    0.0639±0.0027      2.62±0.52    |    8.49±1.77      1.05±0.11       8.05±1.52  
+    1    337   0.2018±0.0241    0.0944±0.0080      2.13±0.16    |   10.39±3.47      2.36±0.36       4.39±1.37  
+    2    323   0.2139±0.0267    0.1335±0.0133      1.61±0.25    |    9.51±2.19      4.16±0.56       2.35±0.68  
+    3    307   0.2560±0.0191    0.1767±0.0187      1.46±0.13    |   10.56±1.86      5.86±0.61       1.81±0.29  
+    4    295   0.2577±0.0314    0.2092±0.0218      1.25±0.22    |   13.91±8.33      7.77±1.16       1.71±0.78  
+    5    297   0.2833±0.0549    0.2504±0.0252      1.14±0.23    |   14.93±4.01      9.39±1.05       1.58±0.34  
+    6    296   0.3362±0.0538    0.2842±0.0247      1.20±0.28    |   16.19±11.82    11.42±1.53       1.35±0.81  
+    7    295   0.3677±0.0293    0.3239±0.0325      1.15±0.17    |   11.70±2.17     13.24±1.62       0.91±0.25  
+    8    294   0.4150±0.0609    0.3603±0.0320      1.17±0.24    |   17.12±3.56     14.93±1.80       1.13±0.13  
+    9    293   0.4572±0.0527    0.4036±0.0304      1.15±0.20    |   16.34±3.58     16.84±2.28       0.98±0.20  
+   10    295   0.4823±0.0635    0.4447±0.0327      1.09±0.19    |   23.43±5.39     19.39±2.42       1.23±0.33  
+   11    294   0.5563±0.0394    0.4795±0.0318      1.17±0.15    |   21.20±3.13     22.35±2.49       0.96±0.17  
+   12    294   0.5799±0.0257    0.5099±0.0351      1.14±0.11    |   25.67±3.38     26.70±2.90       0.96±0.10  
+   13    294   0.6318±0.0394    0.5439±0.0386      1.17±0.13    |   27.48±4.25     29.23±2.22       0.94±0.14  
+   14    294   0.6572±0.0483    0.5533±0.0641      1.20±0.11    |   36.04±9.39     39.94±5.62       0.92±0.25  
+   15    295   0.6984±0.0319    0.5785±0.0774      1.22±0.12    |   44.58±7.55     75.14±16.50      0.65±0.28  
+
+   LOWEST BIN — occurrence err 2.62 ± 0.52 vs magnitude err 8.05 ± 1.52
+      ⇒ larger component: MAGNITUDE   factor between them 3.08
+      F13 did not fire (fires below 1.25)
+      OCCURRENCE  across-bin range    1.52   mean across-seed sd    0.20   F14 did not fire
+      MAGNITUDE   across-bin range    7.40   mean across-seed sd    0.48   F14 did not fire
+
+  ⛔ P-49..P-52 and F13..F15 are scored against the thresholds in the docstring.
+  ⛔ No composite ratio appears anywhere above — G-C1 enforces it on this file's AST.
