@@ -36,7 +36,7 @@ A predictive distribution IS the collection of probabilities ``P(Y > t)`` for ev
 reconciled in prose. They are **rows of one table**, computed by one function, on one population.
 ⭐ That is the whole design, and it is the reason the misunderstandings should stop.
 
-⭐⭐ THE THREE NUMBERS PER ROW -- AND THE IDENTITY THAT MAKES THEM NON-COMPOSITE
+⭐⭐ THE THREE NUMBERS PER ROW -- AND WHAT ACTUALLY TIES THEM TO ONE POPULATION
 
 The Brier score at threshold ``t`` splits exactly three ways (``Arnold2024``, the CORP
 decomposition of ``Dimitriadis2021``; verified in the library, not recalled):
@@ -47,10 +47,18 @@ decomposition of ``Dimitriadis2021``; verified in the library, not recalled):
 
                          S_bar  =  MCB  -  DSC  +  UNC        EXACTLY
 
-⛔ ``G-R1`` asserts that identity to 1e-12 on every row of every seed. This is the structural
-answer to the composite that was withdrawn on 2026-11-06: **the three parts provably sum to the
-score**, so none of them can be a ratio of unlike things, and a reader can check the arithmetic
-in the printed table.
+⛔⛔ RETRACTED, 2026-11-06, in the same session that wrote it. ``G-R1`` used to assert that
+identity and was credited here with being "the structural answer" to the withdrawn composite.
+**It proved nothing.** ``MCB`` and ``DSC`` are DEFINED as ``S_bar - S_rc`` and ``UNC - S_rc``, so
+the right-hand side collapses to ``S_bar`` for any ``UNC`` whatsoever — the equation is an
+identity, not a measurement, and it passed at residual 0.00e+00 on a table whose ``UNC`` came from
+the wrong population and whose ``DSC`` was −0.1622. ⇒ A reader CAN still check the arithmetic in
+the printed table, and that is worth having, but it is a transcription check and nothing more.
+
+⭐ ``G-R1`` now asserts the POPULATION instead: that ``ybar`` recomputed from the same counts that
+produced ``S_bar`` is the reported ``ybar``, and that ``MCB >= 0`` and ``DSC >= 0`` — both
+theorems, because ``p_k`` and the constant ``ybar`` are each feasible isotonic candidates that PAV
+cannot be beaten by. A mismatched ``UNC`` breaks the third. See ``gate_r1_one_population``.
 
 The recalibrated score ``S_rc`` is the Brier score of the isotonic (PAV) refit of the outcome on
 the forecast. ``MCB = S_bar - S_rc`` and ``DSC = UNC - S_rc``.
@@ -123,7 +131,9 @@ SLOTS (``C-351``)
     G-0    ⭐⭐ VOID. All five control arms reproduce their own committed ``ap_ctl`` exactly via
            the FROZEN ``average_precision``. Nothing is reported on failure
     G-8    structural: 842,634 cell-months / 2,905 events / max 2,482, recomputed
-    G-R1   ⭐⭐ THE IDENTITY. ``S_bar == MCB - DSC + UNC`` to 1e-12, every threshold, every seed
+    G-R1   ⭐⭐ ONE POPULATION. ``ybar`` recomputed from the scored counts, and ``MCB >= 0`` and
+           ``DSC >= 0``, every threshold, every seed. ⛔ Its previous form — the identity
+           ``S_bar == MCB - DSC + UNC`` — was a tautology and is retracted above
     G-R2   ⭐⭐ PREDICTION-GROUPED. Permuting the truth leaves every ``n_k`` bit-identical
     G-R3   the PAV refit is a real isotonic fit: non-decreasing, and weighted-mean preserving
     G-R4   ⭐ no MCB is printed without its ``MCB_0``, and no verdict without both. ⭐ And the
@@ -185,8 +195,8 @@ PRE-REGISTERED PREDICTIONS -- next free is P-53
 
 FALSIFIERS
 
-    F16  ``G-R1``'s identity fails anywhere ⇒ ⛔ nothing is reported; the three numbers are not
-         a decomposition and the instrument is wrong
+    F16  ``G-R1`` fails anywhere ⇒ ⛔ nothing is reported; the three numbers are not one
+         population's decomposition and the instrument is wrong
     F17  every non-degenerate threshold comes back ``CALIBRATED`` ⇒ ⛔ the predictive distribution
          is calibrated as far as this sample can tell, and NO miscalibration figure is quotable
          from this instrument in any later message
@@ -398,11 +408,70 @@ def gate_r4_floor_present(parts: dict[str, float]) -> tuple[bool, str]:
     return True, "MCB, its null mean and its decision floor are all present and finite"
 
 
-def gate_r1_identity(parts: dict[str, float]) -> tuple[bool, float]:
-    """-> (passed, worst residual). ⭐⭐ ``S_bar == MCB - DSC + UNC``, to 1e-12."""
-    lhs = parts["s_bar"]
-    rhs = parts["mcb"] - parts["dsc"] + parts["unc"]
-    return abs(lhs - rhs) <= IDENTITY_TOL, abs(lhs - rhs)
+def gate_r1_one_population(
+    parts: dict[str, float], n_k: np.ndarray, s_k: np.ndarray
+) -> tuple[bool, str]:
+    """-> (passed, detail). ⭐⭐ The three parts came from ONE population. ⛔ NOT an identity.
+
+    ⛔⛔ THE PREVIOUS FORM OF THIS GATE COULD NOT FAIL, and it is retracted rather than deleted.
+
+    It asserted ``S_bar == MCB - DSC + UNC``. But ``brier_parts`` DEFINES ``MCB = S_bar - S_rc``
+    and ``DSC = UNC - S_rc``, so the right-hand side expands to
+
+        (S_bar - S_rc) - (UNC - S_rc) + UNC  ==  S_bar
+
+    identically — ``UNC`` and ``S_rc`` both cancel. The equation therefore holds for ANY value of
+    ``UNC``, including one computed on the wrong population, which is the single failure the gate
+    was credited with excluding. Verified on 2026-11-06: with ``UNC`` taken from a deliberately
+    wrong population the old gate returned PASS at residual 0.00e+00 while ``DSC`` was −0.1622, a
+    negative discrimination, which cannot occur. ⇒ It was an instance of the "guard that cannot
+    fire" class that this dossier was built to close.
+
+    ⚠️ Its test could not fail either, for a related reason: it mutated ``parts["unc"]`` alone and
+    left ``parts["dsc"]`` correct. That DOES break the identity — but it is a state the code path
+    cannot reach, because ``dsc`` is computed FROM ``unc``. A real population mismatch moves both
+    together.
+
+    ⭐ WHAT REPLACES IT: three statements that are true BECAUSE one population generated all three
+    parts, and false the moment one of them did not.
+
+      1. ``ybar`` recomputed from the very ``(n_k, s_k)`` that produced ``S_bar`` must equal the
+         reported ``ybar``, and ``UNC`` must equal ``ybar (1 - ybar)``. This reads the population
+         rather than rearranging the definitions.
+      2. ``MCB >= 0``. The forecast levels ``p_k = k/(levels-1)`` are non-decreasing, so they are
+         a feasible isotonic candidate; PAV returns the optimum over that set and so cannot score
+         worse: ``S_rc <= S_bar``.
+      3. ``DSC >= 0``. The constant ``ybar`` is also a feasible isotonic candidate and its Brier
+         score is exactly ``UNC``; PAV cannot score worse: ``S_rc <= UNC``.
+
+    ⭐ (3) is the one that fires on a mismatched ``UNC`` — a wrong base rate makes ``S_rc`` exceed
+    ``UNC``, and the negative ``DSC`` that the old gate rendered as a number is refused here.
+    """
+    total = float(n_k.sum())
+    if total <= 0.0:
+        return False, "the scored population is empty: no part of the decomposition is defined"
+    ybar = float(s_k.sum()) / total
+    if abs(parts["ybar"] - ybar) > IDENTITY_TOL:
+        return False, (
+            f"ybar {parts['ybar']:.12e} is not the base rate of the scored population "
+            f"({ybar:.12e}) — UNC and S_bar do not come from the same cells"
+        )
+    if abs(parts["unc"] - ybar * (1.0 - ybar)) > IDENTITY_TOL:
+        return False, (f"UNC {parts['unc']:.12e} != ybar(1-ybar) = {ybar * (1.0 - ybar):.12e}")
+    if parts["mcb"] < -IDENTITY_TOL:
+        return False, (
+            f"MCB is negative ({parts['mcb']:.6e}): the PAV refit scored WORSE than the forecast "
+            "it refits, which is impossible on one population"
+        )
+    if parts["dsc"] < -IDENTITY_TOL:
+        return False, (
+            f"DSC is negative ({parts['dsc']:.6e}): S_rc {parts['s_rc']:.6e} exceeds UNC "
+            f"{parts['unc']:.6e}, so the base rate is not this population's"
+        )
+    return True, (
+        f"one population: ybar {ybar:.6e}, MCB {parts['mcb']:.3e} >= 0, "
+        f"DSC {parts['dsc']:.3e} >= 0"
+    )
 
 
 def mcb_null(n_k: np.ndarray, levels: int, rng: np.random.Generator) -> tuple[float, float]:
@@ -458,11 +527,9 @@ def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict
             raise SystemExit(f"⛔ F19: G-R2 failed on {arm} at t={t} — {detail_r2}")
         n_k, s_k = group_table(draws, obs, t)
         parts = brier_parts(n_k, s_k, levels)
-        ok_r1, resid = gate_r1_identity(parts)
+        ok_r1, detail_r1 = gate_r1_one_population(parts, n_k, s_k)
         if not ok_r1:
-            raise SystemExit(
-                f"⛔ F16: G-R1 identity failed on {arm} at t={t}, residual {resid:.3e}"
-            )
+            raise SystemExit(f"⛔ F16: G-R1 failed on {arm} at t={t} — {detail_r1}")
         parts["mcb_null_mean"], parts["mcb_null_decision"] = mcb_null(n_k, levels, rng)
         parts["n_total"] = float(n_k.sum())
         ok_r4, detail_r4 = gate_r4_floor_present(parts)
@@ -529,7 +596,7 @@ def main() -> None:
     for w in pnf.SEED_WORDS:
         arm = f"ctlfullzero_{w}"
         per_seed[w] = profile_seed(arm, grid, cells, m0)
-        print(f"   {arm:<26} G-0 exact · G-R1 identity · G-R2 pass · G-R3 pass")
+        print(f"   {arm:<26} G-0 exact · G-R1 one population · G-R2 pass · G-R3 pass")
 
     ok_c2 = len(per_seed) >= N_SEEDS_REQUIRED
     print(
@@ -540,7 +607,8 @@ def main() -> None:
         raise SystemExit("⛔ F19: fewer than five seeds. Nothing is reported.")
 
     print("\n" + "=" * 118)
-    print("  TABLE 1 — the raw decomposition. S_bar = MCB − DSC + UNC exactly (G-R1).")
+    print("  TABLE 1 — the raw decomposition. S_bar = MCB − DSC + UNC by definition;")
+    print("     ⛔ that is a transcription check, NOT evidence. G-R1 checks the population.")
     print("=" * 118)
     print(
         f"  {'t':>5} {'n>t':>7} {'lv':>3} {'UNC':>11} {'S_bar':>11} {'MCB':>22} "

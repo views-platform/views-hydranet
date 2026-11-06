@@ -44,43 +44,132 @@ def _draws(rows: list[list[int]]) -> np.ndarray:
     return out
 
 
-# ── G-R1 · the identity that makes the three numbers a decomposition ────────────────────────
+# ── G-R1 · the three parts came from ONE population ────────────────────────────────────────
+#
+# ⛔⛔ THIS BLOCK IS A REPLACEMENT, AND THE REASON IS THE POINT.
+#
+# G-R1 used to assert ``S_bar == MCB - DSC + UNC``. ``brier_parts`` DEFINES ``mcb = s_bar - s_rc``
+# and ``dsc = unc - s_rc``, so that expression collapses to ``s_bar`` for ANY ``unc`` — a gate
+# whose failure condition cannot occur. Its "wrong population" test could not fail either: it
+# overwrote ``parts["unc"]`` and left ``parts["dsc"]`` correct, which breaks the identity but is a
+# state the code path cannot produce, because ``dsc`` is computed FROM ``unc``.
+#
+# ⭐ ``test_the_RETRACTED_identity_passes_on_a_wrong_population`` below pins the retraction: it
+# shows the old form returning PASS on exactly the input it was credited with catching. Delete
+# that test and the retraction becomes unfalsifiable prose.
 
 
-def test_gate_r1_holds_on_a_realistic_table():
-    """⭐ Non-vacuity: the identity must hold on something, or the gate rejects everything."""
-    rng = np.random.default_rng(0)
-    n_k = rng.integers(1, 5000, LEVELS).astype(np.float64)
-    p_k = np.arange(LEVELS) / (LEVELS - 1)
+def _honest_table(levels=LEVELS, seed=0):
+    rng = np.random.default_rng(seed)
+    n_k = rng.integers(1, 5000, levels).astype(np.float64)
+    p_k = np.arange(levels) / (levels - 1)
     s_k = np.floor(n_k * np.clip(p_k * 1.4, 0, 1)).astype(np.float64)
-    ok, resid = tr.gate_r1_identity(tr.brier_parts(n_k, s_k, LEVELS))
-    assert ok, f"the identity failed on a well-formed table, residual {resid:.3e}"
+    return n_k, s_k
 
 
-def test_gate_r1_FIRES_when_MCB_is_perturbed_by_one_part_in_a_billion():
-    """⛔⛔ The gate's purpose. If any of the three numbers is computed independently of the
-    score, the identity breaks — and that is precisely the composite failure it guards."""
-    n_k = np.full(LEVELS, 1000.0)
-    s_k = np.arange(LEVELS, dtype=np.float64) * 60.0
-    parts = tr.brier_parts(n_k, s_k, LEVELS)
-    parts["mcb"] += 1e-9
-    ok, resid = tr.gate_r1_identity(parts)
-    assert not ok, "G-R1 accepted parts that do not sum to the score"
-    assert resid == pytest.approx(1e-9, rel=1e-6)
+def _as_if_computed_on(n_k, s_k, wrong_s_k, levels=LEVELS):
+    """-> parts as ``brier_parts`` WOULD return them if ``ybar`` came from another population.
 
-
-def test_gate_r1_FIRES_when_UNC_is_taken_from_the_WRONG_POPULATION():
-    """⛔ The realistic way this breaks: UNC computed on a different population than the score.
-
-    This is the 2026-11-05 error's shape — two statistics over different supports combined into
-    one figure — and the identity catches it without anybody having to notice.
+    ⭐ The mutation moves ``ybar``, ``unc`` and ``dsc`` TOGETHER, which is what the real defect
+    does, rather than one key in isolation, which is what the old test did.
     """
-    n_k = np.full(LEVELS, 500.0)
-    s_k = np.linspace(0, 400, LEVELS)
-    parts = tr.brier_parts(n_k, s_k, LEVELS)
-    other = tr.brier_parts(n_k, s_k * 0.5, LEVELS)
-    parts["unc"] = other["unc"]
-    assert tr.gate_r1_identity(parts)[0] is False
+    parts = dict(tr.brier_parts(n_k, s_k, levels))
+    wrong_ybar = float(wrong_s_k.sum()) / float(n_k.sum())
+    parts["ybar"] = wrong_ybar
+    parts["unc"] = wrong_ybar * (1.0 - wrong_ybar)
+    parts["dsc"] = parts["unc"] - parts["s_rc"]
+    return parts
+
+
+def test_gate_r1_passes_on_a_realistic_table():
+    """⭐ Non-vacuity: the gate must accept something, or it rejects everything."""
+    n_k, s_k = _honest_table()
+    ok, detail = tr.gate_r1_one_population(tr.brier_parts(n_k, s_k, LEVELS), n_k, s_k)
+    assert ok, f"the gate refused a well-formed table: {detail}"
+    assert "one population" in detail
+
+
+def test_gate_r1_FIRES_when_ybar_UNC_and_DSC_ALL_come_from_the_wrong_population():
+    """⛔⛔ The gate's purpose, as the defect actually occurs.
+
+    Two statistics over different supports combined into one figure — the 2026-11-05 error's
+    shape. ⭐ Here the wrong base rate is large enough to drive ``DSC`` negative, which is the
+    arithmetic impossibility the old gate rendered as a number.
+    """
+    n_k, s_k = _honest_table()
+    parts = _as_if_computed_on(n_k, s_k, s_k * 0.02)
+    assert parts["dsc"] < 0.0, "the fixture did not reproduce the negative DSC"
+    ok, detail = tr.gate_r1_one_population(parts, n_k, s_k)
+    assert not ok, "G-R1 accepted a decomposition built on two populations"
+    assert "ybar" in detail and "base rate" in detail
+
+
+def test_the_RETRACTED_identity_passes_on_a_wrong_population():
+    """⛔⛔ Why G-R1 was replaced, as a test rather than as a claim in a docstring.
+
+    The old gate's whole content, evaluated on the input above. If this ever starts FAILING, the
+    retraction in ``threshold_reliability``'s docstring is wrong and must be corrected.
+    """
+    n_k, s_k = _honest_table()
+    parts = _as_if_computed_on(n_k, s_k, s_k * 0.02)
+    residual = abs(parts["s_bar"] - (parts["mcb"] - parts["dsc"] + parts["unc"]))
+    assert residual == pytest.approx(0.0, abs=1e-15), (
+        f"the retracted identity would have FAILED here (residual {residual:.3e}); the "
+        "retraction in the module docstring overstates the defect and must be amended"
+    )
+    assert parts["dsc"] < 0.0
+
+
+def test_gate_r1_FIRES_on_a_base_rate_that_is_not_the_scored_populations():
+    """⛔ The milder form: ``ybar`` is wrong but not wrong enough to make ``DSC`` negative."""
+    n_k, s_k = _honest_table()
+    parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
+    parts["ybar"] += 1e-9
+    ok, detail = tr.gate_r1_one_population(parts, n_k, s_k)
+    assert not ok, "G-R1 accepted a ybar that is not the scored population's base rate"
+    assert "base rate" in detail
+
+
+def test_gate_r1_FIRES_when_UNC_is_not_ybar_times_one_minus_ybar():
+    n_k, s_k = _honest_table()
+    parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
+    parts["unc"] *= 1.5
+    ok, detail = tr.gate_r1_one_population(parts, n_k, s_k)
+    assert not ok and "ybar(1-ybar)" in detail
+
+
+def test_gate_r1_FIRES_on_a_negative_MCB():
+    """⛔ ``S_rc > S_bar`` means the PAV refit scored worse than what it refits — impossible."""
+    n_k, s_k = _honest_table()
+    parts = dict(tr.brier_parts(n_k, s_k, LEVELS))
+    parts["mcb"] = -1e-6
+    ok, detail = tr.gate_r1_one_population(parts, n_k, s_k)
+    assert not ok and "MCB is negative" in detail
+
+
+def test_gate_r1_FIRES_on_an_empty_population():
+    n_k = np.zeros(LEVELS)
+    s_k = np.zeros(LEVELS)
+    ok, detail = tr.gate_r1_one_population({"ybar": 0.0, "unc": 0.0}, n_k, s_k)
+    assert not ok and "empty" in detail
+
+
+def test_MCB_and_DSC_are_NONNEGATIVE_on_random_tables():
+    """⭐ The two inequalities G-R1 rests on are theorems, so they must hold on anything.
+
+    If a random honest table could produce a negative part, the gate would be rejecting valid
+    input and its two inequality branches would be unusable. 200 tables, no tuning.
+    """
+    for seed in range(200):
+        rng = np.random.default_rng(seed)
+        n_k = rng.integers(0, 4000, LEVELS).astype(np.float64)
+        if n_k.sum() == 0:
+            continue
+        s_k = np.floor(n_k * rng.random(LEVELS)).astype(np.float64)
+        parts = tr.brier_parts(n_k, s_k, LEVELS)
+        assert parts["mcb"] >= -1e-12, f"seed {seed}: MCB {parts['mcb']:.3e} < 0"
+        assert parts["dsc"] >= -1e-12, f"seed {seed}: DSC {parts['dsc']:.3e} < 0"
+        assert tr.gate_r1_one_population(parts, n_k, s_k)[0], f"seed {seed} refused"
 
 
 # ── G-R2 · the grouping is a function of the forecast alone ─────────────────────────────────
@@ -334,7 +423,7 @@ def test_a_forecast_of_zero_everywhere_gives_MCB_equal_to_the_squared_base_rate(
     assert parts["s_bar"] == pytest.approx(ybar)
     assert parts["mcb"] == pytest.approx(ybar**2)
     assert parts["dsc"] == pytest.approx(0.0, abs=1e-15)
-    assert tr.gate_r1_identity(parts)[0] is True
+    assert tr.gate_r1_one_population(parts, n_k, s_k)[0] is True
 
 
 def test_the_group_table_accounts_for_EVERY_cell_and_every_event():

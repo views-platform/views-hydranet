@@ -321,3 +321,202 @@ def test_gate_e1_passes_on_the_real_instrument():
 def test_gate_e1_FIRES_on_a_calibration_term():
     ok, bad = obs.gate_e1_no_calibration_statistic("def f(a):\n    mcb = a\n    return mcb\n")
     assert not ok and any("mcb" in x for x in bad), bad
+
+
+# ── the EDGE-FREE readout · what replaced the headline that moved with RATIO_EDGES ──────────
+#
+# ⛔⛔ WHY THIS BLOCK EXISTS. Until 2026-11-06 every figure this instrument reported was read off
+# ``RATIO_EDGES``, a constant chosen in the file and never swept. Pooling the committed rows under
+# other top edges gave 0.8120 at 16, 0.7692 at 8, 0.7240 at 4, 0.6775 at 2 — so ``P-66`` held or
+# failed by that constant. ``resolution_curve`` has no edges; these tests hold it to that.
+
+
+def _rising_pred(truth):
+    """A prediction that orders perfectly, as a float array aligned with ``truth``."""
+    return np.asarray(truth, float)
+
+
+def test_the_distinct_ratio_codes_are_a_function_of_the_TRUTH_ALONE():
+    """⭐ The property the whole design rests on: a permutation cannot move a group membership."""
+    truth = np.array([1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0])
+    a, b = _set(truth), _set(truth)
+    assert np.array_equal(a.ratio_code, b.ratio_code)
+    assert np.array_equal(a.uniq_ratio, b.uniq_ratio)
+    assert a.n_codes == np.unique(a.ratio).size
+
+
+def test_every_pair_lands_in_exactly_one_distinct_ratio_group():
+    pairs = _set([1.0, 2.0, 4.0, 7.0, 9.0, 40.0])
+    view = obs.PairView(pairs)
+    assert int(view.n_per_code.sum()) == pairs.n_pairs()
+    assert view.n_codes == pairs.n_codes
+
+
+def test_the_fit_is_NON_DECREASING_which_is_what_makes_the_crossing_unique():
+    rng = np.random.default_rng(4)
+    truth = np.unique(rng.integers(1, 400, 90).astype(np.float64))
+    pairs = _set(truth)
+    view = obs.PairView(pairs)
+    pred = _rising_pred(truth) + rng.normal(0, 30, truth.size)
+    _ratios, fit = obs.resolution_curve(view, pred)
+    assert np.all(np.diff(fit) >= -1e-12), "the isotonic fit decreased somewhere"
+
+
+def test_a_PERFECT_prediction_scores_1_at_every_separation():
+    """⭐ G-P4's property, on the edge-free axis: truth-as-prediction can only be right."""
+    truth = np.array([1.0, 3.0, 9.0, 27.0, 81.0, 243.0])
+    view = obs.PairView(_set(truth))
+    _r, fit = obs.resolution_curve(view, _rising_pred(truth))
+    assert fit == pytest.approx(1.0)
+    assert obs.crossing(_r, fit, 0.80) == pytest.approx(float(_r[0]))
+
+
+def test_a_CONSTANT_prediction_scores_EXACTLY_one_half_everywhere():
+    """⛔⛔ The claim that an uninformative model still 'ranks better than chance' is FALSE for
+    this estimator, and this pins it: all pairs tie, every tie scores half, the fit is 0.5 flat.
+    """
+    truth = np.array([1.0, 2.0, 5.0, 11.0, 60.0])
+    view = obs.PairView(_set(truth))
+    _r, fit = obs.resolution_curve(view, np.full(truth.size, 7.0))
+    assert fit == pytest.approx(0.5)
+    assert obs.crossing(_r, fit, 0.60) == float("inf")
+
+
+def test_the_fit_is_INVARIANT_to_any_monotone_transform_of_the_prediction():
+    """Concordance reads order only, so log1p vs count cannot move a figure."""
+    rng = np.random.default_rng(11)
+    truth = np.unique(rng.integers(1, 300, 70).astype(np.float64))
+    view = obs.PairView(_set(truth))
+    pred = _rising_pred(truth) + rng.normal(0, 25, truth.size)
+    _r1, f1 = obs.resolution_curve(view, pred)
+    _r2, f2 = obs.resolution_curve(view, np.log1p(pred - pred.min()))
+    assert f1 == pytest.approx(f2)
+
+
+def test_crossing_returns_the_LEFT_endpoint_and_inf_when_never_reached():
+    ratios = np.array([1.5, 2.0, 4.0, 8.0, 16.0])
+    fit = np.array([0.50, 0.55, 0.70, 0.70, 0.90])
+    assert obs.crossing(ratios, fit, 0.70) == 4.0
+    assert obs.crossing(ratios, fit, 0.50) == 1.5
+    assert obs.crossing(ratios, fit, 0.95) == float("inf")
+
+
+def test_the_REPORTED_CROSSING_DOES_NOT_MOVE_WHEN_RATIO_EDGES_MOVE():
+    """⛔⛔ THE REGRESSION TEST FOR THE DEFECT THAT HELD THIS BRANCH.
+
+    The whole point of the fix: ``RATIO_EDGES`` is presentational now. Rebind it to four very
+    different schemes — including one with a single bin and one with eleven — and the crossing
+    must be bit-identical every time. If this ever fails, a reported number has leaked back onto
+    the constant and the branch goes back on HOLD.
+    """
+    rng = np.random.default_rng(7)
+    truth = np.unique(rng.integers(1, 2000, 120).astype(np.float64))
+    pred = _rising_pred(truth) + rng.normal(0, 150, truth.size)
+
+    schemes = [
+        (1.0, 1.5, 2.0, 4.0, 8.0, 16.0, np.inf),
+        (1.0, 2.0, 8.0, np.inf),
+        (1.0, np.inf),
+        (1.0, 1.1, 1.3, 1.7, 2.3, 3.1, 4.5, 6.0, 9.0, 14.0, 30.0, np.inf),
+    ]
+    seen = []
+    original = obs.RATIO_EDGES
+    try:
+        for edges in schemes:
+            obs.RATIO_EDGES = edges
+            obs.N_ROWS = len(edges) - 1
+            view = obs.PairView(obs.PairSet(truth))
+            ratios, fit = obs.resolution_curve(view, pred)
+            seen.append(tuple(obs.crossing(ratios, fit, t) for t in obs.RESOLUTION_TARGETS))
+    finally:
+        obs.RATIO_EDGES = original
+        obs.N_ROWS = len(original) - 1
+
+    assert len(set(seen)) == 1, f"the crossing moved with RATIO_EDGES: {seen}"
+
+
+def test_the_BINNED_table_DOES_move_with_RATIO_EDGES_which_is_why_it_is_presentational():
+    """⭐ Non-vacuity for the test above: show the thing it is contrasted with actually moves.
+
+    Without this, a crossing that was constant for some unrelated reason would look like proof.
+    """
+    rng = np.random.default_rng(7)
+    truth = np.unique(rng.integers(1, 2000, 120).astype(np.float64))
+    pred = _rising_pred(truth) + rng.normal(0, 150, truth.size)
+
+    tops = []
+    original = obs.RATIO_EDGES
+    try:
+        for edges in [(1.0, 2.0, 16.0, np.inf), (1.0, 2.0, 4.0, np.inf)]:
+            obs.RATIO_EDGES = edges
+            obs.N_ROWS = len(edges) - 1
+            view = obs.PairView(obs.PairSet(truth))
+            tops.append(obs.concordance(view, pred)[-1])
+    finally:
+        obs.RATIO_EDGES = original
+        obs.N_ROWS = len(original) - 1
+
+    assert tops[0] != pytest.approx(tops[1]), (
+        "the binned top row did NOT move with the edges, so the regression test above proves "
+        "nothing — reconstruct the fixture"
+    )
+
+
+def test_the_FIT_PEAK_SATURATES_UNDER_PURE_NOISE_and_is_therefore_not_a_result():
+    """⛔⛔ The defect this test found in my own estimator, kept as a test so it cannot come back.
+
+    ``null_crossing_floor`` originally put the floor on the fit's highest value. Fed pure noise,
+    that value is **exactly 1.0**: the widest separations are singleton groups, so their raw group
+    mean is 0 or 1, and PAV pools only DOWNWARD violations, so a rightmost 1.0 is never touched.
+    ⇒ Comparing the fit's peak to a null that also reaches 1.0 compares nothing, and any
+    prediction phrased on the peak is near-vacuous. The reported quantity is the CROSSING.
+    """
+    rng = np.random.default_rng(3)
+    truth = np.unique(rng.integers(1, 500, 80).astype(np.float64))
+    view = obs.PairView(_set(truth))
+    _r, fit = obs.resolution_curve(view, rng.normal(0, 1, truth.size))
+    assert fit[-1] == pytest.approx(1.0), (
+        f"noise peaked at {fit[-1]:.4f}, not 1.0 — if the right tail is no longer singleton the "
+        "saturation note in null_crossing_floor needs revisiting"
+    )
+
+
+def test_the_null_CROSSING_floor_is_far_to_the_RIGHT_of_a_skilful_models():
+    """⭐ The floor is direction-aware: noise needs MORE separation, so its crossing is larger.
+
+    Non-vacuity for the verdict arithmetic — if the null's crossing were not reliably worse than
+    a real model's, the RESOLVES verdict could never be earned by anything.
+    """
+    rng = np.random.default_rng(5)
+    truth = np.unique(rng.integers(1, 1200, 110).astype(np.float64))
+    view = obs.PairView(_set(truth))
+    good = _rising_pred(truth) + rng.normal(0, 60, truth.size)
+    floors = obs.null_crossing_floor(view, good, np.random.default_rng(21))
+    skilful = obs.crossing(*obs.resolution_curve(view, good), 0.70)
+    assert np.isfinite(skilful), "the fixture's model never reaches 0.70; nothing to compare"
+    assert skilful < floors[0.70], (
+        f"a model that orders well needed {skilful:.2f}x while noise needed only "
+        f"{floors[0.70]:.2f}x — the floor is pointing the wrong way"
+    )
+
+
+def test_the_null_floor_covers_every_reported_target():
+    rng = np.random.default_rng(6)
+    truth = np.unique(rng.integers(1, 600, 60).astype(np.float64))
+    view = obs.PairView(_set(truth))
+    floors = obs.null_crossing_floor(view, rng.normal(0, 1, truth.size), np.random.default_rng(1))
+    assert set(floors) == set(obs.RESOLUTION_TARGETS)
+
+
+def test_the_duplicated_pav_is_byte_identical_to_the_published_instrument():
+    """⛔ WET on purpose; a copy that silently drifts is worse than the duplication."""
+    import inspect
+
+    import threshold_reliability as tr
+
+    def body(src):
+        return src.split('"""')[-1].strip()
+
+    assert body(inspect.getsource(obs.pav)) == body(inspect.getsource(tr.pav)), (
+        "the PAV copies have drifted"
+    )
