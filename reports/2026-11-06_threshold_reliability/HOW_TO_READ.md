@@ -7,6 +7,33 @@ arithmetic, but because each one was restated loosely in a later message.
 
 ---
 
+> ### ⛔⛔ HOLD — added 2026-11-06 after `/code-review max`, before this file was ever used
+>
+> **Two of this document's load-bearing claims are not established.** Nothing below is deleted;
+> read it with these two corrections in force.
+>
+> **1. `G-R1` does not do what §2 and §7 say it does.** §2 claims the identity makes a composite
+> *"impossible"* and §7 row 1 credits it with closing that defect class. ⛔ It is an **algebraic
+> tautology**: `brier_parts` defines `mcb = s_bar - s_rc` and `dsc = unc - s_rc`, so
+> `mcb - dsc + unc` expands to `s_bar` identically, whatever `unc` is. Verified here — with `UNC`
+> from a deliberately wrong population the gate returns **PASS at residual 0.00e+00** while `DSC`
+> is **−0.1622**, a negative discrimination. ⇒ The three numbers *are* computed correctly, but
+> **nothing proves it**, and §7's claim that *"a guard that could not fire"* is closed is false.
+>
+> **2. §7's last two rows overstate what is protected.** *"Every gate has a test that makes it
+> fire"* — three gates declared in this dossier's instruments (`G-B2`, `G-B4`, `G-P3`) **did not
+> exist at all**, and `G-P2` was a tautology. All four were repaired on 2026-11-06, after this
+> file claimed the class was closed.
+>
+> ⭐ **What stands unchanged:** §3's null-floor rule, §3b's *read the scale-free table, not the
+> verdict column*, §3c's seed-conservative verdict, §4's closed vocabulary, §5's template and
+> rules, and §6's limits. Those are the parts that earned their place.
+>
+> ⚠️ Separately: §5's `MCB/UNC` rule and §6's limits are sound, but **`NOT RESOLVABLE` now has two
+> live definitions** — §4 locks it as *"across-seed sd exceeds the statistic"*, while the three
+> later instruments also emit it for *too few pairs* and for *distance from chance*. This file was
+> never amended when they landed. Reviewer's finding, not re-verified here.
+
 ## 1 · The question, and why one table answers all of it
 
 A predictive distribution **is** the collection of probabilities `P(Y > t)` for every threshold

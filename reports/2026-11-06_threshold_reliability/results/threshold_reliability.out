@@ -60,7 +60,7 @@ THRESHOLD RELIABILITY — the predictive distribution against the real one, h1, 
     P(Y > 250 ) :  CALIBRATED                     |   CALIBRATED
     P(Y > 500 ) :  CALIBRATED                     |   CALIBRATED
 
-  ⭐⭐ DSC/UNC collapses 33.78% at t=0 -> 0.13% at the top. ⇒ the tail failure
+  ⭐⭐ DSC/UNC collapses 33.78% at t=0 -> 0.13%, its minimum, at t=250. ⇒ the tail failure
      is a DISCRIMINATION failure, not a calibration one: the probabilities up there
      carry almost no information about WHICH cells exceed the threshold.
   ⛔ That is neither 'too high' nor 'too low'. It is a third thing.

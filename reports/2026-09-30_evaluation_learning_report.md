@@ -2587,6 +2587,51 @@ the event set is a property of the truth, so the across-seed spread is pure mode
 
 ---
 
+### ⛔⛔ N0 — HOLD, ADDED 2026-11-06 AFTER `/code-review max`: THREE CLAIMS BELOW ARE NOT ESTABLISHED
+
+⛔ **Read this before N1–N6.** A `max`-effort review of the branch, run before the merge, found that
+three of §9c's claims rest on things that do not hold. ⭐ **Nothing below is deleted** — this
+document is append-only and the original text stands so the error is auditable. But the claims
+named here **may not be quoted** until the work in the final row of each block is done.
+
+⚠️ **Two of the three I re-verified myself** rather than taking the reviewer's word; those are
+marked **[verified here]**. The rest are **[reviewer, not re-verified]** and are recorded at that
+weight.
+
+| # | the claim | what is actually true | status |
+|---|---|---|---|
+| **H1** | `N2`'s *"magnitude knowledge has a resolution of about a factor of ten"*, and `R-68`/`P-66` (*"the top row exceeds 0.70"*) | ⛔ **[verified here]** Both move with `RATIO_EDGES`, a constant that was **never swept**. Pooling the committed table's own rows under alternative top edges: **0.8120** at edge 16 (as shipped) → **0.7692** at 8 → **0.7240** at 4 → **0.6775** at 2 → **0.6644** at 1.5. ⇒ `P-66`'s 0.70 threshold is **crossed between edges 4 and 2**, and *"a factor of ten"* is the median ratio of whichever bin first clears ≈0.72 — a label on an unswept constant. Under edges (1, 2, 8, ∞) the same data reads *"a factor of fifteen"* | ⛔ **ON HOLD.** Needs `RATIO_EDGES` swept the way `ordering_within_bands.py` swept its band scheme — or, better, `P(correct)` fitted against `log(ratio)` over all 3.94M pairs and inverted for 0.70, which deletes the edges entirely |
+| **H2** | `N3`'s *"the free parameter is **gone**, not swept"*, and the same sentence in `ordering_by_separation.py`'s docstring | ⛔ **[verified here]** True of the **magnitude** axis, **false of the ratio axis the numbers are read on.** ⇒ `F24`'s failure mode did not go away; it moved to a different axis under a different name, in the instrument written to end it. ⭐ `N3`'s transferable *method* lesson — *ask whether the binning variable is the quantity you mean before sweeping it* — **survives, and is in fact the lesson this failure teaches twice** | ⚠️ **PARTLY HELD.** The method lesson stands. The claim that this instrument escaped the problem does not |
+| **H3** | `N4`'s *"every score here now carries a null floor"* and `HOW_TO_READ` §2/§7's claim that `G-R1` makes a composite *"impossible"* | ⛔ **[verified here]** `G-R1` is an **algebraic tautology**. `brier_parts` defines `mcb = s_bar - s_rc` and `dsc = unc - s_rc`, so `mcb - dsc + unc` expands to `s_bar` identically, for **any** `unc` and any `s_rc`. Measured: with `UNC` taken from a deliberately wrong population the gate returns **PASS at residual 0.00e+00** while `DSC` is **−0.1622** — a negative discrimination, which is impossible. ⇒ The dossier's headline structural guarantee **cannot fail**, which is this repository's own named defect class, inside the instrument presented as its remedy | ⛔ **ON HOLD.** The invariant has to be asserted on the **population** (that `ybar` comes from the same `n_k`/`s_k` as the score), not on a rearrangement of the definitions |
+
+### ⚠️ Further findings recorded at the reviewer's weight, not re-verified here
+
+⛔ These are **[reviewer, not re-verified]**. They are written down because leaving them in a chat
+transcript is how a finding is lost, not because they are established.
+
+| finding | consequence if it holds |
+|---|---|
+| `ordering_within_bands`' floor is the **99th percentile of only 200 draws** — the instability its sibling's own comment says 2000 draws exist to fix. The single `ORDERS` verdict in the headline scheme reportedly flips to `NO ORDERING` under **6 of 40** alternative seeds | `M97`'s surviving positive claims, and `W-130`…`W-132`'s settlements, are read off verdicts that may not be stable |
+| The **Bonferroni correction** that `threshold_reliability.py` documents as the reason its table is trustworthy was **not inherited** by the two later instruments: 24 and 43 verdict rows each decided at a 1%-per-row floor ⇒ family-wise false-positive rates of ~21% and ~35% | every marginal verdict in `M96`/`M97` is uncorrected, including `RANKS 1.2x floor` at `t = 100` on 51 events, which settled `W-128` |
+| **22 pre-registered predictions, `P-31`…`P-52`**, were committed and settled on earlier branches and **never got a ledger row**, not even `OPEN` | the base rate in `PREDICTION_LEDGER.md` has a 22-row hole, and the omitted set contains known failures ⇒ the tally is biased |
+| `occurrence_vs_magnitude.py`'s `gate_c1` reportedly **never executes** (no AST node reaches its allowlist), and the composite it outlaws lives one import away in `profile_noise_floor.py` and is **published** in that module's `.out` as the `pooled` column | the "composite made unwritable" claim in that dossier is not established |
+| `conditional_magnitude.py`'s `G-M1` and `paired_magnitude.py`'s `G-P1`/`G-P3` are reportedly **inert** — one short-circuits on a `TypeError`, one compares a mask with itself, one builds two ASTs and compares neither | three more guards in the same family as `H3` |
+| `e1_data.gate_5_alignment` — *"the gate that catches the failure every other gate would survive"* — is reportedly **called by none** of the six new instruments | every figure in §9c would be computed on mismatched cells if a delivery were ever reordered |
+| ⭐ **Independent corroboration of the 200-draw floor**, by a second route: 12 permutation seeds on the marginal `powers_of_2` 8–16 band give floors spanning 0.0145 (sd 0.0047) against a verdict margin of 0.0084, so it returns `ORDERS` in only **10 of 12** runs | that band's verdict is seed-dependent. ⭐ But I checked `F24` itself: the empty intersection is driven by `powers_of_5` (margin +0.0396) against `powers_of_3` (+0.0167), and dropping `powers_of_2` leaves it **still empty**, so **`F24`'s firing is robust** |
+| `paired_magnitude.py`'s `P-44` — its own *"THE ONE THAT MATTERS"* — is pre-registered as *"one-signed **toward 1**"* but scored as pure sign-consistency; the quantity that measures "toward 1" is computed, printed parenthetically and **never scored**. The committed `.out` already shows the two disagree | `F10`'s firing, and therefore the `UpsampleConv2` retraction, rests on a different boolean from the one the prediction names. ⚠️ The retraction itself is still right for the pooled-ratio reason, which is independent |
+| `threshold_reliability.py`'s amendment is **half-propagated**: `P-53` names `MCB / MCB_0_p95` while the code uses the 99.5th percentile, and the two floors are not proportional across rows whose event counts fall 2,905 → 6 | `W-125` records `P-53` as refuted while describing a statistic the run did not compute |
+| `conditional_magnitude.py:314` silently drops bins with no observed event before scoring `P-31`/`P-32`/`P-33` — hiding exactly the direction `P-32` asserts cannot happen | those three predictions were scored over a different bin set from the table printed beside them |
+| `profile_noise_floor.py:244` divides by a top-bin ratio that is exactly 0.0 when that bin has no event ⇒ `ZeroDivisionError` mid-run, on the statistic `P-38`/`P-42`/`P-43` are pre-registered on | same crash class as `H3`'s sibling; the 10-arm floor run would die partway with no refusal line |
+| `occurrence_vs_magnitude.py` captions every table *"[range in brackets]"* and **never prints a range**, though its docstring declares printing it as the fix for a named 2026-11-05 failure — and a test asserts on the discarded value | the readout tells a reader a remedy is in place when it is not, and the suite reports it as covered |
+| Two tests are **structurally unable to fail**: one asserts a gate does *not* fire and is named `..._FIRES_...`; the other's false-positive check passes with the rejected quantile in 14 of 20 reseeds | ⇒ the claim *"the instrument's own false-positive rate is pinned by a test"* overstates what is pinned |
+
+⇒ ⭐ **The honest summary of 2026-11-06.** The day's *method* lessons (`N1`, `N3`'s rule, `N4`'s
+floors, `N5`) stand and are the durable part. The day's *numbers* are on hold pending the work in
+`H1`–`H3`. ⛔ And the pattern is the one `N5` already named: **the defect class "a guard that cannot
+fire" was not closed by this dossier — it was reproduced inside it, three more times.**
+
+---
+
 ### N1 ⭐⭐ Evaluation has THREE axes here, not two, and we had been collapsing them
 
 Until today this report treated the forecast as **occurrence** plus **magnitude**. That is one

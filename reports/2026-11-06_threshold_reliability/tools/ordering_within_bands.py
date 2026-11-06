@@ -363,6 +363,41 @@ def bands_of(edges: tuple[float, ...]) -> list[tuple[float, float]]:
     return [(cuts[i], cuts[i + 1] if i + 1 < len(cuts) else np.inf) for i in range(len(cuts))]
 
 
+def gate_b2_truth_ties_are_excluded(truth: np.ndarray, n_pairs: int) -> tuple[bool, str]:
+    """-> (passed, detail). ⛔ A band whose truths are all equal must report ZERO usable pairs.
+
+    ⚠️ This gate was DECLARED in the module docstring and never implemented — one line of prose
+    among real gates, which is the "guard that cannot fire" failure this dossier claims to have
+    closed. Found by `/code-review max`, not by the run. The PROPERTY was already true and tested;
+    the gate was fiction. It is now a check.
+    """
+    expected = _comparable_pairs(truth)
+    if n_pairs != expected:
+        return (
+            False,
+            f"reported {n_pairs:,} comparable pairs, truth multiplicities give {expected:,}",
+        )
+    if np.unique(truth).size < 2 and n_pairs != 0:
+        return False, f"all truths equal yet {n_pairs:,} pairs were scored"
+    return True, "truth-tied pairs excluded exactly"
+
+
+def gate_b4_every_band_has_a_floor(rows: list[dict]) -> tuple[bool, str]:
+    """-> (passed, detail). ⛔ No concordance is printed without its floor and its pair count.
+
+    ⚠️ Also declared and never implemented; see ``gate_b2``. A band that cleared ``MIN_PAIRS`` but
+    carried a non-finite floor would have been rendered with a verdict read off ``nan``.
+    """
+    bad = [
+        r["lo"]
+        for r in rows
+        if r["n_pairs"] >= MIN_PAIRS and not (np.isfinite(r["conc"]) and np.isfinite(r["floor"]))
+    ]
+    if bad:
+        return False, f"bands starting at {bad} would be printed without a finite floor"
+    return True, "all scorable bands carry a finite floor"
+
+
 def verdict(conc: float, sd: float, floor: float, n_pairs: int) -> str:
     """-> one of exactly three tokens, assigned by arithmetic. ⛔ The only way to state a band.
 
@@ -439,6 +474,15 @@ def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict
                 "floor": f_q,
                 "ratio": median_pair_ratio(t_b, rng) if n_pairs >= MIN_PAIRS else float("nan"),
             }
+        for i, r in rows.items():
+            m = (obs >= r["lo"]) & (obs < r["hi"])
+            okb2, detb2 = gate_b2_truth_ties_are_excluded(obs[m], r["n_pairs"])
+            if not okb2:
+                raise SystemExit(f"⛔ F27: G-B2 failed on {arm} {name} band {i} — {detb2}")
+        okb4, detb4 = gate_b4_every_band_has_a_floor(list(rows.values()))
+        if not okb4:
+            raise SystemExit(f"⛔ F27: G-B4 failed on {arm} {name} — {detb4}")
+
         #: ⛔ G-B3: the bands must account for every event with no overlap and nothing lost.
         if covered != int(event.sum()):
             raise SystemExit(
@@ -485,7 +529,7 @@ def main() -> None:
     for w in pnf.SEED_WORDS:
         arm = f"ctlfullzero_{w}"
         per_seed[w] = profile_seed(arm, grid, cells, m0)
-        print(f"   {arm:<26} G-0 exact · G-B1 pass · G-B3 pass")
+        print(f"   {arm:<26} G-0 exact · G-B1/B2/B3/B4 pass")
 
     print(
         f"  {'PASS' if len(per_seed) >= N_SEEDS_REQUIRED else '⛔ FAIL'}  G-C2  "

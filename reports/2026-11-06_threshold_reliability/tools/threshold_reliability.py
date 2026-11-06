@@ -493,6 +493,12 @@ def verdict(
     """
     if degenerate:
         return "NO FORECAST ISSUED"
+    #: ⛔ NaN guard, added 2026-11-06 after `/code-review max`. Without it a NaN in any input
+    #: returns ``MISCALIBRATED nanx``, a fifth token outside the declared closed vocabulary.
+    #: ⭐ ``G-R4`` blocks it per seed, so no reported number changes — but the function's own
+    #: docstring promised four tokens and could return five.
+    if not (np.isfinite(mcb) and np.isfinite(mcb_sd) and np.isfinite(floor)):
+        return "NOT RESOLVABLE"
     if mcb_sd > abs(mcb):
         return "NOT RESOLVABLE"
     #: ⚠️ A floor of exactly zero makes the factor undefined. It is not reported as an infinite
@@ -598,12 +604,20 @@ def main() -> None:
         f"{'our power':>10}"
     )
     for r in rows:
-        u = r["unc"][0]
-        print(
-            f"  {r['t']:>5} {r['n_pos'][0]:>7.0f} {r['mcb'][0] / u:>9.2%} "
-            f"{r['floor'][0] / u:>10.2%} {r['dsc'][0] / u:>9.2%} "
-            f"{r['mcb'][0] / r['floor'][0]:>10.2f}   {r['verdict']}"
-        )
+        #: ⛔ A degenerate threshold gives UNC == 0 and a null floor of exactly 0.0, and these are
+        #: Python floats, so dividing RAISES rather than returning inf. The first version iterated
+        #: ``rows`` and divided unconditionally, so the outcome ``P-55`` pre-registered at ~75%
+        #: would have killed the run between Table 1 and Table 2 — leaving a PARTIAL committed
+        #: readout, the exact opposite of ``F19``'s "no number reported". Found by review, not by
+        #: the run: the draws reach 728, so every threshold here had at least two occupied levels.
+        u, fl = r["unc"][0], r["floor"][0]
+        cells = [
+            f"{r['mcb'][0] / u:>9.2%}" if u > 0 else f"{'—':>9}",
+            f"{fl / u:>10.2%}" if u > 0 else f"{'—':>10}",
+            f"{r['dsc'][0] / u:>9.2%}" if u > 0 else f"{'—':>9}",
+            f"{r['mcb'][0] / fl:>10.2f}" if fl > 0 else f"{'—':>10}",
+        ]
+        print(f"  {r['t']:>5} {r['n_pos'][0]:>7.0f} " + " ".join(cells) + f"   {r['verdict']}")
 
     print("\n" + "=" * 118)
     print("  THE READOUT, in the fixed vocabulary. ⛔ These sentences are the result.")
@@ -612,10 +626,16 @@ def main() -> None:
     for r in rows:
         print(f"    P(Y > {r['t']:<4}) :  {r['verdict']:<28}   |   {r['verdict_prereg']}")
 
-    d0 = rows[0]["dsc"][0] / rows[0]["unc"][0]
-    dlast = min(r["dsc"][0] / r["unc"][0] for r in rows)
+    #: ⛔ The first version took the MINIMUM over all rows and printed it as "at the top", which
+    #: mis-attributed t=250's 0.13% to t=500's 0.20%. The row is now NAMED, so the sentence cannot
+    #: say "the top" about a row that is not the top.
+    live_unc = [r for r in rows if r["unc"][0] > 0]
+    d0 = live_unc[0]["dsc"][0] / live_unc[0]["unc"][0]
+    worst = min(live_unc, key=lambda r: r["dsc"][0] / r["unc"][0])
+    dworst = worst["dsc"][0] / worst["unc"][0]
     print(
-        f"\n  ⭐⭐ DSC/UNC collapses {d0:.2%} at t=0 -> {dlast:.2%} at the top. ⇒ the tail failure"
+        f"\n  ⭐⭐ DSC/UNC collapses {d0:.2%} at t={live_unc[0]['t']} -> "
+        f"{dworst:.2%}, its minimum, at t={worst['t']}. ⇒ the tail failure"
     )
     print("     is a DISCRIMINATION failure, not a calibration one: the probabilities up there")
     print("     carry almost no information about WHICH cells exceed the threshold.")

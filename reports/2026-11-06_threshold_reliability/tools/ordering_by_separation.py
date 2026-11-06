@@ -320,19 +320,50 @@ def gate_p1_enumeration_is_complete(pairs: PairSet) -> tuple[bool, str]:
     return True, f"{pairs.n_pairs():,} comparable, {pairs.n_dropped:,} dropped as truth-tied"
 
 
-def gate_p2_rows_are_truth_only(
-    view: PairView, pred: np.ndarray, rng: np.random.Generator
-) -> tuple[bool, str]:
-    """-> (passed, detail). Permuting the predictions must leave every row's count identical.
+def gate_p2_rows_are_truth_only(view: PairView, pred: np.ndarray) -> tuple[bool, str]:
+    """-> (passed, detail). The row denominators must come from the TRUTH alone.
 
-    ⛔ An identity. If the grouping ever read the prediction, shuffling it would move the rows.
-    ⭐ Checked on the TOTALS the readout divides by, which is where such a bug would show.
+    ⛔⛔ The first version was a TAUTOLOGY and is recorded here because it is this repo's named
+    defect class. It copied ``view.n_per_row``, called ``concordance`` with a permuted prediction,
+    and compared the copy with ``view.n_per_row`` — but ``concordance`` only ever reads that array,
+    so the gate compared an array with a copy of itself and could not fail. A ``concordance`` that
+    grouped entirely by the PREDICTION still returned PASS.
+
+    ⭐ It now checks two falsifiable consequences instead:
+
+      1. an INDEPENDENT recount of the rows from ``ratio_row`` equals ``n_per_row``;
+      2. a CONSTANT prediction scores exactly 0.5 in every non-empty row. That holds only if each
+         row's denominator is its full pair count — so a denominator that dropped, double-counted
+         or re-grouped pairs breaks it, whatever the cause.
     """
-    before = view.n_per_row.copy()
-    concordance(view, rng.permutation(pred))
-    if not np.array_equal(before, view.n_per_row):
-        return False, f"row counts moved under permutation: {before} vs {view.n_per_row}"
-    return True, "row membership is unchanged by permuting the predictions"
+    recount = np.bincount(view.ratio_row, minlength=N_ROWS).astype(np.int64)
+    if not np.array_equal(recount, view.n_per_row):
+        return False, f"independent recount disagrees: {recount} vs {view.n_per_row}"
+    flat = concordance(view, np.ones_like(pred))
+    live = view.n_per_row > 0
+    if np.any(np.abs(flat[live] - 0.5) > SELF_TEST_TOL):
+        return False, f"a constant prediction did not score 0.5 on every live row: {flat[live]}"
+    return True, "row denominators recount exactly and a constant prediction scores 0.5"
+
+
+def gate_p3_every_row_has_a_floor(
+    scores: np.ndarray, floors: np.ndarray, n_per_row: np.ndarray
+) -> tuple[bool, str]:
+    """-> (passed, detail). ⛔ No row reaches the table without a finite floor beside it.
+
+    ⚠️ This gate was DECLARED in the module docstring and never implemented — it existed as one
+    line of prose among real gates, which is exactly the "guard that cannot fire" failure the
+    dossier claims to have closed. Found by review, not by the run. It is now a real check.
+    """
+    live = n_per_row >= MIN_PAIRS
+    missing = [
+        int(r)
+        for r in np.flatnonzero(live)
+        if not (np.isfinite(scores[r]) and np.isfinite(floors[r]))
+    ]
+    if missing:
+        return False, f"rows {missing} would be printed without a finite score and floor"
+    return True, f"all {int(live.sum())} scorable rows carry a finite floor"
 
 
 def gate_p4_self_test(view: PairView, truth: np.ndarray) -> tuple[bool, str]:
@@ -417,17 +448,25 @@ def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int, cache: 
     if not np.array_equal(pairs.truth, obs):
         raise SystemExit("⛔ F31: the event-cell truth differs between seeds; it must not.")
 
-    rng = np.random.default_rng(NULL_SEED + pnf.SEED_ARMS[arm][1])
-    ok2, detail2 = gate_p2_rows_are_truth_only(cache["all"], pred, rng)
+    ok2, detail2 = gate_p2_rows_are_truth_only(cache["all"], pred)
     if not ok2:
         raise SystemExit(f"⛔ F31: G-P2 failed on {arm} — {detail2}")
 
+    #: ⛔ Seeded AFTER G-P2, which no longer draws from it. The first version consumed a
+    #: permutation inside the gate, so deleting the gate would have moved every committed floor.
+    rng = np.random.default_rng(NULL_SEED + pnf.SEED_ARMS[arm][1])
+    rows = concordance(cache["all"], pred)
+    floor = floor_by_row(cache["all"], pred, rng)
+    ok3, detail3 = gate_p3_every_row_has_a_floor(rows, floor, cache["all"].n_per_row)
+    if not ok3:
+        raise SystemExit(f"⛔ F31: G-P3 failed on {arm} — {detail3}")
+
     return {
         "ap": ap,
-        "rows": concordance(cache["all"], pred),
+        "rows": rows,
         "low": concordance(cache["low"], pred),
         "high": concordance(cache["high"], pred),
-        "floor": floor_by_row(cache["all"], pred, rng),
+        "floor": floor,
         "matrix": band_concordance(pairs, pred),
     }
 
@@ -475,7 +514,7 @@ def main() -> None:
     for w in pnf.SEED_WORDS:
         arm = f"ctlfullzero_{w}"
         per_seed[w] = profile_seed(arm, grid, cells, m0, cache)
-        print(f"   {arm:<26} G-0 exact · G-P2 pass")
+        print(f"   {arm:<26} G-0 exact · G-P2 pass · G-P3 pass")
 
     pairs: PairSet = cache["pairs"]
     ok1, detail1 = gate_p1_enumeration_is_complete(pairs)

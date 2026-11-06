@@ -187,25 +187,70 @@ def test_gate_p2_passes_on_the_real_construction():
     rng = np.random.default_rng(4)
     truth = rng.integers(1, 80, 200).astype(float)
     view = obs.PairView(_set(truth))
-    ok, detail = obs.gate_p2_rows_are_truth_only(view, rng.random(200), rng)
+    ok, detail = obs.gate_p2_rows_are_truth_only(view, rng.random(200))
     assert ok, detail
 
 
-def test_gate_p2_FIRES_when_a_ROW_TOTAL_IS_MUTATED(monkeypatch):
-    """⛔ The gate must refuse. If row membership ever depended on the prediction, the floor
-    would be measuring a different population than the statistic it is a floor for."""
+def test_gate_p2_FIRES_on_a_concordance_that_GROUPS_BY_THE_PREDICTION(monkeypatch):
+    """⛔⛔ The mutation the FIRST version of this gate could not catch.
+
+    That version copied ``view.n_per_row``, called ``concordance``, and compared the copy with
+    ``view.n_per_row`` — but ``concordance`` only ever READS that array, so it compared an array
+    with a copy of itself. A ``concordance`` that grouped entirely by the prediction passed it.
+    Here is that exact substitution, and the repaired gate refuses it.
+    """
     rng = np.random.default_rng(5)
     truth = rng.integers(1, 80, 120).astype(float)
     view = obs.PairView(_set(truth))
-    real = obs.concordance
 
-    def mutating(v, pred):
-        v.n_per_row = v.n_per_row + 1
-        return real(v, pred)
+    def grouped_by_prediction(v, pred):
+        rows = np.digitize(pred[v.big], np.linspace(0, 1, obs.N_ROWS + 1)[1:-1])
+        right = (pred[v.big] > pred[v.small]).astype(np.float64)
+        r = np.bincount(rows, weights=right, minlength=obs.N_ROWS)
+        n = np.bincount(rows, minlength=obs.N_ROWS)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return np.where(n > 0, r / np.maximum(n, 1), np.nan)
 
-    monkeypatch.setattr(obs, "concordance", mutating)
-    ok, detail = obs.gate_p2_rows_are_truth_only(view, rng.random(120), rng)
-    assert not ok and "moved under permutation" in detail, detail
+    monkeypatch.setattr(obs, "concordance", grouped_by_prediction)
+    ok, detail = obs.gate_p2_rows_are_truth_only(view, rng.random(120))
+    assert not ok, "the repaired G-P2 accepted a grouping that reads the prediction"
+    assert "constant prediction" in detail or "recount" in detail, detail
+
+
+def test_gate_p2_FIRES_when_A_ROW_DENOMINATOR_IS_WRONG(monkeypatch):
+    """⛔ The other falsifiable consequence: a dropped or double-counted pair."""
+    truth = np.random.default_rng(6).integers(1, 80, 120).astype(float)
+    view = obs.PairView(_set(truth))
+    view.n_per_row = view.n_per_row + 1
+    ok, detail = obs.gate_p2_rows_are_truth_only(view, np.random.default_rng(7).random(120))
+    assert not ok and "recount" in detail, detail
+
+
+# ── G-P3 · no row is printed without its floor ──────────────────────────────────────────────
+
+
+def test_gate_p3_passes_when_every_scorable_row_has_a_finite_floor():
+    n = np.array([5000, 5000, 0, 5000])
+    ok, detail = obs.gate_p3_every_row_has_a_floor(
+        np.array([0.6, 0.7, np.nan, 0.8]), np.array([0.51, 0.52, np.nan, 0.53]), n
+    )
+    assert ok, detail
+
+
+def test_gate_p3_FIRES_when_a_SCORABLE_row_has_NO_floor():
+    """⛔⛔ The gate was DECLARED in the docstring and never implemented. This is it firing."""
+    n = np.array([5000, 5000])
+    ok, detail = obs.gate_p3_every_row_has_a_floor(
+        np.array([0.6, 0.7]), np.array([0.51, np.nan]), n
+    )
+    assert not ok and "without a finite score and floor" in detail, detail
+
+
+def test_gate_p3_IGNORES_rows_too_thin_to_score():
+    """⭐ Non-vacuity in the other direction: a row below MIN_PAIRS has no floor by design."""
+    n = np.array([5000, obs.MIN_PAIRS - 1])
+    ok, _ = obs.gate_p3_every_row_has_a_floor(np.array([0.6, np.nan]), np.array([0.51, np.nan]), n)
+    assert ok is True
 
 
 # ── the floor ───────────────────────────────────────────────────────────────────────────────

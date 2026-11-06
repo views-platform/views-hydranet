@@ -320,6 +320,12 @@ def verdict(dsc_unc: float, sd: float, floor: float) -> str:
     ⭐ The factor uses the seed-conservative edge ``value - sd``, the amendment adopted for
     ``threshold_reliability.py`` on 2026-11-06, so a stated factor can only rise with more seeds.
     """
+    #: ⛔ NaN guard, added 2026-11-06 after `/code-review max`. Without it every one of the three
+    #: inputs falls through every branch and returns ``RANKS nanx floor`` — an AFFIRMATIVE ability
+    #: token for a row with no data. Reachable whenever ``unc == 0`` (no event cell exceeds ``t``).
+    #: ⭐ It did not fire in the committed run, so no reported number changes.
+    if not (np.isfinite(dsc_unc) and np.isfinite(sd) and np.isfinite(floor)):
+        return "NOT RESOLVABLE"
     if sd > abs(dsc_unc):
         return "NOT RESOLVABLE"
     if floor <= 0.0:
