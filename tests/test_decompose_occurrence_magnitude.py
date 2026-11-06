@@ -18,15 +18,15 @@ _REPO = Path(__file__).resolve().parents[1]
 _TOOLS = _REPO / "reports/2026-11-06_occurrence_vs_magnitude/tools"
 
 pytestmark = pytest.mark.skipif(
-    not (_TOOLS / "decompose.py").exists(),
+    not (_TOOLS / "occurrence_vs_magnitude.py").exists(),
     reason="the occurrence-vs-magnitude dossier tools are not present in this tree",
 )
 
-if (_TOOLS / "decompose.py").exists():
+if (_TOOLS / "occurrence_vs_magnitude.py").exists():
     sys.path.insert(0, str(_TOOLS))
     sys.path.insert(0, str(_REPO / "reports/2026-11-04_delivered_gate_lookup/tools"))
     sys.path.insert(0, str(_REPO / "reports/2026-11-05_conditional_magnitude/tools"))
-    import decompose as dc  # noqa: E402
+    import occurrence_vs_magnitude as dc  # noqa: E402
 
 
 # ── G-C1 · the instrument cannot contain the composite it replaces ───────────────────────────
@@ -39,7 +39,7 @@ def test_gate_c1_passes_on_the_real_instrument():
 
 def test_gate_c1_FIRES_on_a_file_containing_the_WITHDRAWN_composite(tmp_path, monkeypatch):
     """⛔⛔ The gate's entire purpose. This is the exact expression that was withdrawn."""
-    fake = tmp_path / "decompose.py"
+    fake = tmp_path / "occurrence_vs_magnitude.py"
     fake.write_text(
         "import numpy as np\n\n\ndef headline(obs, pred):\n    return obs.mean() / pred.mean()\n"
     )
@@ -51,7 +51,7 @@ def test_gate_c1_FIRES_on_a_file_containing_the_WITHDRAWN_composite(tmp_path, mo
 
 def test_gate_c1_FIRES_on_the_composite_under_DIFFERENT_variable_names(tmp_path, monkeypatch):
     """⛔ Renaming the variables must not get the composite past the gate."""
-    fake = tmp_path / "decompose.py"
+    fake = tmp_path / "occurrence_vs_magnitude.py"
     fake.write_text("def h(observed, predicted):\n    return observed.mean() / predicted.mean()\n")
     monkeypatch.setattr(dc, "_HERE", fake)
     assert dc.gate_c1_no_composite()[0] is False
@@ -64,7 +64,7 @@ def test_gate_c1_ALLOWS_the_two_legitimate_component_ratios(tmp_path, monkeypatc
     FOR. If the gate rejected them it would reject the whole measurement, and a gate that rejects
     everything is as useless as one that rejects nothing.
     """
-    fake = tmp_path / "decompose.py"
+    fake = tmp_path / "occurrence_vs_magnitude.py"
     fake.write_text(
         "def occ(rate_obs, p_hat):\n    return rate_obs.mean() / p_hat.mean()\n\n\n"
         "def mag(obs_pos, m_hat):\n    return obs_pos.mean() / m_hat.mean()\n"
@@ -75,7 +75,7 @@ def test_gate_c1_ALLOWS_the_two_legitimate_component_ratios(tmp_path, monkeypatc
 
 
 def test_gate_c1_ignores_a_division_that_is_not_of_two_means(tmp_path, monkeypatch):
-    fake = tmp_path / "decompose.py"
+    fake = tmp_path / "occurrence_vs_magnitude.py"
     fake.write_text("def f(obs, pred):\n    return obs.sum() / pred.sum()\n")
     monkeypatch.setattr(dc, "_HERE", fake)
     assert dc.gate_c1_no_composite()[0] is True
@@ -87,7 +87,7 @@ def test_gate_c1_FIRES_on_an_UNDECLARED_ratio_nobody_anticipated(tmp_path, monke
     ``severity`` over ``intensity`` means nothing to a list of suspicious words, and that is
     exactly the kind of statistic that produced the withdrawn number under a different name.
     """
-    fake = tmp_path / "decompose.py"
+    fake = tmp_path / "occurrence_vs_magnitude.py"
     fake.write_text("def f(severity, intensity):\n    return severity.mean() / intensity.mean()\n")
     monkeypatch.setattr(dc, "_HERE", fake)
     ok, bad = dc.gate_c1_no_composite()
@@ -180,3 +180,22 @@ def test_the_prereg_constants_are_the_ones_the_docstring_declares():
     assert dc.F13_FACTOR == 1.25
     assert dc.RECON_TOL == 1e-9
     assert dc.P_HAT_QUANTUM == 1 / 16
+
+
+def test_this_module_name_is_not_one_that_already_exists_elsewhere():
+    """⛔⛔ The collision this file caused on 2026-11-06, pinned so it cannot come back.
+
+    Two dossiers already shipped a module called ``decompose.py``. Naming a third one that broke
+    12 pre-existing tests in ``test_silence_vs_fade_decompose.py``, because every dossier test
+    inserts its own ``tools`` dir on ``sys.path`` and pytest shares ``sys.modules`` for the whole
+    session -- so whichever test imported first won the name.
+    """
+    stem = "occurrence_vs_magnitude"
+    assert (_TOOLS / f"{stem}.py").exists()
+    clashes = [
+        p
+        for p in (_REPO / "reports").glob(f"*/tools/{stem}.py")
+        if p.resolve() != (_TOOLS / f"{stem}.py").resolve()
+    ]
+    assert not clashes, f"the module name is no longer unique across dossiers: {clashes}"
+    assert not (_TOOLS / "decompose.py").exists(), "the colliding name is back"
