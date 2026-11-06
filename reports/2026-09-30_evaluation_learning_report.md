@@ -2569,6 +2569,195 @@ whose CONTENTS changed is a decorative guard.** Check the thing you actually dep
   *reported diagnostic*, not a replacement score, and twCRPS/LogScore/PIT remain rejected.
 
 
+## §9c — 2026-11-06: ORDERING is a third axis of evaluation, and it has a RESOLUTION
+
+⛔ **Additive.** Nothing in §0–§9b or the appendices is edited or removed. Where a lesson here
+qualifies or withdraws an earlier claim it says so and leaves both standing — including claims made
+earlier on **this same day**, which is most of what §9c.5 is about. Source:
+`reports/2026-11-06_threshold_reliability/` — four committed instruments, their `.out` files, and
+`HOW_TO_READ.md`. Ledger rows `M95`–`M98`; predictions `P-49`–`P-68` resolved as `W-125`–`W-133` and
+`R-63`–`R-69`.
+
+**Population for everything here:** 13 origins × 64,818 global land cells = **842,634 cell-months**
+at h1, `sb`, count space, S = 16, truth `lr_sb_best` in **raw counts, no transform**, five control
+arms `ctlfullzero_{fortytwo..fortyseven}`. Where a readout is restricted to event cells the
+population is the **2,905** cell-months with `lr_sb_best > 0` — identical for every seed, because
+the event set is a property of the truth, so the across-seed spread is pure model variation.
+**CPU only, zero GPU.** Every script was committed before it ran (`D-5`).
+
+---
+
+### N1 ⭐⭐ Evaluation has THREE axes here, not two, and we had been collapsing them
+
+Until today this report treated the forecast as **occurrence** plus **magnitude**. That is one
+distinction too few. The 2026-11-05/06 confusion — four statements about the same forecast, three
+withdrawn — happened because three different questions were all being called "magnitude":
+
+| axis | the question | the right instrument | what it says here |
+|---|---|---|---|
+| **occurrence** | does it fire where it fires? | Brier/CORP at `t = 0` | real skill: `DSC/UNC` **33.8%** |
+| **calibration of magnitude** | when it says a probability of exceeding `t`, is that the frequency? | Brier/CORP at `t > 0`, against a null floor | `MISCALIBRATED 1.4–2.5x` low, undetectable high |
+| ⭐ **ordering of magnitude** | given two events, does it know which is bigger? | **pairwise concordance** | a resolution of ~10x |
+
+⇒ **These can disagree without contradiction**, and that is exactly what happened. A forecast can
+order events well and be badly calibrated (ours), or be calibrated and order nothing (the tail).
+⛔ Any sentence about "magnitude" that does not say which of the three it means is unsafe, and three
+withdrawn claims are the evidence.
+
+⭐ The cheapest usable form of this: **a model 30× too small everywhere scores 1.0 on ordering and
+fails calibration completely.** Ours is that model. ⇒ The two axes are not just conceptually
+separate, they are separate *in our own forecast*, which is why collapsing them produced
+contradictions rather than mere imprecision.
+
+---
+
+### N2 ⭐⭐⭐ THE FINDING: the model's magnitude knowledge has a resolution of about a factor of ten
+
+All 3,938,827 comparable pairs of the 2,905 event cells, grouped by how many times bigger one event
+is than the other. Chance is **exactly 0.5** by construction. Five seeds, each row against its own
+permutation floor (`M98`):
+
+| if two events differ by | order correct | floor (q99) |
+|---|---|---|
+| 1.25× | 0.5272 ± 0.0023 | 0.5065 |
+| 1.64× | 0.5480 ± 0.0033 | 0.5122 |
+| 2.56× | 0.5882 ± 0.0052 | 0.5094 |
+| 5.20× | 0.6591 ± 0.0095 | 0.5166 |
+| 10.67× | **0.7225 ± 0.0130** | 0.5242 |
+| 29.0× | **0.8120 ± 0.0147** | 0.5315 |
+
+Monotone, every row clear of its floor, spread 0.2848, **no free parameter on the measured axis**.
+
+⇒ **Roughly an order of magnitude of separation is needed before the model is reliably right.**
+Stated as a design constraint rather than a score: *the grain of this model's magnitude knowledge is
+a factor of ten.*
+
+⭐ Simon's band question in his own units — and the answer is yes, when the bands are far apart:
+
+| smaller event in | larger in | order correct |
+|---|---|---|
+| 1–25 | 25–100 | 0.7371 |
+| 1–25 | 100–500 | 0.8155 |
+| 1–25 | 500+ | **0.8572** |
+| 25–100 | 100–500 | 0.6113 |
+| 100–500 | 500+ | 0.5348 (270 pairs — chance) |
+
+---
+
+### N3 ⭐⭐⭐ THE METHOD LESSON, and it is the transferable one: a magnitude cut point was the WRONG AXIS
+
+**Three claims died this week because a number moved with its binning** (`W-130`, and two before it).
+The instinct each time was to sweep the bin count harder (`D-4`). ⛔ **That instinct was wrong here.**
+
+`ordering_within_bands.py` swept five band schemes — powers of 2, 3 and 5, equal steps in `log1p`,
+and hand-chosen conflict sizes. The best-ordering band came back as **8–16, 9–27, 1–5, 2–6 and
+1–25**. The intersection is empty; `F24` fired; the shape was not quotable.
+
+⭐ The fix was not a better sweep. It was noticing that **bands confound two things**: where an event
+sits on the scale, and how far apart the two compared events are. A band 25 wide at the bottom of
+the scale is a 25× comparison; the same width at 500 is a 1.05× comparison. ⇒ Any band-wise curve is
+a mixture of ability and band width, and sweeping the edges only re-mixes it.
+
+Removing the magnitude axis and grouping by **separation** instead:
+
+- has **no cut point to choose** — the free parameter is *gone*, not swept;
+- and **retro-predicts every band readout of the day, to within 1–2 points**, without being fitted
+  to any of them:
+
+| band | typical pair ratio | measured | curve at that ratio |
+|---|---|---|---|
+| 1–25 | 3.0× | 0.6124 | 0.5882 |
+| 25–100 | 1.49× | 0.5433 | 0.5480 |
+| 100–500 | 1.37× | 0.5221 | 0.5272 |
+| `powers_of_2` (all) | ~1.25× | 0.50–0.55 | 0.5272 |
+
+⇒ ⭐⭐ **The generalisable rule: when a readout moves with its bins, ask whether the binning variable
+is the quantity you mean, before sweeping it.** A sweep tells you the answer is unstable; it does not
+tell you the axis is wrong. Here the axis was wrong, and the stable answer was one re-parameterisation
+away.
+
+ℹ️ This qualifies, and does not replace, the standing device *"sweep the free parameter before
+reporting a scalar"* (`feedback_sweep_before_reporting_a_scalar`). The sweep is still what detected
+the problem. The lesson added is what to do when it fires.
+
+---
+
+### N4 ⭐⭐ Absence of a detected defect is not a pass — and every score here needs its own null floor
+
+Two instruments on this day reported a quantity whose value **under a perfect model is not zero**:
+
+- **MCB** (miscalibration): an isotonic refit removes score even from a perfectly calibrated
+  forecast, purely by fitting noise. ⇒ `MCB > 0` is not evidence of anything.
+- **DSC / concordance**: the same refit, and any in-sample ordering statistic, extracts apparent
+  signal from a shuffled index.
+
+⇒ Both now carry a floor computed **on their own population and tie structure** — Bernoulli
+resampling for MCB, permutation for concordance. ⛔ Without it:
+
+| row | raw figure | floor | honest reading |
+|---|---|---|---|
+| `P(Y > 250)` MCB/UNC | 4.32% | **11.91%** | **nothing** — noise exceeds the figure |
+| 100–500 vs 500+ concordance | 0.5348 | — (270 pairs) | not resolvable |
+
+⚠️ **And the decision threshold matters more than it looks.** The first threshold-reliability run used
+the **95th** percentile of the null and a perfectly calibrated synthetic forecast came back
+`MISCALIBRATED 1.1x` on the first seed tried — a 5%-per-row false-positive rate behaving exactly as
+specified. It is now the **99.5th** percentile, Bonferroni over the ten thresholds, and the resulting
+rate is **measured by a test** rather than asserted. ⇒ A verdict that flips one row in twenty is
+indistinguishable, to a reader, from a verdict that is wrong.
+
+⭐ Hence the standing phrasing this report should use from now on: **`CALIBRATED` means *not
+detectably miscalibrated at this sample size*, never *right*.** Our own `t ≥ 50` rows rest on 6–213
+events with floors running 1.2%–13.6% of `UNC`.
+
+---
+
+### N5 ⛔⛔ What 2026-11-06 WITHDREW, including claims made earlier the same day
+
+⛔ Listed here rather than corrected in place, because this document is append-only and because the
+sequence is the lesson.
+
+| withdrawn | what it actually was | caught by |
+|---|---|---|
+| *"the lowest prediction bin is under-predicted **18.7×**"* (2026-11-05) | a **composite**: in that bin only 110 of 530 cells carry an event, so the ratio multiplies an occurrence error by a magnitude error and reports the product as the second | re-deriving it per component (`M95`'s predecessor) |
+| *"the top of the body is **too high**"* / *"it over-predicts at the top"* | the top **prediction** bin is not the tail of the **outcome**. The model under-predicts every real extreme by **47×–3,480×** | Simon, who said it contradicted everything we knew |
+| *"ranking **peaks at 10 fatalities**"* (earlier the same day) | a property of the **cut points**: the best band moves to 8–16, 9–27, 1–5, 2–6, 1–25 across five schemes | ⭐ `F24`, pre-committed and arithmetic — **before** the figure reached Simon |
+| *"the 11 delivered arms differ by **seed only**"* | they are **control vs `UpsampleConv2`** on matched seeds. I diffed the config files, which are identical, instead of the manifest's `arm:` line | the manifest |
+| an `UpsampleConv2` **magnitude effect** | the same pooled-ratio artefact; `F10` fired. Relayed to the `models` session and **corrected there** | `F10` |
+| my **9.8%** integrated-spread figure | left-rectangles on the same 8 points that caused the error it was correcting; overstated the tail **2.3×** | ⭐ *"a figure computed by the method that caused an error is not a correction of it"* |
+
+⇒ ⭐ One structural observation, offered as the day's only process claim: **the one withdrawal that
+cost nothing was the one a pre-committed arithmetic falsifier caught.** The other five were caught by
+a person, by a re-derivation, or by a peer — i.e. after the claim had already been stated.
+
+---
+
+### N6 ⭐ What this adds to the battery, and when it is worth running
+
+Three reusable instruments, all CPU-only, all five-seed, all with their gates shown to fire:
+
+| instrument | answers | cost |
+|---|---|---|
+| `threshold_reliability.py` | is the predictive distribution calibrated, threshold by threshold, against its own noise floor | ~4 min, 5 arms |
+| `ordering_by_separation.py` | ⭐ what is the **resolution** of the magnitude ranking | ~4 min, 5 arms |
+| `occurrence_vs_magnitude.py` | which of occurrence or magnitude is the larger defect | ~4 min, 5 arms |
+
+⭐⭐ **When to run the ordering one.** Before any work that assumes the ranking can be preserved —
+which is the whole premise of a rank-coupled or empirical-lookup magnitude head. It answers *"is
+there a ranking to preserve, and how fine is it"* for about four minutes of CPU, and the answer here
+(a factor of ten) is a **design constraint**, not a score: a method that needs to order events 1.5×
+apart has nothing to work with, and one that needs to separate 1–25 from 500+ has 86%.
+
+⛔ **What it must never be quoted for.** It says the ORDER is right, never that the SIZE is. Our model
+scores 0.81 at wide separation **and predicts 11.1 for a 2,482-fatality event.** Both are true.
+
+⚠️ **The open confound, stated so it is not forgotten.** Every figure in §9c ranks by the
+**delivered composed emission**. ⇒ None of it separates *the underlying ranking carries no tail
+information* from *the composition destroyed it*. Conditioning the same instruments on the **gate**
+is the measurement that separates them, it is CPU-only, and it is not done.
+
+---
+
 ## Appendix A — The instrument inventory
 
 **Where the ruler lives.** ⚠️ **No forecast metric is computed anywhere in `views_hydranet/` ⛔ **CORRECTED 2026-10-20: FALSE.** `views_hydranet/utils/training_forensics.py:344,359,364` computes `average_precision_score` and `roc_auc_score`, with **AP the default** (`:32`), reachable and imported by `train/training_engine.py:38`. ⛔ **The metric this universal negative misses is this report's own primary metric.**.** The
@@ -2697,7 +2886,7 @@ the audit tool". **Nothing tests that they still match.**
 
 ## Appendix B — The retraction log
 
-31 traceable retractions or overturns, 2026-05 → 2026-09. ⛔ **[UPDATED 2026-10-25: **33**, through
+31 traceable retractions or overturns, 2026-05 → 2026-09. ⛔ **[UPDATED 2026-11-06: **39**, through 2026-11. The six added on 2026-11-06 are tabulated in §9c's `N5` rather than below, with what each one actually was and what caught it; five of the six were stated before they were caught, and the sixth — *"ranking peaks at 10 fatalities"* — was caught by a pre-committed arithmetic falsifier **before** it reached Simon. ⚠️ Three of the six were made and withdrawn on the SAME DAY. ⛔ The prose counts in this paragraph are NOT re-derived.]** ⛔ **[UPDATED 2026-10-25: **33**, through
 2026-10. The two added are the last two rows of the table below and are dated there. The prose counts in
 this paragraph are NOT re-derived — they are the 2026-09 figures and are left as measured.]** **≥14 concern a published ledger row or a
 delivered verdict.** Two independent internal estimates of the base rate exist and both are lower
