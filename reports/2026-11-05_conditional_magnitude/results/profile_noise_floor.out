@@ -1,0 +1,81 @@
+==============================================================================================================
+THE CONDITIONAL-MAGNITUDE PROFILE'S NOISE FLOOR -- seed, and the form axis
+==============================================================================================================
+  ⛔ A spread is not a finding until it is measured against the spread the same
+     instrument produces when the answer should not change.
+
+  PASS  G-8  842,634 cell-months  2,905 events  max 2482.0
+  PASS  G-N2  the five committed anchors are distinct
+            fortytwo  ap_ctl 0.5667056384496834
+          fortythree  ap_ctl 0.5735625509641734
+           fortyfour  ap_ctl 0.5686391489567726
+           fortyfive  ap_ctl 0.5623743499217622
+          fortyseven  ap_ctl 0.5675028042498410
+
+  loading 10 arms, one at a time
+
+   ctlfullzero_fortyfive ap 0.5623743499217622  anchor(fortyfive) |delta| 0.000e+00  ANCHOR-EXACT  open 5,255  pooled 1.6171
+   ctlfullzero_fortyfour ap 0.5686391489567726  anchor(fortyfour) |delta| 0.000e+00  ANCHOR-EXACT  open 4,651  pooled 1.2726
+   ctlfullzero_fortyseven ap 0.5675028042498410  anchor(fortyseven) |delta| 0.000e+00  ANCHOR-EXACT  open 3,876  pooled 1.6478
+   ctlfullzero_fortythree ap 0.5735625509641734  anchor(fortythree) |delta| 0.000e+00  ANCHOR-EXACT  open 5,250  pooled 1.3015
+   ctlfullzero_fortytwo ap 0.5667056384496834  anchor(fortytwo) |delta| 0.000e+00  ANCHOR-EXACT  open 4,481  pooled 1.6848
+   upctwofullzero_fortyfive ap 0.5687638107581929  anchor(fortyfive) |delta| 0.000e+00  ANCHOR-EXACT  open 5,370  pooled 1.5841
+   upctwofullzero_fortyfour ap 0.5696050748087906  anchor(fortyfour) |delta| 0.000e+00  ANCHOR-EXACT  open 4,501  pooled 1.2349
+   upctwofullzero_fortyseven ap 0.5612110024664602  anchor(fortyseven) |delta| 0.000e+00  ANCHOR-EXACT  open 4,722  pooled 1.4259
+   upctwofullzero_fortythree ap 0.5782620914561110  anchor(fortythree) |delta| 0.000e+00  ANCHOR-EXACT  open 5,080  pooled 1.2635
+   upctwofullzero_fortytwo ap 0.5715957813843291  anchor(fortytwo) |delta| 0.000e+00  ANCHOR-EXACT  open 5,818  pooled 1.3544
+
+  PASS  G-N0  5 of 5 seed-floor arms reproduce their own anchor exactly (F9 fires below 4)
+
+--------------------------------------------------------------------------------------------------------------
+  ⭐ G-N4 · THE FORM AXIS: control vs UpsampleConv2, matched on seed
+--------------------------------------------------------------------------------------------------------------
+    seed                 AP control          AP upctwo     AP diff  committed diff  both exact?
+    fortytwo         0.566705638450     0.571595781384    0.004890        0.004890         True
+    fortythree       0.573562550964     0.578262091456    0.004700        0.004700         True
+    fortyfour        0.568639148957     0.569605074809    0.000966        0.000966         True
+    fortyfive        0.562374349922     0.568763810758    0.006389        0.006389         True
+    fortyseven       0.567502804250     0.561211002466   -0.006292       -0.006292         True
+
+--------------------------------------------------------------------------------------------------------------
+  THE FLOORS
+--------------------------------------------------------------------------------------------------------------
+
+   pooled ratio         control mean    1.5048   SEED sd   0.1793 ( 11.91%)   SEED range   0.4122
+      per-seed control:     1.6848  1.3015  1.2726  1.6171  1.6478
+      FORM mean|upctwo-ctl|    0.1322  ⇒ BELOW the seed range    signs -----
+      per-seed upctwo-ctl:  -0.3304  -0.0380  -0.0377  -0.0330  -0.2219
+
+   B=8 bin0 ratio       control mean   12.5527   SEED sd   3.3533 ( 26.71%)   SEED range   9.8228
+      per-seed control:     18.6850  8.8623  12.7218  10.3636  12.1310
+      FORM mean|upctwo-ctl|    2.8434  ⇒ BELOW the seed range    signs -+-++
+      per-seed upctwo-ctl:  -2.0544  +2.4701  -5.4330  +2.5906  +1.6688
+
+   B=16 bin0 ratio      control mean   20.4517   SEED sd   1.7330 (  8.47%)   SEED range   4.9228
+      per-seed control:     19.8964  17.3668  21.0455  21.6604  22.2897
+      FORM mean|upctwo-ctl|    7.3223  ⇒ ABOVE the seed range    signs ++--+
+      per-seed upctwo-ctl:  +20.4417  +4.4147  -6.6112  -4.8338  +0.3103
+
+   B=8 top ratio        control mean    1.2032   SEED sd   0.2602 ( 21.63%)   SEED range   0.7342
+      per-seed control:     1.0429  1.4037  0.8017  1.5360  1.2316
+      FORM mean|upctwo-ctl|    0.1700  ⇒ BELOW the seed range    signs +-+--
+      per-seed upctwo-ctl:  +0.1263  -0.3206  +0.0104  -0.1287  -0.2641
+
+   B=16 top ratio       control mean    1.0779   SEED sd   0.3337 ( 30.96%)   SEED range   0.9353
+      per-seed control:     0.9342  1.1542  0.7562  1.6915  0.8533
+      FORM mean|upctwo-ctl|    0.1662  ⇒ BELOW the seed range    signs +----
+      per-seed upctwo-ctl:  +0.2271  -0.1664  -0.0542  -0.2722  -0.1112
+
+   B=8 GAP bin0/top     control mean   11.3388   SEED sd   4.7397 ( 41.80%)   SEED range  11.6025
+      per-seed control:     17.9161  6.3137  15.8676  6.7472  9.8495
+      FORM mean|upctwo-ctl|    4.3211  ⇒ BELOW the seed range    signs -+-++
+      per-seed upctwo-ctl:  -3.6921  +4.1499  -6.8929  +2.4580  +4.4128
+
+   B=16 GAP bin0/top    control mean   20.6205   SEED sd   5.9137 ( 28.68%)   SEED range  15.0265
+      per-seed control:     21.2973  15.0464  27.8323  12.8058  26.1205
+      FORM mean|upctwo-ctl|    6.5986  ⇒ BELOW the seed range    signs ++--+
+      per-seed upctwo-ctl:  +13.4384  +7.0039  -7.2702  -0.9498  +4.3305
+
+  ⛔ P-38, P-40, P-41 (seed floor) and the NEW P-42/P-43 (form axis) are scored in
+     the dossier against the thresholds in this docstring. P-39 and F8 are VOID:
+     their population -- duplicate runs of one configuration -- does not exist.

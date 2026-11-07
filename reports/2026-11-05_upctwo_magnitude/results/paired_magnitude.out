@@ -1,0 +1,74 @@
+================================================================================================================
+DOES UpsampleConv2 ACT ON MAGNITUDE? The paired test EXP-03 never ran
+================================================================================================================
+  ⭐ CONFIRMATORY. views-models #710/#712 are MERGED; a one-signed magnitude effect is
+     evidence FOR the flip. ⛔ No result here reopens a shipped decision.
+  ⛔ Scored ONLY on cells open in BOTH arms of a pair -- G-P1 asserts that by INDEX.
+
+  PASS  G-8   842,634 cell-months  2,905 events  max 2482.0
+  PASS  G-P3  5825 AST chars, from /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-07-29_v2_scoreboard_dossier/tools/gw_stratified.py
+
+  ── seed fortytwo ─────────────────────────────────────────────────────────────────
+     G-0 both anchor-exact (|d| 0.0e+00 / 0.0e+00)
+     PASS  G-P1  shared support identical by index (4,393 cells)
+     PASS  G-P2  1,843 events in the shared set (floor 100)
+     own open sets: ctl 4,481  upctwo 5,818  shared 4,393   asymmetry 22.98%  (P-48 threshold 10%)
+     pooled obs/pred   ctl   1.6844   upctwo   1.4440   diff  -0.2405   |ctl-1| 0.6844 -> |upctwo-1| 0.4440
+     magnitude MAE     ctl  10.8580   upctwo  11.2492   paired diff  -0.3912 ( -3.60%)
+       origin-blocked 95% CI [-0.5397, -0.2528]  p 0.0000  SIGNIFICANT  (13 origin blocks)
+     median AE         ctl   3.2500   upctwo   4.0625   diff  -0.8125
+
+  ── seed fortythree ─────────────────────────────────────────────────────────────────
+     G-0 both anchor-exact (|d| 0.0e+00 / 0.0e+00)
+     PASS  G-P1  shared support identical by index (4,711 cells)
+     PASS  G-P2  1,958 events in the shared set (floor 100)
+     own open sets: ctl 5,250  upctwo 5,080  shared 4,711   asymmetry 3.24%  (P-48 threshold 10%)
+     pooled obs/pred   ctl   1.3122   upctwo   1.2698   diff  -0.0424   |ctl-1| 0.3122 -> |upctwo-1| 0.2698
+     magnitude MAE     ctl  10.5496   upctwo  10.6316   paired diff  -0.0820 ( -0.78%)
+       origin-blocked 95% CI [-0.1454, -0.0231]  p 0.0070  SIGNIFICANT  (13 origin blocks)
+     median AE         ctl   3.8750   upctwo   3.8125   diff  +0.0625
+
+  ── seed fortyfour ─────────────────────────────────────────────────────────────────
+     G-0 both anchor-exact (|d| 0.0e+00 / 0.0e+00)
+     PASS  G-P1  shared support identical by index (4,178 cells)
+     PASS  G-P2  1,856 events in the shared set (floor 100)
+     own open sets: ctl 4,651  upctwo 4,501  shared 4,178   asymmetry 3.23%  (P-48 threshold 10%)
+     pooled obs/pred   ctl   1.2867   upctwo   1.2464   diff  -0.0403   |ctl-1| 0.2867 -> |upctwo-1| 0.2464
+     magnitude MAE     ctl  12.1667   upctwo  12.2622   paired diff  -0.0955 ( -0.78%)
+       origin-blocked 95% CI [-0.2415, +0.0456]  p 0.1810  not significant  (13 origin blocks)
+     median AE         ctl   4.7500   upctwo   4.7812   diff  -0.0313
+
+  ── seed fortyfive ─────────────────────────────────────────────────────────────────
+     G-0 both anchor-exact (|d| 0.0e+00 / 0.0e+00)
+     PASS  G-P1  shared support identical by index (4,794 cells)
+     PASS  G-P2  1,932 events in the shared set (floor 100)
+     own open sets: ctl 5,255  upctwo 5,370  shared 4,794   asymmetry 2.14%  (P-48 threshold 10%)
+     pooled obs/pred   ctl   1.6124   upctwo   1.6296   diff  +0.0172   |ctl-1| 0.6124 -> |upctwo-1| 0.6296
+     magnitude MAE     ctl   9.9138   upctwo   9.8835   paired diff  +0.0303 ( +0.31%)
+       origin-blocked 95% CI [-0.0844, +0.1579]  p 0.6470  not significant  (13 origin blocks)
+     median AE         ctl   3.0000   upctwo   2.8750   diff  +0.1250
+
+  ── seed fortyseven ─────────────────────────────────────────────────────────────────
+     G-0 both anchor-exact (|d| 0.0e+00 / 0.0e+00)
+     PASS  G-P1  shared support identical by index (3,741 cells)
+     PASS  G-P2  1,750 events in the shared set (floor 100)
+     own open sets: ctl 3,876  upctwo 4,722  shared 3,741   asymmetry 17.92%  (P-48 threshold 10%)
+     pooled obs/pred   ctl   1.6427   upctwo   1.4565   diff  -0.1863   |ctl-1| 0.6427 -> |upctwo-1| 0.4565
+     magnitude MAE     ctl  12.3688   upctwo  13.1723   paired diff  -0.8035 ( -6.50%)
+       origin-blocked 95% CI [-0.9162, -0.6864]  p 0.0000  SIGNIFICANT  (13 origin blocks)
+     median AE         ctl   3.6250   upctwo   3.9375   diff  -0.3125
+
+================================================================================================================
+  SCORED
+================================================================================================================
+  P-44  pooled-ratio difference one-signed across seeds: False  (closer to 1 in 4/5)
+  P-45  MAE favours upctwo in 1/5 seeds (threshold 4)
+  P-46  CI excludes zero in 3/5 seeds (threshold 2)
+  P-47  MAE and median-AE agree in sign in 4/5 seeds
+  P-48  max within-pair support asymmetry 22.98%
+  F10   ⛔ FIRED -- the 5-of-5 pooled-ratio result IS a support artefact, WITHDRAWN
+  F11   did not fire -- MAE/median-AE sign disagreement in 1 seeds
+
+  ⚠️ Five seeds one-signed is p = 0.0625 two-sided on a sign test: suggestive, NOT
+     significant at 0.05. Declared in the docstring before the run.
+  ⛔ No result here reopens views-models #710/#712.

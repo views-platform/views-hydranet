@@ -1,0 +1,52 @@
+================================================================================================================
+ORDERING BY INDEX — does a higher-resolution index lower 8.61x?
+================================================================================================================
+  PASS  G-E1  no calibration statistic in this file
+  PASS  G-I1  6 indices: signature exactly ('draws', 'gate'), undecorated, no closure, and no name outside the allow-list
+  PASS  G-8   842,634 cell-months  2,905 events  max 2482.0
+  ⛔ DISCRIMINATION ONLY. ⭐ Chance is exactly 0.5. ⭐ NO bin edges, NO null.
+  ⚠️ Says nothing about whether the SIZES are right — a model 30x too small scores 1.0.
+   ctlfullzero_fortytwo       G-0 exact · G-P5 pass
+   ctlfullzero_fortythree     G-0 exact · G-P5 pass
+   ctlfullzero_fortyfour      G-0 exact · G-P5 pass
+   ctlfullzero_fortyfive      G-0 exact · G-P5 pass
+   ctlfullzero_fortyseven     G-0 exact · G-P5 pass
+  PASS  G-P1  3,938,827 comparable, 279,233 dropped as truth-tied
+  PASS  G-P4  truth-as-prediction scores 1.0 and its negation 0.0, on every binned row AND on the edge-free curve; a perfect ranker crosses every target at the smallest separation
+  PASS  G-C2  5 seeds (floor 5)
+  PASS  G-I2  control reproduces M98 at 8.6067x (published 8.61x)
+
+================================================================================================================
+  ⭐⭐ THE TABLE. Separation needed to order correctly — LOWER IS BETTER.
+================================================================================================================
+           index        target 0.60        target 0.70        target 0.80
+                          ± seed sd          ± seed sd          ± seed sd
+       mean_draw       2.98x ± 0.22       8.61x ± 0.76      26.71x ± 7.33  ⭐ CONTROL (M98)
+            gate       2.38x ± 0.01       6.32x ± 0.40      22.39x ± 0.53
+         sd_draw       3.12x ± 0.04       9.24x ± 0.17      31.62x ± 8.97
+        max_draw       3.12x ± 0.04      10.03x ± 1.17      31.82x ± 8.79
+    frac_above_0       3.10x ± 0.00       9.93x ± 1.26      31.88x ± 9.30
+     gate_x_mean        2.81x ⛔thin       8.14x ± 1.18      23.13x ± 0.54
+
+----------------------------------------------------------------------------------------------------------------
+  ⭐⭐ THE READOUT: each index's 0.70 crossing against the control's. LOWER IS BETTER.
+----------------------------------------------------------------------------------------------------------------
+            gate      6.32x vs 8.61x   ⭐ BETTER             needs 1.36x less separation
+         sd_draw      9.24x vs 8.61x   — indistinguishable  within ±10% of the control
+        max_draw     10.03x vs 8.61x   ⛔ WORSE              needs 1.17x more separation
+    frac_above_0      9.93x vs 8.61x   ⛔ WORSE              needs 1.15x more separation
+     gate_x_mean      8.14x vs 8.61x   — indistinguishable  within ±10% of the control
+
+  FALSIFIERS
+    F34 did not fire — no index beats the control at 0.70 ⇒ the EMISSION is not the bottleneck and 8.61x is the model's own resolution
+    F36 did not fire — every index lands within 10% of every other ⇒ the crossing is insensitive to the index
+    P-73 HELD — the GATE's 0.70 crossing is 6.32x against the control's 8.61x
+    P-74 HELD — the gate orders magnitude above chance at all (0.60 crossing 2.38x)
+    P-75 HELD — sd_draw at 9.24x does not beat the control
+    P-76 HELD — gate_x_mean at 8.14x does not beat it either
+
+  ⛔ Chance is 0.5. ⛔ Every figure is a SEPARATION at a TARGET; quoting one without
+     its target is the defect that held this dossier on 2026-11-06.
+  ⛔ A better index does NOT mean the gate should become the magnitude forecast. It
+     means the information survives in the model and the EMISSION loses it.
+  ⚠️ The ± is across-SEED spread only — reproducibility, not sampling uncertainty.

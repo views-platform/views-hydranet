@@ -1,0 +1,122 @@
+================================================================================================================
+ORDERING BY SEPARATION — how far apart must two events be before the model knows?
+================================================================================================================
+  PASS  G-E1  no calibration statistic in this file
+  PASS  G-8   842,634 cell-months  2,905 events  max 2482.0
+  ⛔ DISCRIMINATION ONLY. ⭐ Chance is exactly 0.5. ⭐ NO magnitude cut point.
+  ⚠️ Says nothing about whether the SIZES are right — a model 30x too small scores 1.0.
+   ctlfullzero_fortytwo       G-0 exact · G-P2 pass · G-P3 pass
+   ctlfullzero_fortythree     G-0 exact · G-P2 pass · G-P3 pass
+   ctlfullzero_fortyfour      G-0 exact · G-P2 pass · G-P3 pass
+   ctlfullzero_fortyfive      G-0 exact · G-P2 pass · G-P3 pass
+   ctlfullzero_fortyseven     G-0 exact · G-P2 pass · G-P3 pass
+  PASS  G-P1  3,938,827 comparable, 279,233 dropped as truth-tied
+  PASS  G-P4  truth-as-prediction scores 1.0 and its negation 0.0, on every binned row AND on the edge-free curve; a perfect ranker crosses every target at the smallest separation
+  PASS  G-C2  5 seeds (floor 5)
+
+================================================================================================================
+  ⭐⭐ THE READOUT — and it has NO bin edges. Isotonic fit over every DISTINCT ratio.
+================================================================================================================
+  5,935 distinct ratios over 3,938,827 pairs
+  the monotone fit has 42-54 distinct levels (descriptive)
+  ⛔ THERE IS NO NULL ON THIS AXIS. The one that was here measured where the ratio
+     axis goes SPARSE, not the null's skill — a model 90x worse still passed it. It
+     is deleted and P-69/P-71 are VOID. ⭐ That the model orders events at all rests
+     on the BINNED rows below, whose per-row permutation floors are valid nulls.
+  ⚠️ The ± below is across-SEED spread only. It is NOT sampling uncertainty over
+     events; a bootstrap is the honest interval and is NOT built. Read it as a
+     point estimate with a reproducibility band.
+
+    target      separation needed  pairs behind it   seeds
+      0.60           2.98x ± 0.22   15,078-337,191     5/5
+      0.70           8.61x ± 0.76      656-216,386     5/5
+      0.80          26.71x ± 7.33    19,950-64,419     5/5
+
+  ⭐⭐ THE SAME TARGETS SPLIT BY THE SIZE OF THE SMALLER EVENT — and this is the
+     finding, not a footnote. 85% of pairs have a smaller member under
+     10 fatalities, so the pooled column above is largely THEIR number.
+    target         pooled     small < 10    small >= 10   ratio
+      0.60          2.98x          3.13x          2.85x   0.91x BETTER
+      0.70          8.61x          8.60x          never   —
+      0.80         26.71x         26.74x          never   —
+  ⚠️⚠️ ⛔ NOT a clean statement that the model is worse at high magnitudes. The high
+     half cannot REACH the widest ratios (its smaller member is >= 10, so its maximum
+     ratio is ~248 against ~2,482), so the two columns are read over different ratio
+     ranges. The matched-separation comparison is the binned table below, and it says
+     something much milder. ⇒ What IS established: the pooled headline is dominated by
+     low-magnitude pairs and the halves are far apart. Which part of that gap is
+     declining ability and which is the available range is NOT measured.
+
+  ⭐ THE RAW CURVE, before PAV imposes monotonicity — ten points at equal pair counts.
+     ⛔ Read your own target off this; the three above are not privileged.
+             pooled  ratio     1.2     1.7     2.2     2.7     3.4     4.8     6.9    10.0    17.2    48.3
+                     conc    0.526   0.547   0.577   0.587   0.622   0.641   0.669   0.704   0.748   0.817
+         small < 10  ratio     1.4     1.8     2.5     3.4     4.4     6.1     8.4    12.3    20.2    64.2
+                     conc    0.536   0.542   0.582   0.628   0.625   0.655   0.680   0.727   0.764   0.820
+        small >= 10  ratio     1.1     1.2     1.4     1.6     1.9     2.2     2.7     3.4     4.7    10.4
+                     conc    0.510   0.515   0.535   0.547   0.557   0.582   0.603   0.627   0.658   0.676
+     ⚠️ One seed's curve (the across-seed spread is in the tables above).
+
+----------------------------------------------------------------------------------------------------------------
+  ⚠️ SECONDARY — the same pairs under RATIO_EDGES. ⛔ PRESENTATIONAL. The headline came
+     off these rows until 2026-11-06 and moved with them; it now comes off the fit
+     above. These rows are a view for reading, and no claim rests on them.
+----------------------------------------------------------------------------------------------------------------
+    separation        pairs   median          concordance  floor q99   VERDICT
+                 comparable    ratio    correct ± seed sd      noise
+      1.0–1.5x      366,905     1.25    0.5272 ± 0.0023       0.5065   ORDERS
+      1.5–2.0x      360,033     1.64    0.5480 ± 0.0033       0.5122   ORDERS
+      2.0–4.0x    1,100,267     2.56    0.5882 ± 0.0052       0.5094   ORDERS
+      4.0–8.0x      866,185     5.20    0.6591 ± 0.0095       0.5166   ORDERS
+     8.0–16.0x      595,705    10.67    0.7225 ± 0.0130       0.5242   ORDERS
+        >16.0x      649,732    29.00    0.8120 ± 0.0147       0.5315   ORDERS
+
+----------------------------------------------------------------------------------------------------------------
+  ⚠️ SECONDARY — the same rows split by the size of the SMALLER event in the pair.
+     Keeps 'worse at the top?' alive. ⛔ Magnitude cut at 10,
+     so F28 is read off the curve above, which has none.
+----------------------------------------------------------------------------------------------------------------
+    separation             small < 10            small >= 10   high worse?
+      1.0–1.5x 0.5329 ± 0.0027 (195,763) 0.5208 ± 0.0022 (171,142)   YES
+      1.5–2.0x 0.5460 ± 0.0041 (249,821) 0.5527 ± 0.0023 (110,212)   no
+      2.0–4.0x 0.5859 ± 0.0052 (914,551) 0.5997 ± 0.0104 (185,716)   no
+      4.0–8.0x 0.6583 ± 0.0096 (782,619) 0.6660 ± 0.0142 (83,566)   no
+     8.0–16.0x 0.7227 ± 0.0126 (573,645) 0.7161 ± 0.0259 (22,060)   no
+        >16.0x 0.8134 ± 0.0139 (639,745) 0.7223 ± 0.0833 (9,987)   no
+
+----------------------------------------------------------------------------------------------------------------
+  ⭐ SIMON'S BANDS, as a matrix — the same data in the units he asked for.
+     Each cell: a pair with its SMALLER event in the row band and its LARGER in the column band.
+----------------------------------------------------------------------------------------------------------------
+    smaller in              25–100             100–500             500–inf
+          1–25  0.7371 (1,091,545)    0.8155 (107,955)     0.8572 (14,394)
+        25–100                         0.6113 (20,475)      0.6682 (2,730)
+       100–500                                                0.5348 (270)
+
+  FALSIFIERS
+    F29 did not fire — no row clears its floor ⇒ no ordering ability at any separation
+    F28 did not fire — curve spread 0.2848 (fires at or below 0.02)
+    P-65 HELD — concordance rises with separation, each row within one sd of the row below
+    P-66 ⛔ UNSCOREABLE — its subject is 'the top row', which is not defined without RATIO_EDGES.
+         Committed edges: 0.8120 vs 0.70. Top edge of 2: 0.6775.
+         ⇒ Withdrawn as a prediction about the model. P-69..P-72 replace it.
+    P-67 FAILED — narrowest row 1.0–1.5x is ORDERS
+    P-68 HELD — high is worse in 1 of 6 comparable rows (holds if <= 2)
+
+    F32 did not fire — no target has a crossing that every seed reaches on a block of at least 30 pairs ⇒ no separation figure is quotable
+    F33 did not fire — PAV pooled the whole curve into one block ⇒ the data cannot separate separations and no resolution exists
+    P-69 ⛔ VOID — scored against a permutation null that measured sparsity, not skill. A model 90x worse passed it. The null is deleted; nothing replaces the verdict.
+    P-70 HELD — 0.70 crossed at 8.61x (predicted 4x-16x)
+    P-71 ⛔ VOID — same deleted null as P-69 (target 0.80).
+    P-72 HELD — 0.60 crossed at 2.98x (predicted 2x-5x)
+
+  ⛔ Chance is 0.5. ⛔ This says the ORDER is right, never that the SIZE is.
+  ⛔ Every separation figure above belongs to a TARGET. Quoting one alone is the
+     defect that held this branch on 2026-11-06.
+  ⛔⛔ AND A CORRECTION TO THIS FILE'S OWN EARLIER CLAIM: it is NOT true that
+     'no reported number depends on RATIO_EDGES'. The CROSSINGS do not. But F28's
+     spread, F29, and the HELD/FAILED tokens for P-65, P-67 and P-68 are all read
+     off the binned rows, so they move with the edges — and P-68's own criterion
+     (at most 2 of 6) is a function of the ROW COUNT. ⇒ P-67 and P-68 have exactly
+     the kind of edge-set subject that P-66 was retired for. They are NOT re-scored
+     here; they are flagged, and a sweep is owed before either is cited again.
