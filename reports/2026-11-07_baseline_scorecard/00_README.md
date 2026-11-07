@@ -50,11 +50,11 @@ sweep clearing it.
 ## ⛔ What this does not say
 
 - **No arm is ranked and nothing is promoted.** FAO-02 is untouched.
-- **h1 only.** Nothing here is a statement about longer horizons.
+- **h1 only — and that was a CHOICE, not a constraint.** ⛔ Corrected 2026-11-07: the gate archive carries endpoints at **h1 AND h36**, and the draws archive is the **full 36-horizon cube** (`y_pred.npy`, no horizon suffix). Nothing here is a statement about longer horizons, and nothing but my own reading stopped it from being one.
 - **The gate's win is not proof the model knows magnitude.** The gate is an *occurrence*
   probability, so part of its ordering ability may be *big events happen where conflict is likely*.
   Replicating across architectures shows the effect is not form-specific; it does not close that
-  confound. Closing it needs `mu`, which is **not on disk** for any delivered run (#568).
+  confound. Closing it needs `mu` — and ⛔⛔ **CORRECTED 2026-11-07, same day: this line first said `mu` was "not on disk for any delivered run (#568)", which made a one-second job look like blocked work.** Verified on disk: the `mu` ARRAY is not on disk (no `body_mean` dump exists and `body_mean` appears 0 times in either run log), but the CHECKPOINT is — `artifact/calibration_model_*.pt`, 3.7 MB with sha256 and PROVENANCE, for all ten arms — so `mu` is one CPU forward away (0.75 s, 1.06 GB) and needs no re-emit and no GPU. #568 is *convenience only* (programme §2.8). ⇒ The confound is closeable today, on this laptop.
 - **The four EXP-02 arms are still owed** and are not in this table.
 - **The ± is across-arm reproducibility, not sampling uncertainty.** A bootstrap interval on the
   crossing is still owed from `M98`.

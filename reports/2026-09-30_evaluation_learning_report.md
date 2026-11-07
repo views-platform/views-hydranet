@@ -2815,6 +2815,62 @@ contradictions rather than mere imprecision.
 
 ---
 
+### ⛔⛔ N10 — THE SAME ERROR APPENDIX F.5 EXISTS TO PREVENT, COMMITTED THREE DAYS AFTER `/falsify` CAUGHT IT
+
+⛔ Added 2026-11-07. Nothing above is removed — including `N9`'s sentence *"needs `mu` … **NOT ON
+DISK** … it needs a re-emit, so it is not a CPU afternoon"*, which is the sentence this section is
+about. ⚠️ `M100`'s row and `reports/2026-11-07_baseline_scorecard/00_README.md` repeated it, and
+`ordering_by_index.py`'s docstring said it twice.
+
+**What is actually on disk, checked rather than recalled:**
+
+| | |
+|---|---|
+| the `mu` **array** | ⛔ absent. No `body_mean` dump exists anywhere under `views-platform`, and `body_mean` appears **0 times** in both of every arm's run logs ⇒ the dump was never switched on |
+| the **checkpoint** | ⭐⭐ present, for **all ten** delivered arms: `artifact/calibration_model_*.pt`, 3.7 MB, with `.sha256` and `PROVENANCE` |
+| ⇒ cost of `mu` | **one CPU forward — 0.75 s, 1.06 GB.** No GPU, no re-emit, no #568 |
+
+⛔ And #568 was already retired as a blocker: programme §2.8 records it as *"No longer a
+prerequisite for anything … Convenience only."*
+
+⛔⛔ **The part that matters is not the fact, it is the repetition.**
+`reports/2026-11-04_rank_coupled_body_programme.md:1271` lists, in a table of errors from a single
+session, *'claimed `mu` "is not on disk (verified)" and that recovering it needed a GPU'* —
+**caught by `/falsify`, 2026-11-04**. Three days later the same claim entered `M99`, then `M100`,
+then a README, then a docstring twice. ⇒ Five committed restatements of a retired blocker.
+
+⭐ And the register already carries this error **class** at least three times
+(`2026-10-12_underfire_diagnosis`, `2026-10-28_sigma_hat`, `l3b_three_target_cube.py`), each
+phrased almost identically: *"the original sentence is literally true and its conclusion is
+false."* The words *"not on disk"* were true of the array. The only question a reader has — **can I
+have `mu` today?** — was answered wrong.
+
+⚠️ **TWO MORE INSTANCES, found while checking this one.** `M100` and its README both said *"h1
+only"* as though it were a limit of the data:
+
+| stated | on disk |
+|---|---|
+| the gate is read at h1 | the gate archive carries endpoints at **h1 AND h36** |
+| *"h1 is the only horizon read"* | the draws archive is the **full 36-horizon cube** (`y_pred.npy`, no horizon suffix; `e1_data.load_draws_h1` slices h1 out of it) |
+
+⇒ h1 was a **choice**, not a constraint, and the baseline described its own scope as a limitation
+of the delivery.
+
+⭐⭐ **THE RULE, and this document already wrote it.** Appendix F.5: *"Every absence claim in this
+document needs a `grep` before it ships, and every count needs re-deriving. Not one measurement
+failed; the sentences about what exists failed roughly seventy times."* ⇒ F.5 was written about
+exactly this and did not fire, because it is addressed to *this document* and the claims above
+were made in a ledger row, a README and a docstring.
+
+**The sharpened form:** ⛔ **an availability claim is a measurement.** *"Not on disk"*, *"needs a
+re-emit"*, *"blocked on #NNN"* and *"h1 only"* are statements about the world that decide whether
+work gets done, and they were each asserted without the `ls` that settles them. They belong under
+the same `D-5`/`C-351` discipline as a number: name the path, name the check, or do not write the
+sentence. ⚠️ Every one of these errors pointed the same way — toward *the measurement is blocked*,
+which is the direction that excuses not doing it.
+
+---
+
 ### N2 ⭐⭐⭐ THE FINDING: the model's magnitude knowledge has a resolution of about a factor of ten
 
 All 3,938,827 comparable pairs of the 2,905 event cells, grouped by how many times bigger one event

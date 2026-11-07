@@ -48,7 +48,9 @@ def test_the_baseline_contains_the_ordering_source_v1_actually_uses() -> None:
 # ── HARD H2 · a committed ledger row restates a blocker the record already retired ───────────
 
 
-@pytest.mark.xfail(strict=True, reason="HARD: M99/M100 cite #568 as blocking mu; it does not")
+# ⭐ CLOSED 2026-11-07, hours after this stub was written. It XPASSed under `xfail(strict=True)`,
+# which is a FAILURE, so the marker came off and this is now a live regression test: the dossier
+# not reacquire the retired blocker.
 def test_the_dossier_does_not_claim_mu_requires_a_re_emit() -> None:
     """⛔⛔ THE SAME ERROR, THIRD TIME, AND IT IS IN THE RECORD AS MINE.
 
@@ -63,9 +65,14 @@ def test_the_dossier_does_not_claim_mu_requires_a_re_emit() -> None:
     ⇒ The confound those rows call blocked is closeable by one CPU forward. The literal words "not
     on disk" are true; the inference that it therefore needs #568 or a re-emit is false, and it is
     the part a reader acts on.
+
+    ⭐ CLOSED: the README, `M99`, `M100` and `ordering_by_index.py`'s docstring now all carry the
+    correction, and `N10` of the evaluation learning report records the repetition.
     """
     readme = (_DOSSIER / "00_README.md").read_text()
     assert "#568" not in readme or "one CPU forward" in readme
+    # ⛔ and the positive form, so this cannot pass by the mention being deleted
+    assert "one CPU forward" in readme and "0.75 s" in readme
 
 
 # ── HARD H3 · the published ± is the wrong uncertainty, and the points are not central ───────

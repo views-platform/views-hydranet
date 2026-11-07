@@ -18,8 +18,13 @@ MAGNITUDE. From ``GLOSSARY.md:275`` (locked, the ``conditioning-index`` row) —
 
     the gate            **64,732** distinct values over 64,818 cells, exactly 0.0 on NONE
     composed index      1,321 distinct values, **99.6567%** exactly 0
-    ``gate x mu``       842,634 distinct -- but teacher-forced only, and ``mu`` is NOT ON DISK
-                        for any delivered run, which is what ``S8`` (#568) exists to fix
+    ``gate x mu``       842,634 distinct -- but teacher-forced only. ⛔⛔ CORRECTED 2026-11-07:
+                        this said ``mu`` "is NOT ON DISK for any delivered run, which is what S8
+                        (#568) exists to fix". The ARRAY is not on disk; the CHECKPOINT is, for
+                        all ten arms (``artifact/calibration_model_*.pt``, 3.7 MB, sha256 +
+                        PROVENANCE), so ``mu`` is ONE CPU FORWARD away -- 0.75 s, 1.06 GB, no GPU
+                        and no re-emit. #568 is convenience only (programme 2.8). ⚠️ The record
+                        already caught me on this exact sentence on 2026-11-04
 
 ⛔⛔ AND 8.61x IS THE QUANTITY WE ARE TRYING TO MINIMISE. Simon's framing, 2026-11-06: the crossing
 is a design objective, not a score. Lower means the model separates events that sit closer
@@ -110,7 +115,9 @@ FALSIFIERS -- pre-committed, and ``F34`` is the one that decides v1
       the magnitude forecast. It means the INFORMATION survives in the model and the emission
       loses it -- a statement about where to look, not a design
     * ⚠️ Every index here is read off the DELIVERED artifacts. ``mu``, the body's mean field, is
-      the third candidate and is not on disk for any delivered run
+      the third candidate and is NOT measured here. ⛔ Corrected 2026-11-07: that is because it
+      was not computed, not because it is unavailable -- the checkpoint is on disk for all ten
+      arms and one CPU forward yields it. ⭐ Programme 2.3 makes it the index v1 actually orders by
 
 ⚠️ Interpreter: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
 """
