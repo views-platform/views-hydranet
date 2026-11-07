@@ -14,21 +14,32 @@ import numpy as np
 import pytest
 
 _REPO = Path(__file__).resolve().parents[1]
-for _sub in (
-    "reports/2026-11-04_delivered_gate_lookup/tools",
-    "reports/2026-07-17_lodestar_eval_dossier/tools",
-    "reports/2026-11-05_conditional_magnitude/tools",
-    "reports/2026-11-06_threshold_reliability/tools",
-    "reports/2026-11-07_baseline_scorecard/tools",
-):
-    if str(_REPO / _sub) not in sys.path:
-        sys.path.insert(0, str(_REPO / _sub))
+_TOOLS = _REPO / "reports/2026-11-07_baseline_scorecard/tools"
 
-import baseline_scorecard as bs  # noqa: E402
-import e1_data  # noqa: E402
-import ordering_by_index as obi  # noqa: E402
-import ordering_by_separation as obs_mod  # noqa: E402
-import profile_noise_floor as pnf  # noqa: E402
+#: ⛔ ``reports/`` is gitignored-but-tracked, so these tools CAN be absent from a tree that was
+#: built another way. Skip rather than error — the same pattern as the sibling dossier tests, and
+#: the property ``test_falsify_zero_surprises.py::test_P5b`` requires of every tracked test.
+pytestmark = pytest.mark.skipif(
+    not (_TOOLS / "baseline_scorecard.py").exists(),
+    reason="the baseline-scorecard dossier tools are not present in this tree",
+)
+
+if (_TOOLS / "baseline_scorecard.py").exists():
+    for _sub in (
+        "reports/2026-11-04_delivered_gate_lookup/tools",
+        "reports/2026-07-17_lodestar_eval_dossier/tools",
+        "reports/2026-11-05_conditional_magnitude/tools",
+        "reports/2026-11-06_threshold_reliability/tools",
+        "reports/2026-11-07_baseline_scorecard/tools",
+    ):
+        if str(_REPO / _sub) not in sys.path:
+            sys.path.insert(0, str(_REPO / _sub))
+
+    import baseline_scorecard as bs  # noqa: E402
+    import e1_data  # noqa: E402
+    import ordering_by_index as obi  # noqa: E402
+    import ordering_by_separation as obs_mod  # noqa: E402
+    import profile_noise_floor as pnf  # noqa: E402
 
 # ── the roster ───────────────────────────────────────────────────────────────────────────────
 

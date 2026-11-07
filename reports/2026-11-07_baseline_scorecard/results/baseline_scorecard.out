@@ -1,0 +1,121 @@
+================================================================================================================
+THE BASELINE SCORECARD — four axes, ten delivered arms, at the tag
+================================================================================================================
+  ⛔ Four axes on THREE populations. They may not be added, averaged or traded off.
+  ⚠️ h1 only. ⛔ No arm is ranked and no promotion is proposed.
+  PASS  G-8   842,634 cell-months  2,905 events  max 2482.0
+
+  loading 10 arms, one at a time
+   ctlfullzero_fortytwo       G-0 exact (ap_ctl) · G-P5 pass · G-B3 pass · G-B5 pass
+   ctlfullzero_fortythree     G-0 exact (ap_ctl) · G-P5 pass · G-B3 pass · G-B5 pass
+   ctlfullzero_fortyfour      G-0 exact (ap_ctl) · G-P5 pass · G-B3 pass · G-B5 pass
+   ctlfullzero_fortyfive      G-0 exact (ap_ctl) · G-P5 pass · G-B3 pass · G-B5 pass
+   ctlfullzero_fortyseven     G-0 exact (ap_ctl) · G-P5 pass · G-B3 pass · G-B5 pass
+   upctwofullzero_fortytwo    G-0 exact (ap_trt) · G-P5 pass · G-B3 pass · G-B5 pass
+   upctwofullzero_fortythree  G-0 exact (ap_trt) · G-P5 pass · G-B3 pass · G-B5 pass
+   upctwofullzero_fortyfour   G-0 exact (ap_trt) · G-P5 pass · G-B3 pass · G-B5 pass
+   upctwofullzero_fortyfive   G-0 exact (ap_trt) · G-P5 pass · G-B3 pass · G-B5 pass
+   upctwofullzero_fortyseven  G-0 exact (ap_trt) · G-P5 pass · G-B3 pass · G-B5 pass
+  PASS  G-P1  3,938,827 comparable, 279,233 dropped as truth-tied
+  PASS  G-P4  truth-as-prediction scores 1.0 and its negation 0.0, on every binned row AND on the edge-free curve; a perfect ranker crosses every target at the smallest separation
+  PASS  G-B3  2,624 of 4,481 calibration cells have truth 0 (prediction-selected)
+  PASS  G-B5  calibration 4,481 open cells vs ordering 2,905 event cells (expected 2,905)
+  PASS  G-C3  10 arms (floor 10)
+  PASS  G-B1/G-B2  control mean_draw 8.6067x vs M98 8.61x (|Δ| 0.0033) · control gate 6.3191x vs M99 6.32x (|Δ| 0.0009) · tol 0.05
+
+================================================================================================================
+  ⭐⭐ AXIS 1 — OCCURRENCE. AP of the gate against truth > 0, all 842,634 cell-months.
+================================================================================================================
+    arm                                 AP   anchored
+    ctlfullzero_fortytwo          0.566706   exact
+    ctlfullzero_fortythree        0.573563   exact
+    ctlfullzero_fortyfour         0.568639   exact
+    ctlfullzero_fortyfive         0.562374   exact
+    ctlfullzero_fortyseven        0.567503   exact
+    upctwofullzero_fortytwo       0.571596   exact
+    upctwofullzero_fortythree     0.578262   exact
+    upctwofullzero_fortyfour      0.569605   exact
+    upctwofullzero_fortyfive      0.568764   exact
+    upctwofullzero_fortyseven     0.561211   exact
+    control mean                  0.567757   across-arm sd 0.003595
+    upctwo mean                   0.569888   across-arm sd 0.005471
+  ⭐ HIGHER IS BETTER. ⛔ Occurrence only — says nothing about magnitude.
+
+================================================================================================================
+  ⭐⭐ AXIS 2 — MAGNITUDE CALIBRATION. obs/pred over the OPEN cells. 1.0 is perfect.
+================================================================================================================
+    arm                         open cells    pooled   B=4       B=8       B=16      B=32      B=64      
+    ctlfullzero_fortytwo             4,481    1.6848     7.97     18.69     19.90     19.90     19.90 
+    ctlfullzero_fortythree           5,250    1.3015     4.13      8.86     17.37     17.37     17.37 
+    ctlfullzero_fortyfour            4,651    1.2726     4.95     12.72     21.05     21.05     29.16 
+    ctlfullzero_fortyfive            5,255    1.6171     5.03     10.36     21.66     21.66     21.66 
+    ctlfullzero_fortyseven           3,876    1.6478     5.59     12.13     22.29     22.29     22.29 
+    upctwofullzero_fortytwo          5,818    1.3544     5.78     16.63     40.34     40.34     40.34 
+    upctwofullzero_fortythree        5,080    1.2635     4.77     11.33     21.78     21.78     21.78 
+    upctwofullzero_fortyfour         4,501    1.2349     8.26      7.29     14.43     23.04     23.04 
+    upctwofullzero_fortyfive         5,370    1.5841     5.98     12.95     16.83     16.83     16.83 
+    upctwofullzero_fortyseven        4,722    1.4259     6.13     13.80     22.60     22.60     22.60 
+    control mean                              1.5048   across-arm sd 0.1793
+    upctwo mean                               1.3726   across-arm sd 0.1255
+  ⭐ The B= columns are the LOWEST bin's obs/pred at each bin count (headline B=16).
+  ⛔ A ratio above 1 means the model UNDERSHOOTS. ⚠️ Prediction-selected population,
+     so this is calibration GIVEN the model fired, not calibration over the grid.
+
+================================================================================================================
+  ⭐⭐ AXES 3 & 4 — MAGNITUDE ORDERING. Separation needed. ⭐ LOWER IS BETTER.
+================================================================================================================
+
+    index = mean_draw ⭐ M98's axis
+    arm                                target 0.60         target 0.70         target 0.80
+    ctlfullzero_fortytwo                     3.09x               9.27x              41.33x
+    ctlfullzero_fortythree                   2.54x               7.36x              22.05x
+    ctlfullzero_fortyfour                    3.09x               9.27x              23.33x
+    ctlfullzero_fortyfive                    3.09x               8.08x              23.42x
+    ctlfullzero_fortyseven                   3.09x               9.05x              23.42x
+    upctwofullzero_fortytwo                  3.09x               9.52x              24.33x
+    upctwofullzero_fortythree                2.55x               7.11x              22.10x
+    upctwofullzero_fortyfour                 3.09x               9.29x              24.38x
+    upctwofullzero_fortyfive                 2.45x               7.03x              22.33x
+    upctwofullzero_fortyseven                3.33x               9.05x              46.83x
+    control mean                      2.98x ± 0.22        8.61x ± 0.76       26.71x ± 7.33
+    upctwo mean                       2.90x ± 0.34        8.40x ± 1.09       27.99x ± 9.47
+
+    index = gate ⭐ M99's axis
+    arm                                target 0.60         target 0.70         target 0.80
+    ctlfullzero_fortytwo                     2.38x               6.04x              22.05x
+    ctlfullzero_fortythree                   2.38x               6.05x              22.05x
+    ctlfullzero_fortyfour                    2.38x               6.36x              22.08x
+    ctlfullzero_fortyfive                    2.41x               7.08x              23.42x
+    ctlfullzero_fortyseven                   2.38x               6.06x              22.33x
+    upctwofullzero_fortytwo                  2.39x               6.05x              22.05x
+    upctwofullzero_fortythree                2.27x               6.05x              22.10x
+    upctwofullzero_fortyfour                 2.38x               6.19x              22.05x
+    upctwofullzero_fortyfive                 2.38x               6.19x              23.42x
+    upctwofullzero_fortyseven                2.38x               7.11x              22.08x
+    control mean                      2.38x ± 0.01        6.32x ± 0.40       22.39x ± 0.53
+    upctwo mean                       2.36x ± 0.04        6.32x ± 0.40       22.34x ± 0.54
+
+================================================================================================================
+  ⭐⭐ THE READOUT — the four axes side by side, by form.
+================================================================================================================
+    axis                                         control            upctwo   better
+    occurrence (AP, higher better)                0.5678            0.5699   upctwo
+    calibration (obs/pred, 1.0 ideal)             1.5048            1.3726   upctwo
+    ordering, draws (lower better) @0.70            8.6067            8.3984   upctwo
+    ordering, gate (lower better) @0.70            6.3191            6.3167   upctwo
+
+  ⚠️ The form gap on ordering is 0.2083x against the control's own across-arm sd of 0.7638x ⇒ BELOW the seed floor.
+
+  FALSIFIERS
+    F37 did not fire — every one of the ten arms reproduced its own committed anchor exactly
+    F38 did not fire — control mean_draw 8.6067x vs M98 8.61x (|Δ| 0.0033) · control gate 6.3191x vs M99 6.32x (|Δ| 0.0009) · tol 0.05
+    P-77 HELD — 10 of 10 arms cross 0.70 inside 4x-16x
+    P-78 HELD — the gate beats mean_draw at 0.70 on 10 of 10 arms (holds at 8+)
+    P-79 HELD — form gap 0.2083x vs control seed sd 0.7638x
+    P-80 HELD — 10 of 10 arms undershoot by 20% or more
+
+  ⛔ Chance on axes 3/4 is exactly 0.5. ⛔ A separation needs its target.
+  ⛔ Axis 2 is a calibration statistic on a prediction-selected set; axes 3/4 are
+     discrimination statistics on an outcome-selected set. They are not commensurable.
+  ⚠️ Every ± is across-ARM spread — reproducibility, not sampling uncertainty. A
+     bootstrap interval on the crossing is still OWED (M98).
