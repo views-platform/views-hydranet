@@ -343,11 +343,23 @@ realised alignment of two smooth fields has **far larger variance** than the ali
 field with a random relabelling, because a smooth field's effective sample size is far below `n`.
 Permutation destroys `x`'s autocorrelation and therefore **understates the null variance**.
 
-⇒ ⛔ **The test is ANTI-CONSERVATIVE. It rejects too often.** This is the classical
-spurious-association-between-autocorrelated-fields problem: **Clifford, Richardson & Hémon (1989)**
-*Biometrics* 45, 123–134; **Dutilleul (1993)**; the toroidal-shift literature in ecology and
-geostatistics. ⚠️ Citations relayed from `opponent` and **not yet locator-audited** — flagged for
-`library` before they are quoted in anything published.
+⇒ ⛔ **The test is ANTI-CONSERVATIVE. It rejects too often.**
+
+⛔⛔ **REBUILT 2026-11-09.** v1 rested this on Clifford/Richardson/Hémon (1989) and Dutilleul (1993).
+⛔ `library` reports the library holds **neither** — no PDF, no metadata. A finding that changed the
+design cannot rest on a reference nobody here has opened. ⇒ **The claim is now derived from this
+dossier's own lemmas**, in four parts with three epistemic statuses, in `02_PSEUDOCODE.md` §4.4:
+
+| | | status |
+|---|---|---|
+| **(a)** validity | the randomisation hypothesis is **false** when neither vector is exchangeable | ⭐ **logic alone** — no direction, no citation, no empirical input |
+| **(b)** direction | in the `b`-fold autocorrelated limit, the permutation null is centred **too low by a factor of order `b`**: `(H_G/G)/(H_n/n) = b·(H_{n/b}/H_n) > 1` for `b > 1`, built from §4.1 and the tie-collapse lemma | ⭐ **DERIVED**, and `H-f`'s undetermined constant **cancels** |
+| **(c)** mechanism | the distortion needs **JOINT** autocorrelation. With `x` smooth and `y` i.i.d. the test is **CONSERVATIVE** ⇒ a **three-point** discriminating prediction, not one | ⭐ derived; makes the test of the mechanism real |
+| **(d)** magnitude | the effective `b` on our data is **unknown** | ⛔ **UNMEASURED** — (c)'s step 4 is the evidence |
+
+⭐⭐ And (d) promotes **`n_eff = n/b`** to the parameter that *sets* the distortion ⇒ it is the **first
+number (c) prints**, because it estimates how badly `PERMUTE` is wrong before a single replicate is
+spent. ℹ️ The two papers are owed as **historical attribution** only, and stay unquoted until acquired.
 
 We are squarely inside it: `mu` is a smooth spatial field by construction (shared features,
 neighbourhood structure), and fatalities are strongly clustered in space and time. ⇒ The error runs
@@ -371,7 +383,11 @@ out as written, it would have **locked the vacuous version in.**
 | # | scheme | preserves | cost |
 |---|---|---|---|
 | ⭐ 1 | **cyclic / toroidal shift** — shift `x` as a whole against `y` (in space, or pair month `t`'s `x` with month `t+k`'s `y`) | `x`'s autocorrelation **exactly**; needs **no model** of the dependence | ⚠️ under a time shift the `y` multiset is **not** fixed (end months drop), so `UNC_0` **moves per replicate** and §5.5's invariance dies ⇒ recompute `UNC_0` inside the loop and say so |
-| 2 | **restricted (stratified) permutation** within country-month, or within month | exact under *within-stratum* exchangeability — far more defensible | power |
+| 2 | **restricted (stratified) permutation** within a **SPATIAL** stratum (country / region) | exact under *within-stratum* exchangeability — far more defensible | power |
+
+⛔ **CORRECTED 2026-11-09.** v1 offered *"or within month"*. That addresses nothing: `B2` is about
+**spatial** autocorrelation, and permuting within a month destroys the within-month spatial alignment
+that **is** the problem. The strata must be spatial.
 | 3 | report `n_eff` | — | tells the reader the test's real resolution |
 
 ⛔ **Whichever is chosen, the exchangeability unit IS the null** and belongs in §8's pre-declaration
@@ -404,8 +420,13 @@ against the **training** marginal. Then:
 - it has the **same structure deployment will face**;
 - and ⇒ `UNC_0`'s own in-sample optimism (`Ĝ` is the ECDF of the very `y` it scores, §7.3) **vanishes**.
 
-ℹ️ This is `Henzi2021`'s own usage — their applications report out-of-sample CRPS of IDR against
-climatology — so it is the paper's idiom, not an invention.
+⛔ **CORRECTED 2026-11-09 — v1 attributed this design to the paper and `library` found that wrong.**
+What is `Henzi2021`'s (§5.4): the **temporal train/test split** and reporting out-of-sample CRPS. ⛔
+What is **NOT** theirs: the climatology comparison. Their references are the **raw ensemble** and
+competing postprocessing methods (BMA, EMOS, HCLR); the marginal appears as a reference **nowhere in
+the paper**, and they report raw CRPS, not a skill score against a marginal. ⇒ **The temporal split is
+their idiom; `SKILL = 1 − CRPS_oos/UNC_oos` against the training marginal is OURS.** Same error class
+as `N10`: my own design attributed to a source.
 
 ⇒ **Both are reported, and they answer different questions:**
 
@@ -477,7 +498,7 @@ Each of these **changes the null**, so each is a free parameter until written do
 | H-c | `DSC/UNC_0` has large sampling variance on a 1–2,482 tail | ⛔ **UNTESTED**. `N4` precedent: `MCB/UNC` 4.32% against a floor of 11.91% |
 | H-d | `mu` is dense enough to order 2,905 events | ⛔ **UNTESTED AND UNOBSERVED** — `mu` has never been on disk. ⚠️ And §4.3/§4.4 show both of v1's guesses about the consequence were wrong, so this is to be **measured** |
 | ⭐⭐ H-e | **(REWRITTEN.)** The resampling scheme is correctly sized **under our spatial and temporal dependence** | ⛔ **UNTESTED**, and ⛔ the originally planned test of it was **vacuous** (§5.3). Must plant dependent fields |
-| ⭐ H-f | **(NEW.)** The in-sample null bias is `O(log n / n)` ≈ `2.7 × 10⁻³` at `n = 2,905` | ⛔ **A SHARP, FALSIFIABLE PREDICTION** (§4.1). Constant not derived; tie correction argued by direction only |
+| ⭐ H-f | **(NEW, REWORDED 2026-11-09.)** The in-sample null bias on **`R*`** is of **order `log n / n`** — constant **not derived**, so expect `10⁻³`–`10⁻²`, and ⭐ **the prediction under test is the ORDER, not the value.** ⛔ v1 wrote `≈ 2.7 × 10⁻³`, which silently sets the constant to 1; `opponent` flagged that I was over-claiming its own result, which is exactly the error class this dossier exists to prevent. ⭐ And state it on **`R*`**, not `DSC_ORD`: the per-threshold null inflation is proportional to that threshold's own `p_j(1−p_j)`, so the `w_j` weights **cancel** in the ratio ⇒ the prediction is robust to §7.2's tail dominance even though `DSC_ORD` is not | ⛔ **A SHARP, FALSIFIABLE PREDICTION** (§4.1); tie correction argued by direction only |
 | H-g | **(NEW.)** The out-of-sample IDR skill (§6) is the decision-relevant number and is positive | ⛔ **UNTESTED** — and it is what the decision hangs on |
 
 ⇒ ⛔ **No design decision is taken.** (b) is pseudocode for §3, §5.4 and §6; (c) plants known answers
@@ -493,7 +514,7 @@ and asks whether H-a…H-g behave as stated, **for the reasons stated**.
 | `Henzi2021` | `papers/Henzi2021_IsotonicDistributionalRegression.pdf` | Thm 2.1; eq. (10); §2.2 IDR≡PAV; §2.3 eq. (15) + distinct-`y`; ⭐ §3 opening. `library`: 4/4 CONFIRMED, pp. 8, 10, 15 — ⭐ ellipsis verified honest |
 | `Gneiting2023` | `papers/Gneiting2023_ConditionalCalibration.pdf` | `R*` §3.4 eq. (32), Thm 3.6 p. 3256, `R²` nesting p. 3255; decomposition = ⛔ **Thm 2.23** (p. 3243), **not** 2.26 (p. 3246, a different result about calibration under translation). `library`: CONFIRMED + the scope note in §3.2 |
 | `Gneiting2007` | `papers/Gneiting2007_StrictlyProperScoringRules.pdf` | strict properness of CRPS on the finite-first-moment class (§4.4) |
-| ⚠️ relayed | Clifford/Richardson/Hémon 1989; Dutilleul 1993 | §5.2. **Not locator-audited** — do not quote until they are |
+| ⛔ **NOT HELD** | Clifford/Richardson/Hémon 1989; Dutilleul 1993 | §5.2. `library` 2026-11-09: **the library holds NEITHER** — no PDF, no metadata. ⇒ The claim no longer rests on them (§5.2 is **re-derived** from this file's own lemmas, see `02_PSEUDOCODE.md` §4.4); they are owed as **historical attribution** and stay **unquoted** until acquired and locator-audited |
 | in-repo | `reports/2026-09-30_evaluation_learning_report.md` | `N4`, `N11` |
 | in-repo | `reports/2026-11-04_rank_coupled_body_programme.md` | §2.3 and its *"before the first fit"* deadline |
 | in-repo | `reports/2026-11-04_delivered_gate_lookup/tools/e1_data.py:13` | ✅ one month per origin at h1 ⇒ no duplicate rows |
