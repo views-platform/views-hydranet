@@ -3016,6 +3016,62 @@ scores 0.81 at wide separation **and predicts 11.1 for a 2,482-fatality event.**
 information* from *the composition destroyed it*. Conditioning the same instruments on the **gate**
 is the measurement that separates them, it is CPU-only, and it is not done.
 
+### ⭐⭐ N11 — `MCB` / `DSC` / `UNC`, WRITTEN OUT ONCE, AND THE SECOND PAPER THIS REPORT DOES NOT CITE
+
+⚠️ **Recorded 2026-11-08 at Simon's request (#578), so neither the terms nor the source is lost again.** No
+new measurement. ⇒ This entry is a *reference*, and the one new fact in it is an absence.
+
+**The three components, expanded**, because this report uses the acronyms 40+ times and never spells
+them out:
+
+| | stands for | what it measures | reading for us |
+|---|---|---|---|
+| **MCB** | **M**is**c**ali**b**ration | how wrong the **numbers** are | our known defect: `11.1` predicted for a `2,482` truth |
+| **DSC** | **D**i**sc**rimination | how useful the **ordering** is | our known skill: ordering holds at ~`8.6x` separation (`M98`) |
+| **UNC** | **Unc**ertainty | how hard the **problem** is | a property of the data, not of any model |
+
+⇒ `S̄ = MCB − DSC + UNC`: *the score is the difficulty of the problem, plus what was lost on the
+numbers, minus what was earned on the ordering.*
+
+#### The two sources, and which one is missing
+
+`Appendix E.3` already credits **`Gneiting2023_ConditionalCalibration`** for the decomposition — the
+general theorem, for any identifiable functional with a consistent scoring function (⛔ **Thm 2.23**,
+not 2.26, per `E.0`'s correction).
+
+⛔ **What this report does not cite anywhere is `Arnold2024_CRPSDecompositions`**
+(`~/brain/9_library/papers/Arnold2024_CRPSDecompositions.pdf`, *Electron. J. Statist.*), which is the
+one that makes the decomposition **computable for CRPS on our data**:
+
+- **§3.1 eq. (24)–(25):** `CRPS = MCB_ISO − DSC_ISO + UNC_0`, where the calibration step is **isotonic
+  distributional regression** (`Henzi2021`) rather than auto-calibration. ⇒ An estimator, not a theorem.
+- **Prop. 3.1 — the two `iff`s, which are why this is worth having:**
+  `MCB_ISO = 0` ⟺ the forecast *is* its own isotonic recalibration (nothing to fix), and
+  `DSC_ISO = 0` ⟺ **the recalibrated forecast is the constant marginal** ⇒ ⭐ **`DSC_ISO = 0` means
+  the index carries no ranking information at all.** Not "biased" — useless.
+- Nonnegativity of all three components is proved there, by the feasibility argument this repo already
+  re-derived by hand for `G-R1` (see `H3`, §2.12 above): both the forecast itself and the constant
+  marginal are admissible isotonic candidates, so neither component can go negative.
+
+#### ⛔ What it does NOT escape — `N4` applies in full
+
+`DSC_ISO` is an **in-sample isotonic fit**, so it is subject to exactly the hazard `N4` records for
+`MCB`: *the refit extracts apparent signal from a shuffled index.* ⚠️ And `2026-11-07`'s bootstrap
+showed the related min-type `crossing` statistic sits at the **optimistic edge** of its own sampling
+distribution (`P(bootstrap ≤ point)` = 0.190 and 0.043). ⇒ **A `DSC_ISO` figure without a permutation
+floor and a bootstrap interval on its own population is not a result.** Same rule, no exemption.
+
+#### Why this matters to the rank-coupled design
+
+⭐⭐ The `MCB` / `DSC` split is not only a score here — **it is the repair plan.** `v1` keeps the
+ordering and replaces the magnitudes from an empirical distribution, which is `MCB → 0` at fixed `DSC`.
+⇒ If `DSC_ISO` on the ordering source (`mu`, the regression output) is near zero, `v1` is preserving
+something that is not there. ⛔ **That number has never been measured**, and §2.3 of
+`reports/2026-11-04_rank_coupled_body_programme.md` sets its deadline as *"before the first fit"*.
+
+⚠️ **And `MCB`/`DSC` are not in the battery.** §2.6 of that programme is still ⬜ unsettled; our live
+instruments are `AP` and the `crossing`. Adding the decomposition is an open decision, not a done one.
+
 ---
 
 ## Appendix A — The instrument inventory
