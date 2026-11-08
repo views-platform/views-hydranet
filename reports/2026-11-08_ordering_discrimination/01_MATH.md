@@ -1,33 +1,49 @@
 # (a) The math — what quantity we want, exactly
 
-**Date:** 2026-11-08 · **Status:** step (a) of three. ⛔ **No design decision is taken in this file.**
-(b) pseudocode and (c) a synthetic simulation with a planted answer come next, and only then is any
-choice here final.
+**Date:** 2026-11-08 · **Status:** step (a) of three · ⛔ **REVISED 2026-11-08 after two independent
+audits. See §0 for what changed.** ⛔ **No design decision is taken in this file.** (b) pseudocode and
+(c) a synthetic simulation with a planted answer come next, and only then is any choice here final.
 
 ⛔ **Why this file exists.** Simon, 2026-11-08: nothing is decided until there is *rigorous math,
 pseudocode, and a simulation proving it works the way I think it does for the reasons I think it
 does.* Measured on this codebase: on **"what"** questions I score ~**6/10** from memory alone; on
 **"why"** questions **0/10**. ⇒ Every mechanism claim below is either **derived here** or **labelled
-as a hypothesis for (c)**. Nothing is asserted from recall.
+as a hypothesis for (c)**.
 
-ℹ️ Every citation below was read from the PDF text in `~/brain/9_library/papers/_extracted_text/`
-while writing this file, not recalled.
+---
+
+## 0 ⛔ THE AUDIT, AND WHAT IT BROKE
+
+Two seats, run in parallel on deliberately different jobs so neither could ratify the other.
+
+| seat | job | result |
+|---|---|---|
+| `library` | locator audit — does each paper say this, at this location | ⭐ **11 of 11 CONFIRMED**, page numbers given; one scope note (§3.2) |
+| `opponent` | adversarial maths — are the derivations valid | ⛔ **two BREAKS**, one sub-claim broken, one statistic shown near-vacuous, plus six additions |
+
+⭐ **Both breaks were re-derived here before being accepted.** Neither is taken on the auditor's word.
+
+| # | what was wrong in v1 of this file | where |
+|---|---|---|
+| ⛔⛔ **B1** | **§4.1 misread the `Henzi2021` quote it reproduced.** I claimed a distinct-valued scalar index gives `R* = 1` "from nothing". The quote's first extreme requires *"a perfect monotonic relationship to the response"* — a perfect score from **perfect information**. Its second extreme ("no order relations at all") is an **antichain**, which needs a *partial* order and is **unreachable under the total order on R**. ⇒ The null bias is **`O(log n / n)`**, not maximal — I overstated it by ~3 orders of magnitude, in the direction that makes my own instrument look useless | §4.1 |
+| ⛔⛔ **B2** | **§5 asserted exactness from the wrong premises.** Preserving both marginals, `n` and `d` is bookkeeping, not exactness. Exactness needs the **randomisation hypothesis**, which needs exchangeability — and our cells are a **spatial panel**. ⇒ The test is **anti-conservative**, in the one direction that waves `v1` through on a null index. ⛔ Worse: (c) as I specified it would have planted *exchangeable* data and returned a clean bill, **planting the assumption under test** | §5 |
+| ⛔ **B3** | **§3.3's gloss was a false biconditional.** `DSC_ORD = 0` does **not** mean "no ranking information": `x = −y` gives `DSC_ORD = 0` with perfect information. The statistic is one-sided | §3.3 |
+| ⛔ **B4** | **§4.3's "bias is monotone in `d`" is false** — `d` is not a sufficient statistic for fitting freedom. Replaced by a stronger statement on the refinement chain | §4.3 |
+| ⚠️ **B5** | **§4.4's `DSC_MAX` is near-vacuous in the regime we expect.** As `d → n` it → `UNC_0`, so for a continuous `mu` on 2,905 cells it adds nothing. Replaced by a coarsening sweep that is strictly more informative | §4.4 |
+| ⚠️ **B6** | **§3.2 mis-attributed `R*`.** `Gneiting2023`'s general form is `(DSC − MCB)/UNC` and **can go negative**; `DSC/UNC` is the special case where `MCB` is absent | §3.2 |
+
+⭐ **And the audit's largest contribution was not a break but an omission: the decision is a
+generalisation question and every statistic in v1 of this file was in-sample.** See §6.
 
 ---
 
 ## 1 Setup and notation
 
-A **population** of cells indexed `i = 1, …, n`, each carrying
+Cells `i = 1, …, n`, each carrying truth `y_i ∈ Z≥0` and a **candidate ordering index** `x_i ∈ R`.
+Optionally a predictive distribution `F_i`.
 
-| symbol | meaning | type |
-|---|---|---|
-| `y_i` | the truth — observed fatalities | `Z≥0` |
-| `x_i` | a **candidate ordering index** — the thing whose ranking we are testing | `R` |
-| `F_i` | *optionally*, an actual predictive distribution for cell `i` | CDF |
-
-⭐ **`x` is the object under test, not `F`.** The question `v1` needs answered is *"does this ordering
-carry information about magnitude"*, and an ordering is a scalar per cell. This distinction is
-§2 and it is the main content of this file.
+⭐ **`x` is the object under test, not `F`.** `v1` keeps the model's ordering and replaces its
+magnitudes, so the question is about an ordering, and an ordering is a scalar per cell.
 
 **Populations.** Three, never combinable (`C-351`):
 
@@ -35,249 +51,449 @@ carry information about magnitude"*, and an ordering is a scalar per cell. This 
 |---|---|---|---|
 | `P_all` | all 842,634 cell-months | nothing | occurrence + magnitude |
 | `P_open` | `(draws > 0).any()` | the **prediction** | calibration (`Gneiting2011`) |
-| ⭐ `P_event` | `y_i > 0` — the 2,905 event cells | the **outcome** | ⛔ **discrimination only** |
+| ⭐ `P_event` | `y_i > 0` — 2,905 event cells | the **outcome** | ⛔ **discrimination only** |
 
-⇒ **Everything in this file is on `P_event`**, because `v1` reorders magnitudes *among cells that
-fire*, and occurrence is already measured separately (AP 0.5678, `M100` axis 1). ⛔ Outcome-selected
-⇒ no calibration claim may be read off any number defined here, ever.
+⇒ Everything here is on `P_event`. ⛔ Outcome-selected ⇒ **no calibration claim** may be read off any
+number defined in this file.
+
+✅ **Checked, not assumed** (`opponent` raised it; `e1_data.py:13`): at h1 *"the origins are months
+457..469, **one month per origin**"* ⇒ `(cell, target month)` is **unique**, so there are no duplicate
+or near-duplicate rows inflating `n`. ⚠️ **This is an h1 property only** — at h36 several origins reach
+the same target month and the duplicate hazard is real.
 
 ---
 
-## 2 ⛔⛔ TWO DIFFERENT STATISTICS, AND THEY MUST NOT SHARE A NAME
+## 2 TWO ORDER STRUCTURES, ONE STATISTIC
 
-This is the first substantive result of doing the math, and it is a correction to how I described the
-plan in conversation.
+### 2.1 `DSC_ISO` — Arnold's form
 
-### 2.1 `DSC_ISO` — Arnold's statistic
-
-`Arnold2024_CRPSDecompositions` §3.1 eq. (24)–(25) decomposes **the score of a forecast we already
-have**. Its IDR covariate is `F_1, …, F_n` *themselves*, ordered by the **stochastic order** `≤_st`:
+`Arnold2024` §3.1 eq. (24)–(25) decomposes **the score of a forecast we already have**, with IDR
+covariates `F_1, …, F_n` *themselves* under the **stochastic order** `≤_st`:
 
 > *"we apply IDR to the data (F_1, y_1), …, (F_n, y_n) … where the covariates are F_1, …, F_n and the
-> partial order on the covariate space is the stochastic order"*
+> partial order on the covariate space is the stochastic order"* — `library`: **CONFIRMED**, p. 5005
 
-⇒ `CRPS = MCB_ISO − DSC_ISO + UNC_0`. The subject is **the delivered forecast**.
+### 2.2 `DSC_ORD(x)` — our form
 
-### 2.2 `DSC_ORD(x)` — the statistic §2.3 of the programme actually asks for
+IDR of `y` on the **scalar** `x` under the **total order `≤` on R**. Plain `Henzi2021` IDR.
 
-What we want is different: *given only the ordering induced by `x`, how much discrimination is
-available?* That is IDR with a **scalar** covariate under the **total order `≤` on R** — plain
-`Henzi2021` IDR, no distributions in the covariate at all.
+⛔ **CORRECTED (B-audit, item 1a).** v1 of this file said these *"are not the same number and neither
+is an estimate of the other"*. **Too strong.** If `F_i = F(· ; x_i)` is any family **stochastically
+increasing** in `x`, then `F_i ≤_st F_j ⟺ x_i ≤ x_j`, the induced order **is** the total order on `x`,
+and the two IDR problems are *literally identical*. ⇒ It is **one statistic under two order
+structures**, not two statistics.
 
-⛔ **These are not the same number and neither is an estimate of the other.** Quoting one as the other
-is the `C-351` defect in its exact form: same estimator, different population and different transform.
+⭐ That reframing is not cosmetic — it is what **licenses** §3.3's use of `Arnold2024` Prop. 3.1, which
+this file already depends on.
 
-⇒ **Naming rule for this dossier, to be added to `GLOSSARY.md`:**
+⚠️ **And it imposes a condition §4.2 was treating as settled.** `DSC_ISO(F) ≥ DSC_ORD(mu)` requires
+the orders be **nested** — `mu` must be an order-preserving functional of `F`. If `mu` is the
+regression head's mean while the delivered draws pass through gating and composition, `F_i ≤_st F_j`
+need **not** give `mu_i ≤ mu_j`, the orders are **not nested**, and **neither `DSC` dominates**. ⇒ One
+line of code settles it. **Until it is run, no comparison between the two is licensed.**
 
-| name | covariate | order | subject |
-|---|---|---|---|
-| `DSC_ISO` | the forecast `F_i` | `≤_st` (partial) | ⭐ how good **this forecast** is |
-| ⭐ `DSC_ORD(x)` | the index `x_i ∈ R` | `≤` (total) | ⭐ how good **this ordering** is |
+### 2.3 ⭐⭐ Why `DSC_ORD(x)` is a genuine ceiling for `v1` — by construction, not analogy
 
-⚠️ A third quantity is constructible — IDR of `y` on `x` used to decompose `F`'s score — and it is
-**not defined here and not to be computed**. It would mix a forecast's miscalibration with a
-different variable's ordering.
+This is the strongest result the audit added, and it is what makes the measurement decision-relevant.
+
+`v1` emits, per cell, the distribution of the `k`-th order statistic of draws from a fixed pool, where
+`k` is the model's rank. The `k`-th order statistic of `n` i.i.d. draws is **stochastically increasing
+in `k`**. ⇒ `v1`'s family is stochastically monotone in `x` ⇒ it is **feasible** for the IDR
+minimisation ⇒
+
+```
+            CRPS(v1)  ≥  CRPS_ORD(x)        hence        DSC_ORD(x)  ≥  DSC(v1)
+```
+
+⭐ **`DSC_ORD(x)` is the best any rank-coupled emission built on `x` can possibly do.** A low value is
+therefore a *hard* stop on `v1`, not a suggestive one. ∎
 
 ---
 
-## 3 The estimator, written out
+## 3 The estimator
 
 ### 3.1 IDR on a totally ordered covariate
 
-`Henzi2021` Theorem 2.1 gives existence and uniqueness of the CRPS-based isotonic regression `F̂`.
-For a **total order** with `x_1 < … < x_n`, their eq. (10) gives it **in closed form** — a max–min
-formula over the response indicators, credited to Barlow et al. (1972) eqs. (1.9)–(1.13):
+`Henzi2021` Thm 2.1 gives existence and uniqueness (`library`: CONFIRMED, p. 8). For a total order
+with `x_1 < … < x_n`, eq. (10) gives it in closed form, credited to Barlow et al. (1972) (CONFIRMED,
+p. 8):
 
 ```
             F̂_i(z) =  min      max     (1/(j−k+1)) · Σ_{l=k..j} 1{y_l ≤ z}
                      k=1..i   j=k..n
 ```
 
-and `Henzi2021` §2.3 eq. (15) gives the equivalent, and cheaper, characterisation — **one isotonic
-regression per threshold**:
+and §2.3 eq. (15) gives the cheaper equivalent — **one isotonic regression per threshold** (CONFIRMED,
+p. 10):
 
 ```
-            F̂(z) = argmin  Σ_i ( η_i − 1{y_i ≤ z} )²        over η ∈ [0,1] non-increasing in x
+            F̂(z) = argmin  Σ_i ( η_i − 1{y_i ≤ z} )²     over η ∈ [0,1] non-increasing in x
 ```
 
-Two facts that make this computable rather than theoretical, both stated in §2.3:
+Two facts that make it computable, both verbatim in §2.3:
 
 - ⭐ The objective is **constant between the distinct values of `y`**, so only the `m` distinct truths
-  need thresholds — not all `i/j` quantile levels, which the paper calls *"computationally
-  prohibitive"*. On `P_event`, `m` is the number of distinct fatality counts among 2,905 events.
-- ⭐ For a total order, **IDR and the PAV algorithm coincide** (§2.2, citing Barlow Thm 1.12) ⇒
-  `sklearn.isotonic.IsotonicRegression` is an admissible implementation at each threshold, and the
-  per-threshold fits are automatically nested into a valid CDF.
+  need thresholds; quantile-level approaches are *"computationally prohibitive"*.
+- ⭐ For a total order, **IDR ≡ PAV** (§2.2, citing Barlow Thm 1.12) ⇒ `sklearn.isotonic` is an
+  admissible implementation at each threshold.
 
-### 3.2 The three components
+### 3.2 The components
 
-With `F̂_i` the IDR solution and `Ĝ` the **empirical CDF of `y_1, …, y_n`** (the marginal — the
-"no-model" forecast, the same distribution for every cell):
+With `Ĝ` the **empirical CDF of `y_1, …, y_n`** (the marginal — the no-model forecast):
 
 ```
-  CRPS_ORD(x) = (1/n) Σ_i crps( F̂_i , y_i )          the recalibrated score
-  UNC_0       = (1/n) Σ_i crps( Ĝ   , y_i )          the marginal's score
+  CRPS_ORD(x) = (1/n) Σ_i crps( F̂_i , y_i )
+  UNC_0       = (1/n) Σ_i crps( Ĝ   , y_i )
   DSC_ORD(x)  = UNC_0 − CRPS_ORD(x)                  ⭐ THE QUANTITY
-  R*(x)       = DSC_ORD(x) / UNC_0 ∈ [0, 1]          ⭐ THE HEADLINE, dimensionless
+  R*(x)       = DSC_ORD(x) / UNC_0 ∈ [0, 1]
 ```
 
-⛔ **`MCB` is NOT defined for `DSC_ORD`.** There is no forecast in the construction, so there is
-nothing to be miscalibrated. ⇒ This instrument answers *"is there an ordering to preserve"* and says
-**nothing** about whether any forecast built on it would be calibrated. Stating otherwise is the
-`N4`-class error.
+⚠️ **CORRECTED (`library`, scope note).** `Gneiting2023`'s universal coefficient is
+**`R* = (DSC − MCB)/UNC`** (§3.4 eq. (32); `R* ∈ [0,1]` is Thm 3.6, p. 3256) and **can go negative out
+of sample**. `DSC/UNC` is the **special case where `MCB` is absent by construction**, which is ours.
+⛔ v1 of this file implied `DSC/UNC` was his definition. It is not.
 
-`R*` is `Gneiting2023_ConditionalCalibration`'s universal coefficient, which nests classical `R²`.
-`R* = 0` ⇔ the ordering buys nothing; `R* = 1` ⇔ the recalibrated forecast is a point mass at the
-truth in every cell.
+### 3.3 ⭐ `DSC_ORD` is exactly the threshold-integral of CORP discrimination
 
-### 3.3 The two `iff` endpoints, and why they are the reason to bother
+Since `CRPS = ∫ BS(z) dz` (`C-55`), eq. (15)'s threshold-`z` fit **is** the PAV/CORP recalibration of
+`1{y ≤ z}`, and eq. (15)'s minimisations are **separable across `z`**:
 
-`Arnold2024` Prop. 3.1, applied to §3.2's construction:
+```
+            DSC_ORD(x)  =  ∫ [ BS(Ĝ at z) − BS(PAV fit at z) ] dz  =  ∫ DSC_CORP(z) dz     exactly
+```
 
-- `DSC = 0` ⟺ `F̂_i = Ĝ` for all `i` ⇒ ⭐ **the recalibrated forecast collapsed into the no-model
-  forecast.** The index carries **no** ranking information. Not weak — none.
-- Non-negativity `DSC ≥ 0` is a **theorem, not an empirical finding**: `Ĝ` repeated `n` times is
-  itself an admissible candidate in the constrained minimisation (it satisfies every order relation
-  trivially), so the minimum cannot exceed it. ⇒ A negative `DSC` is an implementation bug, which
-  makes it a **gate**, not a result.
+⭐⭐ **Payoff: one fit yields a `DSC` CURVE over magnitude thresholds, free.** And that — not the
+scalar — is what answers *"does the ordering carry **magnitude** information"* rather than *"any
+information"*. An index that separates 1 from 2 and is noise above 10 has its curve **piled at low
+`z`**, visibly. ⇒ **The curve is the headline; `R*` is its summary.** Given that `UNC_0` on a 1–2,482
+outcome is dominated by a handful of events (§7.2), aggregating first would hide exactly the failure
+we care about.
+
+### 3.4 The endpoints, and ⛔ the one that was glossed wrongly
+
+`Arnold2024` Prop. 3.1 (`library`: CONFIRMED, both iff directions, p. 5005):
+
+- `DSC = 0` ⟺ `F̂_i = Ĝ` for all `i` — the recalibrated forecast collapsed into the no-model forecast.
+- `DSC ≥ 0` is a **theorem**: `Ĝ` repeated `n` times is admissible, so the minimum cannot exceed it.
+  The paper's own proof says so (*"A further admissible n-tuple … is the constant n-tuple with
+  entries `F̂_mg`, whence `DSC_ISO ≥ 0`"*). ⇒ **A gate, not a result.**
+
+⛔⛔ **B3 — CORRECTED.** v1 of this file glossed the first bullet as *"the index carries no ranking
+information. Not weak — none."* **That is false.** Counterexample: `x = −y` exactly. IDR constrains `y`
+to be *increasing* in `x`, so the fit is flat, `F̂_i = Ĝ`, `DSC_ORD = 0` — while `x` determines `y`
+**perfectly**. The paper's `iff` is about the *recalibrated forecast*; my gloss added a claim about
+*information* that does not follow.
+
+⇒ **`DSC_ORD = 0` means no isotone-INCREASING information.** ⛔ Mitigation, and it is a free parameter
+until written down: **the sign of `x` is pre-declared**, and `DSC_ORD(x)` and `DSC_ORD(−x)` are both
+computed. This removes a whole class of false negatives on indices whose natural sign is inverted (an
+inverse intensity, a distance, a non-occurrence logit).
+
+### 3.5 `MCB` is deferred, not undefined
+
+v1 said `MCB` is undefined here. ⚠️ **Better: not defined *yet*.** The moment the rank→magnitude map is
+named, §2.3's monotonicity makes `v1`'s IDR recalibration *be* `F̂`, so `Arnold2024`'s decomposition
+applies verbatim:
+
+```
+            MCB_v1 := CRPS(v1) − CRPS_ORD(x)  ≥ 0            and
+            CRPS(v1) = UNC_0 − DSC_ORD(x) + MCB_v1
+```
+
+⭐ `MCB_v1` is precisely *how much of the available ordering information our chosen emission gives
+away* ⇒ **the same instrument that decides whether to build `v1` grades `v1` once built.**
 
 ---
 
-## 4 ⛔ The bias, derived — and this is where the conversation was wrong in both directions
+## 4 The bias — and both of v1's claims about it were wrong
 
-### 4.1 `DSC_ORD > 0` for a random index. This is not a worry, it is a theorem-adjacent certainty
+### 4.1 ⛔⛔ B1 — the misread quote, and the corrected magnitude
 
-`Henzi2021` §3, opening paragraph, states both extremes explicitly:
+`Henzi2021` §3 opening (`library`: CONFIRMED verbatim, ellipsis honest, p. 15):
 
-> *"In the extreme case of distinct, totally ordered covariate values `x_1, …, x_n` and a perfect
-> monotonic relationship to the response values `y_1, …, y_n`, the IDR distribution associated with
-> `x_i` is simply the point measure in `y_i` … The same happens in the other extreme, when there are
-> no order relations at all. Hence, **the partial order serves to regularize the IDR solution.**"*
+> *"In the extreme case of distinct, totally ordered covariate values `x_1, …, x_n ∈ X` **and a perfect
+> monotonic relationship to the response values** `y_1, …, y_n`, the IDR distribution associated with
+> `x_i` is simply the point measure in `y_i`. The same happens in the other extreme, when there are no
+> order relations at all. Hence, the partial order serves to regularize the IDR solution."*
 
-⇒ Reading that off: `crps(δ_{y_i}, y_i) = 0`, so in either extreme `CRPS_ORD = 0` and
-`DSC_ORD = UNC_0`, i.e. `R* = 1` — **a perfect score, from nothing.** The staircase is a fitted object
-with up to `n` steps and it will fit noise.
+⛔ **v1 of this file conflated the two extremes and concluded `R* = 1` "from nothing".** Reading the
+bolded clause: the first extreme is a perfect score from **perfect information**. And the second
+extreme — *no order relations at all* — is an **antichain**, which requires a **partial** order; under
+the total order on a scalar every pair is comparable, so **that extreme cannot arise in §2.2's own
+setting.**
 
-⛔ ⇒ **A bare `DSC_ORD` figure is uninterpretable.** It is not "slightly optimistic"; its scale is set
-by the fitting freedom, which is a property of `x`'s tie structure and `n`, not of the model. This is
-the formal version of the evaluation report's `N4`.
+**What actually happens, derived.** By eq. (15), IDR at threshold `z` is the PAV regression of
+`1{y ≤ z}` on `x`. PAV's blocks are the vertices of the greatest convex minorant of the partial-sum
+path of the responses in `x`-order. Under `H_0` that path is an **exchangeable random walk**, and by
+**Sparre Andersen** the vertex count of such a walk's convex minorant is **distribution-free**, with
+the law of the cycle count of a uniform random permutation and mean the harmonic number
+`H_n ≈ log n + γ`. ⇒ Under the null the fit pools into **`O(log n)` blocks, not `n`**. (Bernoulli
+increments carry ties, and ties only *merge* vertices, so the count is bounded above by the continuous
+case — the direction is safe.) Per threshold the in-sample explained Brier is `O(log n / n)` of that
+threshold's `UNC`, and by §3.3 the bound carries through the integral:
 
-### 4.2 ⛔ MY HAZARD (b) WAS RIGHT IN DIRECTION AND FOR A WEAKER REASON THAN I GAVE
+```
+            DSC_ORD  ≤  O(log n / n) · UNC_0
+```
 
-In conversation I claimed: our sparse 16-draw CDFs cross ⇒ the stochastic order is partial ⇒ IDR has
-more freedom ⇒ `DSC_ISO` inflates. The **direction is correct and provable**, and it is also stated by
-the authors — *"the partial order serves to regularize"*, with no order relations being the extreme
-that overfits perfectly.
+⇒ ⭐ **At `n = 2,905`, `log n / n ≈ 2.7 × 10⁻³`.** The statistic is close to **unbiased** at our sample
+size — the same adaptivity as the isotonic LSE's `log n / n` risk at a flat truth. ⛔ v1's framing
+(*"a bare figure is uninterpretable; its scale is set by the fitting freedom"*) **understated this
+instrument by roughly its entire range**, and would have had a reader dismiss a real small `R*` as
+"just the bias".
 
-**The derivation** (not recall): if two order relations satisfy `⪯_1 ⊆ ⪯_2` as sets of pairs, then
-the feasible set `C_2 ⊆ C_1`, so `min_{C_1} ≤ min_{C_2}`. A weaker order ⇒ smaller `CRPS_ISO` ⇒
-**larger** `DSC`. ∎
+⚠️ **This is a SHARP PREDICTION FOR (c), not a measurement.** `opponent` states, and I agree, that the
+constant is not derived and the tie correction is argued by direction only. ⇒ **(c) must measure the
+null `R*`.** If it lands near 1, the fit is buggy. If it lands at `10⁻³`–`10⁻²`, the derivation held.
+⭐ Either way (c) becomes a **mechanism** test, not merely a sizing test — which is what the rule
+asks for.
 
-⛔ **But the reason I gave for why it matters was wrong.** I presented it as an argument for using a
-scalar covariate *to avoid overfitting*. §4.1 shows the scalar/total-order case **also** overfits to
-point masses when `x` is distinct-valued. ⇒ The total order is the right choice because it answers the
-right question (§2.2), **not** because it is safe. Both need the null.
+⇒ The *conclusion* (report against a null) stands. Only the magnitude claim is withdrawn.
 
-⚠️ **And the magnitude is still unknown.** The direction is derived; how much `DSC` inflates on our
-sparsity, our `n`, our tie structure, is **not derivable and is a hypothesis for (c)**.
+### 4.2 The inclusion lemma — HOLDS
 
-### 4.3 ⛔⛔ MY HAZARD (d) WAS BACKWARDS, and this is the real find of step (a)
+If `⪯_1 ⊆ ⪯_2` as sets of pairs then `C_2 ⊆ C_1`, so `min_{C_1} ≤ min_{C_2}`: a **weaker** order gives
+a **smaller** `CRPS_ORD` and a **larger** `DSC`. ∎ (`opponent`: HOLDS, both algebra and direction.)
+⚠️ Its *application* to `F` vs `mu` needs §2.2's nesting check, which is not done.
 
-I said: if `mu` turns out heavily tied, that is bad news for the index. ⛔ **Ties cut both ways, and
-`Henzi2021` §3 says which way is which** — ties are *order relations*, and order relations
-**regularise**. So:
+### 4.3 ⛔ B4 — "bias monotone in `d`" is false; the refinement chain is stronger
 
-| `x`'s tie structure | fitting freedom | `DSC_ORD` bias | ceiling on `DSC_ORD` |
+`d` is **not** a sufficient statistic for fitting freedom: two indices with the same `d` but different
+block patterns and orderings have different biases. v1 asserted monotonicity from two endpoints.
+
+⭐ **What is true, from §4.2.** Let `x'` be a **coarsening** of `x` (merge adjacent blocks). Merging
+turns one-directional pairs into mutual ones, so `⪯_x ⊆ ⪯_{x'}`, so `C_{x'} ⊆ C_x`, so
+
+```
+            DSC_ORD(x)  ≥  DSC_ORD(x')      for every realisation — PATHWISE
+```
+
+Pathwise domination ⇒ it holds for the null **expectation and for every quantile** of the null
+distribution. And `DSC_MAX` is non-decreasing under refinement (§4.4). ⇒ *"bias and ceiling move in
+opposite directions"* is a **theorem along a refinement chain** with stochastically ordered nulls —
+far stronger than two endpoints. ⛔ It **cannot** be exported to unrelated indices with similar `d`.
+
+⛔ **And "each against its own null" is necessary but NOT sufficient** — my own worry, confirmed.
+Margins over different nulls have different variances and skew, and a p-value is not an effect size
+(floored at `1/(B+1)`, so two good indices both saturate and become indistinguishable).
+
+⇒ **For genuinely non-nested indices, use a PAIRED permutation:** permute `y` **once** per replicate
+and evaluate **both** indices on the same permuted vector, giving the null of the **difference**
+directly. Absorbs both biases and their correlation. ⭐ Same move as 2026-11-07's paired bootstrap,
+and for the same reason. ⚠️ `M98`/`M99`'s `mean_draw` (1,321 distinct values) vs `gate` (≈64,732)
+comparison has exactly this shape — **flagged, not re-opened**: the crossing is a different estimator
+and whether the argument transfers is a separate question.
+
+### 4.4 The ceiling — valid, and ⚠️ near-vacuous where we expect to be
+
+Let `G_1, …, G_d` be `x`'s tie blocks. ⭐ `x_i = x_j` gives **both** order relations, so `F̂_i ≥ F̂_j`
+*and* `F̂_j ≥ F̂_i` pointwise ⇒ `F̂` is **forced** constant on blocks, not merely allowed to be.
+
+**The properness step, with the condition v1 omitted.** CRPS is **strictly** proper relative to the
+class of probability measures with **finite first mean** (`Gneiting2007_StrictlyProperScoringRules`).
+Properness quantifies over **all** `Q` in that class, not only over data-generating laws, and
+
+```
+            E_{Y ~ Ĝ_k}[ crps(P, Y) ]  =  (1/|G_k|) Σ_{i∈G_k} crps(P, y_i)      identically
+```
+
+so applying it with `Q = Ĝ_k` is legitimate — *"the true distribution" is a red herring*. Strictness
+gives uniqueness of the minimiser. Relaxing the between-block constraint can only lower the objective:
+
+```
+            DSC_ORD(x)  ≤  DSC_MAX(x) := UNC_0 − (1/n) Σ_k Σ_{i∈G_k} crps( Ĝ_k , y_i )
+```
+
+At `d = 1`, `Ĝ_1 = Ĝ` and `DSC_MAX = 0` exactly, recovering §3.4's endpoint. ∎
+
+⚠️⚠️ **B5 — but the regime defeats it.** As `d → n` blocks become singletons, `Ĝ_k = δ_{y_i}`,
+`crps = 0`, so `DSC_MAX → UNC_0` and the ratio `DSC_ORD/DSC_MAX → R*`. A continuous `mu` on 2,905
+event cells is **nearly all-distinct** ⇒ the ceiling **adds nothing in exactly the regime we expect**.
+It informs only for `d ≪ n`.
+
+⭐ **Replacement, strictly more informative: the coarsening sweep.** Compute `DSC_ORD` on `x`
+coarsened to `d' = 2, 4, 8, …, d`. By §4.3 that curve is **monotone by construction** with
+stochastically ordered nulls at each rung; its top end *is* the old bound; and its **shape** separates
+*"no resolution"* from *"resolution, wrong ordering"* at **every** resolution instead of at one. Cost:
+`log₂ d` fits of a one-pass object. ℹ️ Same sweep shape as `~/brain/4_notes/2026-11-06_resolution_not_ranking.md`
+(verified to exist) — worth reading before naming it.
+
+⚠️ Two notes if `DSC_MAX` is reported anyway: it is itself an in-sample fitted quantity, and it is
+**not** permutation-invariant for `1 < d < n` (permutation preserves block **sizes**, not **contents**),
+so its null expectation is not 0 and the ratio would need its own null. ⇒ Prefer reporting the
+numerator's margin-over-null plus `d` and the block-size distribution.
+
+---
+
+## 5 ⛔⛔ B2 — THE NULL. The largest break, and it is in the dangerous direction
+
+### 5.1 v1's grounds were the wrong grounds
+
+v1 argued: permutation preserves `y`'s marginal, `x`'s tie structure, `n` and `d` ⇒ *"an exact
+finite-sample test"*. ⛔ **The implication does not go through.** Those four are necessary bookkeeping.
+Exactness requires the **randomisation hypothesis** — under `H_0`, `(x, y_π) =_d (x, y)` for every `π`
+— which holds if `y ⟂ x` **and at least one of the two vectors is exchangeable**. `H_0: y ⟂ x` alone
+is strictly weaker and does not suffice.
+
+### 5.2 ⛔ And on our data the assumption fails, in the direction that waves `v1` through
+
+**Counterexample in exactly our shape.** Let `x` and `y` be two **independent** spatially
+autocorrelated fields on the same geometry. `H_0` holds exactly; neither vector is exchangeable. The
+realised alignment of two smooth fields has **far larger variance** than the alignment of a smooth
+field with a random relabelling, because a smooth field's effective sample size is far below `n`.
+Permutation destroys `x`'s autocorrelation and therefore **understates the null variance**.
+
+⇒ ⛔ **The test is ANTI-CONSERVATIVE. It rejects too often.** This is the classical
+spurious-association-between-autocorrelated-fields problem: **Clifford, Richardson & Hémon (1989)**
+*Biometrics* 45, 123–134; **Dutilleul (1993)**; the toroidal-shift literature in ecology and
+geostatistics. ⚠️ Citations relayed from `opponent` and **not yet locator-audited** — flagged for
+`library` before they are quoted in anything published.
+
+We are squarely inside it: `mu` is a smooth spatial field by construction (shared features,
+neighbourhood structure), and fatalities are strongly clustered in space and time. ⇒ The error runs
+**toward building `v1` on a null index** — the worst available asymmetry.
+
+### 5.3 ⛔⛔ And (c) as I specified it would have planted the assumption under test
+
+v1's `H-e` read *"the permutation test is correctly sized at our `n`, ties and skew"* — **dependence is
+not named**. A simulation planting `H_0` with **exchangeable** data would find the test exact, because
+under exchangeability **it is**, and the clean bill would be **vacuous**.
+
+⇒ ⭐⭐ **(c) must plant two independent fields with OUR spatial and temporal autocorrelation on OUR
+cell geometry, and measure the FPR there.** That, not the exchangeable version, is the test of `H-e`.
+
+⛔ This is the same defect class the repo keeps finding: a gate whose failure condition is *"my own
+account is incomplete"* (`feedback_gate_against_your_own_explanation`). Had the pre-registration gone
+out as written, it would have **locked the vacuous version in.**
+
+### 5.4 The candidate fixes, cheapest first
+
+| # | scheme | preserves | cost |
 |---|---|---|---|
-| all values distinct | **maximal** (`n` steps) | ⛔ large | none — can reach `R* = 1` |
-| heavily tied | **small** (`d` steps) | ⭐ small | ⛔ capped — see §4.4 |
-| one value (`d = 1`) | none | **0** | **0 exactly** |
+| ⭐ 1 | **cyclic / toroidal shift** — shift `x` as a whole against `y` (in space, or pair month `t`'s `x` with month `t+k`'s `y`) | `x`'s autocorrelation **exactly**; needs **no model** of the dependence | ⚠️ under a time shift the `y` multiset is **not** fixed (end months drop), so `UNC_0` **moves per replicate** and §5.5's invariance dies ⇒ recompute `UNC_0` inside the loop and say so |
+| 2 | **restricted (stratified) permutation** within country-month, or within month | exact under *within-stratum* exchangeability — far more defensible | power |
+| 3 | report `n_eff` | — | tells the reader the test's real resolution |
 
-⇒ ⭐⭐ **The bias and the ceiling move in OPPOSITE directions with `d`.** A tied index is a
-*less* overfit but *more* capped estimate. So "heavy ties" is not a verdict on the index — it is a
-statement about which of two failure modes applies.
+⛔ **Whichever is chosen, the exchangeability unit IS the null** and belongs in §8's pre-declaration
+list beside `α` and `B`.
 
-⛔⛔ **The decision consequence, and it is the one I would have got wrong:** two candidate indices
-with different tie structures carry **differently-biased** `DSC_ORD` values. ⇒ **They cannot be
-compared to each other directly.** Each must be compared **against its own permutation null**, and the
-reported quantity is the *margin over its own null*, never the raw level. ⚠️ `M98`/`M99`'s crossing
-comparison between `mean_draw` (1,321 distinct values) and `gate` (≈64,732) has exactly this shape —
-**flagged, not re-opened here**; the crossing is a different estimator and whether the same argument
-transfers is a separate question.
+### 5.5 One sub-claim that HOLDS, with a corollary
 
-### 4.4 The ceiling, derived — a computable upper bound from ties alone
-
-Let `G_1, …, G_d` be `x`'s tie blocks. `F̂` is constant on each block by the IDR constraint
-(`P_i = P_j` when `x_i = x_j`). CRPS is a proper scoring rule, so the per-block minimiser of
-`Σ_{i∈G_k} crps(P, y_i)` is the block's own empirical CDF `Ĝ_k`. Dropping the monotonicity constraint
-between blocks can only lower the objective, hence
-
-```
-  CRPS_ORD(x)  ≥  (1/n) Σ_k Σ_{i∈G_k} crps( Ĝ_k , y_i )
-  ⇒  DSC_ORD(x)  ≤  DSC_MAX(x)  :=  UNC_0 − (1/n) Σ_k Σ_{i∈G_k} crps( Ĝ_k , y_i )
-```
-
-⭐ `DSC_MAX(x)` is the most discrimination **any** monotone fit could extract given `x`'s resolution,
-**ignoring whether the ordering is any good**. It costs one pass and it is the rigorous replacement for
-my hand-waved "tie diagnostic". At `d = 1` it is exactly `0`, which recovers §3.3's endpoint. ∎
-
-⇒ Report `DSC_ORD(x)`, `DSC_MAX(x)`, and the ratio. A small `DSC_ORD` with a small `DSC_MAX` means
-*the index has no resolution*; a small `DSC_ORD` with a large `DSC_MAX` means *the index has
-resolution and orders wrongly*. ⛔ These are different findings with different consequences for `v1`,
-and no single number separates them.
+`UNC_0` is a function of the multiset of `y` alone, which any label permutation fixes ⇒ `R*` is
+comparable across replicates. ⭐ **Corollary:** `R*` is then a strictly decreasing function of
+`CRPS_ORD` across replicates, so the permutation test on `R*` and on `DSC_ORD` are **the same test with
+the same p-value** — reporting both is interpretation, not extra inference. ⚠️ Dies under a shift
+scheme (§5.4 note).
 
 ---
 
-## 5 The null, and why permutation is the right one
+## 6 ⭐⭐ THE OMISSION THE AUDIT FOUND, AND IT OUTRANKS BOTH BREAKS
 
-**`H_0`:** `y ⟂ x` — the index carries no information about magnitude.
+**All of §4 and §5 exist only because the statistic is in-sample.**
 
-Under `H_0` the labels are exchangeable, so for a permutation `π` of `1..n`, `DSC_ORD(x_π)` has the
-same distribution as `DSC_ORD(x)`. Permuting:
+`Arnold2024`'s decomposition is *deliberately* in-sample — it attributes a **realised** score; it does
+not estimate generalisation. ⛔ But our decision is go/no-go on **building** `v1`, which is a
+**generalisation** question. ⇒ v1 of this file built an elaborate bias-and-null apparatus around a
+quantity that answers an adjacent question.
 
-- preserves the **marginal of `y`** ⇒ `UNC_0` is unchanged, so `R*` is comparable across replicates;
-- preserves the **tie structure of `x`** ⇒ the fitting freedom of §4.3 is held fixed, which is
-  precisely what makes the null measure the right bias;
-- preserves `n` and the distinct-value count `d`.
+⭐ **The direct instrument: a temporal split.** Fit IDR on months `≤ T`; evaluate CRPS on months `> T`
+against the **training** marginal. Then:
 
-⇒ An **exact** finite-sample test, conditional on both marginals. Report `DSC_ORD(x)` against the
-`1−α` quantile of `B` permutation replicates.
+- the number is **unbiased** — no `log n / n` argument needed;
+- **no null is needed for the level** (beating climatology out of sample is the claim);
+- it has the **same structure deployment will face**;
+- and ⇒ `UNC_0`'s own in-sample optimism (`Ĝ` is the ECDF of the very `y` it scores, §7.3) **vanishes**.
 
-⛔ **Two things this null does NOT do**, stated so they are not assumed away:
+ℹ️ This is `Henzi2021`'s own usage — their applications report out-of-sample CRPS of IDR against
+climatology — so it is the paper's idiom, not an invention.
 
-1. It gives **no confidence interval** on `DSC_ORD(x)` itself. That needs a **bootstrap** over cells —
-   owed separately, and known to matter here: on 2026-11-07 the bootstrap on the related min-type
-   `crossing` statistic put both point estimates at the **optimistic edge** of their own sampling
-   distributions (`P(boot ≤ point)` = 0.190 and 0.043).
-2. It does not fix the **sizing of the test**. ⇒ (c) must measure the false-positive rate at a planted
-   `H_0` and show it is ≈ `α`. ⚠️ Precedent: the first threshold-reliability run used the 95th
-   percentile and a perfectly calibrated synthetic forecast came back `MISCALIBRATED 1.1x` on the
-   first seed — behaving exactly as specified, and useless. This one declares
-   **`α` and any multiplicity correction before it runs.**
+⇒ **Both are reported, and they answer different questions:**
 
----
-
-## 6 ⚠️ What remains a hypothesis, to be settled by (c) and not by argument
-
-| # | hypothesis | status after (a) |
+| | question | needs |
 |---|---|---|
-| H-a | On `P_all`, `DSC_ORD` is dominated by the `y = 0` block and mostly re-measures occurrence | ⭐ **plausible but UNTESTED.** §2's restriction to `P_event` sidesteps it rather than refuting it |
-| H-b | Sparse, crossing predictive CDFs inflate `DSC_ISO` | ⭐ **direction DERIVED** (§4.2) · ⛔ **magnitude unknown** |
-| H-c | `DSC_ORD / UNC_0` has large sampling variance on a 1–2,482 tail | ⛔ **UNTESTED.** `N4` precedent: a `MCB/UNC` of 4.32% against a noise floor of 11.91% |
-| H-d | `mu` is dense enough to order 2,905 events | ⛔ **UNTESTED AND UNOBSERVED** — `mu` has never been on disk. ⚠️ And §4.3 shows I had the sign of the consequence backwards, so this must be *measured*, not reasoned about |
-| H-e | The permutation test is correctly sized at our `n`, ties and skew | ⛔ **UNTESTED** — and §5's precedent says assume nothing |
+| in-sample `DSC_ORD` + null | **is there signal at all?** | §5's null, done right |
+| ⭐ **out-of-sample IDR skill** | **how much can `v1` actually use?** | a temporal split |
 
-⇒ ⛔ **No design decision is taken.** (b) is the pseudocode for §3–§5; (c) plants a known answer and
-asks whether each of H-a…H-e behaves as §4 says, **for the reason §4 says**.
+⛔⛔ **The decision hangs on the second.** §2.2's claim to be *"the statistic the programme actually
+asks for"* belongs to the out-of-sample form.
 
 ---
 
-## 7 Sources, as read
+## 7 Three further hazards the audit added
+
+### 7.1 Non-nested orders — see §2.2's ⚠️. One line of code, currently assumed.
+
+### 7.2 ⚠️ `R*` is NOT invariant to the scale of `y`
+
+`DSC_ORD` is invariant to monotone transforms of **`x`** (§2.2 — a feature, and §2.3 is why).
+⛔ It is **not** invariant to monotone transforms of **`y`**: on `log1p(y)` the `UNC_0`, `CRPS_ORD` and
+`R*` all differ. ⇒ *"Does the ordering carry magnitude information"* has a **scale-dependent answer**.
+
+On the raw count scale with `y` up to 2,482, `UNC_0` and `DSC` are dominated by a handful of events —
+an **effective leverage sample of a few cells**, whatever `n` says. Consequences:
+
+- the null distribution is **skewed and heavy-tailed**, so a single `1−α` quantile at modest `B` is
+  unstable in the tail ⇒ **report the whole permutation distribution**, not one quantile;
+- the bootstrap CI will be **wide** — consistent with 2026-11-07's crossing bootstrap landing at the
+  **optimistic edge** (`P(boot ≤ point)` = 0.190, 0.043);
+- ⇒ ⭐ use §3.3's **threshold curve** so bulk and tail are **separable** rather than aggregated.
+
+⛔ **The scale of `y` is pre-declared** (§8).
+
+### 7.3 ⚠️ `UNC_0` is itself fitted in-sample
+
+`Ĝ` is the ECDF of the same `y` it is scored against ⇒ slightly optimistic as a no-model reference,
+biasing `R*` upward through the **denominator** as well as the numerator. Small, same error class as
+the numerator's — and it **vanishes** under §6's split.
+
+---
+
+## 8 ⛔ The pre-declaration list
+
+Each of these **changes the null**, so each is a free parameter until written down. Declared **before
+(c) runs**, not after:
+
+1. `α`, and any multiplicity correction over thresholds / coarsening rungs.
+2. `B`, the replicate count — with §7.2's warning that a tail quantile needs `B` large.
+3. ⭐ **the exchangeability unit** and the resampling scheme (§5.4) — *this is the null*.
+4. ⭐ **the sign of `x`** (§3.4) — otherwise a false negative is free.
+5. ⭐ **the scale of `y`** — raw counts or `log1p` (§7.2).
+6. `d` and the block-size distribution of `x` (§4.4).
+7. The split point `T` for §6's out-of-sample readout.
+
+**Gates** (two, by different code paths, so a disagreement localises the bug):
+
+- `DSC_ORD ≥ 0` — a **theorem** (§3.4), so a violation is an implementation bug.
+- `DSC_ORD ≤ DSC_MAX` — §4.4. ⭐ Two gates that **disagree** are worth more than two that agree.
+
+---
+
+## 9 ⚠️ What remains a hypothesis for (c), and not to be settled by argument
+
+| # | hypothesis | status after (a) + audit |
+|---|---|---|
+| H-a | On `P_all`, `DSC_ORD` is dominated by the `y = 0` block and re-measures occurrence | ⭐ plausible, **UNTESTED**. §1's restriction sidesteps rather than refutes it |
+| H-b | A weaker (partial) order inflates `DSC` | ⭐ **direction DERIVED** (§4.2) · ⛔ magnitude unknown · ⚠️ and its application to `F` vs `mu` needs §2.2's nesting check first |
+| H-c | `DSC/UNC_0` has large sampling variance on a 1–2,482 tail | ⛔ **UNTESTED**. `N4` precedent: `MCB/UNC` 4.32% against a floor of 11.91% |
+| H-d | `mu` is dense enough to order 2,905 events | ⛔ **UNTESTED AND UNOBSERVED** — `mu` has never been on disk. ⚠️ And §4.3/§4.4 show both of v1's guesses about the consequence were wrong, so this is to be **measured** |
+| ⭐⭐ H-e | **(REWRITTEN.)** The resampling scheme is correctly sized **under our spatial and temporal dependence** | ⛔ **UNTESTED**, and ⛔ the originally planned test of it was **vacuous** (§5.3). Must plant dependent fields |
+| ⭐ H-f | **(NEW.)** The in-sample null bias is `O(log n / n)` ≈ `2.7 × 10⁻³` at `n = 2,905` | ⛔ **A SHARP, FALSIFIABLE PREDICTION** (§4.1). Constant not derived; tie correction argued by direction only |
+| H-g | **(NEW.)** The out-of-sample IDR skill (§6) is the decision-relevant number and is positive | ⛔ **UNTESTED** — and it is what the decision hangs on |
+
+⇒ ⛔ **No design decision is taken.** (b) is pseudocode for §3, §5.4 and §6; (c) plants known answers
+and asks whether H-a…H-g behave as stated, **for the reasons stated**.
+
+---
+
+## 10 Sources, as read
 
 | | file | what was read |
 |---|---|---|
-| `Arnold2024` | `papers/Arnold2024_CRPSDecompositions.pdf` | §3.1 eq. (23)–(25), Prop. 3.1 and its proof; the abstract's `MCB`/`DSC`/`UNC` expansion |
-| `Henzi2021` | `papers/Henzi2021_IsotonicDistributionalRegression.pdf` | Thm 2.1; eq. (10) max–min under a total order; §2.2 IDR≡PAV; §2.3 eq. (15) threshold form and the distinct-`y` reduction; ⭐ §3 opening — the regularisation statement both extremes rest on |
-| `Gneiting2023` | `papers/Gneiting2023_ConditionalCalibration.pdf` | `R* = DSC/UNC`; the decomposition is ⛔ **Thm 2.23**, not 2.26 (per this repo's own `E.0` correction) |
-| in-repo | `reports/2026-09-30_evaluation_learning_report.md` | `N4` (every score needs its own null floor) and `N11` (the terms, the two papers) |
-| in-repo | `reports/2026-11-04_rank_coupled_body_programme.md` | §2.3 — the measurement and its *"before the first fit"* deadline |
+| `Arnold2024` | `papers/Arnold2024_CRPSDecompositions.pdf` | §3.1 eq. (23)–(25); Prop. 3.1 + proof; abstract's term expansion. `library`: 4/4 CONFIRMED, pp. 4992, 5005–6 |
+| `Henzi2021` | `papers/Henzi2021_IsotonicDistributionalRegression.pdf` | Thm 2.1; eq. (10); §2.2 IDR≡PAV; §2.3 eq. (15) + distinct-`y`; ⭐ §3 opening. `library`: 4/4 CONFIRMED, pp. 8, 10, 15 — ⭐ ellipsis verified honest |
+| `Gneiting2023` | `papers/Gneiting2023_ConditionalCalibration.pdf` | `R*` §3.4 eq. (32), Thm 3.6 p. 3256, `R²` nesting p. 3255; decomposition = ⛔ **Thm 2.23** (p. 3243), **not** 2.26 (p. 3246, a different result about calibration under translation). `library`: CONFIRMED + the scope note in §3.2 |
+| `Gneiting2007` | `papers/Gneiting2007_StrictlyProperScoringRules.pdf` | strict properness of CRPS on the finite-first-moment class (§4.4) |
+| ⚠️ relayed | Clifford/Richardson/Hémon 1989; Dutilleul 1993 | §5.2. **Not locator-audited** — do not quote until they are |
+| in-repo | `reports/2026-09-30_evaluation_learning_report.md` | `N4`, `N11` |
+| in-repo | `reports/2026-11-04_rank_coupled_body_programme.md` | §2.3 and its *"before the first fit"* deadline |
+| in-repo | `reports/2026-11-04_delivered_gate_lookup/tools/e1_data.py:13` | ✅ one month per origin at h1 ⇒ no duplicate rows |
