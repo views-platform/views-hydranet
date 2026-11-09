@@ -73,7 +73,7 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-from sklearn.isotonic import IsotonicRegression
+from sklearn.isotonic import isotonic_regression
 
 # ---------------------------------------------------------------------------- declared constants
 
@@ -136,22 +136,24 @@ def pav_at(ind: np.ndarray, g: np.ndarray, size: np.ndarray) -> np.ndarray:
 
     ⛔ ``sample_weight=size`` is load-bearing (``P4``): sklearn's default is equal weights, which
     solves a different problem and whose wrong answer passes every structural gate.
-    ⛔ ``.y_``, never ``.predict()`` (``P5``): predict() interpolates between knots.
+
+    ⛔⛔ ``P5``, and it bit on the first run. The estimator class no longer exposes ``.y_`` in this
+    sklearn, and the obvious substitute — ``transform()`` / ``fit_transform()`` — is the
+    **interpolating** path ``P5`` warns about: it rebuilds the fit as ``interp1d`` over the block
+    CORNERS, so an interior training point gets a RAMPED value, not its block's constant. ⇒ Use the
+    **functional** ``isotonic_regression``, which returns the fitted vector directly and builds no
+    interpolator at all. ⭐ The audit's warning was right and the API change made it sharper.
     """
     d = size.size
     r = np.bincount(g, weights=ind.astype(float), minlength=d) / size
-    ir = IsotonicRegression(increasing=False, y_min=0.0, y_max=1.0, out_of_bounds="clip")
-    ir.fit(np.arange(d, dtype=float), r, sample_weight=size)
-    return np.asarray(ir.y_, dtype=float)
+    return isotonic_regression(r, sample_weight=size, y_min=0.0, y_max=1.0, increasing=False)
 
 
 def pav_at_UNWEIGHTED(ind: np.ndarray, g: np.ndarray, size: np.ndarray) -> np.ndarray:
     """⛔ THE DEFECT, on purpose. Only ``G12`` calls it. It is what a dropped keyword gives."""
     d = size.size
     r = np.bincount(g, weights=ind.astype(float), minlength=d) / size
-    ir = IsotonicRegression(increasing=False, y_min=0.0, y_max=1.0, out_of_bounds="clip")
-    ir.fit(np.arange(d, dtype=float), r)  # <- sample_weight dropped
-    return np.asarray(ir.y_, dtype=float)
+    return isotonic_regression(r, y_min=0.0, y_max=1.0, increasing=False)  # <- weight dropped
 
 
 @dataclass(frozen=True)
@@ -329,10 +331,10 @@ def _counts(n, rng, tail=True):
     return y.astype(float)
 
 
-def plant_iid(n, rng):
+def plant_iid(n, rng, tail=True):
     """4a — both fields i.i.d. ⇒ PERMUTE predicted EXACT."""
     lat = rng.integers(0, 40, n)
-    return Scene(rng.normal(size=n), _counts(n, rng), lat, rng.integers(0, 20, n),
+    return Scene(rng.normal(size=n), _counts(n, rng, tail), lat, rng.integers(0, 20, n),
                  np.arange(n), rng.integers(0, len(MONTHS), n))
 
 
@@ -343,19 +345,19 @@ def _smooth(n, rng, b):
     return grp, rng.normal(size=G)[grp]
 
 
-def plant_x_smooth(n, rng, b=8):
+def plant_x_smooth(n, rng, b=8, tail=True):
     """4b — x dependent, y i.i.d. ⇒ PERMUTE predicted EXACT. ⛔ THE CONTROL."""
     grp, xs = _smooth(n, rng, b)
     lat = grp % 40
-    return Scene(xs, _counts(n, rng), lat, grp % 20, np.arange(n),
+    return Scene(xs, _counts(n, rng, tail), lat, grp % 20, np.arange(n),
                  rng.integers(0, len(MONTHS), n), b_true=b)
 
 
-def plant_both_smooth(n, rng, b=8):
+def plant_both_smooth(n, rng, b=8, tail=True):
     """4c — BOTH fields dependent, our geometry ⇒ PERMUTE predicted to OVER-reject by up to b."""
     grp, xs = _smooth(n, rng, b)
     G = grp.max() + 1
-    ygrp = _counts(G, rng)[grp]
+    ygrp = _counts(G, rng, tail)[grp]
     lat = grp % 40
     return Scene(xs, ygrp, lat, grp % 20, np.arange(n),
                  rng.integers(0, len(MONTHS), n), b_true=b)
@@ -437,12 +439,22 @@ def gates(rng, out) -> list[str]:
     chk("G11 CRPS_ORD independently recomputed (union grid)", abs(alt - ro.crps_ord) < 1e-8,
         f"|Δ| {abs(alt - ro.crps_ord):.3e}")
 
-    # G12 — the dropped sample_weight must CHANGE the answer on unequal blocks (P-83)
-    xu = np.where(sc.x < np.quantile(sc.x, 0.9), 0.0, 1.0)  # deliberately 90/10 blocks
-    a_w = dsc_ord(xu, sc.y, yt, w)
-    a_u = dsc_ord(xu, sc.y, yt, w, pav=pav_at_UNWEIGHTED)
-    rel = abs(a_w.r_star - a_u.r_star) / max(a_w.r_star, 1e-12)
-    chk("G12 dropped sample_weight CHANGES R* on unequal blocks", rel > 0.01,
+    # G12 — the dropped sample_weight must CHANGE the answer (P-83)
+    # ⛔⛔ CORRECTED after the first run: the original case used a 90/10 split of a MONOTONE
+    # planted signal, so r was already feasible, PAV pooled NOTHING, and the weights could not
+    # matter. ⇒ The gate meant to catch the likeliest silent error COULD NOT FIRE — the exact
+    # defect class the audit condemned G9 for. A gate needs POOLING to exercise its weights, so
+    # the case now has grossly unequal blocks AND a monotonicity violation between them.
+    xu = np.zeros(n)
+    xu[:20] = 1.0   # tiny block
+    xu[20:] = 2.0   # huge block
+    yu = sc.y.copy()
+    yu[:20] = yu.max()          # the tiny block is HIGH at low x => violates non-increasing F
+    ytu, wu = grid_of(yu)
+    a_w = dsc_ord(xu, yu, ytu, wu)
+    a_u = dsc_ord(xu, yu, ytu, wu, pav=pav_at_UNWEIGHTED)
+    rel = abs(a_w.r_star - a_u.r_star) / max(abs(a_w.r_star), 1e-12)
+    chk("G12 dropped sample_weight CHANGES R* (unequal blocks + pooling)", rel > 0.01,
         f"R* {a_w.r_star:.6f} vs {a_u.r_star:.6f} · rel {rel:.4f}")
 
     # G13 — clamp bounds and per-end counts
@@ -492,8 +504,17 @@ def step2_delta(rng, out):
     out("  STEP 2 — the Δ relation: true SKILL = reported SKILL x U/(U+Δ)   [P-84]")
     out("=" * 100)
     sc = plant_signal(900, rng)
-    tr = np.arange(900) % 3 != 0
-    te = ~tr
+    # ⛔⛔ CORRECTED after the first run: a random split gave Δ = 0 exactly (no test cell outside
+    # the training range), so the relation under test was never exercised and P-84 was VACUOUS,
+    # not confirmed. ⇒ The split is now CONTRIVED to force out-of-range mass: the largest truths
+    # are put in the test fold. ℹ️ Not a realistic split, and not meant to be — step 2 tests the
+    # ARITHMETIC of the Δ relation, nothing else.
+    order = np.argsort(sc.y)
+    te = np.zeros(900, dtype=bool)
+    te[order[-40:]] = True              # the 40 largest truths -> above-range in every fold
+    te[order[:10]] = True               # and the 10 smallest    -> below-range
+    te[rng.choice(np.flatnonzero(~te), 150, replace=False)] = True
+    tr = ~te
     yt, w = grid_of(sc.y[tr])
     fit = idr_fit(sc.x[tr], sc.y[tr], yt, w)
     Fte, lo, hi = idr_predict(fit, sc.x[te])
@@ -528,6 +549,9 @@ def size_study(rng, out):
     out("=" * 100)
     n = 1200
     reps = 60
+    # ⚠️ tail=False in the SIZE study ONLY: it caps m (the threshold count) and m only scales
+    #    cost. The size of a test does not depend on the outcome's tail, and step 0 measured
+    #    92 ms per call with the tail on, which makes the full study hours rather than minutes.
     cases = (("4a both i.i.d.", plant_iid, "exact"),
              ("4b x smooth, y iid (CONTROL)", plant_x_smooth, "exact"),
              ("4c both smooth", plant_both_smooth, "over-reject"))
@@ -539,8 +563,8 @@ def size_study(rng, out):
             rej = 0
             r_null = []
             for _ in range(reps):
-                sc = planter(n, rng)
-                _, pv, repv = perm_pvalue(sc, scheme, 99, rng)
+                sc = planter(n, rng, tail=False)
+                _, pv, _ = perm_pvalue(sc, scheme, 99, rng)
                 rej += int(pv <= ALPHA)
                 yt, w = grid_of(sc.y)
                 r_null.append(dsc_ord(sc.x, sc.y, yt, w).r_star)
@@ -563,7 +587,7 @@ def blocky_location(rng, out):
     for b in (2, 4, 8, 16):
         true_loc, perm_loc = [], []
         for _ in range(24):
-            sc = plant_both_smooth(n, rng, b=b)
+            sc = plant_both_smooth(n, rng, b=b, tail=False)
             yt, w = grid_of(sc.y)
             true_loc.append(dsc_ord(sc.x, sc.y, yt, w).r_star)
             perm_loc.append(np.mean([dsc_ord(rs_permute(sc, rng), sc.y, yt, w).r_star
@@ -682,6 +706,9 @@ def main() -> int:
     out(f"  n {N_TARGET} · m (distinct truths) {yt0.size} · d (distinct x) {size0.size}")
     out(f"  block sizes: max {size0.max():.0f} median {np.median(size0):.0f} · n_eff {ne}"
         f" ⇒ implied b = n/n_eff = {N_TARGET / ne:.2f}")
+    out("  ⛔ n_eff_blocky is EXACT only in the block-constant limit. On a continuous x it")
+    out("     returns n by construction (every (x,y) pair distinct) and says NOTHING about")
+    out("     dependence. ⇒ Valid for the blocky study below; NOT an estimator for real mu.")
     out(f"  one dsc_ord call {dt * 1000:.1f} ms ⇒ B=399 ≈ {dt * 399:.1f} s per null")
     out(f"  ⚠️ w (gap weights): max {w0.max():.1f} of total {w0.sum():.1f}"
         f" ⇒ the top gap alone carries {100 * w0.max() / w0.sum():.1f}% of the integral (§7.2)")

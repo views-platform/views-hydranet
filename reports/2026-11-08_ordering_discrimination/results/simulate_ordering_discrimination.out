@@ -1,0 +1,91 @@
+====================================================================================================
+  (c) SIMULATION — ordering discrimination.  ⛔ PLANTED DATA ONLY, no mu, no checkpoint.
+====================================================================================================
+  seed 20261109 · alpha 0.05 · B_size 399 · rungs (2, 4, 8, 16, 32, 64, 128)
+  prediction rule: Henzi2021 §2.5 eq.(21) MIDPOINT (derived, not declared)
+
+====================================================================================================
+  STEP 0 — ⭐ n_eff FIRST (it SETS the size distortion: b = n/n_eff), then m, d, cost
+====================================================================================================
+  n 2905 · m (distinct truths) 137 · d (distinct x) 2905
+  block sizes: max 1 median 1 · n_eff 2905 ⇒ implied b = n/n_eff = 1.00
+  ⛔ n_eff_blocky is EXACT only in the block-constant limit. On a continuous x it
+     returns n by construction (every (x,y) pair distinct) and says NOTHING about
+     dependence. ⇒ Valid for the blocky study below; NOT an estimator for real mu.
+  one dsc_ord call 35.8 ms ⇒ B=399 ≈ 14.3 s per null
+  ⚠️ w (gap weights): max 1478.0 of total 2332.0 ⇒ the top gap alone carries 63.4% of the integral (§7.2)
+
+====================================================================================================
+  STEP 1 — the gates, on planted data
+====================================================================================================
+  PASS  G1  DSC >= 0 (theorem §3.4)  dsc 9.391574
+  PASS  G3  F non-decreasing in z, in [0,1] (theorem, eq.10)  min step 0.00e+00
+  PASS  G5a x=y  CRPS_ORD == 0.0 EXACTLY  crps 0.0
+  PASS  G5b x=-y  DSC == 0 within tol (one-sidedness, B3)  dsc 0.000e+00 · bit-exact True ⇒ P-82 WRONG
+  PASS  G11 CRPS_ORD independently recomputed (union grid)  |Δ| 0.000e+00
+  PASS  G12 dropped sample_weight CHANGES R* (unequal blocks + pooling)  R* 0.000000 vs -2.973822 · rel 2973821901994.9053
+  PASS  G13 clamp counted per end (P6: numpy -1 is the LAST block)  below 1 above 1
+  PASS  G10 coarse rung constant on each level set of the fine rung  
+  PASS  G10 realised d' non-decreasing in r  [2, 4, 8, 16, 32, 64, 128]
+  PASS  G7  sweep monotone non-decreasing in rung (§4.3, pathwise)  realised d' [2, 4, 8, 16, 32, 64, 128]
+  PASS  G2  DSC <= DSC_MAX at the LOW rungs  
+  PASS  G6  UNC_0 bit-identical under PERMUTE  10.31640625 vs 10.31640625
+
+====================================================================================================
+  STEP 2 — the Δ relation: true SKILL = reported SKILL x U/(U+Δ)   [P-84]
+====================================================================================================
+  clamped below 0, above 26 · Δ 8.995000 · U 10.859043 · factor U/(U+Δ) 0.546944
+  reported SKILL 0.881753842 · true SKILL 0.482269673 · predicted 0.482269673
+  PASS  P-84  |true - predicted| = 5.551e-17
+
+====================================================================================================
+  STEPS 3-5 — the null, and the three-point pattern   [P-85 .. P-89]
+====================================================================================================
+   4a both i.i.d.                 PERMUTE     rejection  0.050 (α=0.05)  mean null R* 0.00594  predicted exact
+   4a both i.i.d.                 LON_SHIFT   rejection  0.050 (α=0.05)  mean null R* 0.00550  predicted exact
+   4a both i.i.d.                 STRATIFIED  rejection  0.050 (α=0.05)  mean null R* 0.00560  predicted exact
+   4b x smooth, y iid (CONTROL)   PERMUTE     rejection  0.050 (α=0.05)  mean null R* 0.00383  predicted exact
+   4b x smooth, y iid (CONTROL)   LON_SHIFT   rejection  0.050 (α=0.05)  mean null R* 0.00337  predicted exact
+   4b x smooth, y iid (CONTROL)   STRATIFIED  rejection  0.083 (α=0.05)  mean null R* 0.00422  predicted exact
+   4c both smooth                 PERMUTE     rejection  0.917 (α=0.05)  mean null R* 0.02987  predicted over-reject
+   4c both smooth                 LON_SHIFT   rejection  0.267 (α=0.05)  mean null R* 0.03236  predicted over-reject
+   4c both smooth                 STRATIFIED  rejection  0.883 (α=0.05)  mean null R* 0.02895  predicted over-reject
+
+====================================================================================================
+  THE BLOCKY LIMIT — is the distortion EXACTLY b, or below it?   [P-88]
+====================================================================================================
+  the derivation (02§4.4b) says ratio = n/G = b, with ties pulling it BELOW b
+  ⛔ b=2   true null R* 0.011550  permutation null R* 0.004795  ratio  2.409  (b=2, half-b=1.0)
+  ✅ b=4   true null R* 0.017915  permutation null R* 0.004463  ratio  4.014  (b=4, half-b=2.0)
+  ✅ b=8   true null R* 0.030686  permutation null R* 0.003941  ratio  7.785  (b=8, half-b=4.0)
+  ⛔ b=16  true null R* 0.059499  permutation null R* 0.003190  ratio 18.654  (b=16, half-b=8.0)
+  ⛔ FAIL  P-88  ratio in [0.5b, b] on every b
+
+====================================================================================================
+  FREE PARAMETERS 3 and 4 — swept, not selected
+====================================================================================================
+  scale raw    UNC_0    8.95094  DSC    7.88774  R* 0.88122  (⚠️ §7.2: R* is NOT invariant to the scale of y)
+  scale log1p  UNC_0    0.56870  DSC    0.43397  R* 0.76309  (⚠️ §7.2: R* is NOT invariant to the scale of y)
+  cut equal_count  realised d' [2, 4, 8, 16, 32, 64, 128]
+                   R* by rung [0.17854, 0.34863, 0.48641, 0.60658, 0.68458, 0.74475, 0.78397]  monotone True
+  cut equal_width  realised d' [2, 4, 8, 16, 32, 58, 108]
+                   R* by rung [0.18049, 0.46729, 0.65832, 0.78112, 0.84678, 0.86345, 0.87085]  monotone True
+
+====================================================================================================
+  STEP 8 — out of sample: LOMO, rolling-origin, and the drift gap   [P-91]
+====================================================================================================
+  no drift         in-sample R* 0.95668 · LOMO SKILL 0.57256 · rolling 0.55612 · gap +0.01644
+                   clamps LOMO 1/1 roll 0/1 · tail n>100 = 124 ⇒ EVALUABLE
+  drift planted    in-sample R* 0.60600 · LOMO SKILL 0.12140 · rolling -1.78123 · gap +1.90263
+                   clamps LOMO 1/1 roll 0/0 · tail n>100 = 38 ⇒ EVALUABLE
+  ⇒ P-91 drift gap POSITIVE relative to the no-drift gap +0.01644
+
+====================================================================================================
+  VERDICT
+====================================================================================================
+  gates failing: NONE
+  P-84 (Δ relation, tests the auditor's algebra): HELD
+  P-88 (blocky-limit ratio in [0.5b, b]):         ⛔ REFUTED
+  PERMUTE rejection rates: 4a both i.i.d.=0.050 · 4b x smooth, y iid (CONTROL)=0.050 · 4c both smooth=0.917
+
+  ⛔ This scores the INSTRUMENT, not the model. No mu was read, no v1 decision taken.
