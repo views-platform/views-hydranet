@@ -447,25 +447,95 @@ side by side, neither suppressed:
 | plain permutation | ⛔ **anti-conservative** — destroys `x`'s autocorrelation ⇒ **narrower** null ⇒ over-rejects | ✅ **conservative** |
 | toroidal shift | ✅ preserves autocorrelation ⇒ **wider** null ⇒ correct size | ⛔ **liberal** — narrower null ⇒ over-rejects |
 
-⭐ **Three things bear on it, and I will not pick a side on argument alone.**
+### 4.6 ⛔⛔ RESOLVED — AND MY OWN FRAMING OF IT, ONE HOUR OLD, WAS WRONG
 
-1. ⭐ **We have a measurement, and it points our way.** (c) measured, on the block-constant planting:
-   `PERMUTE` **0.917** against `LON_SHIFT` **0.267** at `α = 0.05` on a **true null**. The shift
-   rejected **3.4× LESS**, which is "more conservative", not "more liberal".
-2. ⭐ **`Clifford1989` C-4681 is on the same side as us**, and quantitatively: the standard
-   (structure-destroying) test rejects at **25–55%** against a nominal 5%.
-3. ⚠️ **But the statistic and the null may not be the same object.** `Fortin1996` scores **overlap of
-   ecological boundaries** — clustered point/boundary sets — not the correlation of two continuous
-   fields; and its claim 4 says the two procedures have **different null hypotheses** (restricted
-   assumes within- and between-variable spatial interaction exists; randomization assumes none).
-   ⇒ *"Liberal"* against the **no-structure** null is not the same as *"liberal"* against the
-   **no-association-given-structure** null, and ours is the second. ⛔ A direction that reverses with
-   the statistic is exactly the kind of thing this repo has been bitten by (`W-51`, not like-for-like).
+`opponent` read the **page images** (the stored text layer is a two-column merge, unreliable for
+quotation) and transcribed pp. 54/57/58/59 and the abstract. ⇒ **The direction is real, it is the
+authors' headline, and they recommend against the scheme I made primary.**
 
-⇒ ⛔ **ACTION, not a conclusion.** `library` is asked to re-read that one claim and check its
-direction and its scope against the PDF. And the run already in flight ((c2), `spatial_null.py`,
-pre-registered `P-93`/`P-94`) **adjudicates it empirically on our own statistic**: if `LON_SHIFT`
-rejects *more* than `PERMUTE` on a real grid, `Fortin1996` is right and §4.4 needs rewriting.
+Abstract, verbatim: *"Overall, **randomization is found to be a more conservative test** for detecting
+boundary spatial relationships, rejecting the null hypothesis of no spatial relationship **fewer times
+than the restricted permutation test**."*
+
+⭐⭐ **And the mechanism is NOT the one I reasoned about.** p. 59, verbatim:
+
+> *"The restricted permutation procedure seems therefore more liberal … **because it takes the spatial
+> relationships giving rise to the boundaries as a given. All other spatial arrangements of the
+> observations, including those which give rise to the most boundary overlap, are excluded from the
+> reference distribution.** These alternative spatial arrangements are allowed in the randomization
+> procedure, resulting in a wider reference distribution…"*
+
+⇒ Their narrowness is about the **SUPPORT** of the reference set — 76 rigid configurations, with every
+non-rigid arrangement excluded — **not** about autocorrelation variance, which is what §4.5's third
+bullet argued about. ⛔ I attacked the wrong mechanism.
+
+⚠️ The authors' own verdict, p. 59: *"Some question arises as to whether our approach to the
+restricted randomization is **overly restrictive, thereby giving rise to an excessively narrow
+reference distribution and an overly liberal test** … in the meanwhile **the randomization procedure
+offers a conservative test**."* ⛔ **And `STRATIFIED` is implicated too** — their alternative of
+sprinkling values while maintaining comparable autocorrelation (Oden et al. 1993) *"has been found to
+be liberal as well."* ⇒ **Both schemes I offered have a published liberality finding against them.**
+
+#### ⛔⛔ What was wrong in §4.5, stated plainly
+
+§4.5 tabled my measurement (`PERMUTE` 0.917 vs `LON_SHIFT` 0.267) as evidence **pointing our way**,
+i.e. as counter-evidence to `Fortin1996`. **That was wrong, and it is the error this dossier exists to
+catch: I read a measurement as adjudicating between two claims when it is CONSISTENT WITH BOTH.**
+
+The two results are about **different quantities, in opposite directions, from different causes**, and
+they can both hold:
+
+| | what it says | about |
+|---|---|---|
+| §4.4 (ours) | the complete-permutation null is centred **too LOW** by a factor of order `b = n/n_eff` | **where the null SITS** |
+| `Fortin1996` | the restricted null's **SUPPORT** is a small rigid set excluding the extremes ⇒ **too NARROW** | **how WIDE the null is** |
+
+⭐⭐ **And read that way, our own number becomes the signature of both at once.** The shift fixes most
+of the location problem (`0.917 → 0.267`, a 3.4× improvement, consistent with §4.4) and **leaves a
+residual over-rejection** (`0.267 ≫ α`) — which is exactly what `Fortin1996`'s narrowness mechanism
+predicts would survive. ⇒ **Neither scheme is unbiased, and which distortion dominates is an empirical
+property of the data, not something either seat can settle by argument.**
+
+ℹ️ `opponent`'s own note on its earlier advice: *"what was wrong in my advice was the confidence, not
+the derivation"* — it called the shift *"the principled fix"* and made it the primary null without
+naming its documented failure mode.
+
+#### ⭐ One further mechanism, flagged as `opponent`'s and not the paper's
+
+**The shifted replicates are not independent of one another.** Adjacent shifts of an autocorrelated
+field give near-identical configurations, so the **effective** replicate count is well below the
+nominal one, compounding the narrowness. ⇒ **Testable, and cheap:** correlate the replicate statistics
+across neighbouring shifts. Added to (c2)'s owed list.
+
+#### ⇒ WHAT CHANGES IN THE DESIGN
+
+1. ⛔⛔ **No primary null is chosen in advance.** §7 step 4 becomes a **three-way size measurement** —
+   `PERMUTE`, longitude shift, spatial strata — all reported. **The pre-declaration names the
+   COMPARISON, not the winner**, which is the only honest position when two of the three have a
+   published liberality finding and the third has our own derivation against it.
+2. ⛔ **The outcome "ALL THREE over-reject" is pre-declared as a real possibility.** If it happens,
+   the honest output of (c) is a **size correction or a different instrument**, *not* a choice between
+   schemes. ⚠️ Pre-declared so it cannot arrive as a surprise that gets argued away.
+3. ⭐ **The p-value floor is the count of DISTINCT configurations, not of translations.** Fortin's
+   13×21 lattice gives 273 translations but **76 unique** under 2-D toroidal symmetry, flooring `p` at
+   `1/76 = 0.0131`. ℹ️ A **1-D longitude-only** shift has no such collapse — all `n−1` non-identity
+   shifts are distinct — so our ~1/360 stands. But if we ever shift in two dimensions, the floor is
+   **not** the raw product.
+4. ✅ **Their rigid whole-map shift is EXACTLY our construction** (shifted field, rank-reimposed) ⇒ the
+   liberality mechanism applies to us **directly, not by analogy.**
+
+#### ⚠️ How much weight this carries
+
+`opponent`'s own caveats, kept: **one empirical result, on one 1996 ecology data set, with a
+boundary-overlap statistic** — not a theorem and not our statistic. The direction was the opposite of
+the authors' own stated expectation, and they say so. Its corroboration is a **single** source (Oden
+et al. 1993) which the library does not hold and nobody here has read. ⇒ **A reason to measure, not a
+settled result** — the same standing we gave our own derivation.
+
+⛔ **A finding for `library`:** the stored extraction (`C-4694`–`C-4697`) carries the **liberality
+finding** but **not** the authors' recommendation to use randomization anyway, **nor their own stated
+doubt** about their restricted scheme. ⇒ Reading the claims rather than the paper yields the first half
+of this and not the second.
 
 ⚠️ **And the cross-check it recommends is adopted regardless**: `Fortin1996` advises a binomial test
 beside the shift where a direct-overlap statistic exists. Our analogue is §6's **out-of-sample skill**,
