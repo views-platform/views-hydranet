@@ -400,8 +400,28 @@ unknown ⇒ step 4 is the **evidence**, not a confirmation of something already 
 gives an *a priori* estimate of how badly `PERMUTE` is wrong **before spending a single replicate**, and
 says in advance whether any scheme can have power at this `n`. **It is the first number printed.**
 
-ℹ️ Clifford et al. and Dutilleul are now worth acquiring as **historical attribution** — the claim no
-longer waits on them, and until they are in the library and locator-audited the citations stay out.
+✅ **Clifford et al. and Dutilleul were acquired, indexed and locator-audited on 2026-11-09** — see
+`01_MATH.md` §5.2 for the four-part verdict. The derivation above stands as the primary argument and
+`Clifford1989` C-4681 as independent confirmation (25–55% rejection at a nominal 5%).
+
+⛔⛔ **BUT THE SHIFT SCHEMES THEMSELVES HAVE NO SOURCE, AND THAT IS NOW STATED RATHER THAN IMPLIED.**
+`library`, 2026-11-09, having searched the semantic index, the full-text index and `Dormann2007` end
+to end: **the library holds nothing** on toroidal or cyclic shift tests, nothing on restricted or
+constrained permutation under spatial dependence, and no hits on `toroidal` / `torus` / `cyclic shift`
+/ spatial `block bootstrap`, nor on the classical authors. `Dormann2007` touches permutation only in
+passing (Moran's I significance via Lichstein 2002) and treats no shift-based resampling at all.
+
+⇒ **`LON_SHIFT`, `MONTH_SHIFT` and `STRATIFIED` are MY constructions, with no cited precedent in this
+library.** Earlier drafts gestured at *"the toroidal-shift literature in ecology and geostatistics"*;
+⛔ that phrase is withdrawn as an **unsourced appeal to a literature nobody here has read** — the
+`N10` rule (*name the path, name the check, or do not write the sentence*) applies to a citation as
+much as to a file. The schemes are judged **only** by whether they recover size in (c) step 4, and
+(c) found that **none of them does** on the planting tested.
+
+ℹ️ **Owed, named so it can be acquired rather than re-guessed** — `library`'s suggested entry points:
+**Lotwick & Silverman (1982)** for the toroidal shift itself, **Besag & Diggle (1977)**, and
+**Legendre & Fortin (1989)** for the restricted-permutation framework. ⛔ Not acquired, not read, and
+**not to be cited until they are.**
 
 ### 4.2 The distribution, and the simultaneous band
 
