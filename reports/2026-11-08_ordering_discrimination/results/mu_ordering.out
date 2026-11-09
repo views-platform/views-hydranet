@@ -1,0 +1,24 @@
+====================================================================================================
+  THE MEASUREMENT — does `mu` order magnitude among event cells?
+====================================================================================================
+  arms passed: 1   ⚠️ ONE ARM ⇒ INDICATIVE, no seed spread
+  null = LON_SHIFT (M102) · B 399 · alpha 0.05 · sign of mu POSITIVE (declared)
+
+  delivered gate: 13 origins · truth grid (384, 64818) from month 121
+  (loaders took 2.1 s)
+
+====================================================================================================
+  ARM FILE  d4_result_CTLFULLZERO_FORTYTWO.npz
+====================================================================================================
+  mu (49, 64818) · fed months 421..469 · family nb · sha 07ed6207cc4b…
+
+  G-ALIGN — which fed-month index carries the h1 forecast for target month m?
+    offset -2  mean r over origins = +0.947936
+    offset -1  mean r over origins = +0.974537
+    offset +0  mean r over origins = +0.949507
+    offset +1  mean r over origins = +0.938100
+    offset +2  mean r over origins = +0.929366
+    ⇒ best offset -1 at r=+0.974537, margin +0.025030
+    ⛔ FAIL  G-ALIGN  (r>=0.9, margin>=0.2)
+  ⛔⛔ REFUSING to report `mu`: the reconstruction does not reproduce the
+      delivered gate at one offset, so its alignment is unestablished.

@@ -32,8 +32,10 @@ to report ``mu``.
 ⛔ FREE PARAMETERS, DECLARED
 ----------------------------
 ``OFFSETS``       the candidates G-ALIGN sweeps: -2..+2. The winner is declared by r, not chosen.
-``ALIGN_R``       0.90 — the correlation a candidate must reach to be a match.
-``ALIGN_MARGIN``  0.20 — the winner must beat every rival by this much in r, or the gate REFUSES.
+``ANOM_R``        0.30 — the ANOMALY correlation the winner must reach. ⛔ See the note at the
+``ANOM_MARGIN``   0.10   constants: the first, LEVEL-based thresholds FIRED and refused the run,
+                         because the gate field is too temporally smooth for a level correlation to
+                         resolve a month at all. The level test is kept as a reported diagnostic.
 sign of ``mu``    POSITIVE (declared): higher ``mu`` is predicted to mean a bigger event.
 scale of ``y``    RAW COUNTS primary (as ``M98``–``M102``); ``log1p`` reported alongside, swept.
 population        the ``truth > 0`` event cells over months 457–469 ⇒ outcome-selected
@@ -90,8 +92,28 @@ from vehicle import grid_rowcol  # noqa: E402
 # ---------------------------------------------------------------------------- declared constants
 
 OFFSETS = (-2, -1, 0, 1, 2)
-ALIGN_R = 0.90
-ALIGN_MARGIN = 0.20
+# ⛔⛔ REVISED 2026-11-09, AFTER THE FIRST VERSION OF THIS GATE FIRED AND REFUSED THE RUN.
+# It refused for a reason that is a property of the DATA, not of the reconstruction, and I did not
+# know it when the thresholds were written. Two things were measured on the refusal:
+#
+#   (1) ``r = 0.9745`` is NOT a mismatch, it is the instrument's own MC-dropout noise floor. Two of
+#       ``d4``'s OWN four passes, on the SAME month, correlate at only 0.959-0.961; a mean-of-two
+#       against the other mean-of-two gives 0.983. ⇒ The reconstruction agrees with the DELIVERED
+#       gate BETTER than ``d4`` agrees with itself.
+#   (2) The delivered gate is so temporally smooth that CONSECUTIVE MONTHS correlate at 0.951-0.961
+#       — i.e. about as similar as two independent MC passes of the same month. ⇒ ⛔ A whole-field
+#       level correlation CANNOT resolve a one-month offset, even in principle. The first gate was
+#       asking a question the data cannot answer, and ``ALIGN_MARGIN = 0.20`` was a number I picked
+#       with nothing behind it — the "sweep the free parameter" scar, in a threshold.
+#
+# ⇒ The repair is SHARPER, not weaker: remove each cell's temporal mean, which deletes the dominant
+# static spatial pattern and leaves the time-varying part where the offset information actually
+# lives. Declared BEFORE re-running, and the level test is kept and reported as the diagnostic that
+# produced this.
+ALIGN_R = 0.90            # retained for the LEVEL test, now reported as a diagnostic only
+ALIGN_MARGIN = 0.20       # ⛔ retained, and expected to FAIL - see above
+ANOM_R = 0.30             # the anomaly correlation the winning offset must reach
+ANOM_MARGIN = 0.10        # ...and the margin over every rival. 4x the 0.025 the level test gave.
 ALPHA = 0.05
 B = 399
 SEED = 20261109_3
@@ -172,28 +194,45 @@ def main(argv: list[str]) -> int:
         out("\n  G-ALIGN — which fed-month index carries the h1 forecast for target month m?")
         fed_idx = {m: i for i, m in enumerate(fed)}
         land_pos = {c: i for i, c in enumerate(land)}
-        scores = {}
+        # Build the (origin x cell) matrices once, on the cells common to every origin, so the
+        # per-cell temporal mean is well defined.
+        origins = sorted(gate_del.items(), key=lambda kv: kv[1][2])
+        common = None
+        for _o, (_g, u, _m) in origins:
+            common = u.copy() if common is None else np.intersect1d(common, u)
+        ccol = np.array([land_pos.get(int(c), -1) for c in common])
+        if (ccol < 0).any():
+            raise SystemExit("G-ALIGN: a delivered unit is absent from the d4 land_cells")
+        D_del = np.stack([g[np.searchsorted(u, common)] for _o, (g, u, _m) in origins])
+        out(f"    {D_del.shape[0]} origins x {common.size:,} common cells")
+
+        scores, anom = {}, {}
         for k in OFFSETS:
-            rs = []
-            for o, (g_del, units, month) in sorted(gate_del.items()):
-                src = fed_idx.get(month + k)
-                if src is None:
-                    continue
-                col = np.array([land_pos.get(int(u), -1) for u in units])
-                ok = col >= 0
-                if ok.sum() < 1000:
-                    continue
-                a, b_ = g_del[ok], gate_all[src, col[ok]]
-                rs.append(float(np.corrcoef(a, b_)[0, 1]))
-            scores[k] = float(np.mean(rs)) if rs else np.nan
-            out(f"    offset {k:+d}  mean r over origins = {scores[k]:+.6f}")
-        best = max(scores, key=lambda k: (scores[k] if np.isfinite(scores[k]) else -9))
-        rivals = [v for k, v in scores.items() if k != best and np.isfinite(v)]
-        margin = scores[best] - max(rivals) if rivals else np.inf
-        passed = scores[best] >= ALIGN_R and margin >= ALIGN_MARGIN
-        out(f"    ⇒ best offset {best:+d} at r={scores[best]:+.6f}, margin {margin:+.6f}")
+            idx = [fed_idx.get(m + k) for _o, (_g, _u, m) in origins]
+            if any(i is None for i in idx):
+                scores[k] = anom[k] = np.nan
+                out(f"    offset {k:+d}  (out of the fed range)")
+                continue
+            D_rec = np.stack([gate_all[i, ccol] for i in idx])
+            scores[k] = float(np.mean([np.corrcoef(D_del[t], D_rec[t])[0, 1]
+                                       for t in range(D_del.shape[0])]))
+            # ⭐ the ANOMALY: delete each cell's temporal mean, keeping only what varies in time
+            A_del = D_del - D_del.mean(0, keepdims=True)
+            A_rec = D_rec - D_rec.mean(0, keepdims=True)
+            anom[k] = float(np.corrcoef(A_del.ravel(), A_rec.ravel())[0, 1])
+            out(f"    offset {k:+d}  level r = {scores[k]:+.6f}   ⭐ ANOMALY r = {anom[k]:+.6f}")
+
+        best = max(anom, key=lambda k: (anom[k] if np.isfinite(anom[k]) else -9))
+        rivals = [v for k, v in anom.items() if k != best and np.isfinite(v)]
+        margin = anom[best] - max(rivals) if rivals else np.inf
+        passed = anom[best] >= ANOM_R and margin >= ANOM_MARGIN
+        lvl_best = max(scores, key=lambda k: (scores[k] if np.isfinite(scores[k]) else -9))
+        lvl_riv = [v for k, v in scores.items() if k != lvl_best and np.isfinite(v)]
+        out(f"    ℹ️ LEVEL test (diagnostic): best {lvl_best:+d} at {scores[lvl_best]:+.6f},"
+            f" margin {scores[lvl_best] - max(lvl_riv):+.6f} ⇒ cannot resolve a month")
+        out(f"    ⇒ ANOMALY best offset {best:+d} at r={anom[best]:+.6f}, margin {margin:+.6f}")
         ok_txt = "PASS" if passed else "⛔ FAIL"
-        out(f"    {ok_txt}  G-ALIGN  (r>={ALIGN_R}, margin>={ALIGN_MARGIN})")
+        out(f"    {ok_txt}  G-ALIGN  (anomaly r>={ANOM_R}, margin>={ANOM_MARGIN})")
         if not passed:
             out("  ⛔⛔ REFUSING to report `mu`: the reconstruction does not reproduce the")
             out("      delivered gate at one offset, so its alignment is unestablished.")
