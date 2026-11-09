@@ -353,8 +353,8 @@ dossier's own lemmas**, in four parts with three epistemic statuses, in `02_PSEU
 | | | status |
 |---|---|---|
 | **(a)** validity | the randomisation hypothesis is **false** when neither vector is exchangeable | ⭐ **logic alone** — no direction, no citation, no empirical input |
-| **(b)** direction | in the `b`-fold autocorrelated limit, the permutation null is centred **too low by a factor of order `b`**: `(H_G/G)/(H_n/n) = b·(H_{n/b}/H_n) > 1` for `b > 1`, built from §4.1 and the tie-collapse lemma | ⭐ **DERIVED**, and `H-f`'s undetermined constant **cancels** |
-| **(c)** mechanism | the distortion needs **JOINT** autocorrelation. With `x` smooth and `y` i.i.d. the test is **CONSERVATIVE** ⇒ a **three-point** discriminating prediction, not one | ⭐ derived; makes the test of the mechanism real |
+| **(b)** direction | in the `b`-fold autocorrelated limit the permutation null is centred too low by **exactly the block size**: permutation preserves `x`'s ties, so both configurations keep `G` blocks of size `b` and only the within-block response variance changes (`p(1−p)` vs `p(1−p)/b`) ⇒ ratio `= n/G = b`. ⭐⭐ **Both the undetermined constant AND the harmonic number cancel**, and `b = n/n_eff` | ⭐ **DERIVED**, inheriting no constant and no asymptotic. ⚠️ `b` is an **upper bound** — the observed case carries more ties, which merge vertices |
+| **(c)** mechanism | exactness fails only when **NEITHER** vector is exchangeable ⇒ smoothness in **one** field alone is harmless, and the distortion needs **JOINT** autocorrelation ⇒ a **three-point** prediction whose middle case is a **control** (`x` smooth, `y` i.i.d. ⇒ still **exact**; distortion there would be an implementation fault) | ⭐ derived; makes the test of the mechanism real |
 | **(d)** magnitude | the effective `b` on our data is **unknown** | ⛔ **UNMEASURED** — (c)'s step 4 is the evidence |
 
 ⭐⭐ And (d) promotes **`n_eff = n/b`** to the parameter that *sets* the distortion ⇒ it is the **first

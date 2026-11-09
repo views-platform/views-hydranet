@@ -329,38 +329,68 @@ constant within a group and independent across groups.
    **identical** either way — repeating each `y` value `b` times changes neither the ECDF nor the
    threshold grid. ⇒ `R*` on `n` cells **is** `R*` on `G` observations, exactly.
 2. By **§4.1's corrected bias**, the null level of `R*` on `G` exchangeable observations is `≈ c·H_G/G`.
-3. A permutation of the `n` cell labels **scatters each `x` across groups**, destroying the block
-   structure and leaving an exchangeable sequence of length `n` ⇒ permutation null level `≈ c·H_n/n`.
+3. ⭐ **A permutation PRESERVES the multiset of `x`, hence the tie blocks.** `d` stays `G`, blocks stay
+   size `b` — permutation scatters the *pairing*, not the blocks. ⇒ Both configurations have `G`
+   degrees of freedom, and what changes is the **within-block response variance**:
+
+| | block response at threshold `z` | its variance | between-block share | `R*` null level |
+|---|---|---|---|---|
+| **observed** (both fields block-constant) | the group's own `1{y ≤ z}` — binary | `p(1−p)` | `1` | `≈ c·H_G/G` |
+| **permuted** | a mean of `b` **scattered** indicators | `p(1−p)/b` | `1/b` | `≈ c·H_G/(G·b) = c·H_G/n` |
+
 4. Ratio of true null location to permutation null location:
 
 ```
-   (H_G/G) / (H_n/n)  =  b · ( H_{n/b} / H_n )  ≈  b · ( 1 − log b / log n )   >  1   for b > 1
+   (H_G/G) / (H_G/n)  =  n/G  =  b                      EXACTLY
 ```
 
-⇒ ⛔ **The permutation null is centred TOO LOW by a factor of order `b`**, and the observed statistic is
+⇒ ⛔ **The permutation null is centred TOO LOW by exactly the block size**, and the observed statistic is
 judged against it. ⭐ **Over-rejection follows from a LOCATION argument** — stronger than the variance
-argument §5.2 originally gave. ∎ ⭐⭐ And `H-f`'s unmeasured constant `c` **cancels** in the ratio (same
-functional form, same `y` multiset, different length only), so this does not inherit it. At `n = 2,905`
-and `b = 2` the factor is **1.83**; at `b = 100` it is **42**.
+argument §5.2 originally gave. ∎
 
-**(c) ⭐ A sharper condition — and it turns one prediction into a discriminating PATTERN.** Redo (b)
-with `x` block-constant but `y` **i.i.d.**: PAV can then explain only *between-block* variance, whose
-share of the total is `1/b`, giving `R*_null ≈ c·H_{n/b}/n` against the permutation's `c·H_n/n` — a
-ratio **below 1**. ⛔ **That case is CONSERVATIVE, not anti-conservative.**
+⭐⭐ **Both `c` AND `H_G` cancel**, so this inherits neither `H-f`'s undetermined constant nor any
+asymptotic. At `b = 2` the factor is **2**; at `b = 100` it is **100**. ⇒ And since `b = n/n_eff`, the
+distortion is **exactly `n / n_eff`** — `n_eff` measured in step 0 gives it directly, with no harmonic
+correction in it.
 
-⇒ The distortion requires **JOINT** autocorrelation — roughly the *product* of the two fields'
-autocorrelations at each lag, not either alone. Both are present here (`mu` smooth by construction,
+⛔⛔ **CORRECTED 2026-11-09, and the error was the auditor's own.** A first version of this derivation
+claimed permutation *"destroys the block structure, leaving an exchangeable sequence of length `n`"* and
+got `b·(H_{n/b}/H_n)` — ≈1.84 at `b=2`, ≈46 at `b=100`. ⛔ That step is false for the reason in (3), and
+it contradicted a point the same auditor had verified two rounds earlier. ⚠️ This file also rendered
+those numbers as **1.83** and **42**, computed with `log` where the formula said `H` — silently
+discarding the `γ` that makes the harmonic number exact. Moot now, since both cancel, but recorded: the
+wrong figure was wrong **twice over**, and neither error was caught by the formula sitting beside it.
+
+⚠️ **One imprecision that remains.** The vertex-count argument is distribution-free for *continuous*
+increments. The observed case's responses are pure binary while the permuted case's are means of `b`,
+so the observed case carries **more ties**, ties merge vertices, and the ratio is pulled slightly
+**below** `b`. ⇒ **`b` is an UPPER BOUND on the distortion in this limit, not the exact value.** Step 3
+measures which.
+
+**(c) ⭐ A sharper condition — and it turns one prediction into a discriminating PATTERN.** Exactness
+fails only when **NEITHER** vector is exchangeable (a). So smoothness in **one** field alone is
+**harmless**, and the distortion requires **JOINT** autocorrelation — roughly the *product* of the two
+fields' dependence at each lag, not either alone. Both are present here (`mu` smooth by construction,
 fatalities clustered), so the direction stands, and (b)§7 step 4 becomes:
 
-| planted `H_0` | predicted size of `PERMUTE` |
-|---|---|
-| both fields i.i.d. | **exact** |
-| `x` smooth, `y` i.i.d. | ⛔ **UNDER**-rejects |
-| ⭐ both smooth, our geometry | ⛔ **OVER**-rejects, by a factor of order `b` |
+| planted `H_0` | predicted size of `PERMUTE` | why |
+|---|---|---|
+| both fields i.i.d. | **exact** | `y` exchangeable ⇒ the randomisation hypothesis holds |
+| ⭐ `x` smooth, `y` i.i.d. | **exact** — ⛔ a CONTROL, not a prediction of distortion | `y` is still exchangeable, so the test is still exact; and permutation **preserves `x`'s ties**, so `x`'s smoothness alone manufactures no distortion |
+| ⭐ both smooth, our geometry | ⛔ **OVER**-rejects, by up to `b` | neither vector exchangeable |
 
-⭐⭐ **Reproducing that PATTERN confirms the mechanism, not merely the direction** — the *"for the
-reason I think it does"* standard rather than *"it came out the way I expected"*. ⇒ A single
-over-rejection on one planted case is **no longer enough** to claim it.
+⛔ **CORRECTED 2026-11-09 — the middle row previously read "UNDER-rejects"**, from the same false step
+as (b)'s ratio. There is **no under-rejecting case in this family.**
+
+⭐⭐ **The table is stronger for it.** *"Exact"* is a sharper prediction than *"under-rejects by an
+unspecified amount"*, and the middle row is now a genuine **control**: it isolates whether any measured
+distortion comes from `x`'s **tie structure alone** — which it must **not** — or from the **joint**
+structure — which it must. ⛔ **If step 4 shows `PERMUTE` distorted on the middle case, the finding is
+in the implementation, not the mechanism.**
+
+⇒ Reproducing the **pattern** confirms the mechanism, not merely the direction — the *"for the reason I
+think it does"* standard rather than *"it came out the way I expected"*. A single over-rejection on one
+planted case is **not enough** to claim it.
 
 **(d) MAGNITUDE — unmeasured, and this is where the caveat belongs.** The effective `b` on our data is
 unknown ⇒ step 4 is the **evidence**, not a confirmation of something already settled.
@@ -587,8 +617,9 @@ is replaced.
   3.  H-f: the null R* under EXCHANGEABLE planted H_0              # order log n / n
   4.  ⭐⭐ H-e: THE THREE-POINT PATTERN of (b)§4.4c, not one case:
          4a  both fields i.i.d.            -> PERMUTE predicted EXACT
-         4b  x smooth, y i.i.d.            -> PERMUTE predicted to UNDER-reject
-         4c  both smooth, our geometry      -> PERMUTE predicted to OVER-reject, by order b
+         4b  x smooth, y i.i.d.            -> PERMUTE predicted EXACT  (a CONTROL: distortion here
+                                             would be an IMPLEMENTATION fault, not the mechanism)
+         4c  both smooth, our geometry      -> PERMUTE predicted to OVER-reject, by UP TO b = n/n_eff
   5.      the same under LON_SHIFT, MONTH_SHIFT, STRATIFIED        # which scheme recovers size?
   6.  G7 + the sweep on planted PARTIAL information
   7.  H-c: bootstrap width and the top-k jackknife on a planted tail
@@ -599,8 +630,9 @@ is replaced.
 planting exchangeable `H_0` validates a test that is exact under exchangeability *by assumption*.
 
 ⭐⭐ **Step 4 is the test of the assumption, and it is now a PATTERN, not a single prediction.** ⛔ A
-lone over-rejection at 4c is **no longer sufficient** — the mechanism claim requires 4a exact, 4b
-under-rejecting and 4c over-rejecting. That is the *"for the reason I think it does"* standard. ⇒ If the
+lone over-rejection at 4c is **no longer sufficient** — the mechanism claim requires **4a exact, 4b
+exact, and 4c over-rejecting**, and 4b is the control that separates a real mechanism from a bug in the
+resampler. That is the *"for the reason I think it does"* standard. ⇒ If the
 pattern does not reproduce, break `B2`'s **direction** is unsupported even if its **validity** half
 (§4.4a) still stands on logic, and §5 is revised accordingly.
 
