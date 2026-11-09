@@ -183,3 +183,90 @@ Three predictions existed to test the audit rather than the data. All three reso
   in a pre-registration, and it is Simon's.
 - ⚠️ `B = 99` in the size study and 60 trials per cell ⇒ Monte-Carlo SE on a rejection rate is
   **≈0.028**. The `0.917` and `0.050`s are far outside it; `STRATIFIED`'s `0.083` on 4b is **not**.
+
+
+---
+
+## 8 ⭐⭐ (c2), 2026-11-09 — THE BLOCKER IS CLEARED. The shift recovers size on a real grid.
+
+`tools/spatial_null.py` → `results/spatial_null.out`. Pre-registered and committed before it ran.
+⛔ Still **planted data only**: a faithful 360×720 raster with a 25.0% land mask (64,800 land cells
+against the real 64,818), ~2,905 clustered event cells, two independent FFT-smoothed fields.
+
+### 8.1 The result
+
+| | `PERMUTE` | ⭐ `LON_SHIFT` | `LON_SHIFT_RANK` | `LAT_BLOCK` |
+|---|---|---|---|---|
+| control, `y` i.i.d. (3 lengths) | 0.00–0.10 ✅ | 0.03–0.07 ✅ | 0.03 ✅ | 0.00–0.07 ✅ |
+| **both smooth**, `L = 2` | ⛔ 0.300 | ✅ **0.067** | ✅ 0.067 | ⛔ 0.333 |
+| **both smooth**, `L = 6` | ⛔ 0.900 | ✅ **0.033** | ✅ 0.033 | ⛔ 0.833 |
+| **both smooth**, `L = 18` | ⛔ 0.867 | ✅ **0.000** | ✅ 0.100 | ⛔ 0.633 |
+
+⭐⭐ **`P-93` HELD. The longitude shift recovers size at every swept correlation length** (≤ `2α`), in
+both its plain and rank-reimposed forms. `P-92` (control) and `P-94` (`PERMUTE` still badly broken)
+also held.
+
+⇒ ⛔ **`03_FINDING.md` §6.1's blocker is cleared, and §6.1's own caveat was the reason:** (c)'s
+`0.267` *was* an artefact of the block-constant surrogate. Given the geometry the shift was designed
+for, it drops to **0.00–0.07**.
+
+⛔ **`LAT_BLOCK` fails on every row** (0.333 / 0.833 / 0.633) ⇒ spatial strata do **not** work here.
+Of the three schemes, exactly one does.
+
+### 8.2 ⭐⭐ Which reconciliation of `Fortin1996` survives — and the mechanism is VISIBLE
+
+`library`'s reading wins (`02_PSEUDOCODE.md` §4.7): the direction is **statistic-dependent**.
+`Fortin1996` holds for boundary overlap; our derivation holds for continuous association; **both stand
+without conflict.** `opponent`'s prediction — a material residual over-rejection surviving on a
+faithful grid — is **refuted**.
+
+⭐ And `library`'s *mechanism* is directly legible in the `perm null R*` column, which was not what
+the predictions were about:
+
+| planted `L` | true null `R*` | `PERMUTE`'s null | `LON_SHIFT`'s null |
+|---|---|---|---|
+| 2 | 0.0069 | 0.0027 | **0.0058** |
+| 6 | 0.0206 | 0.0026 | **0.0286** |
+| 18 | 0.1068 | 0.0026 | **0.1145** |
+
+⇒ ⭐⭐ **`PERMUTE`'s reference distribution is FROZEN at the independent level** (0.0026 at every
+length) **while the truth rises 40-fold.** The shift's reference **tracks** the truth. That is
+*"structure-destruction compresses"* measured directly, and it is why `PERMUTE` fails and the shift
+does not.
+
+⚠️ At `L = 18` the shift's null (0.1145) slightly **exceeds** the truth (0.0600) ⇒ mildly
+**conservative** at the longest correlation length, which is why its rejection rate is 0.000.
+Over-correction, not under-correction — the safe direction, but recorded.
+
+### 8.3 ⛔ `P-95` REFUTED — Clifford's `M̂` does NOT predict the distortion
+
+| `L` | measured distortion | `n / M̂` | ratio |
+|---|---|---|---|
+| 2 | 2.59 | 1.57 | 1.64 ✅ |
+| 6 | 7.81 | 33.69 | ⛔ **0.23** |
+| 18 | 41.52 | 215.43 | ⛔ **0.19** |
+
+⇒ `M̂` **overstates the distortion by 4–5×** at realistic correlation lengths. `P-96` held (`M̂` falls
+monotonically with correlation length), so it is a valid **ordinal** indicator and **not** a
+quantitative predictor.
+
+⛔ **This matters for the design.** `02§7` step 0 makes `n_eff` *"the first number printed and the
+parameter that sets the distortion"*. ⇒ **That second clause is now withdrawn.** `n_eff` is a
+**diagnostic that ranks how dependent a field is**, not an estimate of how wrong `PERMUTE` will be.
+⚠️ Consistent with the locator audit's warnings, which is why they were printed beside the output:
+`Dutilleul1993` C-4688 (the incomplete form can differ 8× from the complete one) and `Clifford1989`'s
+own 2-of-12 misses (C-4683). ⇒ The **complete** estimator is now worth implementing; this was the
+incomplete one.
+
+### 8.4 ⚠️ What §8 does NOT say
+
+- ⛔ **Nothing about the model.** No `mu`, no checkpoint. Independence here is **by construction**, so
+  this shows the scheme is correctly sized on a null it was *built* to be correctly sized on.
+- ⚠️ **`B = 49`, 30 reps ⇒ Monte-Carlo SE ≈ 0.040.** So *"recovers size"* means **not detectably
+  over-rejecting at this resolution** — `0.100` and `0.067` are each within ~1.5 SE of `α`. A
+  confirmation run at larger `B` is owed before the scheme is relied on.
+- ⚠️ **A faithful GEOMETRY is not a simulation of conflict.** Real `mu` is smooth for reasons a
+  Gaussian kernel does not reproduce, and real events are not a thresholded smooth field.
+- ⛔ **Still owed:** the maxT band, the bootstrap (`H-c`), `opponent`'s replicate-independence check
+  (adjacent shifts of a smooth field are near-identical, so the *effective* replicate count may be
+  below the nominal one), and the **complete** Clifford estimator.

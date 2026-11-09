@@ -1,0 +1,62 @@
+====================================================================================================
+  (c2) THE SPATIAL NULL — a REAL lat/lon grid, and Clifford's n_eff.  ⛔ PLANTED ONLY.
+====================================================================================================
+  grid 360x720 = 259,200 cells · land 25.0% · ev 2,905
+  correlation lengths SWEPT (2.0, 6.0, 18.0) cells · alpha 0.05 · B 49 · reps 30
+  ⚠️ Monte-Carlo SE on a rejection rate ≈ 0.040
+  estimator IMPORTED from simulate_ordering_discrimination, not copied (M101 is safe)
+
+====================================================================================================
+  STEP 0 — the planting, and ⭐ Clifford's M̂ (the estimator (c) said we did not have)
+====================================================================================================
+  corr_len   2.0  n  2905  land cells 64,800  Var(r̂) 5.425e-04  M̂    1844.5  ⇒ n/M̂ =    1.57
+  corr_len   6.0  n  2905  land cells 64,800  Var(r̂) 1.174e-02  M̂      86.2  ⇒ n/M̂ =   33.69
+  corr_len  18.0  n  2905  land cells 64,800  Var(r̂) 8.010e-02  M̂      13.5  ⇒ n/M̂ =  215.43
+  (step 0 took 1.2 s)
+  ⛔ INCOMPLETE estimator (Dutilleul1993 C-4688: up to 8x from the complete form on
+     small lattices); Clifford1989's own MC missed the 5% target in 2 of 12 (C-4683).
+  P-96  M̂ falls monotonically with corr length: HELD
+
+====================================================================================================
+  THE SIZE STUDY ON A REAL GRID   [P-92 control · P-93 the decider · P-94 · P-95]
+====================================================================================================
+  CONTROL y i.i.d.  L   2.0  PERMUTE         rejection  0.000  true null R* 0.00270  perm null R* 0.00261  ✅
+  CONTROL y i.i.d.  L   2.0  LON_SHIFT       rejection  0.067  true null R* 0.00265  perm null R* 0.00272  ✅
+  CONTROL y i.i.d.  L   2.0  LON_SHIFT_RANK  rejection  0.033  true null R* 0.00258  perm null R* 0.00259  ✅
+  CONTROL y i.i.d.  L   2.0  LAT_BLOCK       rejection  0.000  true null R* 0.00224  perm null R* 0.00264  ✅
+  CONTROL y i.i.d.  L   6.0  PERMUTE         rejection  0.067  true null R* 0.00246  perm null R* 0.00265  ✅
+  CONTROL y i.i.d.  L   6.0  LON_SHIFT       rejection  0.033  true null R* 0.00240  perm null R* 0.00251  ✅
+  CONTROL y i.i.d.  L   6.0  LON_SHIFT_RANK  rejection  0.033  true null R* 0.00251  perm null R* 0.00267  ✅
+  CONTROL y i.i.d.  L   6.0  LAT_BLOCK       rejection  0.000  true null R* 0.00261  perm null R* 0.00277  ✅
+  CONTROL y i.i.d.  L  18.0  PERMUTE         rejection  0.100  true null R* 0.00274  perm null R* 0.00261  ✅
+  CONTROL y i.i.d.  L  18.0  LON_SHIFT       rejection  0.067  true null R* 0.00298  perm null R* 0.00264  ✅
+  CONTROL y i.i.d.  L  18.0  LON_SHIFT_RANK  rejection  0.033  true null R* 0.00268  perm null R* 0.00260  ✅
+  CONTROL y i.i.d.  L  18.0  LAT_BLOCK       rejection  0.067  true null R* 0.00256  perm null R* 0.00262  ✅
+  BOTH SMOOTH       L   2.0  PERMUTE         rejection  0.300  true null R* 0.00690  perm null R* 0.00267  ⛔
+  BOTH SMOOTH       L   2.0  LON_SHIFT       rejection  0.067  true null R* 0.00575  perm null R* 0.00584  ✅
+  BOTH SMOOTH       L   2.0  LON_SHIFT_RANK  rejection  0.067  true null R* 0.00785  perm null R* 0.00602  ✅
+  BOTH SMOOTH       L   2.0  LAT_BLOCK       rejection  0.333  true null R* 0.00524  perm null R* 0.00297  ⛔
+  BOTH SMOOTH       L   6.0  PERMUTE         rejection  0.900  true null R* 0.02064  perm null R* 0.00264  ⛔
+  BOTH SMOOTH       L   6.0  LON_SHIFT       rejection  0.033  true null R* 0.02615  perm null R* 0.02861  ✅
+  BOTH SMOOTH       L   6.0  LON_SHIFT_RANK  rejection  0.033  true null R* 0.03135  perm null R* 0.02854  ✅
+  BOTH SMOOTH       L   6.0  LAT_BLOCK       rejection  0.833  true null R* 0.02649  perm null R* 0.01068  ⛔
+  BOTH SMOOTH       L  18.0  PERMUTE         rejection  0.867  true null R* 0.10682  perm null R* 0.00257  ⛔
+  BOTH SMOOTH       L  18.0  LON_SHIFT       rejection  0.000  true null R* 0.06004  perm null R* 0.11446  ✅
+  BOTH SMOOTH       L  18.0  LON_SHIFT_RANK  rejection  0.100  true null R* 0.13151  perm null R* 0.10228  ✅
+  BOTH SMOOTH       L  18.0  LAT_BLOCK       rejection  0.633  true null R* 0.10361  perm null R* 0.04878  ⛔
+
+====================================================================================================
+  VERDICT
+====================================================================================================
+  P-92  control exact within 2 MC-SE (0.080): HELD  rates [0.0, 0.067, 0.033, 0.0, 0.067, 0.033, 0.033, 0.0, 0.1, 0.067, 0.033, 0.067]
+  P-94  PERMUTE still over-rejects on a real grid (>=0.40): HELD  rates [0.3, 0.9, 0.8666666666666667]
+  P-93  ⭐⭐ LON_SHIFT recovers size (<=0.10 at every L): HELD — UNBLOCKED  rates [0.06666666666666667, 0.03333333333333333, 0.0]
+  P-93  ⭐⭐ LON_SHIFT_RANK recovers size (<=0.10 at every L): HELD — UNBLOCKED  rates [0.06666666666666667, 0.03333333333333333, 0.1]
+  P-95  ⭐ does Clifford's M̂ predict the distortion?
+        L   2.0  measured ratio     2.59  n/M̂     1.57  meas/pred   1.64  ✅
+        L   6.0  measured ratio     7.81  n/M̂    33.69  meas/pred   0.23  ⛔
+        L  18.0  measured ratio    41.52  n/M̂   215.43  meas/pred   0.19  ⛔
+  P-95  within a factor of 2 at every L: ⛔ REFUTED
+
+  ⛔ PLANTED DATA. No mu read. No v1 decision taken. A faithful GEOMETRY is still not
+     a simulation of conflict — independence here is by construction, not by argument.
