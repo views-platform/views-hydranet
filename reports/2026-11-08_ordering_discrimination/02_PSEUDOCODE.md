@@ -537,6 +537,42 @@ finding** but **not** the authors' recommendation to use randomization anyway, *
 doubt** about their restricted scheme. ⇒ Reading the claims rather than the paper yields the first half
 of this and not the second.
 
+### 4.7 ⭐⭐ TWO SEATS, TWO DIFFERENT RECONCILIATIONS — and the running experiment separates them
+
+Both seats confirm the paper's direction (`library` found it stated **three times**, pp. 57–58, and
+quotes the paper flagging its own surprise: *"This seems counterintuitive at first … one might
+therefore expect [randomization] to declare significance more frequently"* — which is **our argument,
+named by the authors and then overturned empirically on their data**).
+
+⛔ **But the two seats explain it differently, and their explanations are not compatible.**
+
+| | `opponent`'s reading | `library`'s reading |
+|---|---|---|
+| **claim** | **both** distortions are real **and present in our case** | `Fortin1996`'s mechanism **does not reach our statistic at all** |
+| **why** | ours is a **location** error (null centred too low by ~`b`); theirs is a **support** error (rigid 76-configuration set excludes the extremes). Different quantities, opposite directions, both can hold | the mechanism is the same — *narrower null ⇒ more liberal* — but the **operation that produces the narrow null FLIPS with the statistic**. For boundary overlap, structure-**preservation** constrains; for continuous association, structure-**destruction** compresses |
+| **reads our 0.267 as** | ⭐ the **signature of both**: the shift fixed the location error (`0.917 → 0.267`) and left the narrowness residual | an artefact of the block-constant surrogate; on a real grid the shift should recover size |
+| **predicts** | the shift keeps a **material residual** over-rejection even on a faithful grid | the shift **recovers size** (≤ `2α`) on a faithful grid |
+
+⭐⭐ **These are different predictions about the same number, and `P-93` was pre-registered before
+either was offered.** ⇒ The (c2) run in flight discriminates them on **our own statistic**:
+
+| (c2) outcome for `LON_SHIFT` on the real grid | reading that survives |
+|---|---|
+| ≤ `2α` = 0.10 at every correlation length | ⭐ **`library`**: the direction is statistic-dependent, `Fortin1996` holds for boundary overlap, our derivation holds for continuous association, and **both findings stand without conflict** |
+| materially above `α`, below `PERMUTE` | ⭐ **`opponent`**: both distortions are present and **neither scheme is usable as-is** ⇒ the honest output is a size correction or a different instrument |
+| ≥ `PERMUTE` | ⛔ **`Fortin1996` generalises to our statistic**, §4.4 is wrong, and both seats' reconciliations fail |
+
+⛔ **I take no position between them.** Both are coherent, both are argued from the same verbatim text,
+and the thing that separates them is a number that does not exist yet. ⚠️ **This is the shape the
+whole dossier keeps finding:** two confident mechanisms, one measurement, and the measurement is
+cheaper than the argument.
+
+ℹ️ `library`'s variance account, recorded because it is the testable half of its reading: scrambling
+destroys autocorrelation ⇒ many effectively independent cells ⇒ the null association has **LOW**
+variance ⇒ narrow null ⇒ anti-conservative; preserving structure ⇒ clustered blocks can align or
+misalign ⇒ **HIGH** variance ⇒ wider null. ⇒ **Directly checkable** from (c2)'s output: the per-scheme
+spread of the replicate statistics, not only the rejection rate. ⛔ Not currently printed — owed.
+
 ⚠️ **And the cross-check it recommends is adopted regardless**: `Fortin1996` advises a binomial test
 beside the shift where a direct-overlap statistic exists. Our analogue is §6's **out-of-sample skill**,
 which needs no null at all — already the readout the decision hangs on, now for a second reason.
