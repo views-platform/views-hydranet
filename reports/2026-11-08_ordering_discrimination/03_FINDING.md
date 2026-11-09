@@ -145,13 +145,31 @@ Three predictions existed to test the audit rather than the data. All three reso
    it was designed for. ⛔ Until a scheme recovers size, `DSC_ORD` on `mu` has **no interpretable
    p-value**, and §6's out-of-sample `SKILL` — which needs no null for its level — is the only
    readout that could be quoted.
-2. ⛔ **An `n_eff` estimator for a continuous field.** `02§7` makes it the first number printed and
-   the parameter that sets the distortion; we do not have one.
+2. ⭐⭐ **An `n_eff` estimator for a continuous field — NOW ANSWERED, 2026-11-09.** `02§7` makes it
+   the first number printed and the parameter that sets the distortion, and §4 records that
+   `n_eff_blocky` cannot supply it. ⭐ **`Clifford1989` gives one:** `M̂ = 1 + σ̂_r^{-2}`, where
+   `σ̂_r` is the estimated SD of the sample correlation, computed from the two fields' own
+   autocorrelation functions — i.e. defined for **continuous** fields, which is exactly what
+   `n_eff_blocky` is not. ⇒ This open item becomes **implementation work, not an unsolved problem.**
+   ⚠️ With two cautions from the same audit: `Clifford1989`'s own Monte-Carlo missed the 5% target
+   in **2 of 12** lattices (C-4683), and `Dutilleul1993` (C-4688) shows the *incomplete* estimator
+   differing from the *complete* one by up to **8×** on small lattices. ⇒ The estimator needs its own
+   validation before its output is quoted; it is not a plug-in.
 3. ⚠️ **A `G12` case where the wrong answer is plausible** rather than caught by `G1`.
 4. ⚠️ `P-91`'s first clause — recovery of a **known planted** out-of-sample skill — was never tested.
 5. ⚠️ **The maxT band and the bootstrap were not run at all.** `02§4.2` and `H-c` are still owed.
-6. ℹ️ Clifford et al. 1989 / Dutilleul 1993 remain owed as historical attribution; the claim does not
-   rest on them (`02§4.4`).
+6. ✅ **Clifford et al. 1989 / Dutilleul 1993 — ACQUIRED, indexed and locator-audited** by `library`
+   on 2026-11-09 (with `Dormann2007` as a review). ⭐ `Clifford1989` **C-4681 independently confirms
+   the anti-conservatism**, quantified at **25–55% rejection against a nominal 5%**. ⇒ `02§4.4`'s
+   self-derived argument is **confirmed rather than replaced**: their route is the variance of the
+   sample correlation, ours is tie-preserving permutation in the block limit — **same destination,
+   different mechanism** — and §4.4(c)'s control row is not in their work at all.
+   ⚠️ **Our 91.7% is well above their 25–55%**, and the two are not like-for-like: a permutation test
+   rather than a `t`-test, on a deliberately extreme planting. The direction and mechanism agree;
+   the magnitude is ours and harsher.
+   ⚠️ **Scope limit** (`Dormann2007`, C-4690): these are **test-statistic** corrections and *"do not
+   allow for a correction of the parameter estimates."* Fine here — we need a correctly sized test,
+   not corrected coefficients — but they fix the inference, not the estimate.
 
 ---
 

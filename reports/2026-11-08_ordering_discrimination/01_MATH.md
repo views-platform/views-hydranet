@@ -345,10 +345,12 @@ Permutation destroys `x`'s autocorrelation and therefore **understates the null 
 
 ⇒ ⛔ **The test is ANTI-CONSERVATIVE. It rejects too often.**
 
-⛔⛔ **REBUILT 2026-11-09.** v1 rested this on Clifford/Richardson/Hémon (1989) and Dutilleul (1993).
-⛔ `library` reports the library holds **neither** — no PDF, no metadata. A finding that changed the
-design cannot rest on a reference nobody here has opened. ⇒ **The claim is now derived from this
-dossier's own lemmas**, in four parts with three epistemic statuses, in `02_PSEUDOCODE.md` §4.4:
+⛔⛔ **REBUILT 2026-11-09**, then ⭐ **CONFIRMED AGAINST THE ACQUIRED SOURCES the same day.** v1
+rested this on Clifford/Richardson/Hémon (1989) and Dutilleul (1993); `library` found the library held
+**neither**, so the claim was rebuilt from this dossier's own lemmas. ⭐ **`library` has since
+acquired, indexed and audited both** (plus `Dormann2007_MethodsAccountSpatialAutocorrelation` as a
+review), and the self-derived argument survives contact with them. Four parts, three epistemic
+statuses, in `02_PSEUDOCODE.md` §4.4:
 
 | | | status |
 |---|---|---|
@@ -359,7 +361,26 @@ dossier's own lemmas**, in four parts with three epistemic statuses, in `02_PSEU
 
 ⭐⭐ And (d) promotes **`n_eff = n/b`** to the parameter that *sets* the distortion ⇒ it is the **first
 number (c) prints**, because it estimates how badly `PERMUTE` is wrong before a single replicate is
-spent. ℹ️ The two papers are owed as **historical attribution** only, and stay unquoted until acquired.
+spent.
+
+#### ⭐ What the acquired sources say (`library`, 2026-11-09, locator-audited)
+
+| part | verdict against the papers |
+|---|---|
+| **(a)** anti-conservatism | ✅ **CONFIRMED, and quantified.** `Clifford1989` (**C-4681**) is exactly this finding: their Monte-Carlo shows the standard test rejecting at **25–55%** against a nominal **5%** for positively autocorrelated spatial processes, with the same mechanism — the effective sample size `M̂ < N` (p. 126 §2.4) |
+| **(b)** direction | ⭐ **INDEPENDENT, and ours is NOVEL.** `Clifford1989` reaches `n_eff < n` via the variance of the sample correlation (`M̂ = 1 + σ̂_r^{-2}`); §4.4(b) reaches it via tie-preserving permutation and the block limit. **Same destination, different mechanism** ⇒ keep the derivation as the primary argument and `Clifford1989` as *independent confirmation*, not as its source |
+| **(c)** joint requirement | ⭐ **OURS.** `Clifford1989` assumes both fields are autocorrelated and never isolates the one-smooth-one-i.i.d. case as a control. ⚠️ But it points the same way: *"If one of the processes has negative autocorrelation it is, in principle, possible that the effective sample size will be larger than N"* ⇒ the interaction structure §4.4(c) exploits is implicit there |
+| **(d)** magnitude | ✅ **ALIGNED with its UNMEASURED status.** `Clifford1989`'s own validation missed the 5% target in **2 of 12** lattices (**C-4683**), and `Dutilleul1993` (**C-4688**) shows the "incomplete" estimator differing from the "complete" one by up to **8×** on small lattices ⇒ having the formula does not settle the magnitude |
+
+⚠️ **One scope limit, from `Dormann2007` (C-4690):** it classifies Clifford/Dutilleul as **test-statistic
+corrections** and excludes them from its review because *"they do not allow for a correction of the
+parameter estimates."* ⇒ Fine for our purpose — we need a correctly sized **test**, not corrected
+coefficients — but the methods do not fix the estimate, only the inference about it.
+
+⚠️ **And our own measurement is well ABOVE their range:** (c) measured `PERMUTE` rejecting at
+**91.7%** against `Clifford1989`'s 25–55%. Different test (permutation vs `t`) and a deliberately
+extreme planting (both fields perfectly block-constant), so the two are **not** like-for-like — but
+the direction and the mechanism agree, and ours is the harsher case.
 
 We are squarely inside it: `mu` is a smooth spatial field by construction (shared features,
 neighbourhood structure), and fatalities are strongly clustered in space and time. ⇒ The error runs
@@ -514,7 +535,7 @@ and asks whether H-a…H-g behave as stated, **for the reasons stated**.
 | `Henzi2021` | `papers/Henzi2021_IsotonicDistributionalRegression.pdf` | Thm 2.1; eq. (10); §2.2 IDR≡PAV; §2.3 eq. (15) + distinct-`y`; ⭐ §3 opening. `library`: 4/4 CONFIRMED, pp. 8, 10, 15 — ⭐ ellipsis verified honest |
 | `Gneiting2023` | `papers/Gneiting2023_ConditionalCalibration.pdf` | `R*` §3.4 eq. (32), Thm 3.6 p. 3256, `R²` nesting p. 3255; decomposition = ⛔ **Thm 2.23** (p. 3243), **not** 2.26 (p. 3246, a different result about calibration under translation). `library`: CONFIRMED + the scope note in §3.2 |
 | `Gneiting2007` | `papers/Gneiting2007_StrictlyProperScoringRules.pdf` | strict properness of CRPS on the finite-first-moment class (§4.4) |
-| ⛔ **NOT HELD** | Clifford/Richardson/Hémon 1989; Dutilleul 1993 | §5.2. `library` 2026-11-09: **the library holds NEITHER** — no PDF, no metadata. ⇒ The claim no longer rests on them (§5.2 is **re-derived** from this file's own lemmas, see `02_PSEUDOCODE.md` §4.4); they are owed as **historical attribution** and stay **unquoted** until acquired and locator-audited |
+| ✅ **ACQUIRED** | `Clifford1989_AssessingSignificanceCorrelationSpatialProcesses` (C-4681–C-4685); `Dutilleul1993_ModifyingTTestSpatialCorrelation` (C-4686–C-4689); `Dormann2007_MethodsAccountSpatialAutocorrelation` (C-4690–C-4693) | §5.2. ⛔ Held by the library on **neither** 2026-11-09 morning; **acquired, indexed and locator-audited** the same day. ⭐ C-4681 **confirms** the anti-conservatism with quantitative bounds (25–55% at a nominal 5%); §4.4(b)'s derivation is **independent of and novel relative to** theirs; §4.4(c)'s control row is **ours**. ⚠️ C-4690 limits all of it to **test-statistic** corrections, not estimate corrections |
 | in-repo | `reports/2026-09-30_evaluation_learning_report.md` | `N4`, `N11` |
 | in-repo | `reports/2026-11-04_rank_coupled_body_programme.md` | §2.3 and its *"before the first fit"* deadline |
 | in-repo | `reports/2026-11-04_delivered_gate_lookup/tools/e1_data.py:13` | ✅ one month per origin at h1 ⇒ no duplicate rows |
