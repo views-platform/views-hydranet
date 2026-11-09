@@ -418,10 +418,63 @@ library.** Earlier drafts gestured at *"the toroidal-shift literature in ecology
 much as to a file. The schemes are judged **only** by whether they recover size in (c) step 4, and
 (c) found that **none of them does** on the planting tested.
 
-ℹ️ **Owed, named so it can be acquired rather than re-guessed** — `library`'s suggested entry points:
-**Lotwick & Silverman (1982)** for the toroidal shift itself, **Besag & Diggle (1977)**, and
-**Legendre & Fortin (1989)** for the restricted-permutation framework. ⛔ Not acquired, not read, and
-**not to be cited until they are.**
+### 4.5 ⭐ THE SOURCE IS FOUND — and ⛔⛔ IT MAY CONTRADICT THIS WHOLE SECTION
+
+✅ **`Fortin1996_SpatialCoOccurrenceBoundaries`** (Fortin, Drapeau & Jacquez, *Oikos* 77:51–60),
+acquired and indexed by `library` 2026-11-09. ⭐ It describes **exactly** the procedure (b)§4 arrived
+at independently: join the map's left/right and top/bottom margins into a torus, shift one map over it
+one grid unit at a time, recompute the statistic at each position.
+
+ℹ️ Two useful details from it:
+- **The p-value floor is the translation count.** On their 13×21 grid, toroidal symmetry reduces 273
+  translations to **76 unique** ones, flooring `p` at `1/76`. ⇒ ⭐ **Our grid is large enough that this
+  is a non-issue** — 720 longitudes give a floor near `1/360` — which is precisely the reason
+  `MONTH_SHIFT` (13 months ⇒ `1/13`) is a diagnostic and not the primary null.
+- Its primary reference for the restricted-permutation framework is **Upton & Fingleton (1985)**, and
+  **Oden et al. (1993)** for the comparison. ⛔ Neither acquired; not to be cited until they are.
+
+⛔⛔ **THE CONTRADICTION, STATED BEFORE IT IS RESOLVED.** `library` relays `Fortin1996` as finding that
+**randomization is MORE CONSERVATIVE** and **restricted (toroidal) permutation MORE LIBERAL**, because
+the latter preserves within-variable structure as a fixed map and so yields a **narrower** reference
+distribution. ⇒ *"If your pipeline uses a toroidal shift and finds significance, the finding is weaker
+than a randomization-based one, not stronger."*
+
+**That is the opposite ordering to §4.4's derivation and to what we have measured.** Both readings,
+side by side, neither suppressed:
+
+| | §4.4 (derived here) | `Fortin1996` (as relayed) |
+|---|---|---|
+| plain permutation | ⛔ **anti-conservative** — destroys `x`'s autocorrelation ⇒ **narrower** null ⇒ over-rejects | ✅ **conservative** |
+| toroidal shift | ✅ preserves autocorrelation ⇒ **wider** null ⇒ correct size | ⛔ **liberal** — narrower null ⇒ over-rejects |
+
+⭐ **Three things bear on it, and I will not pick a side on argument alone.**
+
+1. ⭐ **We have a measurement, and it points our way.** (c) measured, on the block-constant planting:
+   `PERMUTE` **0.917** against `LON_SHIFT` **0.267** at `α = 0.05` on a **true null**. The shift
+   rejected **3.4× LESS**, which is "more conservative", not "more liberal".
+2. ⭐ **`Clifford1989` C-4681 is on the same side as us**, and quantitatively: the standard
+   (structure-destroying) test rejects at **25–55%** against a nominal 5%.
+3. ⚠️ **But the statistic and the null may not be the same object.** `Fortin1996` scores **overlap of
+   ecological boundaries** — clustered point/boundary sets — not the correlation of two continuous
+   fields; and its claim 4 says the two procedures have **different null hypotheses** (restricted
+   assumes within- and between-variable spatial interaction exists; randomization assumes none).
+   ⇒ *"Liberal"* against the **no-structure** null is not the same as *"liberal"* against the
+   **no-association-given-structure** null, and ours is the second. ⛔ A direction that reverses with
+   the statistic is exactly the kind of thing this repo has been bitten by (`W-51`, not like-for-like).
+
+⇒ ⛔ **ACTION, not a conclusion.** `library` is asked to re-read that one claim and check its
+direction and its scope against the PDF. And the run already in flight ((c2), `spatial_null.py`,
+pre-registered `P-93`/`P-94`) **adjudicates it empirically on our own statistic**: if `LON_SHIFT`
+rejects *more* than `PERMUTE` on a real grid, `Fortin1996` is right and §4.4 needs rewriting.
+
+⚠️ **And the cross-check it recommends is adopted regardless**: `Fortin1996` advises a binomial test
+beside the shift where a direct-overlap statistic exists. Our analogue is §6's **out-of-sample skill**,
+which needs no null at all — already the readout the decision hangs on, now for a second reason.
+
+ℹ️ **Still owed, named so they can be acquired rather than re-guessed** — **Lotwick & Silverman
+(1982)** for the toroidal shift's origin, **Upton & Fingleton (1985)** and **Oden et al. (1993)** from
+`Fortin1996`'s own lineage, **Besag & Diggle (1977)**, **Legendre & Fortin (1989)**. ⛔ Not acquired,
+not read, **not to be cited until they are.**
 
 ### 4.2 The distribution, and the simultaneous band
 
