@@ -130,8 +130,16 @@ def main() -> int:
             "unestablished and nothing may be read off it."
         )
         return 1
+    # ⛔ The direction matters and is easy to invert: the sweep pairs the dumped field at fed
+    # month `dm + off` with the DELIVERED field for month `dm`. ⇒ the forecast for month m is read
+    # at fed index `m + off`. ⚠️ This sentence previously said "feeding month t yields the forecast
+    # for t{off}", which is the inverse and wrong in sign. `mu_ordering.py` carries the same
+    # inverted sentence while its CODE does the right thing (`src = fed_idx[month + best]`); the
+    # sign was caught 2026-11-10 by a month-coverage refusal in `rho_event_teacher_forced.py`,
+    # not by anyone reading either sentence.
     print(
-        f"\n  ⇒ feeding month t yields the h1 forecast for month t{best[0]:+d} — established by "
+        f"\n  ⇒ the h1 forecast for month m is read at fed index m{best[0]:+d}; equivalently the "
+        f"field at fed month t carries the forecast for t{-best[0]:+d} — established by "
         "measurement, not by reading the code."
     )
     print(

@@ -264,8 +264,55 @@ label on disk, so it cannot be forgotten at a call site.
 the loss. Not against the delivered rows. ⇒ Phase 3 needs **two** dumps, and `--channel mu` on the
 control checkpoint is the one that can be taken today.
 
+#### ⭐⭐ The comparator is MEASURED and PINNED · 2026-11-10 · `+0.5189 ± 0.0473`
+
+`--channel mu` on the control checkpoint ran in **149 s** on CPU
+(`results/score_grid_CONTROL_MU_v20261012.npz`, 14.3 MB, deliberately uncommitted and re-runnable;
+`n_params 2`, determinism verified, `G-ALIGN` reproducing offset `-1` at anomaly `r +0.828477`,
+margin `+0.326949`). ⭐ That closes `S8`/#568 — §9c `N9` records the body's `mu` field as *"NOT ON
+DISK for any delivered run"*, and it is now on disk for a teacher-forced one.
+
+`tools/rho_event_teacher_forced.py` reads it. **Population, per `C-351`:** 7 folds, score months
+463–469, `sb`, h1, firing set = the **delivered** gate at `τ = 0.2` (identical for control and arm,
+and identical to the delivered table's definition), truth in raw counts, `ddof=1`.
+
+| index | `ρ_event` | SD | distinct share |
+|---|---|---|---|
+| **BODY `mu`, teacher-forced** | **+0.5189** | 0.0473 | **1.000000** |
+
+⛔⛔ **This number may NOT be set beside the delivered `+0.3127`, and the bar it sets is its own.**
+The same weights' delivered autoregressive `ρ_event` is `+0.3127 ± 0.0713`. The **`+0.2062`**
+difference is the `C-399` teacher-forcing carry and the `C-317` checkpoint identity **together**,
+and nothing on disk separates them. ⇒ A ranking arm in this table must beat **+0.5189**, not
+`+0.3127`. The pin is hardcoded with a `5e-5` tolerance, so the tool refuses to print an arm row
+unless the control reproduces; `tests/test_rho_event_teacher_forced.py` additionally asserts the
+pin is **not** the delivered anchor, because pasting `+0.3127` there would hand an arm a free
+`+0.2062`.
+
+⭐ **One hypothesis died here.** The distinct share is **1.000000** — on the firing cells the body's
+`mu` has **no ties at all**. So "the body ranks worse than the gate because it is less resolved"
+(§9c `N9`'s explanation for why the index wins) is **not** available in this regime. Resolution is
+not the body's ordering problem.
+
+#### ⛔⛔ A sign error, caught by a population refusal and not by review · 2026-11-10
+
+The fed→forecast month map was written **inverted**, and `G-ALIGN` passed anyway — the offset
+sweep was right and the *use* of its answer was not. What caught it was the month-coverage
+refusal: at the inverted direction the dump covers forecast months 420–468 and cannot score month
+**469**, so the tool refused instead of returning a plausible table shifted by one month.
+
+⚠️ **The prose was wrong in both tools and the code was right in one.** `mu_ordering.py` prints
+*"Feeding month t yields the h1 forecast for month t+off"* and then does `src = fed_idx[month +
+best]`, which is the opposite mapping and the correct one; `gate_alignment.py` inherited the
+sentence. Both sentences are now corrected, and the map is a **named function**
+(`forecast_index`) with its own test and an explicit discriminating half that proves the two
+directions are distinguishable on this design's months.
+
+⇒ Noted, not fixed: `mu_ordering.py`'s own sentence is in the `2026-11-08_ordering_discrimination`
+dossier and its code is correct; this dossier does not edit another's tool.
+
 ⇒ **What remains for phase 3 is a trained ranking arm** — the dump, the alignment gate, the cell
-contract and the readout are all built and proven. ⚠️ `body_mean_dump_dir` could not serve — it
+contract, the readout **and now the pinned comparator** are all built and proven. ⚠️ `body_mean_dump_dir` could not serve — it
 refuses a head with no registered family (`hydranet_inference.py:428-430`) and it lives inside the
 posterior-pass loop (`:1738`), so it would have built the draw cube that OOM-killed both EXP-02 arms
 on host RAM. ⚠️ §9c `N9` calls the same gap *"not a CPU afternoon"*; it was **54 seconds**, because
