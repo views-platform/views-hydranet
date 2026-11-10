@@ -192,22 +192,56 @@ def test_a_primary_superiority_quantity_is_declared_on_disk():
     ANTE**; §3 records *"I violated this four times in one day by picking the metric after the
     fact."* Declaring ``MCB`` primary now, knowing the sign and the scale, is the fifth.
 
-    ⚠️ CORRECTED 2026-11-10: this test was a FALSE GREEN. It grepped for the phrase "primary
-    quantity", which the glossary's §4d then satisfied **while saying that none has been named** --
-    a check met by prose about its own subject's absence. It now requires an unmistakable
-    declaration marker that only a real pre-registration would carry.
+    ⚠️⚠️ CORRECTED TWICE on 2026-11-10, and both were the same defect class -- a check satisfied by
+    something other than the thing it is about:
+
+      1 it grepped for the phrase "primary quantity", which the glossary's §4d then satisfied
+        **while saying that none has been named**;
+      2 the literal marker below then matched **this file's own definition of it**, the moment this
+        file became tracked. A guard that cites itself as evidence is not a guard.
+
+    ⇒ The search is scoped to ``reports/`` -- where a pre-registration lives -- and excludes the
+    marker's own definition. The discriminating half below attacks the scoping, not a file.
     """
     hits = subprocess.run(
-        ["git", "grep", "-l", "-F", _DECLARATION_MARKER],
+        ["git", "grep", "-l", "-F", _DECLARATION_MARKER, "--", "reports/"],
         cwd=_REPO,
         capture_output=True,
         text=True,
     ).stdout.split()
     assert hits, (
-        f"no tracked file carries '{_DECLARATION_MARKER}'. 05_analysis_plan cannot be "
-        "written, and "
-        "the quantity cannot be chosen after its value is known (C-3531). This is blocked on "
-        "Simon, not on work."
+        f"no file under reports/ carries '{_DECLARATION_MARKER}'. 05_analysis_plan cannot be "
+        "written, and the quantity cannot be chosen after its value is known (C-3531). This is "
+        "blocked on Simon, not on work."
+    )
+
+
+def test_the_primary_quantity_check_is_not_satisfied_by_its_own_definition():
+    """⛔ The discriminating half, added because the guard above twice passed for the wrong reason.
+
+    The marker is defined in this file. If the search can see ``tests/``, the guard proves
+    only that it exists -- so the scoping is the thing under test here.
+    """
+    unscoped = subprocess.run(
+        ["git", "grep", "-l", "-F", _DECLARATION_MARKER],
+        cwd=_REPO,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    assert any(h.startswith("tests/") for h in unscoped), (
+        "an unscoped search no longer finds this file, so it cannot demonstrate the "
+        "self-reference "
+        "the scoping exists to exclude -- re-check that the marker is still defined here"
+    )
+    scoped = subprocess.run(
+        ["git", "grep", "-l", "-F", _DECLARATION_MARKER, "--", "reports/"],
+        cwd=_REPO,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    assert not any(h.startswith("tests/") for h in scoped), (
+        "the scoped search still reaches tests/, so the guard above can be satisfied by its own "
+        "definition"
     )
 
 
