@@ -154,6 +154,27 @@ gap **is** the quantity `02 §4.3` worries about, and it is a number rather than
 ⚠️ **Not** a go/no-go on the value of `ρ_event` — phase 3 is an instrument check and an estimate,
 and `00 §6`'s kill rule applies to it as to everything else here.
 
+#### ⛔⛔ PRE-COMMITMENT, written 2026-11-10 BEFORE phase 3 runs — read before citing its number
+
+**Phase 3's `ρ_event` is an instrument reading. It may not be cited as evidence for or against B in
+any verdict.** A verdict uses only a measurement taken against `05_analysis_plan`'s pre-registered
+criterion, and `05` does not exist yet — it is blocked on `00 §5` items 1 and 2.
+
+⇒ The reason this line exists, stated plainly: phase 3 produces a number **in the units of the
+finish line**, before the rule for reading such a number has been written. Whoever writes that rule
+afterwards knows the answer — which is exactly how `MCB` became unusable here, measured
+(`MCB_A` 0.138 vs `MCB_B` 2.952) before it was proposed, against `C-3531`. Running the check anyway
+is a deliberate trade: ⭐ it answers a **plumbing** question — *does a score trained on 32×32 patches
+sort the 360×720 grid at all, or only within a patch?* — whose answer matters whatever `05` decides,
+because a dead end there is a dead end under any criterion.
+
+**What phase 3 may conclude:** that the patch-local list does, or does not, transfer to the global
+grid, and the size of the gap. **What it may not conclude:** anything about whether B beats A.
+⚠️ Nor may it be re-labelled later: if its number is wanted as evidence, the run is **repeated**
+under `05`, on a converged arm, with the criterion declared first.
+
+**Approved by Simon, 2026-11-10**, with that cost named and accepted.
+
 ### Phase 4 — train to the plateau  ·  GPU, remote
 
 ⛔ **Remote, not local.** The local route is **closed on measurement**: both smoke arms were
