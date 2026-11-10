@@ -175,6 +175,44 @@ under `05`, on a converged arm, with the criterion declared first.
 
 **Approved by Simon, 2026-11-10**, with that cost named and accepted.
 
+#### ⭐⭐ The instrument exists and its control is PINNED · 2026-11-10
+
+`tools/rho_event_readout.py` · `results/rho_event_control.out` · `tests/test_rho_event_readout.py`
+(4 passed). Built to the one recipe in this repo that produced an instrument whose headline did not
+have to be withdrawn — `2026-09-30_evaluation_learning_report.md` §9c, where `ordering_by_index.py`
+was the **fifth** instrument of its dossier and the **first to survive**. All three of its named
+differences are implemented, and two were mutation-tested:
+
+1. ⭐⭐ **The estimator is IMPORTED, never copied** — `spearman` comes from
+   `../2026-11-10_rank_coupling_verdict/tools/rank_coupling_verdict.py`, the module that published
+   `+0.3127`, and the test asserts the **same function object**. ⛔ Mutation: replacing it with a
+   byte-equivalent local copy fails that test. Both of §9c's HOLDs were about a baseline that moved.
+2. ⭐⭐ **`G-1` pins the control by arithmetic, and it PASSES:** recomputed here from the committed
+   artifacts, **BODY `+0.3127 ± 0.0713`** and **GATE `+0.4418 ± 0.0583`** — both published figures
+   to **5e-05**, in 33 s of CPU. ⛔ If either misses, the tool prints no other number and exits 1.
+   Mutation: editing an anchor fails the guard that ties it to `00_README`'s finish line.
+3. ⭐ **The swept axis is the thing in question** — one row per index, no single number to move. A
+   ranking arm's score becomes the third row via `--score`.
+
+⛔ **`G-2` counts distinct VALUES, not files**, which is §0 item 2 of the evaluation report: a
+delivery served **0.0 for all 2,330,712 cells** on global land in all three targets and **every
+structural check passed** — valid manifest, right coverage, file size 98.1% of a real run's, and no
+metric in the inventory flagged it. Measured on this firing-set population: **GATE 1.0000**, **BODY
+0.7796**. ⚠️ Not the same population as §9c `N9`'s 64,732-of-64,818, which is the whole global grid.
+
+⚠️ **Population, declared (`C-351`):** 7 folds, score months 463–469, `sb`, h1, truth in **raw
+counts, no transform**, τ = 0.2 from the arm config, **1,034 event cell-months**. ⛔ That is *not*
+the 2,905 figure quoted elsewhere in this programme — 2,905 is event cells over 13 origins on the
+unrestricted global grid. Two populations, one metric name.
+
+⇒ **What remains for phase 3 is the score DUMP**, not the measurement: a field of one score per
+cell per month on disk, which `--score` then reads. ⚠️ `body_mean_dump_dir` cannot serve — it
+refuses a head with no registered family (`hydranet_inference.py:428-430`) and it lives inside the
+posterior-pass loop (`:1738`), so it would build the draw cube that OOM-killed both EXP-02 arms on
+host RAM. ⚠️ And §9c `N9` records the same gap from the other side — the body's `mu` field is **not
+on disk for any delivered run**, which is `S8`/#568, *"not a CPU afternoon"*. ⇒ The dump should be
+built to serve both, and it is the next piece of work.
+
 ### Phase 4 — train to the plateau  ·  GPU, remote
 
 ⛔ **Remote, not local.** The local route is **closed on measurement**: both smoke arms were

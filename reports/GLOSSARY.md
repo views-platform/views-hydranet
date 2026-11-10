@@ -4,7 +4,7 @@
 used before for the same thing — listed so you can map old messages onto the locked name. I never introduce
 a new synonym. If I drift, you type **"drift"** and I stop and correct.
 
-Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-11-10:** added **§3c the ranking-body vocabulary** (*ranking head*, *ranking body*, *rank-coupled emission*, *empirical draw*, *firing set*, *midrank*, *rating level*, *listwise loss*, *Schaake shuffle*, *ensemble copula coupling*) and **§4d the CRPS decomposition components** (*UNC*, *`CRPS_ORD`*, *DSC*, *MCB*, *`R*`*) — all fifteen were in use across #578/#579 and four dossiers with no definition here, measured as 0 of 10 present on 2026-11-10. **Amended 2026-10-16:** disambiguated the two "all"s in §3b (`body_supervision='all'` vs `body_nll_denominator='all_cells'`). **Amended 2026-10-15:** added **§3b the task-loss balance** (*the balancer*, *task-loss term*, *frozen balancer*, *the NLL denominator*, *truncated NB loss*) and scoped the stale `TruncatedNB` banned alias in §3. **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
+Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-11-10b:** §4d now records that `CRPS = MCB − DSC + UNC` is an **algebraic tautology** and cannot serve as a validity gate (§9c `H3`: PASS at residual 0.00e+00 with `DSC = −0.1622`). **Amended 2026-11-10:** added **§3c the ranking-body vocabulary** (*ranking head*, *ranking body*, *rank-coupled emission*, *empirical draw*, *firing set*, *midrank*, *rating level*, *listwise loss*, *Schaake shuffle*, *ensemble copula coupling*) and **§4d the CRPS decomposition components** (*UNC*, *`CRPS_ORD`*, *DSC*, *MCB*, *`R*`*) — all fifteen were in use across #578/#579 and four dossiers with no definition here, measured as 0 of 10 present on 2026-11-10. **Amended 2026-10-16:** disambiguated the two "all"s in §3b (`body_supervision='all'` vs `body_nll_denominator='all_cells'`). **Amended 2026-10-15:** added **§3b the task-loss balance** (*the balancer*, *task-loss term*, *frozen balancer*, *the NLL denominator*, *truncated NB loss*) and scoped the stale `TruncatedNB` banned alias in §3. **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
 
 ---
 
@@ -300,6 +300,17 @@ committed artifacts with no definition anywhere, which is precisely what §5e ex
 ⭐ `Arnold2024_CRPSDecompositions` (library `C-3572`, `C-3574`): **`CRPS = MCB − DSC + UNC`**, an
 **identity** — nothing is dropped, the same number is attributed. Locked here because all five were
 used across #579's pre-registration, instrument and log with no entry in this file.
+
+⛔⛔ **And the identity is a TAUTOLOGY, so it cannot be a validity gate.** `MCB := s̄ − s_rc` and
+`DSC := UNC − s_rc`, so `MCB − DSC + UNC` expands to `s̄` *identically*, for **any** `UNC` and any
+`s_rc`. A gate asserting the decomposition therefore **cannot fail**: measured 2026-11-06 with `UNC`
+taken from a deliberately wrong population, `G-R1` returned **PASS at residual 0.00e+00** while
+`DSC` was **−0.1622** — a negative discrimination, which is impossible
+(`2026-09-30_evaluation_learning_report.md` §9c `H3`). ⇒ The invariant must be asserted on the
+**population** — that `ȳ` comes from the same `n_k`/`s_k` as the score — never on a rearrangement of
+the definitions. ⚠️ Recorded here because the defect was built **inside the instrument presented as
+the remedy**, by someone who had read Arnold 2024, and the only thing that would have stopped it is
+knowing that this particular identity proves nothing.
 
 ⛔⛔ **These are definitions ONLY.** Nothing in this section says which component is a decision
 metric. Naming a primary quantity is a separate act that must be done **ex ante** (`C-3531`), and as

@@ -1,0 +1,61 @@
+rho_event_readout.py — the ρ_event instrument for the ranking body, with its control pinned.
+
+⭐⭐ **Built to the one recipe in this repo that produced an instrument whose headline did NOT have
+to be withdrawn.** `reports/2026-09-30_evaluation_learning_report.md` §9c records that
+`ordering_by_index.py` was the fifth instrument of its dossier and the first to survive, and names
+the three things that were different. All three are implemented here:
+
+1. ⭐⭐ **The estimator is IMPORTED, never copied.** `spearman` and `midrank` come from
+   `../../2026-11-10_rank_coupling_verdict/tools/rank_coupling_verdict.py` — the module that
+   published `+0.3127`. `tests/test_rho_event_readout.py` asserts the **same function objects**,
+   so a near-copy cannot drift in. Every earlier comparison in that dossier was against a
+   near-copy, and both of its HOLDs were about a baseline that moved.
+2. ⭐⭐ **`G-1` pins the control by arithmetic.** This tool must reproduce the delivered body's
+   `ρ_event = +0.3127` AND the gate's `+0.4418` from the committed artifacts, to `_TOL`, or it
+   ⛔ **refuses to print any new number.** The comparison is legitimate because a gate says so, not
+   because the author believed it was.
+3. ⭐ **The swept axis is the thing in question.** The question is *which index orders event cells
+   best*, so the index is what varies: one row per score field, no single number to move.
+
+And one gate from a different lesson — §0 item 2, which is the most expensive thing in that report:
+a delivery served **0.0 for all 2,330,712 cells** on global land, in all three targets, and **every
+structural check passed** (valid manifest, right coverage, file size 98.1% of a real run's). ⛔ So
+`G-2` counts **distinct values**, not files. The comparator is printed beside it: the gate takes
+**64,732 distinct values over 64,818 cells**, which is §9c `N9`'s explanation for why it wins.
+
+**Population, per `C-351`:** 7 folds (fixed six-month fit, one score month, months 463–469), `sb`,
+h1, truth `lr_sb_best` in **raw counts, no transform**. `ρ_event` is Spearman on **midranks**
+between the index and the truth over the **event cells** of the firing set —
+`open_m & (truth > 0)` at `τ` read from the arm config — measured on the **global** 360×720 grid,
+never within a patch. Reported as mean ± SD over the 7 folds at **`ddof=1`, declared**.
+
+⛔ **What this tool does NOT do.** It does not score a verdict. `00_README` §6's kill rule and
+`04_roadmap` phase 3's pre-commitment both apply to every number it prints: a `ρ_event` from an
+unconverged arm is an **instrument reading**, not evidence for or against the ranking body.
+
+
+====================================================================================================
+  ρ_event READOUT — the ranking body's instrument, control pinned
+====================================================================================================
+  τ = 0.2 (read from the arm config) · 7 folds · score months 463..469 · 1034 event cell-months · ddof=1
+
+  ⭐⭐ G-1 · THE CONTROL PIN — the published figures, recomputed here
+    BODY  ρ_event +0.3127 ± 0.0713   published +0.3127 ± 0.0713   PASS
+    GATE  ρ_event +0.4418 ± 0.0583   published +0.4418 ± 0.0583   PASS
+    ⇒ the estimator and the population reproduce both published figures to 5e-05.
+
+  ⛔ G-2 · DISTINCT VALUES — §0.2: a delivery served 0.0 for 2,330,712 cells
+     and every structural check passed. This counts values, not files.
+    BODY (draws' mean)     distinct 0.7796 of firing cells   ok
+    GATE                   distinct 1.0000 of firing cells   ok
+
+  THE READOUT · ρ_event on event cells, global grid, mean ± SD over folds
+    index                    ρ_event      ±sd   vs BODY   vs GATE
+    BODY (draws' mean)       +0.3127   0.0713   +0.0000   -0.1291
+    GATE                     +0.4418   0.0583   +0.1291   +0.0000
+
+  ⚠️ Every number above is an INSTRUMENT READING. `04_roadmap` phase 3's pre-commitment
+     and `00_README` §6's kill rule both apply: no verdict about the ranking body may cite
+     a ρ_event taken outside `05_analysis_plan`'s criterion, which does not yet exist.
+
+  32.8s
