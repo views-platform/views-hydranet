@@ -101,7 +101,7 @@ def distinct_share(x: np.ndarray) -> float:
 
 def _fold_inputs():
     """-> per fold: (score_month, truth, open_m, event_m, gate, draws). One pass, cached by e1."""
-    grid, _cells, m0 = e1_data.truth_grid()
+    grid, cells, m0 = e1_data.truth_grid()
     gates = {mo: g for (g, _u, mo) in e1_data.load_gate_h1().values()}
     draws = {mo: d for (d, _u, mo) in e1_data.load_draws_h1().values()}
     tau = arm_config.resolve_tau()
@@ -120,7 +120,7 @@ def _fold_inputs():
                 "draws": draws[score_month].astype(np.float64),
             }
         )
-    return out, tau
+    return out, tau, np.asarray(cells)
 
 
 def _summarise(per_fold: list[float]) -> tuple[float, float]:
@@ -128,14 +128,44 @@ def _summarise(per_fold: list[float]) -> tuple[float, float]:
     return float(a.mean()), float(a.std(ddof=DDOF))
 
 
-def _load_score(path: Path, months: list[int]) -> dict[int, np.ndarray]:
-    """-> {month: score field}, refusing anything that does not cover this design's months."""
+def _load_score(path: Path, months: list[int], cells: np.ndarray) -> dict[int, np.ndarray]:
+    """-> {month: score field}, refusing anything that is not on this design's months AND cells.
+
+    ⛔⛔ Three refusals, each of them a defect this repository has already paid for:
+
+    * **`input_mode`** — a field dumped under teacher forcing may NOT join a table whose
+      control rows are the DELIVERED autoregressive emission. That carry is `C-399` (Tier 1):
+      teacher-forced AUC **0.99777** against the delivered **0.72340**, no decay in horizon. The
+      refusal reads the STORED label, so it cannot be forgotten at the call site.
+    * **`land_cells`** — the cell ORDER must match element for element, not merely in length. On
+      this grid the cell index IS geography (`C-289`, `C-419`), so a permuted field would score a
+      spatial sweep against the truth and return a plausible number.
+    * **the months** — partial coverage would score a different population from the control
+      (`C-351`).
+    """
     with np.load(path) as z:
         if "score" not in z or "months" not in z:
             raise SystemExit(
                 f"G-0 REFUSED: {path} must carry 'score' [n_months, n_cells] and 'months' "
                 f"[n_months]; it carries {sorted(z.keys())}."
             )
+        mode = str(z["input_mode"]) if "input_mode" in z else "UNDECLARED"
+        if mode != "delivered":
+            raise SystemExit(
+                f"G-TF REFUSED: this field was dumped with input_mode={mode!r}, and the control "
+                "rows of this table are the DELIVERED autoregressive emission. Scoring the two "
+                "side by side is the C-399 carry — teacher-forced AUC 0.99777 against the "
+                "delivered 0.72340. A teacher-forced score must be compared with a teacher-forced "
+                "control from the same dumper, in its own table."
+            )
+        if "land_cells" in z:
+            got_cells = np.asarray(z["land_cells"])
+            if got_cells.shape != cells.shape or not np.array_equal(got_cells, cells):
+                raise SystemExit(
+                    f"G-CELLS REFUSED: the field carries {got_cells.size} cells against this "
+                    f"design's {cells.size}, or in a different ORDER. Cell index is geography "
+                    "here (C-289/C-419), so a permuted field scores a spatial sweep."
+                )
         score, got = np.asarray(z["score"], dtype=np.float64), [int(m) for m in z["months"]]
     if score.ndim != 2 or score.shape[0] != len(got):
         raise SystemExit(
@@ -163,7 +193,7 @@ def main() -> int:
     print("  ρ_event READOUT — the ranking body's instrument, control pinned")
     print("=" * 100)
 
-    folds, tau = _fold_inputs()
+    folds, tau, cells = _fold_inputs()
     months = [f["month"] for f in folds]
     n_events = int(sum(int(f["event_m"].sum()) for f in folds))
     print(
@@ -182,7 +212,7 @@ def main() -> int:
         rows[1][2].append(distinct_share(f["gate"][f["open_m"]]))
 
     if args.score is not None:
-        by_month = _load_score(args.score, months)
+        by_month = _load_score(args.score, months, cells)
         rows.append((args.label, [], []))
         for f in folds:
             s = np.asarray(by_month[f["month"]], dtype=np.float64)

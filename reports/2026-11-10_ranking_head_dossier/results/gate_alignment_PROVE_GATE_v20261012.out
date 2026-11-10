@@ -1,0 +1,50 @@
+gate_alignment.py — ⛔ the gate that must pass before any dumped field may be read.
+
+A field from `score_on_the_grid.py` is indexed by **fed** month. Whether feeding month `t` yields
+the h1 forecast for `t` or for `t+1` is a **convention**, and getting it wrong by one is
+**silent**: it shifts every number by a month and still returns a plausible answer. ⚠️ The nearest
+scar is `C-399` (Tier 1) — a reconstruction that looked fine and was feeding the model its own
+answers.
+
+⭐ So the offset is fixed **BY MEASUREMENT, not by reading the code.** `score_on_the_grid.py`
+collects the **gate** on every run whatever `--channel` asked for, and the **delivered** gate at h1
+is on disk for all 13 origins (`e1_data.load_gate_h1`). This sweeps the candidate offsets and
+requires **exactly one** to resolve. ⛔ If none does, or more than one does, the dumped field is
+not trustworthy and nothing may be read off it.
+
+⚠️ **The LEVEL correlation cannot resolve a month** and is kept only as a reported diagnostic: the
+gate field is too temporally smooth, so every offset reads ≈0.93–0.98. The resolving statistic is
+the **ANOMALY** correlation — each field minus its across-month mean — which is what
+`2026-11-08_ordering_discrimination/tools/mu_ordering.py` established and what its thresholds were
+set on. This tool reuses those thresholds unchanged so the two cannot drift apart.
+
+⛔⛔ **What a PASS does NOT establish.** The anomaly `r` at the winning offset is **not 1.0**, and
+two explanations are live and are **not separated by anything on disk**: (a) the dumping checkpoint
+may not be the delivered weights (`C-317` — `4acbf4d3…` is the retrained control), and (b) the dump
+is **teacher-forced** while the delivery is autoregressive (`C-399`). ⇒ A PASS fixes the **month
+offset and the cell order**. It does **not** license comparing a dumped field with a delivered
+number; `rho_event_readout.py` refuses that separately, on the stored `input_mode`.
+
+
+====================================================================================================
+  score_grid_PROVE_GATE_v20261012.npz · channel=gate · input_mode=teacher_forced · 49 fed months 421..469
+
+  ⛔ G-CELLS · cell order identical to e1_data's: True
+  delivered gate on disk: 13 origins, months 457..469
+
+   offset     LEVEL r   ANOMALY r   months   (level is a DIAGNOSTIC — it cannot resolve a month)
+       -2   +0.947529   +0.501529       13
+       -1   +0.975421   +0.828477       13
+       +0   +0.950554   +0.497307       13
+       +1   +0.939203   +0.335512       12
+       +2   +0.930106   +0.217461       11
+
+  ⇒ best offset -1 at anomaly r +0.828477; runner-up -2 at +0.501529; margin +0.326949
+  ⭐ PASS G-ALIGN (anomaly r >= 0.3, margin >= 0.1)
+
+  ⇒ feeding month t yields the h1 forecast for month t-1 — established by measurement, not by reading the code.
+
+  ⛔⛔ And what this does NOT establish: the anomaly r is not 1.0, and the dumping checkpoint's
+     identity (C-317) and the teacher-forced input mode (C-399) are both live explanations
+     for the gap. They are NOT separated by anything on disk. A PASS fixes the offset and the
+     cell order; it does not license comparing this field to a delivered number.

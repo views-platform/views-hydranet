@@ -205,13 +205,71 @@ counts, no transform**, τ = 0.2 from the arm config, **1,034 event cell-months*
 the 2,905 figure quoted elsewhere in this programme — 2,905 is event cells over 13 origins on the
 unrestricted global grid. Two populations, one metric name.
 
-⇒ **What remains for phase 3 is the score DUMP**, not the measurement: a field of one score per
-cell per month on disk, which `--score` then reads. ⚠️ `body_mean_dump_dir` cannot serve — it
+#### ⭐⭐ The score dump is BUILT and PROVEN · 2026-11-10 · 54 s, CPU, no pod
+
+`tools/score_on_the_grid.py` + `tools/gate_alignment.py`, with
+`results/score_grid_PROVE_GATE_v20261012.npz` and
+`results/gate_alignment_PROVE_GATE_v20261012.out`.
+
+⭐ **NO NEW INFRASTRUCTURE**, which is the discipline `2026-11-08_ordering_discrimination`'s
+`mu_ordering.py` set. The vehicle loader, the volume builder, the grid mapping and the data pull are
+all imported from `../2026-10-12_underfire_diagnosis/vehicle.py`; the forward loop is the same
+sequential recurrent sweep `d4_mu_on_the_grid.py` runs. **What is new is which channel is collected
+and the output contract.** `--channel latent` is the ranking score, `--channel mu` is the body's
+mean field — ⭐ which is `S8`/#568, the thing §9c `N9` records as *"NOT ON DISK for any delivered
+run"*. One tool, both jobs.
+
+**Measured cost, not estimated:** 49 sequential steps over all **64,818** land cells, one
+deterministic pass, **54 s wall · 3.04 GB peak RSS · 8 threads · CPU · no pod.** Determinism is
+proven before the pass is spent: two forwards on identical input must be bit-identical, or the run
+refuses — `locked = False` alone clears the flag without calling `.eval()`, so a module already in
+train() would resample a fresh mask every forward, which is `C-324`'s inert-knob signature pointed
+the other way.
+
+⭐⭐ **Three things the proof run established, all by measurement:**
+
+1. **The cell order is identical to `e1_data`'s** — asserted, `True`. On this grid the cell index
+   **is geography** (`C-289`, `C-419`), so a permuted field would score a spatial sweep against the
+   truth and return a plausible number. The readout now refuses on this too, element for element.
+2. ⭐⭐ **`G-ALIGN` resolves at offset −1**: anomaly `r` **+0.8285** against the runner-up's
+   **+0.5015**, margin **+0.3269**, past the thresholds `mu_ordering` pre-registered. ⇒ **Feeding
+   month `t` yields the h1 forecast for month `t−1`**, established by measurement rather than by
+   reading the code. ⚠️ The LEVEL correlation cannot resolve a month at all — every offset reads
+   0.930–0.975 because the gate field is too temporally smooth — and is kept only as a diagnostic.
+   ⭐ These figures reproduce the discarded `mu_ordering.out`'s (−1, r +0.8296, margin +0.3253)
+   from a different tool, which retires the loose end left by discarding that file.
+3. ⛔⛔ **And what the PASS does NOT establish, which is the part that matters.** The anomaly `r` is
+   **not 1.0**, and two explanations are live and **not separated by anything on disk**: the dumping
+   checkpoint may not be the delivered weights (`C-317` — `4acbf4d3…` is the *retrained control*),
+   and the dump is **teacher-forced** while the delivery is autoregressive (`C-399`).
+
+#### ⛔⛔ Teacher forcing: the mode is right, the carry is forbidden
+
+`vehicle.build_volume` writes the **observed** fatality series into the model's input channels for
+every month (`vehicle.py:398-404`), and the loop steps over that volume — so the model is handed the
+observed history at every step, never its own predictions. **That is `C-399`, Tier 1, verbatim:** the
+frozen cube every RP-3 number came from had exactly this property, measuring teacher-forced AUC
+**0.99777** against the delivered autoregressive **0.72340**, with no decay in horizon.
+
+⇒ **The defect `C-399` records is not the mode — it is the carry.** Teacher-forced at h1 is the same
+input regime the body is *trained* in, so it is the right setting for the one question phase 3 asks:
+it moves the patch→global axis alone and leaves the rollout axis fixed. ⛔ What may never happen is
+comparing a field from this tool with the **delivered** figures — the body's `+0.3127`, the gate's
+`+0.4418`. So `input_mode="teacher_forced"` is written **into every file**, and
+`rho_event_readout.py` refuses a field whose stored mode is not `delivered`. The refusal reads the
+label on disk, so it cannot be forgotten at a call site.
+
+⭐ **Which fixes the comparator.** A teacher-forced ranking score is compared against a
+**teacher-forced body `mu`** from the same dumper, same checkpoint lineage, one variable changed —
+the loss. Not against the delivered rows. ⇒ Phase 3 needs **two** dumps, and `--channel mu` on the
+control checkpoint is the one that can be taken today.
+
+⇒ **What remains for phase 3 is a trained ranking arm** — the dump, the alignment gate, the cell
+contract and the readout are all built and proven. ⚠️ `body_mean_dump_dir` could not serve — it
 refuses a head with no registered family (`hydranet_inference.py:428-430`) and it lives inside the
-posterior-pass loop (`:1738`), so it would build the draw cube that OOM-killed both EXP-02 arms on
-host RAM. ⚠️ And §9c `N9` records the same gap from the other side — the body's `mu` field is **not
-on disk for any delivered run**, which is `S8`/#568, *"not a CPU afternoon"*. ⇒ The dump should be
-built to serve both, and it is the next piece of work.
+posterior-pass loop (`:1738`), so it would have built the draw cube that OOM-killed both EXP-02 arms
+on host RAM. ⚠️ §9c `N9` calls the same gap *"not a CPU afternoon"*; it was **54 seconds**, because
+the expensive thing in that sentence is the posterior cube and this tool builds none.
 
 ### Phase 4 — train to the plateau  ·  GPU, remote
 
