@@ -101,8 +101,12 @@ the count moves, which is how an added row becomes visible rather than quiet.
       never percent.* ⛔ Not a go/no-go.
 - [ ] **3 · `library` session:** close the audit on `Mohler2020_CrimeRankHotspots` so `01` may take
       claims from it. Until then it is cited as *ingested, audit pending*.
-- [ ] **4 · next session:** implement the loss — `04` phase 1. Zhu Eq. 2 with the `02 §2` label
+- [x] **4 · next session:** implement the loss — `04` phase 1. Zhu Eq. 2 with the `02 §2` label
       transform, behind a default-off registry entry, with the numerics tested first.
+      ⭐ **DONE 2026-11-10:** `views_hydranet/utils/listwise_level_loss.py`, registry key
+      `listwise_level`, config field `loss_reg_y_max`. `tests/test_listwise_level_loss.py` — 23
+      tests, the seven properties of `04` phase 1 each with a refusing half. ⚠️ Nothing is trained
+      by it; it is reachable only by naming it in `loss_reg`, which no config does.
 - [ ] **5 · next session:** the patch→global ordering probe — `04` phase 3. The one cheap readout
       that bears on the finish line before anything is trained to convergence.
 

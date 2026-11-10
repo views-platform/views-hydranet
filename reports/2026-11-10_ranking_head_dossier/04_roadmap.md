@@ -33,6 +33,50 @@ that fails against the defect — `03 §3.5` says why:
 to satisfy 3 and 4 simultaneously, that is a finding about Eq. 2 at our sparsity, and the reserve
 option (`01 §3`, Blondel's differentiable sort) becomes the next thing tried** — not a verdict on B.
 
+#### ⭐ Phase 1 is DONE · 2026-11-10 · gate PASSED
+
+`views_hydranet/utils/listwise_level_loss.py` (`ListwiseLevelLoss`, registry key `listwise_level`,
+config field `loss_reg_y_max`). `tests/test_listwise_level_loss.py`: **23 passed** — the seven
+properties above, each with its refusing half, plus the registry entry, `needs_latent`, the empty
+list, and the three config facts below. Full suite **3,036 passed**, 12 skipped, 34 xfailed;
+`ruff check` and `format --check` clean over 371 files.
+
+**Default-off is a measured property, not a docstring.** `loss_reg_y_max` defaults to `None`, so
+every existing config is unchanged; the loss is reachable only by naming `listwise_level` in
+`loss_reg`, which no config in the fleet does. Two refusals come for free and are asserted:
+declaring the loss **without** `loss_reg_y_max` fails `validate_loss_reg_params` — the level set is
+the objective's scale and a default would be a silent per-run objective (`C-423`) — and
+`body_supervision='active'` fails `validate_body_supervision_latent` (`C-193`), which is the right
+answer here for a new reason: the zero block **is** the list's lower levels, so masking it away
+leaves a one-level list and a loss of exactly 0.
+⚠️ `docs/CICs/HydraNetConfig.md` §3 moved 105 → **106** fields with it.
+
+**Properties 3 and 4 hold together**, so the reserve option is not reached. Three implementation
+notes, each one a measurement rather than a claim:
+
+1. ⭐ **The dyadic level is computed by integer comparison, never a float `log2`.** Every exact
+   power of two is a level boundary and the `expm1(log1p(y))` round trip leaves a count a few ULP
+   off it, so `ceil(log2(1 + y))` in floating point returns the next level up: measured,
+   `ceil(log2(1 + 1.0000001)) = 2`. The edge table `[2^0 - 1, …, 2^r - 1] = [0, 1, 3, 7, …]` with
+   `searchsorted` is exact over the whole range.
+2. ⚠️ **Property 4 is implied by the objective, not enforced by the code — found by mutation.**
+   Giving the lowest level a step of its own, with a gain of 1 instead of `2^0 - 1 = 0`, leaves all
+   20 tests green. That mutant is *equivalent*: the lowest level has nothing below it, so `s̃_t` is
+   empty, `P_t(d) = 1`, and the step contributes exactly 0 whatever weight it carries. ⇒ Zhu's
+   truncation at step `|R|` is a property of the objective at our data, and `02 §2.4`'s *"handled
+   twice over, by construction"* is now verified rather than argued.
+3. ⭐ **Seven further mutations were applied to the loss and all seven were caught**: the normaliser
+   from the occupied levels (`C-423`, 6 failures) · a float `log2` transform (6) · the gain `2^r`
+   for `2^r - 1` (4) · `s̃_t` as the levels *above* (6) · `s̃_t` including `c_t` itself (7) ·
+   dropping the *highest* level instead of the lowest (2) · removing the `C-420` refusal (1).
+   ⚠️ Mutations were applied against a scratchpad copy and restored by checksum, not by
+   `git checkout` — the mechanism that has eaten uncommitted work here twice.
+
+⚠️ **What phase 1 does NOT establish**, stated here rather than left to be discovered: the loss has
+never seen a gradient step inside the training loop. `03 §3.1`'s dispatch question is untouched and
+is phase 2's whole content; the `n_params = 1` score currently reaches the criterion through the
+legacy per-target channel path, which is *where* phase 2 has to decide, not a decision already made.
+
 ### Phase 2 — the seam  ·  CPU, hours
 
 Answer `03 §3.1`: either the score fits the family shape at `n_params = 1`, or the dispatcher is

@@ -13,7 +13,10 @@ postmortem, linked, at the same prominence as a win.
 ## Status: **NO ENTRIES YET**
 
 ⚠️ Stated as a fact rather than left ambiguous. **Nothing has been run against the ranking body.**
-The dossier was opened 2026-11-10 and `04_roadmap` phase 1 has not started.
+The dossier was opened 2026-11-10. `04_roadmap` phase 1 — the loss and its numerics — was built and
+gated the same day (`04` phase 1, *Phase 1 is DONE*), but **no gradient step has been taken with it
+and no arm exists**, so there is nothing here to log: a loss with 20 green tests is not an
+experiment. The first entry will be phase 3's patch→global ordering probe.
 
 ⛔ This line exists because the precedent is bad: `reports/2026-11-04_delivered_gate_lookup/`
 is fully pre-registered with a measured baseline and its log reads *"No entries yet"* — and a reader

@@ -207,6 +207,11 @@ class HydraNetConfig(BaseModel):
     # Hurdle-NB body (D2, #99): NB dispersion θ init + whether θ is learned (loss_reg='hurdle_nb').
     loss_reg_theta_init: float | None = Field(default=None, gt=0.0)
     learnable_theta: bool = Field(default=True)
+    # Ranking body (loss_reg='listwise_level'): the grid's truth MAXIMUM in raw counts, which
+    # declares the dyadic level set 0..ceil(log2(1+y_max)) and the fixed 1/(|R|-1) normaliser.
+    # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
+    # the field fails the schema instead of riding on extra="allow" (the W-22 trap).
+    loss_reg_y_max: float | None = Field(default=None, ge=1.0)
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)

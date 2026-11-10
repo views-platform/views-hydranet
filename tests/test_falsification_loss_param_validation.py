@@ -39,7 +39,8 @@ class TestF5_CICFieldCountDrift:
         # C-184 mitigation promoted out of a shadow default: +bn_recalibrate -> 99
         # #377: +require_cuda -> 100
         # ADR-078 / Epic #500 S4: +emit_horizons -> 105
-        CIC_CLAIMED_COUNT = 105
+        # #578 ranking body (04_roadmap phase 1): +loss_reg_y_max -> 106
+        CIC_CLAIMED_COUNT = 106
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "
