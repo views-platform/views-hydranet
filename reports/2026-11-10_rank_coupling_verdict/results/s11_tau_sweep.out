@@ -1,0 +1,180 @@
+S11 — sweep tau and the composition, and attribute the CRPS with ``MCB - DSC + UNC``.
+
+Epic #579, story S11. Pre-registration: ``../11_PREREG_tau_and_decomposition.md``, committed
+**alone and before this file existed** (commit ``9ab37ba``) -- the anti-fishing device S1 of this
+epic could not honour, because there the tools were written first.
+
+⛔⛔ WHY THIS FILE EXISTS. ``../03_FINDING.md`` §3 reported *"B loses to A by +8.52 CRPS, 7/7
+folds"* and called the loss **structural to B**. Three things are wrong with that sentence and two
+of them change the result:
+
+  1 ⛔ The cost was attributed to B and it belongs to **tau**. Both arms were scored on A's open set
+    at ``tau = 0.20`` -- an unswept prior, set deliberately BELOW this model's measured calibrated
+    ``0.26``. The open set's event rate runs **0.2081 at tau=0.05 -> 0.4583 at 0.20 -> 0.5369 at
+    0.26 -> 0.8944 at 0.80**. ⇒ The "54% of open cells are not events" that was called B's
+    structural cost is the **gate's false-positive rate at one unswept value**.
+  2 ⛔ *"B cannot say nothing here"* was false. Occurrence is the **gate's** job. A survives the 54%
+    because A's BODY draws zero ~57% of the time -- an accidental SECOND gating that B removes --
+    and ``ADR-069``'s composition axis is the designed place to put it back. ⇒ ``soft_gate`` is a
+    row here, not an aside.
+  3 ⛔ CRPS was the wrong headline and this repo already knew it (``C-52``, ``Brocker2009``): a
+    proper score cannot rank miscalibrated schemes. On a 54%-zero population CRPS is dominated by
+    ``UNC`` and ``MCB`` while the ordering lives in ``DSC`` -- the one component a raw CRPS does not
+    separate.
+
+⚠️ ⇒ NOT A POST-HOC CRITERION SWAP, and the distinction is load-bearing. ``DSC_ORD``/``R*`` were
+derived on **2026-11-08** in ``../../2026-11-08_ordering_discrimination/01_MATH.md``, BEFORE this
+epic ran, and their implementation is already committed and gated there. ⛔ And CRPS is retained
+**whole**: the decomposition is an **identity**, so nothing is dropped -- the same number is
+attributed. Swapping a criterion after seeing which arm wins is what ``C-3531`` forbids and is the
+loop that produced four withdrawn definitions of done; attributing a number you already reported is
+not that.
+
+⭐⭐ THE DESIGN, and the one property that makes it readable.
+
+``x`` is the **composed point forecast** (``ADR-069`` ``compose_mean``), and it is BOTH A's point
+forecast AND the key B ranks by. So A and B/REAL share one ordering index ⇒ they share ``UNC``
+**and** ``DSC`` and differ **only in MCB**:
+
+    UNC      = (1/n) sum_i crps( Ghat , y_i )                  Ghat = pooled climatological CDF
+    CRPS_ORD = (1/n) sum_i crps( PAV-recalibrated Fhat(x_i) , y_i )
+    DSC      = UNC - CRPS_ORD            <- the ordering information AVAILABLE in x
+    MCB(arm) = CRPS(arm) - CRPS_ORD      <- how much of it the EMISSION throws away
+               CRPS(arm) = UNC - DSC + MCB(arm)      exactly
+    ⭐⭐ dCRPS = CRPS(B) - CRPS(A) = MCB_B - MCB_A    exactly  <- G-S1, a free arithmetic gate
+
+⇒ The comparison becomes the right question: *given the ordering information that is there, which
+emission wastes less of it?*
+
+**C-351 slots.** Population: ⭐ **FIXED across every row** -- cells with ``gate >= 0.05`` on arm
+``ctlfullzero_fortytwo``, score months 463-469, 7 folds, 6-month rolling fit windows. A cell that
+tau closes gets a **point mass at zero under BOTH arms**, so every row is scored on identical cells
+and ``UNC`` is constant down the column (``G-S4``). Truth: ``lr_sb_best``, raw counts, column
+maximum printed. Pool: each fold's own fit window's strictly positive counts. Estimator: **plug-in**
+CRPS at **S = 16 for both arms** (``G-S6``), via ``crps_step`` on the pooled threshold grid; fair
+CRPS printed beside it and NOT decomposed (the identity closes for one functional only). Inference
+mode: ⭐ DELIVERED AUTOREGRESSIVE, h = 1.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+================================================================================================================
+S11 · TAU AND COMPOSITION SWEPT, CRPS ATTRIBUTED AS  MCB - DSC + UNC
+================================================================================================================
+  arm                  ctlfullzero_fortytwo
+  population           gate >= 0.05 on ALL rows: 6689 cell-months, 1392 events (0.2081)
+  truth                lr_sb_best RAW counts, maximum 681  (115 distinct values, 114 gaps)
+  estimator            PLUG-IN crps on the pooled grid, S = 16 both arms; fair crps printed beside, NOT decomposed
+  replicates           R = 50 per arm per row; bootstrap 10000 over 7 origins
+  ⛔ self_zeroed        NOT RUN — the delivered body is nb and carries no zero spike
+
+  PASS  G-S6  A has S=[16], B built at S=16
+  PASS  G-S7  non-increasing=True, weighted-mean preserved=True
+
+----------------------------------------------------------------------------------------------------------------
+1 · THE SWEEP, WHOLE.  ⭐ A and B/REAL share the index x, hence share UNC and DSC.
+----------------------------------------------------------------------------------------------------------------
+  row                    n_fire  ev_rate  tie@0     UNC     DSC     R*   CRPS_A   CRPS_B   MCB_A   MCB_B    dCRPS
+  threshold_gate tau=0.05   6689   0.2081  0.635   3.561   0.483 0.1356    3.195   15.172   0.117  12.094  +11.977
+  threshold_gate tau=0.10   3972   0.3134  0.386   3.561   0.483 0.1356    3.195    9.251   0.117   6.172   +6.055
+  threshold_gate tau=0.20   2256   0.4583  0.057   3.561   0.510 0.1432    3.189    6.003   0.138   2.952   +2.814
+  threshold_gate tau=0.26   1749   0.5369  0.023   3.561   0.539 0.1514    3.189    5.170   0.167   2.148   +1.981
+  threshold_gate tau=0.35   1291   0.6166  0.008   3.561   0.570 0.1601    3.198    4.490   0.207   1.499   +1.292
+  threshold_gate tau=0.50    877   0.7275  0.002   3.561   0.638 0.1793    3.220    3.936   0.297   1.014   +0.716
+  threshold_gate tau=0.65    572   0.8182  0.000   3.561   0.662 0.1859    3.275    3.627   0.376   0.728   +0.352
+  threshold_gate tau=0.80    303   0.8944  0.000   3.561   0.521 0.1462    3.428    3.585   0.387   0.544   +0.157
+  soft_gate                6689   0.2081  0.635   3.561   0.637 0.1790    3.269    6.740   0.346   3.817   +3.471
+
+----------------------------------------------------------------------------------------------------------------
+2 · GATES.  ⛔ Every one refuses; none repairs. Any failure ⇒ VOID, never 'B is worse'.
+----------------------------------------------------------------------------------------------------------------
+  PASS  G-S1  threshold_gate tau=0.05|dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S1  threshold_gate tau=0.10|dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S1  threshold_gate tau=0.20|dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S1  threshold_gate tau=0.26|dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S1  threshold_gate tau=0.35|dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S1  threshold_gate tau=0.50|dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S1  threshold_gate tau=0.65|dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S1  threshold_gate tau=0.80|dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S1  soft_gate             |dCRPS - (MCB_B - MCB_A)| = 0.000e+00 (tol 1e-12)
+  PASS  G-S4  UNC spread across 9 rows = 0.000e+00 (tol 1e-12)
+  PASS  G-S5  n per row = [6689], arms aligned=True
+
+  ⇒ ✅ ALL GATES PASS
+
+----------------------------------------------------------------------------------------------------------------
+3 · V8, THE PER-ROW POTENCY CONTROL.  ⛔ A row where NOISE is not worse has no power.
+----------------------------------------------------------------------------------------------------------------
+  row                     CRPS_B/REAL  CRPS_B/NOISE  real - noise      V8
+  threshold_gate tau=0.05       15.172        17.988        -2.815       ✅
+  threshold_gate tau=0.10        9.251        11.197        -1.946       ✅
+  threshold_gate tau=0.20        6.003         7.101        -1.098       ✅
+  threshold_gate tau=0.26        5.170         5.899        -0.730       ✅
+  threshold_gate tau=0.35        4.490         5.085        -0.595       ✅
+  threshold_gate tau=0.50        3.936         4.294        -0.358       ✅
+  threshold_gate tau=0.65        3.627         3.920        -0.293       ✅
+  threshold_gate tau=0.80        3.585         3.705        -0.121       ✅
+  soft_gate                     6.740         4.053        +2.687   ⛔VOID
+
+----------------------------------------------------------------------------------------------------------------
+4 · ⭐⭐ dCRPS WITH ORIGIN-BLOCKED INTERVALS, AND THE PREDICTIONS
+----------------------------------------------------------------------------------------------------------------
+  row                       dCRPS          95% blocked CI   B MC sd  fair dCRPS     verdict
+  threshold_gate tau=0.05  +11.977   [ +11.531,  +12.407]    2.0834     +12.133     B loses
+  threshold_gate tau=0.10   +6.055   [  +5.839,   +6.293]    0.5903      +6.143     B loses
+  threshold_gate tau=0.20   +2.814   [  +2.713,   +2.919]    0.2732      +2.879     B loses
+  threshold_gate tau=0.26   +1.981   [  +1.893,   +2.063]    0.2393      +2.038     B loses
+  threshold_gate tau=0.35   +1.292   [  +1.213,   +1.378]    0.1954      +1.337     B loses
+  threshold_gate tau=0.50   +0.716   [  +0.638,   +0.793]    0.1432      +0.750     B loses
+  threshold_gate tau=0.65   +0.352   [  +0.299,   +0.402]    0.1068      +0.379     B loses
+  threshold_gate tau=0.80   +0.157   [  +0.104,   +0.209]    0.0649      +0.172     B loses
+  soft_gate                +3.471   [  +3.096,   +3.835]    1.4909      +3.435     B loses
+
+  ⛔ PREDICTIONS, registered in ../11_PREREG_tau_and_decomposition.md §5 BEFORE the run
+  P-4  tau=0.26 shrinks dCRPS >20% vs tau=0.20   measured +2.814 -> +1.981 = +29.6%  ⇒ RIGHT
+  P-5  dCRPS stays POSITIVE at every tau        all positive  ⇒ RIGHT
+  P-6  soft_gate dCRPS < threshold_gate tau=0.20 measured +3.471 vs +2.814  ⇒ UNEVALUABLE — soft_gate row is VOID by V8
+  P-7  R* falls as tau rises above 0.26         R* = [0.1514, 0.1601, 0.1793, 0.1859, 0.1462]  ⇒ WRONG
+
+----------------------------------------------------------------------------------------------------------------
+5 · WHERE THE CRPS ACTUALLY GOES  (UNC - DSC + MCB = CRPS, exactly)
+----------------------------------------------------------------------------------------------------------------
+  row                         UNC     -DSC   +MCB_A  = CRPS_A   +MCB_B  = CRPS_B   DSC(-x)  MCB_B/DSC
+  threshold_gate tau=0.05    3.561   -0.483    0.117     3.195   12.094    15.172     0.000      25.05
+  threshold_gate tau=0.10    3.561   -0.483    0.117     3.195    6.172     9.251     0.000      12.78
+  threshold_gate tau=0.20    3.561   -0.510    0.138     3.189    2.952     6.003     0.000       5.79
+  threshold_gate tau=0.26    3.561   -0.539    0.167     3.189    2.148     5.170     0.000       3.98
+  threshold_gate tau=0.35    3.561   -0.570    0.207     3.198    1.499     4.490     0.000       2.63
+  threshold_gate tau=0.50    3.561   -0.638    0.297     3.220    1.014     3.936     0.000       1.59
+  threshold_gate tau=0.65    3.561   -0.662    0.376     3.275    0.728     3.627     0.000       1.10
+  threshold_gate tau=0.80    3.561   -0.521    0.387     3.428    0.544     3.585     0.000       1.05
+  soft_gate                 3.561   -0.637    0.346     3.269    3.817     6.740     0.000       5.99
+
+  ⭐ DSC is the ordering information AVAILABLE in the composed index — shared by both
+     arms by construction. MCB is what each EMISSION then throws away. ⛔ DSC(-x) is
+     printed because DSC=0 means no isotone-INCREASING information, not none.
+
+----------------------------------------------------------------------------------------------------------------
+6 · ⭐⭐ THE HEADROOM — the most B could EVER win, on this index, at this tau
+----------------------------------------------------------------------------------------------------------------
+  ⭐ ``CRPS_ORD`` is the best score ANY forecast that is isotone in x can achieve in
+     sample. A rank-coupled emission is such a forecast BY CONSTRUCTION — it is a
+     monotone map from x to magnitudes. ⇒ ``MCB_A`` IS the whole prize: the entire
+     amount a perfected B could take off A, on this index. It is not an estimate of it.
+
+  row                      CRPS_A  ceiling  HEADROOM  % of A  % of UNC  B is behind by  x headroom
+  threshold_gate tau=0.05    3.195    3.078     0.117    3.7%      3.3%          12.094      103.5x
+  threshold_gate tau=0.10    3.195    3.078     0.117    3.7%      3.3%           6.172       52.8x
+  threshold_gate tau=0.20    3.189    3.051     0.138    4.3%      3.9%           2.952       21.4x
+  threshold_gate tau=0.26    3.189    3.022     0.167    5.2%      4.7%           2.148       12.9x
+  threshold_gate tau=0.35    3.198    2.991     0.207    6.5%      5.8%           1.499        7.2x
+  threshold_gate tau=0.50    3.220    2.923     0.297    9.2%      8.4%           1.014        3.4x
+  threshold_gate tau=0.65    3.275    2.899     0.376   11.5%     10.5%           0.728        1.9x
+  threshold_gate tau=0.80    3.428    3.040     0.387   11.3%     10.9%           0.544        1.4x
+  soft_gate                 3.269    2.924     0.346   10.6%      9.7%           3.817       11.0x
+
+  ⚠️ Smallest shortfall anywhere in the sweep: threshold_gate tau=0.80 — B is behind the
+     ceiling by 0.544 where the whole prize is 0.387. ⛔ No row in the sweep has B inside the prize.
+  ⛔ This is a statement about THE EMISSION, not about the ordering: DSC is held fixed
+     across the two arms by construction, so none of it is an ordering-quality claim.
+
+  37.8 s, CPU, zero GPU, nothing retrained, no production code run.

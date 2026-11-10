@@ -1,0 +1,68 @@
+Read the gate convention FROM THE ARM CONFIGS and assert it. ⛔ Never transcribe it.
+
+Epic #579, story S4 #583. Pre-registration: ``../PREREG.md``, committed before this file existed.
+
+⛔⛔ WHY THIS FILE EXISTS. ``tau = 0.20`` was a module constant at
+``reports/2026-11-04_rank_coupled_body/tools/sim_rank_coupling.py:79`` and a sentence in
+``reports/2026-11-04_delivered_gate_lookup/tools/e1_data.py:26``'s docstring. **Nothing read it
+from the thing that produced the cubes.** A transcribed threshold that silently disagreed with the
+arm would make every open-set-dependent number in the epic wrong, with no error signal -- and the
+whole epic rests on A and B being scored on the SAME open set.
+
+⭐ MEASURED 2026-11-10: the transcription was CORRECT -- all eleven delivered arms carry
+``gate_threshold = 0.20`` and ``forecast_composition = 'threshold_gate'``. ⚠️ It was correct and
+**unverified**, which are different things, and the second is what this file fixes.
+
+⚠️ WHAT THE CONFIG SAYS ABOUT tau, quoted because it bears on the epic's scope
+(``calm_orbiter/configs/config_hyperparameters.py:46-49``):
+
+    "#465: 0.5 fired on 3-6x too few cells (views-hydranet M75). Measured calibrated tau for this
+     model was 0.26; set BELOW it on purpose -- the platform undershoots fatalities even at tau=0,
+     so lean toward firing more. A prior, not a measurement: to be swept."
+
+⇒ tau is an **unswept prior**, and it is deliberately below this model's measured calibrated value.
+⛔ Sweeping it is NOT in this epic's scope (``PREREG.md`` §10); this note exists so that no number
+here is read as though tau were optimised.
+
+⭐⭐ THE DECISION THIS FILE RECORDS, and it is S4's whole point. A ships ``threshold_gate``: a cell
+with ``gate >= tau`` keeps its body draws and a cell below is zeroed. **The composition is
+DETERMINISTIC given the gate -- there is no coin.** The 2026-11-04 simulation instead drew
+``rng.random(n_cells) < pi`` (``sim_rank_coupling.py:138,141``), a Bernoulli gate, while using tau
+only to define the REAL arm's ordering set (``:185``). ⇒ "same gate, one varying thing" was **not
+true**: the firing MECHANISM differed between A and B.
+
+⇒ **B fires deterministically on ``gate >= tau``, exactly as A does.** Consequences, all of them
+wanted:
+
+  · A and B are scored on an IDENTICAL open set, by construction rather than by assertion.
+    ``PREREG.md`` V2 (different cells / n / S) becomes structurally unsatisfiable.
+  · B's open set does not vary across samples, so the gate contributes **zero** per-cell variance.
+    The only randomness left in B is the empirical draw -- which is the thing under test.
+  · ⚠️ The 2026-11-04 Bernoulli figures are therefore **not** comparable to this epic's, and are
+    not quoted as though they were. The committed REAL gap of -0.0137 is a Bernoulli-gate number.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+S4 · THE GATE CONVENTION, READ FROM THE ARM CONFIGS
+====================================================================================================
+  pre-registered arm          directory        form          tau       composition
+  ctlfullzero_fortytwo        calm_orbiter     control    0.2000    threshold_gate
+  ctlfullzero_fortythree      keen_orbiter     control    0.2000    threshold_gate
+  ctlfullzero_fortyfour       mellow_orbiter   control    0.2000    threshold_gate
+  ctlfullzero_fortyfive       nimble_orbiter   control    0.2000    threshold_gate
+  ctlfullzero_fortysix        quiet_orbiter    control    0.2000    threshold_gate
+  ctlfullzero_fortyseven      rapid_orbiter    control    0.2000    threshold_gate
+  upctwofullzero_fortytwo     calm_lander      arm        0.2000    threshold_gate
+  upctwofullzero_fortythree   keen_lander      arm        0.2000    threshold_gate
+  upctwofullzero_fortyfour    mellow_lander    arm        0.2000    threshold_gate
+  upctwofullzero_fortyfive    nimble_lander    arm        0.2000    threshold_gate
+  upctwofullzero_fortyseven   rapid_lander     arm        0.2000    threshold_gate
+  upctwofullzero_fortysix     (ghost)          ghost    absent from arm_directories() — never ran
+
+  PASS  G-T1  all 11 arms agree: 
+              tau = 0.2, forecast_composition = 'threshold_gate'
+  ⭐ tau is now READ, not transcribed. The transcribed value was 0.2 and it was right.
+  ⚠️ tau is an UNSWEPT PRIOR, deliberately below this model's measured calibrated 0.26.
+  ⭐ B fires on gate >= tau, deterministically — the same open set A ships. No coin.
+  ⚠️ sigma-hat is therefore over n = 6 control-form arms, not 5.

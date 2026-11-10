@@ -1,0 +1,131 @@
+S6 — THE DECISION NUMBER: the paired CONDITIONAL magnitude-calibration difference, B vs A.
+
+Epic #579, story S6 #585. Pre-registration: ``../PREREG.md`` §2, committed before any tool existed.
+⛔ The criterion, the bin count, the headline bin and the margin were all fixed there. Nothing here
+may relax any of them.
+
+⭐ WHY CONDITIONAL AND NEVER MARGINAL. B draws from the empirical marginal, so it is **marginally
+calibrated by construction**. A pooled magnitude check is a no-op wearing a guardrail's clothes --
+B would pass it without carrying any information at all. ⇒ The criterion must be stratified.
+
+⛔ AND WHY IT IS NOT CRPS. ``C-52`` ``Brocker2009``: *"It is impossible to say how proper scores
+will rank unreliable forecast schemes even when one is sufficient for the other."* A is
+miscalibrated (pooled ``obs/pred`` 1.2349-1.6848 across ten arms), so a proper-score comparison
+against A is **not interpretable marginally**. Conditioning is the design response to a named
+blocker, not a preference. S5's CRPS table is a guardrail and is reported as one.
+
+⛔⛔ THE THREE CONFOUNDS THIS FILE CLOSES, each of which would have made the number meaningless:
+
+  (a) **The open set is the SHARED GATE ALONE** -- ``gate >= tau``, with tau read from the arm
+      config. ⛔ NOT ``(draws > 0).any(axis=1)``, which is what ``baseline_scorecard.py:295``
+      uses: that depends on A's own body draws, so A and B would be scored on DIFFERENT CELLS and
+      the comparison would not be paired. Under ``threshold_gate`` the shared open set is
+      deterministic, so ``PREREG.md`` V2 is structurally unsatisfiable rather than merely asserted.
+
+  (b) **The bin edges are fixed on A's prediction and applied to BOTH arms.** ⛔
+      ``conditional_magnitude.equal_count_edges`` recomputes equal-count edges from whatever
+      prediction it is handed, so letting each arm bin itself would make each arm's bottom bin a
+      different set of cells -- an unpaired comparison wearing a paired comparison's clothes. The
+      binning variable here is therefore the INCUMBENT's index, and the cells are identical by
+      construction. ⭐ ``equal_count_edges`` is imported, not re-implemented, so ``G-M1``'s
+      truth-blindness identity carries over.
+
+  (c) **16 bins, and the 1/16 quantisation is STATED, not worked around.** The conditioning index
+      is the mean of ``S = 16`` draws, so it is quantised at 0.0625. A finer sweep cannot probe the
+      bottom bin because the bins would be finer than the index can resolve. 16 is a ceiling set by
+      ``S``, not a tuning choice.
+
+**C-351 slots.** Population: the shared gate-open set over score months 463-469, pooled across the
+7 folds, cell count PRINTED. Truth: ``lr_sb_best``, raw counts. Transform: none. Estimator: the
+per-bin ratio of mean observed to mean predicted, with the calibration error ``|ratio - 1|``;
+dispersion at ``ddof=1``, declared; CI origin-blocked over the 7 folds. Inference mode: ⭐ DELIVERED
+AUTOREGRESSIVE, h = 1. Arm: ``ctlfullzero_fortytwo``.
+
+⚠️ Both means are taken over the WHOLE bin, nothing selected by the outcome.
+``conditional_magnitude.bin_table`` also offers ``ratio_obs_conditioned``, which restricts both
+means to cells with a positive outcome; that one is outcome-conditioned and is ⛔ never the
+criterion.
+
+⛔⛔ AMENDED. ``PREREG.md`` A-1 (2026-11-10) replaces §2's RATIO with the within-bin **absolute
+conditional bias**, because the ratio is **undefined on the pre-registered headline bin**: A issues
+a literal point mass at zero on all 128 cells there. See ``conditional_bias`` below. The amendment
+is appended and dated in ``PREREG.md``, never edited into it.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+S6 · THE CONDITIONAL MAGNITUDE READOUT — the decision number
+====================================================================================================
+  tau = 0.2 (read from the arm config, S4 #583); S = 16; bins = 16; headline bin = 0 (the lowest)
+  shared gate-open set: 2,256 cell-months over 7 folds, 1,034 of them events (45.83%)
+  ⚠️ the conditioning index is quantised at 1/16 = 0.0625; it takes 1,323 distinct values here
+
+  PASS  G-C1  bin edges computed from A's prediction ALONE and reused for every arm ⇒ identical cells per bin
+  PASS  G-C2  the open set is `gate >= tau`, NOT (draws > 0).any() ⇒ A and B share every scored cell by construction
+
+----------------------------------------------------------------------------------------------------
+1 · PER-BIN CALIBRATION, bins defined by A's prediction
+    ⭐ THE CRITERION (amended A-1): bias = |mean_obs - mean_pred|, in counts.
+       delta = bias_A - bias_B.  POSITIVE delta means B is BETTER CALIBRATED than A.
+    ⚠️ ratio_err = |mean_obs/mean_pred - 1| is the ORIGINAL §2 statistic, now
+       REPORT-ONLY, and it is `nan` in bin 0 — which is what forced A-1.
+----------------------------------------------------------------------------------------------------
+  bin        n  n_pos  mean_obs   pred_A   pred_B   bias_A   bias_B    delta    rerr_A  rerr_B
+  0        128     32     3.836    0.000    1.000    3.836    2.836   +1.000       nan   2.836  ⭐ HEADLINE
+  1        134     27     0.858    0.118    1.001    0.740    0.142   +0.598     6.273   0.142
+  2        160     45     4.475    0.382    1.202    4.093    3.273   +0.821    10.726   2.722
+  3        132     37     3.803    0.787    1.918    3.016    1.885   +1.131     3.833   0.982
+  4        151     47     5.384    1.254    2.481    4.130    2.903   +1.227     3.294   1.170
+  5        141     58     8.355    1.806    3.326    6.549    5.029   +1.520     3.626   1.512
+  6        139     53     5.367    2.378    4.281    2.989    1.086   +1.904     1.257   0.254
+  7        143     63     6.601    3.089    5.490    3.513    1.111   +2.401     1.137   0.202
+  8        140     70     6.936    3.971    6.858    2.964    0.078   +2.886     0.746   0.011
+  9        141     78    10.553    5.054    8.712    5.500    1.841   +3.658     1.088   0.211
+  10       142     74    13.204    6.423   11.163    6.781    2.041   +4.740     1.056   0.183
+  11       141     90    16.426    7.876   14.729    8.550    1.697   +6.853     1.086   0.115
+  12       141     89    13.241    9.562   20.381    3.680    7.139   -3.460     0.385   0.350
+  13       141     90    15.163   11.732   29.228    3.431   14.065  -10.633     0.292   0.481
+  14       141     82    18.028   14.871   45.936    3.158   27.908  -24.750     0.212   0.608
+  15       141     99    26.922   26.019  130.691    0.903  103.769 -102.866     0.035   0.794
+
+----------------------------------------------------------------------------------------------------
+2 · ⭐ THE SUPERIORITY CRITERION — bin 0, origin-blocked over 7 folds
+----------------------------------------------------------------------------------------------------
+  bin 0: n = 128 cell-months, 32 events, mean observed 3.836
+
+  arm              bias_A   bias_B     delta           95% CI of delta        sign
+  B/NO-OP           3.836    3.836    +0.000   [   +0.000,    +0.000]     spans 0
+  B/REAL            3.836    2.836    +0.592   [   +0.183,    +0.924]  excludes 0
+  B/lam=0.00        3.836   20.025   -16.556   [  -21.133,   -13.306]  excludes 0
+  B/lam=1.00        3.836    6.214    -2.471   [   -3.535,    -1.108]  excludes 0
+
+  THE CONTROLS on the SUPERIORITY CRITERION (PREREG.md §5):
+    PASS  V3  the EXACT no-op (B rebuilt from A's own pool) reads zero: delta +0.000e+00
+    ⛔ V4 FIRES  V4  the ORACLE separates in B's favour: delta -2.471, CI [-3.535, -1.108]
+
+  ================================================================================================
+  ⛔⛔ V4 FIRES ⇒ THIS CRITERION IS **VOID** FOR THIS QUESTION. Not 'B is worse'.
+  ================================================================================================
+  ⭐ V3 passing and V4 failing together localise the fault precisely: the machinery
+     (binning, pairing, origin-blocked bootstrap) is SOUND -- the exact no-op reads
+     zero to machine precision -- and the STATISTIC is blind.
+
+  THE MECHANISM, and it is not a surprise once stated: the within-bin absolute
+  conditional bias compares a bin's MEAN observed to its MEAN predicted. It is a
+  statistic about the LEVEL of a bin. The oracle's advantage is not level, it is
+  PLACEMENT WITHIN the bin -- it ranks the bin's cells perfectly and still carries
+  the empirical pool's level. ⇒ A bin-mean statistic cannot see the one thing the
+  potency control is good at, so it cannot see the mechanism under test either.
+
+  ⚠️ This is the RP-1 blindness class, measured again: #477 found 14 of 20 battery
+     columns read the mean field only. This criterion is a 15th.
+
+  ⛔ NO SECOND AMENDMENT IS MADE HERE. A-1 was forced by an undefined statistic; a
+     further swap after seeing which arm wins is exactly the post-hoc selection
+     C-3531 forbids and exactly the loop that produced four withdrawn definitions
+     of done. ⇒ lambda* is located on a criterion whose power is ALREADY
+     DEMONSTRATED -- the within-B contrast of S5 #584 §2a, where V3 and V4 both
+     PASS and the REAL arm separates at -3.59 [-4.25, -3.04], 7/7 folds. S8 #587
+     sweeps that one.
+
+  38.0 s, CPU, R=400 replicate cubes per arm, zero GPU.

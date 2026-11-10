@@ -1,0 +1,124 @@
+E-1 baseline — the delivered emission's OWN CRPS at h1, per fold, split by truth.
+
+Epic #559, story #564. Pre-registration: ``PREREG.md``, committed before any instrument existed
+(``D-5``). Loader: ``e1_data.py`` (#563), whose four gates passed with ``G-0`` bit-exact.
+
+⭐ **This is the comparator the whole experiment rests on.** The lookup in #565 is measured against
+the number this file produces and against the ``B = 1`` floor, on the same cell-months.
+
+⛔⛔ **IT IS NOT `M89`'s NUMBER.** `M89` reports `AR-h1` at 0.052109 plug-in / 0.050680 fair with a
+floor of 0.060323, and those are **a different population** (all 13 months, bins borrowed from the
+teacher-forced fit window) on **a different checkpoint** (the 2026-10-12 ``violet_visitor``
+vehicle,
+not ``ctlfullzero_fortytwo``). They are an order-of-magnitude sanity anchor and nothing else.
+Quoting
+them as this epic's comparator would be a `W-51` two-variable comparison.
+
+**C-351 slots.** Population: 64,818 global ``land`` cells x 7 score months (463..469) = 453,726
+cell-months, and each fold's floor is fitted on its own 6 months (388,908). Truth: ``lr_sb_best``,
+raw counts, no transform. Estimator: **BOTH** — ``plug-in-crps`` ``e1 - A/(2m^2)`` and
+``fair-crps``
+``e1 - A/(2m(m-1))``, printed side by side with the estimator named on every line (``GLOSSARY.md``
+§5e). Inference mode: ⭐ **DELIVERED AUTOREGRESSIVE, h = 1**. Arm: ``ctlfullzero_fortytwo``.
+⛔ No h36 number is produced, in either direction.
+
+⚠️ **WHAT TO EXPECT, pre-registered in ``PREREG.md`` §5b as P-30 rather than discovered here.** On
+**99.4569%** of h1 cells the emission issues a literal point mass at zero, so its CRPS there is
+exactly the truth value: *perfect* on a true zero and the full count on an event. 99.66% of cells
+are
+true zeros, so the emission wins the background outright and the whole comparison turns on events,
+which carry ~96% of the pooled score. ⇒ The background and event halves are reported
+**separately**,
+with ``n`` beside every figure, because a pooled mean hides the only thing that moves.
+
+⛔ THE GATES, declared before the run:
+
+  G-2   ⭐ On every cell where all 16 draws are 0, ``plug-in == fair == |y|`` **exactly**, with no
+        tolerance. The pairwise term ``A`` is 0 for a degenerate ensemble, so both estimators
+        reduce
+        to the same expression — and this is what confines the estimator asymmetry against #565's
+        **exactly** scored lookup to the minority of cells that have spread. Both counts printed.
+
+  G-P1  PROVENANCE, by AST. The ``crps_ensemble`` lifted into this file must be **structurally
+        identical** to ``reports/2026-10-29_delivered_forecast/ar_score.py``'s. ⚠️ Compared as a
+        parsed AST rather than as bytes, following ``l3c_three_target_scores.py``'s ``G-S1``,
+        because a formatting difference is not a behavioural one and a byte test would fail on it.
+        ⭐ An ADDITION beyond ``PREREG.md`` §7's gate list. It strengthens and relaxes nothing,
+        so it is not a change to the verdict rule under §6 device 6.
+
+  G-3   ⭐ ``PREREG.md`` §7's gate, in the form available here. At ``B = 1`` there are no interior
+        edges, so every scored cell gets the SAME distribution and the floor **cannot depend on the
+        conditioning index**. Four destructions of the index — shuffled, zeroed, inverted, and the
+        fit index shuffled — must each leave it **bit-unchanged**. This is `M89`'s own ``G-4``
+        reused, which measured spread ``0.0e+00`` across its eight variants, and it catches a
+        ``B = 1`` path that accidentally bins.
+        ⚠️ Scoped honestly: #565 runs the full assign x tie ladder; assign and tie belong to the
+        lookup, not to the floor.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+E-1 BASELINE — the delivered emission's own CRPS at h1, per fold
+====================================================================================================
+  PASS  G-P1 PROVENANCE: lifted crps_ensemble matches ar_score.py structurally  (2014 vs 2014 AST chars)
+  PASS  G-1a binned_cdf.self_test() — the frozen floor scorer's own identity check
+  PASS  G-0  COPY: pooled h1 gate AP 0.5667056384496834 vs committed 0.5667056384496834  |Δ| 0.000e+00  (tol 1e-12)
+  PASS  G-4  LEAKAGE: per-fold fit∩score sizes [0, 0, 0, 0, 0, 0, 0] over 7 folds
+  PASS  G-5  ALIGNMENT: gate units == draws units == truth cell order on 13/13 origins
+  PASS  G-8  STRUCTURAL: 842,634 cell-months, 2,905 events (0.3448%), max 2482  (expected 842,634 / 2,905 / 2482)
+
+  loaded 13 origins covering months 457..469, 7 folds, 453,726 scored cell-months, in 26.2 s
+
+----------------------------------------------------------------------------------------------------
+1 · THE DELIVERED EMISSION, SCORED  ⭐ fair-crps is the headline; plug-in-crps beside it
+----------------------------------------------------------------------------------------------------
+  fold  month  estimator             all     background        event  n_event
+  1     463    plug-in-crps     0.068768       0.002407      17.9999      239
+  1     463    fair-crps        0.066919       0.001382      17.7752      239
+  2     464    plug-in-crps     0.048460       0.002539      15.0356      198
+  2     464    fair-crps        0.046579       0.001535      14.7473      198
+  3     465    plug-in-crps     0.048194       0.001676      13.2261      228
+  3     465    fair-crps        0.046661       0.001027      12.9743      228
+  4     466    plug-in-crps     0.038949       0.001817      10.4665      230
+  4     466    fair-crps        0.037226       0.001100      10.1818      230
+  5     467    plug-in-crps     0.060777       0.002073      16.3330      233
+  5     467    fair-crps        0.059027       0.001279      16.0661      233
+  6     468    plug-in-crps     0.036555       0.001841      10.2762      219
+  6     468    fair-crps        0.034778       0.001121       9.9626      219
+  7     469    plug-in-crps     0.042102       0.001579      11.6756      225
+  7     469    fair-crps        0.040539       0.000932      11.4110      225
+
+  pooled over the 7 score months, 453,726 cell-months:
+    plug-in-crps  all 0.049115 (n 453,726)   background 0.001990 (n 452,154)   event 13.6037 (n 1,572)
+    fair-crps     all 0.047390 (n 453,726)   background 0.001197 (n 452,154)   event 13.3339 (n 1,572)
+
+----------------------------------------------------------------------------------------------------
+2 · THE B=1 FLOOR — the unconditional empirical CDF of each fold's OWN fit window
+----------------------------------------------------------------------------------------------------
+  fold  fit window        score        plug-in        fair   fit members
+  1     457-462           463         0.078787    0.078787       388,908
+  2     458-463           464         0.055569    0.055569       388,908
+  3     459-464           465         0.057013    0.057013       388,908
+  4     460-465           466         0.047238    0.047238       388,908
+  5     461-466           467         0.071510    0.071510       388,908
+  6     462-467           468         0.047196    0.047196       388,908
+  7     463-468           469         0.051893    0.051893       388,908
+
+----------------------------------------------------------------------------------------------------
+3 · THE GATES
+----------------------------------------------------------------------------------------------------
+  PASS  G-2   on 64,452 all-zero-draw cells (99.4353%) plug-in == fair == |y|, worst |dev| 0.0e+00; 366 cells carry spread
+  PASS  G-3   the B=1 floor is unchanged under 4 destructions of the conditioning index, worst |dev| 0.0e+00
+
+----------------------------------------------------------------------------------------------------
+4 · ⚠️ LIMITS
+----------------------------------------------------------------------------------------------------
+  · ⛔ NOT M89's number. M89's AR-h1 0.052109 / 0.050680 and floor 0.060323 are a
+    DIFFERENT population (13 months, borrowed teacher-forced bins) on a DIFFERENT
+    checkpoint (2026-10-12 violet_visitor). Sanity anchor only.
+  · ⛔ h1 only. No h36 number, in either direction (PREREG §6 device 2).
+  · ⚠️ n=1: one checkpoint, one seed, one arm, one target. No sigma-hat exists.
+  · ⚠️ The emission is scored from 16 SAMPLED draws; #565's lookup is scored EXACTLY.
+    G-2 confines that asymmetry to the cells with spread, it does not remove it.
+
+  26.8 s, CPU, zero GPU, nothing retrained.

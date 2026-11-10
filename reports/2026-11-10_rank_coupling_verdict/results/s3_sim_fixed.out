@@ -1,0 +1,164 @@
+Q-B / Q-C / Q-D — simulate the rank-coupled body on the REAL gate, pool and truth.
+
+Programme: ``reports/2026-11-04_rank_coupled_body_programme.md``. ⛔ Committed before it ran (D-5).
+
+⭐ WHAT THIS SETTLES, and it is three of Simon's questions:
+
+  Q-B  Does v1's per-cell dispersion profile match the defect profile ``M90`` measured? ``M90``:
+       OVER-dispersed (sd/RMSE > 1) in 9 of 10 spread bins and UNDER-dispersed (0.48 / 0.39) in the
+       top bin only. ⇒ The correction the data needs is NON-MONOTONE in the spread.
+  Q-C  How much per-cell spread does each of P6's three sources supply, and at which ranks?
+       Answered by holding each source fixed in turn.
+  Q-D  Can the stopping rule fire? i.e. is the v1-versus-permutation gap outside the noise floor?
+       Answered by sweeping the ORDERING QUALITY rather than assuming this head's.
+
+**C-351 slots.** Population: 64,818 global ``land`` cells, score month 463, fit months 457-462.
+Truth: ``lr_sb_best``, raw counts. Gate: the delivered h1 posterior-mean gate, 16 draws, from
+``gate_endpoints``. Pool: the fit window's strictly positive counts. Inference mode: ⭐ DELIVERED
+AUTOREGRESSIVE h1. Arm: ``ctlfullzero_fortytwo``. Estimator: plug-in CRPS per cell (⚠️ plug-in, not
+fair, because ``crps_concentration`` refuses a negative vector and the fair estimator can go
+negative — ``rollout_ruler_core.py:465-474``).
+
+⭐ THE ORDERING SWEEP, and why it is better than using this head's own ordering. The ordering is
+blended between a truth-based oracle and pure noise:
+
+    score_i = lam * z(rank(truth_i)) + (1 - lam) * z(noise_i),   lam in [0, 1]
+
+⇒ ``lam = 0`` IS the permutation control; ``lam = 1`` is the best achievable ordering. Sweeping
+``lam`` gives the gap as a FUNCTION of ordering quality, so the answer is *what quality the
+mechanism
+requires*, not merely whether one head happens to have it.
+
+⛔⛔ THE ORACLE IS A CALIBRATION AXIS, NOT AN ARM. Device 1 declares an oracle-only
+improvement a FAIL. Here the truth-based ordering exists only to parameterise the sweep; ⛔ **no
+number from ``lam > 0`` built on truth may be reported as a result about the model.** The only arm
+that is a statement about the model is ``REAL``, below.
+
+⭐ ``REAL`` — the anchor, and it is partial by construction. ``threshold_gate`` leaves the body
+draws
+UNTOUCHED wherever ``gate >= tau``, so on those cells the composed draws ARE the body's
+and their mean is the regression output. Measured: open cells are only 0.5% of the grid but carry
+**55.9%** of the expected firing mass. ⇒ The real ordering is available for the TOP of the order
+and
+lost on the bottom, where the closed cells sit. The ``REAL`` arm therefore orders open cells by the
+recovered regression output and tie-breaks the closed ones at random — i.e. it is the real ordering
+on the half that matters and the control on the other half. ⚠️ It is a LOWER BOUND on what a full
+forward pass would give.
+
+⛔ THE GATES, declared before the run:
+
+  G-20  The ablation is PAIRED on common random numbers: every arm sees the same gate draws and the
+        same pool draws in sample r, differing only in the order. Asserted by checking that the
+        per-sample firing sets and drawn multisets are identical across arms.
+  G-21  ⭐ A1/A2 hold numerically: the permutation control's field total matches v1's EXACTLY in
+        every sample, and its pooled per-cell magnitude distribution matches the pool.
+  G-22 NON-VACUITY: the lam sweep must actually move the realised Spearman between the ordering and
+        the truth on the firing set, monotonically. A sweep that does not move the ordering cannot
+        measure what ordering quality buys.
+  G-23  P2 numerically: E[sum] over samples equals n_t * pool mean to within Monte Carlo error.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+Q-B / Q-C / Q-D — the rank-coupled body simulated on the real gate, pool and truth
+====================================================================================================
+
+  score month 463, fit 457-462, pool 1,333 positives (median 6, max 2482)
+  gate mean 0.004275, E[fire] 277.1; truth 239 events, max 547
+  REAL arm: 336 open cells (0.5184%) carrying 56.6% of expected firing mass
+
+----------------------------------------------------------------------------------------------------
+G-22 · does the lam sweep move the ordering? (Spearman vs truth on firing cells)
+----------------------------------------------------------------------------------------------------
+  lam=0.00             realised Spearman  0.0130
+  lam=0.15             realised Spearman  0.1054
+  lam=0.30             realised Spearman  0.2219
+  lam=0.50             realised Spearman  0.4385
+  lam=0.75             realised Spearman  0.6826
+  lam=1.00             realised Spearman  0.8431
+  REAL (open cells)    realised Spearman  0.5125
+  PASS  G-22 monotone in lam
+
+----------------------------------------------------------------------------------------------------
+Q-D · the v1-versus-control gap as a function of ordering quality
+----------------------------------------------------------------------------------------------------
+  arm                   Spearman   CRPS pooled   CRPS firing   gap vs lam=0         95% CI of the gap
+  lam=0.00                0.0130      0.078985        0.7615         0.0000  [  0.0000,  0.0000] spans 0
+  lam=0.15                0.1054      0.078548        0.7573         0.0042  [ -0.0158,  0.0206] spans 0
+  lam=0.30                0.2219      0.077885        0.7509         0.0106  [ -0.0250,  0.0374] spans 0
+  lam=0.50                0.4385      0.076369        0.7363         0.0253  [ -0.0270,  0.0657] spans 0
+  lam=0.75                0.6826      0.073379        0.7074         0.0542  [ -0.0144,  0.1073] spans 0
+  lam=1.00                0.8431      0.030099        0.2891         0.4724  [  0.3183,  0.6325] EXCLUDES 0
+  REAL (open cells)       0.5125      0.080397        0.7752        -0.0137  [ -0.1138,  0.0826] spans 0
+
+----------------------------------------------------------------------------------------------------
+THE GATES
+----------------------------------------------------------------------------------------------------
+  PASS  G-20  paired: identical firing sets across arms (111065 firings over 400 samples)
+  PASS  G-21  A1: field totals identical across arms, max |diff| 0.000e+00
+  PASS  G-23  P2: E[sum] 4994 vs n*mu 5067  ratio 0.9856
+
+----------------------------------------------------------------------------------------------------
+Q-B · dispersion profile. M90: OVER-dispersed in 9 of 10 bins, UNDER in the top only
+----------------------------------------------------------------------------------------------------
+
+  lam=0.00: 6,707 cells with spread (10.3474%); 58,111 are a point mass
+     bin       n    mean sd       RMSE   sd/RMSE
+       0     668      0.054      0.003    16.784
+       1     662      0.112      0.078     1.440
+       2     678      0.192      2.032     0.095
+       3     672      0.292      0.762     0.384
+       4     673      0.426     11.172     0.038
+       5     671      0.654      7.055     0.093
+       6     671      1.026     22.605     0.045
+       7     670      1.675      6.076     0.276
+       8     671      3.159      7.710     0.410
+       9     671     18.603     19.702     0.944
+
+  lam=1.00: 6,707 cells with spread (10.3474%); 58,111 are a point mass
+     bin       n    mean sd       RMSE   sd/RMSE
+       0     645      0.050      0.003    20.000
+       1     677      0.084      0.006    14.001
+       2     689      0.123      0.011    10.999
+       3     667      0.174      0.016    10.811
+       4     675      0.231      0.026     9.045
+       5     670      0.308      0.041     7.557
+       6     670      0.400      0.074     5.435
+       7     671      0.543      0.178     3.058
+       8     672      0.894      0.271     3.304
+       9     671      8.076     10.225     0.790
+
+  REAL (open cells): 6,707 cells with spread (10.3474%); 58,111 are a point mass
+     bin       n    mean sd       RMSE   sd/RMSE
+       0     643      0.050      0.003    20.000
+       1     695      0.060      0.038     1.593
+       2     662      0.096      0.173     0.556
+       3     679      0.115      0.011    10.201
+       4     671      0.152      0.228     0.666
+       5     669      0.193      0.017    11.068
+       6     663      0.230      0.536     0.430
+       7     683      0.293      1.918     0.153
+       8     671      0.466      2.213     0.211
+       9     671      6.928     41.057     0.169
+
+----------------------------------------------------------------------------------------------------
+Q-C · which of P6's sources supplies the per-cell spread, by rank decile
+----------------------------------------------------------------------------------------------------
+  ⚠️ 'ranks FIXED' holds the cell-to-quantile map (fixed 2026-11-10, epic #579 / S3 #582).
+     Its earlier form re-sorted the key, which assigned magnitudes in cell-index order and
+     printed the largest spread in this table as an artefact. ⚠️ Under the corrected hold the
+     assigned values are a resampling of the draw multiset WITH REPEATS, so this column's
+     field total is not comparable with the others' — only its per-cell spread is.
+  rank decile       all three on      gate FIXED     ranks FIXED     draws FIXED
+  0-10%                    0.119           0.058           0.116           0.102
+  10-20%                   0.116           0.019           0.139           0.096
+  20-30%                   0.166           0.019           0.258           0.104
+  30-40%                   0.244           0.014           0.396           0.169
+  40-50%                   0.296           0.005           0.552           0.185
+  50-60%                   0.396           0.003           0.810           0.228
+  60-70%                   0.540           0.000           1.297           0.311
+  70-80%                   0.662           0.002           2.094           0.380
+  80-90%                   0.879           0.002           3.844           0.540
+  90-100%                  7.468           2.857         155.459           4.608
+
+  11.1 s, CPU, R=400 samples per arm, zero GPU.

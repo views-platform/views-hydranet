@@ -136,6 +136,17 @@ def simulate(pi, pool, truth, order_key, rng, *, fix_gate=False, fix_ranks=False
     y = np.zeros((R, n_cells))
     fired = np.zeros((R, n_cells), bool)
     base_fire = rng.random(n_cells) < pi if fix_gate else None
+    # ⭐ ``fix_ranks`` holds the cell-to-QUANTILE map: a cell's rank becomes a property OF THE CELL
+    # rather than of whichever other cells happened to fire. Computed once, over all cells, outside
+    # the sample loop. ⛔ The previous form did ``key = np.sort(key)``, which makes ``argsort`` the
+    # identity and therefore assigns magnitudes in CELL-INDEX order — it decoupled the assignment
+    # from the ordering entirely instead of holding it, and its column was the largest spread in
+    # the output. See ``reports/2026-11-04_rank_coupled_body_programme.md:423-424``.
+    q_fixed = (
+        np.argsort(np.argsort(order_key, kind="stable")) / max(n_cells - 1, 1)
+        if fix_ranks
+        else None
+    )
     for r in range(R):
         f = base_fire if fix_gate else (rng.random(n_cells) < pi)
         idx = np.flatnonzero(f)
@@ -143,12 +154,15 @@ def simulate(pi, pool, truth, order_key, rng, *, fix_gate=False, fix_ranks=False
         if n == 0:
             continue
         fired[r, idx] = True
-        key = order_key[idx]
-        if fix_ranks:
-            key = np.sort(key)  # ⚠️ destroys the cell-to-rank map deliberately
-        order = idx[np.argsort(key, kind="stable")]
         d = np.sort(pool[:n] if fix_draws else rng.choice(pool, n, replace=True))
-        y[r, order] = d
+        if fix_ranks:
+            # ⚠️ A resampling of ``d`` with repeats, NOT a permutation of it: holding the rank map
+            # under a VARYING firing set cannot also preserve the assigned multiset. ⇒ this arm's
+            # field total is not comparable with the others'; its per-cell spread is.
+            y[r, idx] = d[np.rint(q_fixed[idx] * (n - 1)).astype(np.int64)]
+        else:
+            order = idx[np.argsort(order_key[idx], kind="stable")]
+            y[r, order] = d
     return y, fired, y.sum(1)
 
 
@@ -287,6 +301,13 @@ def main() -> None:
     print("\n" + "-" * 100)
     print("Q-C · which of P6's sources supplies the per-cell spread, by rank decile")
     print("-" * 100)
+    print(
+        "  ⚠️ 'ranks FIXED' holds the cell-to-quantile map (fixed 2026-11-10, epic #579 / S3 #582).\n"
+        "     Its earlier form re-sorted the key, which assigned magnitudes in cell-index order and\n"
+        "     printed the largest spread in this table as an artefact. ⚠️ Under the corrected hold the\n"
+        "     assigned values are a resampling of the draw multiset WITH REPEATS, so this column's\n"
+        "     field total is not comparable with the others' — only its per-cell spread is."
+    )
     k = keys["lam=1.00"]
     full = res["lam=1.00"]
     arms = {"all three on": full}

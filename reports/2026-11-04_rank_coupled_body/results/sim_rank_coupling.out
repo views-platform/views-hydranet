@@ -144,16 +144,21 @@ Q-B · dispersion profile. M90: OVER-dispersed in 9 of 10 bins, UNDER in the top
 ----------------------------------------------------------------------------------------------------
 Q-C · which of P6's sources supplies the per-cell spread, by rank decile
 ----------------------------------------------------------------------------------------------------
+  ⚠️ 'ranks FIXED' holds the cell-to-quantile map (fixed 2026-11-10, epic #579 / S3 #582).
+     Its earlier form re-sorted the key, which assigned magnitudes in cell-index order and
+     printed the largest spread in this table as an artefact. ⚠️ Under the corrected hold the
+     assigned values are a resampling of the draw multiset WITH REPEATS, so this column's
+     field total is not comparable with the others' — only its per-cell spread is.
   rank decile       all three on      gate FIXED     ranks FIXED     draws FIXED
-  0-10%                    0.119           0.058           4.743           0.102
-  10-20%                   0.116           0.019           4.012           0.096
-  20-30%                   0.166           0.019           3.382           0.104
-  30-40%                   0.244           0.014           3.557           0.169
-  40-50%                   0.296           0.005           3.206           0.185
-  50-60%                   0.396           0.003           2.767           0.228
-  60-70%                   0.540           0.000           3.588           0.311
-  70-80%                   0.662           0.002           2.972           0.380
-  80-90%                   0.879           0.002           3.708           0.540
-  90-100%                  7.468           2.857           6.162           4.608
+  0-10%                    0.119           0.058           0.116           0.102
+  10-20%                   0.116           0.019           0.139           0.096
+  20-30%                   0.166           0.019           0.258           0.104
+  30-40%                   0.244           0.014           0.396           0.169
+  40-50%                   0.296           0.005           0.552           0.185
+  50-60%                   0.396           0.003           0.810           0.228
+  60-70%                   0.540           0.000           1.297           0.311
+  70-80%                   0.662           0.002           2.094           0.380
+  80-90%                   0.879           0.002           3.844           0.540
+  90-100%                  7.468           2.857         155.459           4.608
 
-  19.9 s, CPU, R=400 samples per arm, zero GPU.
+  11.1 s, CPU, R=400 samples per arm, zero GPU.

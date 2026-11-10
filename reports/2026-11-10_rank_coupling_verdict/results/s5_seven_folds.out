@@ -1,0 +1,132 @@
+S5 — the rank-coupled draw on A's OWN gate, over E-1's seven folds, fair CRPS beside plug-in.
+
+Epic #579, story S5 #584. Pre-registration: ``../PREREG.md``, committed before any tool existed.
+⛔ Nothing in this file may relax a threshold that ``PREREG.md`` fixed.
+
+⭐ WHAT THIS CHANGES RELATIVE TO 2026-11-04. Three things, each one a defect that story closed:
+
+  S3 #582  the ``ranks FIXED`` ablation held nothing — it re-sorted the key and assigned magnitudes
+           in cell-index order. Fixed in ``sim_rank_coupling.py``; its Q-C column was the largest
+           spread in that output and was an artefact.
+  S4 #583  the gate. ⛔ The 2026-11-04 simulation drew ``rng.random(n) < pi``, a **Bernoulli** gate,
+           while A ships ``threshold_gate``. ⇒ "same gate, one varying thing" was NOT true. Here B
+           fires on ``gate >= tau`` deterministically, tau **read from the arm config** by
+           ``arm_config.resolve_tau()``, so A's open set and B's are the SAME SET by construction
+           and ``PREREG.md`` V2 is structurally unsatisfiable.
+  S5 #584  one score month became **seven folds**, and fair CRPS is printed beside plug-in with the
+           estimator named on every line.
+
+⚠️ ⇒ The committed 2026-11-04 REAL gap of **-0.0137, CI [-0.1138, 0.0826]** is a Bernoulli-gate,
+one-month number. It is **not** comparable with anything below and is not quoted as though it were.
+
+**C-351 slots.** Population: the gate-open set (``gate >= tau``) over score months 463-469,
+64,818 global ``land`` cells, 7 folds with a fixed 6-month fit window. ⭐ Open-cell counts are
+PRINTED, never assumed. Truth: ``lr_sb_best``, raw counts, no transform — asserted by printing the
+column maximum. Pool: each fold's OWN fit window's strictly positive counts. Estimator: fair and
+plug-in CRPS, both, named on every line; dispersion at ``ddof=1``, declared. Inference mode:
+⭐ DELIVERED AUTOREGRESSIVE, h = 1. Arm: ``ctlfullzero_fortytwo``.
+
+⛔ THE ARMS, and which of them is a statement about the model:
+
+  A            the delivered emission's own 16 draws. The incumbent. Not up for promotion.
+  B/REAL       rank-coupled, ordered by **the recovered regression output** — the only arm that is
+               a statement about the model.
+  B/lam=0.00   ⭐ the NO-OP CONTROL. The ordering is pure noise, so it MUST land at zero against a
+               permutation of itself. ``PREREG.md`` V3: if it does not, the criterion is broken,
+               not the arm.
+  B/lam=1.00   ⭐ the ORACLE / POTENCY CONTROL. The ordering is truth-derived, so the test MUST see
+               it. ``PREREG.md`` V4: if it does not, there is no power and we report that.
+
+⛔⛔ THE ORACLE IS A CALIBRATION AXIS, NOT AN ARM (``PREREG.md`` §8 device 1). No number built on
+truth may be reported as a statement about the model. It exists to show the instrument can see.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+S5 · THE RANK-COUPLED DRAW ON A's OWN GATE, SEVEN FOLDS
+====================================================================================================
+  tau = 0.2 — READ from the arm config (S4 #583), not transcribed
+  composition = 'threshold_gate' ⇒ the open set is deterministic
+
+  truth: 384 months x 64818 cells, max 113395
+  loaded 13 origins of gate and 13 of draws, S = 16
+
+  PASS  G-4  LEAKAGE: fit ∩ score = ∅ on 7 folds
+  fold 1 · month 463 · open 336 · pool 1,333 · events-on-open 147 · rho_event(REAL) +0.3088
+  fold 2 · month 464 · open 323 · pool 1,357 · events-on-open 130 · rho_event(REAL) +0.2715
+  fold 3 · month 465 · open 305 · pool 1,348 · events-on-open 144 · rho_event(REAL) +0.2982
+  fold 4 · month 466 · open 328 · pool 1,364 · events-on-open 157 · rho_event(REAL) +0.2825
+  fold 5 · month 467 · open 319 · pool 1,354 · events-on-open 159 · rho_event(REAL) +0.3138
+  fold 6 · month 468 · open 320 · pool 1,357 · events-on-open 148 · rho_event(REAL) +0.4661
+  fold 7 · month 469 · open 325 · pool 1,347 · events-on-open 149 · rho_event(REAL) +0.2483
+
+----------------------------------------------------------------------------------------------------
+1 · PER-FOLD CRPS ON THE GATE-OPEN SET  ⭐ fair-crps is the headline, plug-in beside it
+----------------------------------------------------------------------------------------------------
+  fold  month     n_open             A        B/REAL    B/lam=0.00   B/lam=0.00'    B/lam=1.00
+  1     463          336       10.3503       19.0945       22.0113       21.8232        4.6618   fair-crps
+                               10.6530       19.3003       22.2138       22.0279        4.8644   plug-in-crps
+  2     464          323        7.8101       17.0568       19.5376       21.4479        7.0582   fair-crps
+                                8.1364       17.2620       19.7387       21.6533        7.2594   plug-in-crps
+  3     465          305        7.9520       16.1902       20.1790       19.8063        6.2909   fair-crps
+                                8.2652       16.3817       20.3740       20.0000        6.4838   plug-in-crps
+  4     466          328        5.6112       14.6749       18.2375       17.2433        8.3483   fair-crps
+                                5.9346       14.7892       18.3512       17.3571        8.4614   plug-in-crps
+  5     467          319       10.4926       18.4098       21.7528       22.5881        5.0864   fair-crps
+                               10.8347       18.5216       21.8633       22.6997        5.1977   plug-in-crps
+  6     468          320        5.7746       13.5431       18.8488       18.9325        7.5624   fair-crps
+                                6.1175       13.6622       18.9685       19.0503        7.6807   plug-in-crps
+  7     469          325        6.1246       14.7983       18.3342       17.9397        7.0039   fair-crps
+                                6.4208       14.9101       18.4470       18.0527        7.1163   plug-in-crps
+
+  pooled (mean over folds)        7.7308       16.2525       19.8430       19.9687        6.5731   fair-crps
+                                8.0517       16.4039       19.9938       20.1201        6.7234   plug-in-crps
+  sd over folds, ddof=1         2.0593        2.0545        1.5491        2.0467        1.3225   fair-crps
+
+----------------------------------------------------------------------------------------------------
+2a · ⭐ THE WITHIN-B CONTRAST — each ordering against the NO-OP (lam=0.00).
+     This is the contrast the controls are defined on: it isolates *does the ordering
+     carry information*, holding the gate, the open set, the pool and S fixed.
+     ⛔ lower CRPS is better, so a NEGATIVE gap means the ordering HELPED.
+----------------------------------------------------------------------------------------------------
+  arm               mean gap           95% CI of the gap        sign  per-fold signs
+  B/lam=0.00'        +0.1257   [  -0.4559,   +0.8237]     spans 0  -+--++-
+  B/REAL             -3.5905   [  -4.2469,   -3.0362]  excludes 0  -------
+  B/lam=1.00        -13.2699   [ -15.2992,  -11.4402]  excludes 0  -------
+
+  THE TWO CONTROLS, evaluated (PREREG.md §5):
+    PASS  V3  the NO-OP reads zero against a permutation of itself: gap +0.1257, CI [-0.4559, +0.8237]
+    PASS  V4  the ORACLE separates, in B's favour: gap -13.2699, CI [-15.2992, -11.4402]
+
+----------------------------------------------------------------------------------------------------
+2b · THE PROMOTION-RELEVANT CONTRAST — each B against A, the incumbent.
+     ⚠️ CRPS is a GUARDRAIL here, NEVER the decider (PREREG.md §4): it ranks an empty
+     map top, and C-52 blocks a proper score against a miscalibrated A. The decision
+     number is the conditional magnitude readout, S6 #585.
+----------------------------------------------------------------------------------------------------
+  arm               mean gap           95% CI of the gap        sign  per-fold signs
+  B/REAL             +8.5217   [  +8.1255,   +8.8932]  excludes 0  +++++++
+  B/lam=0.00        +12.1122   [ +11.7055,  +12.5568]  excludes 0  +++++++
+  B/lam=0.00'       +12.2379   [ +11.7251,  +12.8281]  excludes 0  +++++++
+  B/lam=1.00         -1.1577   [  -3.5189,   +0.9968]     spans 0  ---+-++
+
+----------------------------------------------------------------------------------------------------
+3 · REALISED ORDERING QUALITY (Spearman vs truth)
+----------------------------------------------------------------------------------------------------
+  ⭐ rho_event — on EVENT cells. PREREG.md's quantity, and the one lambda* is stated in.
+  arm                  f1       f2       f3       f4       f5       f6       f7      mean
+  B/REAL          +0.3088  +0.2715  +0.2982  +0.2825  +0.3138  +0.4661  +0.2483   +0.3127
+  B/lam=0.00      +0.0266  -0.0152  -0.0491  -0.0432  -0.0231  -0.0075  -0.0493   -0.0230
+  B/lam=0.00'     -0.0342  -0.2046  +0.0090  +0.0204  -0.1206  -0.0541  +0.0527   -0.0473
+  B/lam=1.00      +0.9976  +0.9979  +0.9984  +0.9982  +0.9981  +0.9984  +0.9982   +0.9981
+
+  ⚠️ rho_open — on ALL open cells. Roughly half are true zeros, all tied, and both
+     sides break those ties independently ⇒ even a PERFECT ordering scores well below
+     1.0 here. Context only. ⛔ Never compare a figure from this block with one above.
+  arm                  f1       f2       f3       f4       f5       f6       f7      mean
+  B/REAL          +0.2690  +0.3721  +0.3809  +0.3095  +0.2992  +0.4369  +0.4039   +0.3531
+  B/lam=0.00      +0.0288  +0.0556  +0.0465  -0.0315  +0.0639  -0.1054  -0.0182   +0.0057
+  B/lam=0.00'     +0.0123  -0.0599  +0.0691  -0.0002  +0.0200  -0.0686  +0.0377   +0.0015
+  B/lam=1.00      +0.9064  +0.8868  +0.9234  +0.9262  +0.9345  +0.9189  +0.9170   +0.9162
+
+  44.7 s, CPU, R=400 replicate cubes per arm per fold, zero GPU, nothing retrained.

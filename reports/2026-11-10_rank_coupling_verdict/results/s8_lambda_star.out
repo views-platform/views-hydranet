@@ -1,0 +1,179 @@
+S8 — ⭐ THE HEADLINE: locate lambda*, the ordering quality at which the mechanism becomes visible.
+
+Epic #579, story S8 #587. Pre-registration: ``../PREREG.md``, committed before any tool existed.
+
+⭐⭐ THE QUESTION, and it is the whole epic in one sentence: **how good does the body's ranking have
+to be before the rank-coupled empirical draw is measurable at all?** Call that quality lambda*.
+Compare it to what our body actually achieves. If lambda* is above us, the question moves from the
+draw to the ranking, with a target. If it is below us, the mechanism is already measurable and the
+2026-11-04 null was an instrument artefact.
+
+⛔ WHY THE DIAL IS TRUSTWORTHY. It has a known right answer at BOTH ends: at ``lam = 0`` the
+ordering is noise, so the test MUST read zero; at ``lam = 1`` it is truth-derived, so the test MUST
+see it. S5 #584 §2a measured both and both behaved. That is what licenses reading the middle.
+
+⛔⛔ THE ORACLE IS A CALIBRATION AXIS, NOT AN ARM (``PREREG.md`` §8 device 1). No number built on
+truth is a statement about the model. The dial exists to calibrate the instrument's sensitivity;
+only the REAL and GATE rankers are statements about the model.
+
+⛔ THE CRITERION IS THE ONE WITH DEMONSTRATED POWER. The within-B gap in fair CRPS, each ordering
+against the NOISE ordering, holding the gate, the open set, the pool and ``S`` fixed. ⚠️ Not S6
+#585's bin-mean conditional bias, which is **VOID**: its potency control failed because a bin-mean
+statistic cannot see placement within a bin.
+
+⛔ THE MARGIN IS READ, NOT TRANSCRIBED. ``2 * sigma-hat_paired`` is parsed out of
+``../results/s7_sigma_hat.out``, which S7 #586 measured in-run at a declared ``ddof=1`` across the
+6 control-form seeds. A transcribed margin is the defect this epic already registered once.
+
+⚠️ THE SCALE AXIS IS VACUOUS, BY CONSTRUCTION, AND IS ASSERTED RATHER THAN PADDED.
+``PREREG.md`` §1 lists ``scale in {raw, log1p}`` among the swept axes. ⛔ A rank coupling depends on
+the ordering ONLY, and ``log1p`` is strictly monotone on non-negative counts, so it cannot change a
+single rank. ⇒ The two scales are the SAME arm. This file asserts that identity once (``G-L2``) and
+then reports one column, because printing an identical column twice would inflate a grid without
+adding a measurement.
+
+**C-351 slots.** Population: the gate-open set (``gate >= tau``, tau read from the arm config) over
+score months 463-469, 7 folds, cell counts printed by S5. Truth: ``lr_sb_best``, raw counts.
+Ordering quality: Spearman vs truth on **EVENT cells** -- ⛔ the population matters, see
+``rho_open`` in S5's output, where tie-breaking on the true zeros understates every arm. Estimator:
+fair CRPS, mean over the open set; CIs origin-blocked over the 7 folds; sd at ``ddof=1``, declared.
+Inference mode: ⭐ DELIVERED AUTOREGRESSIVE, h = 1. Arm: ``ctlfullzero_fortytwo``.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+S8 · LOCATING LAMBDA*
+====================================================================================================
+  margin  0.8881 fair-crps  = 2 * sigma-hat 0.4441 (ddof=1), READ from results/s7_sigma_hat.out
+  tau = 0.2, read from the arm config; R = 200; lambda grid = 21 points
+  fold 1 · month 463 · 44 arms scored
+  fold 2 · month 464 · 44 arms scored
+  fold 3 · month 465 · 44 arms scored
+  fold 4 · month 466 · 44 arms scored
+  fold 5 · month 467 · 44 arms scored
+  fold 6 · month 468 · 44 arms scored
+  fold 7 · month 469 · 44 arms scored
+
+  PASS  G-L2  log1p leaves every rank unchanged on 7/7 folds ⇒ the raw/log1p scale axis is ONE arm, not two
+  PASS  G-L3  the nu dial holds SEPARATION exactly fixed: worst |AUC(nu) - AUC(REAL)| = 0.000e+00 over 7 folds
+
+----------------------------------------------------------------------------------------------------
+1 · ⭐ THE SWEEP, REPORTED WHOLE  (PREREG.md §8 device 3: quoting the best cell of a
+    grid without the grid beside it is not a result)
+----------------------------------------------------------------------------------------------------
+    gap = fair-crps(this ordering) - fair-crps(NOISE ordering). NEGATIVE = the ordering
+    HELPED. 'clears' = |gap| > margin 0.8881 AND the CI excludes zero.
+
+  ⚠️ THE LAMBDA GRID. ⛔ Read it in the AUC column, NOT in rho_event: PREREG.md A-2
+     measured that this dial moves event-vs-zero SEPARATION and leaves ordering among
+     events untouched (rho_event flat until lambda=1.00). It is a gate-like axis.
+  arm              AUC  rho_event     ±sd       gap         95% CI of the gap   clears  signs
+  lam=0.00      0.5072    -0.0230  0.0275   +0.0000   [  +0.0000,   +0.0000]           +++++++
+  lam=0.05      0.5218    -0.0228  0.0275   -0.1366   [  -0.1807,   -0.0880]           -------
+  lam=0.10      0.5385    -0.0227  0.0275   -0.2869   [  -0.3533,   -0.2224]           -------
+  lam=0.15      0.5563    -0.0225  0.0274   -0.4127   [  -0.4767,   -0.3541]           -------
+  lam=0.20      0.5771    -0.0224  0.0273   -0.6141   [  -0.7057,   -0.5267]           -------
+  lam=0.25      0.6000    -0.0223  0.0273   -0.8147   [  -0.9269,   -0.7164]           -------
+  lam=0.30      0.6247    -0.0221  0.0273   -1.0282   [  -1.1397,   -0.9295]        ✅  -------
+  lam=0.35      0.6528    -0.0219  0.0275   -1.2578   [  -1.4056,   -1.1291]        ✅  -------
+  lam=0.40      0.6828    -0.0217  0.0276   -1.4842   [  -1.6486,   -1.3418]        ✅  -------
+  lam=0.45      0.7150    -0.0213  0.0275   -1.7791   [  -1.9670,   -1.6150]        ✅  -------
+  lam=0.50      0.7496    -0.0210  0.0276   -2.0305   [  -2.2067,   -1.8673]        ✅  -------
+  lam=0.55      0.7854    -0.0207  0.0275   -2.3195   [  -2.5180,   -2.1374]        ✅  -------
+  lam=0.60      0.8208    -0.0200  0.0274   -2.6040   [  -2.8164,   -2.4095]        ✅  -------
+  lam=0.65      0.8539    -0.0193  0.0273   -2.8982   [  -3.1124,   -2.7072]        ✅  -------
+  lam=0.70      0.8842    -0.0187  0.0271   -3.1759   [  -3.3975,   -2.9802]        ✅  -------
+  lam=0.75      0.9099    -0.0178  0.0272   -3.3780   [  -3.6309,   -3.1619]        ✅  -------
+  lam=0.80      0.9323    -0.0158  0.0273   -3.6051   [  -3.9025,   -3.3694]        ✅  -------
+  lam=0.85      0.9525    -0.0124  0.0274   -3.8347   [  -4.1445,   -3.5651]        ✅  -------
+  lam=0.90      0.9710    -0.0054  0.0269   -4.0405   [  -4.3458,   -3.7860]        ✅  -------
+  lam=0.95      0.9865    +0.0123  0.0257   -4.2567   [  -4.6080,   -3.9599]        ✅  -------
+  lam=1.00      1.0000    +0.9981  0.0003  -13.2651   [ -15.2854,  -11.4307]        ✅  -------
+
+  ⭐⭐ THE NU GRID — PREREG.md A-2's dial, and the axis LAMBDA* IS LOCATED ON.
+     It moves ordering AMONG EVENT CELLS while holding separation (AUC) exactly fixed
+     at the body's own. nu=0.00 reproduces REAL exactly ⇒ a second exact no-op.
+     ⛔ gaps here are still measured against the NOISE ordering, so they are comparable
+        with every other row in this file.
+  arm              AUC  rho_event     ±sd       gap         95% CI of the gap   clears  signs
+  nu=0.00       0.6764    +0.3127  0.0713   -3.5763   [  -4.2352,   -3.0557]        ✅  -------
+  nu=0.05       0.6764    +0.3517  0.0677   -3.8520   [  -4.5030,   -3.3335]        ✅  -------
+  nu=0.10       0.6764    +0.3965  0.0648   -4.2066   [  -4.8713,   -3.6412]        ✅  -------
+  nu=0.15       0.6764    +0.4441  0.0632   -4.5618   [  -5.2749,   -3.9600]        ✅  -------
+  nu=0.20       0.6764    +0.4960  0.0594   -4.9126   [  -5.6371,   -4.2998]        ✅  -------
+  nu=0.25       0.6764    +0.5491  0.0548   -5.2706   [  -5.9644,   -4.6352]        ✅  -------
+  nu=0.30       0.6764    +0.6009  0.0481   -5.6557   [  -6.3268,   -5.0243]        ✅  -------
+  nu=0.35       0.6764    +0.6542  0.0435   -6.1009   [  -6.7578,   -5.4546]        ✅  -------
+  nu=0.40       0.6764    +0.7058  0.0376   -6.4529   [  -7.1207,   -5.7543]        ✅  -------
+  nu=0.45       0.6764    +0.7547  0.0300   -6.8794   [  -7.5300,   -6.1560]        ✅  -------
+  nu=0.50       0.6764    +0.8042  0.0205   -7.3215   [  -7.9360,   -6.6514]        ✅  -------
+  nu=0.55       0.6764    +0.8473  0.0161   -7.7167   [  -8.3518,   -6.9859]        ✅  -------
+  nu=0.60       0.6764    +0.8842  0.0118   -8.1472   [  -8.7580,   -7.4505]        ✅  -------
+  nu=0.65       0.6764    +0.9158  0.0087   -8.5843   [  -9.2319,   -7.8332]        ✅  -------
+  nu=0.70       0.6764    +0.9413  0.0063   -9.0794   [  -9.6452,   -8.4766]        ✅  -------
+  nu=0.75       0.6764    +0.9615  0.0035   -9.5153   [ -10.0719,   -8.9220]        ✅  -------
+  nu=0.80       0.6764    +0.9761  0.0022  -10.0443   [ -10.5222,   -9.5466]        ✅  -------
+  nu=0.85       0.6764    +0.9864  0.0013  -10.4433   [ -10.9531,   -9.9128]        ✅  -------
+  nu=0.90       0.6764    +0.9933  0.0007  -10.8219   [ -11.3325,  -10.2966]        ✅  -------
+  nu=0.95       0.6764    +0.9969  0.0003  -11.2441   [ -11.8167,  -10.6246]        ✅  -------
+  nu=1.00       0.6764    +0.9981  0.0003  -11.5274   [ -12.3109,  -10.7892]        ✅  -------
+
+  ⭐ THE REAL ORDERINGS — the only arms that are statements about the model:
+  arm              AUC  rho_event     ±sd       gap         95% CI of the gap   clears  signs
+  REAL          0.6764    +0.3127  0.0713   -3.6005   [  -4.2578,   -3.0583]        ✅  -------
+  GATE          0.7742    +0.4418  0.0583   -5.5965   [  -6.4243,   -4.6641]        ✅  -------
+
+----------------------------------------------------------------------------------------------------
+2 · ⭐⭐ LAMBDA*
+----------------------------------------------------------------------------------------------------
+  ⭐ lambda* = the EVENT-ORDERING quality at which the improvement over the body's
+     CURRENT ordering (nu=0.00 == REAL) first exceeds the margin. ⛔ Measured on nu,
+     because PREREG.md A-2 showed lambda cannot move this quantity.
+
+  nu=0.00 (== REAL): gap -3.5763, rho_event +0.3127, AUC 0.6764
+  ⇒ the incremental margin to beat: |gap(nu) - gap(nu=0)| > 0.8881
+
+  nu          rho_event       gap   increment vs nu=0   clears
+  nu=0.00       +0.3127   -3.5763             +0.0000         
+  nu=0.05       +0.3517   -3.8520             -0.2758         
+  nu=0.10       +0.3965   -4.2066             -0.6303         
+  nu=0.15       +0.4441   -4.5618             -0.9855        ✅
+  nu=0.20       +0.4960   -4.9126             -1.3363        ✅
+  nu=0.25       +0.5491   -5.2706             -1.6944        ✅
+  nu=0.30       +0.6009   -5.6557             -2.0794        ✅
+  nu=0.35       +0.6542   -6.1009             -2.5246        ✅
+  nu=0.40       +0.7058   -6.4529             -2.8766        ✅
+  nu=0.45       +0.7547   -6.8794             -3.3031        ✅
+  nu=0.50       +0.8042   -7.3215             -3.7453        ✅
+  nu=0.55       +0.8473   -7.7167             -4.1404        ✅
+  nu=0.60       +0.8842   -8.1472             -4.5709        ✅
+  nu=0.65       +0.9158   -8.5843             -5.0080        ✅
+  nu=0.70       +0.9413   -9.0794             -5.5032        ✅
+  nu=0.75       +0.9615   -9.5153             -5.9391        ✅
+  nu=0.80       +0.9761  -10.0443             -6.4680        ✅
+  nu=0.85       +0.9864  -10.4433             -6.8670        ✅
+  nu=0.90       +0.9933  -10.8219             -7.2457        ✅
+  nu=0.95       +0.9969  -11.2441             -7.6679        ✅
+  nu=1.00       +0.9981  -11.5274             -7.9511        ✅
+
+  ⇒ ⭐⭐ LAMBDA* = nu=0.15, at rho_event +0.4441
+     bracketed: rho_event in (+0.3965, +0.4441]
+
+----------------------------------------------------------------------------------------------------
+3 · ⛔ V6 — IS LAMBDA* ABOVE OUR ORDERING?  (PREREG.md §5, declared in advance)
+----------------------------------------------------------------------------------------------------
+  our body's ordering (REAL), rho_event   +0.3127 ± 0.0713   AUC 0.6764
+  the gate's ordering,        rho_event   +0.4418 ± 0.0583   AUC 0.7742
+  lambda* at rho_event                    +0.4441
+
+  ⛔⛔ V6 FIRES — lambda* is ABOVE our ordering. This is PREREG.md's ANSWER 3,
+      declared in advance as a RESULT and not a failure: the question moves from
+      the empirical draw to the body's RANKING, with a numerical target.
+      the gap to close: +0.1313 in rho_event.
+
+  ⚠️ WHAT THIS DOES NOT SAY. That the ordering carries measurable information is NOT
+     that B should replace A. On CRPS against A, B LOSES by +8.52 (S5 #584 §2b) and
+     even the oracle only ties A. The promotion criterion is S6 #585's, and it is VOID.
+     ⇒ The verdict is S9 #588's to write, from all three readouts, not from this one.
+
+  99.1 s, CPU, R=200 couplings per arm per fold, zero GPU.

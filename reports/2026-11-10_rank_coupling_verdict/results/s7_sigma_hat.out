@@ -1,0 +1,85 @@
+S7 — sigma-hat_paired, MEASURED IN THIS RUN at ddof=1, and the implied margin, printed FIRST.
+
+Epic #579, story S7 #586. Pre-registration: ``../PREREG.md`` §3, committed before any tool existed.
+
+⛔⛔ WHY THIS FILE EXISTS AND WHY IT RUNS BEFORE THE VERDICT. ``PREREG.md`` §3, after ``C-392``:
+**the margin is in units of MEASURED seed dispersion, never percent.** Seed noise on ``MCR_field``
+is 84x ``FAO-02``'s 1% margin, so a percent margin on this platform is not a margin at all.
+
+⛔ AND WHY NO BORROWED NUMBER WILL DO. The only sigma-hat table available to this epic measures
+``truncated_nb`` at dropout 0.15 with EXPECTATION composition at **S = 256**, against a delivered
+``nb`` at **S = 16**, and ⛔ **never states its inference mode**. Four axes differ at once. It is
+struck in ``PREREG.md`` §9 and is not used here, not even as a sanity anchor.
+
+⭐ WHAT IS MEASURED. The quantity the margin must be in units of is the dispersion OF THE GAP THAT
+IS BEING TESTED -- not of a score, and not of an arm. So:
+
+  for each of the 6 CONTROL-FORM arms (the same architecture, the same data, different seed only):
+      for each of the 7 folds:
+          gap = fair-CRPS(B ordered by that arm's recovered regression output)
+                - fair-CRPS(B ordered by NOISE)
+      arm_gap = mean over folds
+  sigma-hat_paired = sd over the 6 arm_gaps, ddof=1          <- DECLARED, not defaulted
+  margin           = 2 * sigma-hat_paired                     <- PREREG.md §3
+
+⚠️ ``ddof=1``, stated here and printed in the output. ``baseline_scorecard.py:256`` returns
+``a.std()`` -- ``ddof=0`` -- undeclared, against ``column_noise_floors``' declared ``ddof=1``; at
+n = 5 those differ by 1.118x. ⇒ An undeclared ``ddof`` is a defect, registered in S10 #589.
+
+⭐ n = 6, not 5. ``upctwofullzero_fortysix`` (``quiet_lander``) is a ghost that never ran, and it is
+an ARM-form seed, so it removes nothing from the control set. Verified on disk; see
+``arm_config.GHOST_ARMS``.
+
+⚠️ THE CONTRAST THIS MEASURES. The within-B contrast (REAL ordering vs NOISE ordering), which is
+the criterion whose power is DEMONSTRATED: S5 #584 §2a shows both controls passing on it and the
+REAL arm separating. ⛔ It is deliberately NOT the bin-mean conditional bias of S6 #585, which is
+**VOID** -- its potency control failed, because a bin-mean statistic cannot see placement within a
+bin. A margin for a criterion that cannot see the mechanism would be a number about nothing.
+
+**C-351 slots.** Population: each arm's own gate-open set (``gate >= tau``, tau read from that
+arm's config) over score months 463-469, 7 folds. Truth: ``lr_sb_best``, raw counts. Estimator:
+fair CRPS per cell, mean over the open set; dispersion sd at **``ddof=1``, declared**. Inference
+mode: ⭐ DELIVERED AUTOREGRESSIVE, h = 1. Arms: the 6 control-form seeds.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+S7 · SIGMA-HAT, MEASURED IN THIS RUN — printed BEFORE any A-vs-B comparison
+====================================================================================================
+  tau = 0.2 (read from the arm configs, S4 #583, all 11 arms agree)
+  ⭐ estimator: sd with ddof = 1, DECLARED. margin = 2 * sigma-hat.
+  ⭐ contrast: the WITHIN-B gap (REAL ordering - NOISE ordering), fair-crps, per fold.
+  arms: 6 control-form seeds; R = 200 couplings per cell
+
+  ctlfullzero_fortytwo         gap   -3.5744   rho_event +0.3127   per-fold signs -------
+  ctlfullzero_fortythree       gap   -4.6808   rho_event +0.4424   per-fold signs -------
+  ctlfullzero_fortyfour        gap   -3.7387   rho_event +0.3266   per-fold signs -------
+  ctlfullzero_fortyfive        gap   -4.2541   rho_event +0.4335   per-fold signs -------
+  ctlfullzero_fortysix         gap   -4.2369   rho_event +0.4183   per-fold signs -------
+  ctlfullzero_fortyseven       gap   -3.6078   rho_event +0.3379   per-fold signs -------
+
+----------------------------------------------------------------------------------------------------
+1 · ⭐⭐ SIGMA-HAT AND THE MARGIN  (ddof = 1, declared)
+----------------------------------------------------------------------------------------------------
+  n arms                        6
+  mean within-B gap             -4.0155  fair-crps
+  sigma-hat_paired (ddof=1)     0.4441  fair-crps
+  ⭐ MARGIN = 2 * sigma-hat        0.8881  fair-crps
+  ⚠️ for reference only, ddof=0  0.4054  (1.0954x smaller than the declared estimator at n=6)
+
+  ordering quality across seeds: rho_event mean +0.3786, sd 0.0589 (ddof=1), range [+0.3127, +0.4424]
+
+----------------------------------------------------------------------------------------------------
+2 · THE MEASURED EFFECT AGAINST THE MARGIN
+----------------------------------------------------------------------------------------------------
+  ⛔ Read the margin above FIRST. It was computed without reference to the effect.
+
+  |mean within-B gap| 4.0155  vs  margin 0.8881  ⇒ ✅ CLEARS
+  the effect is 9.04 sigma-hat (2 required)
+
+  ⚠️ This is the ORDERING's effect within B — it says the rank coupling carries
+     information at the real head's ordering quality. ⛔ It is NOT a promotion
+     statement about B against A: S6 #585's A-vs-B criterion is VOID (its potency
+     control failed), and S5 #584 §2b shows B LOSING to A on CRPS by +8.52.
+
+  233.6 s, CPU, R=200 couplings, zero GPU, nothing retrained.
