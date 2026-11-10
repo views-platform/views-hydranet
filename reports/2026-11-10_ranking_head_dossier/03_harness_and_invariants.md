@@ -126,13 +126,19 @@ All are existing register entries. ⇒ `03` cites them; it does **not** fix them
 
 ### 3.5 New risks this programme introduces — routed to the register
 
-Proposed via `register-risk`, next free id **C-420**:
+⭐ **REGISTERED 2026-11-10** via `register-risk`: **C-420, C-421 and C-423 are live entries** in
+`reports/technical_risk_register.md` (total 416 → 419, open 262 → 265). ⛔ **C-422 was NOT
+allocated.** It is `C-407`'s own trigger — *"running `git add -u` to stage a NEW dossier file"* —
+with a measurement attached, so the 20-of-22 instance was merged into that entry instead and the id
+left as a deliberate gap. Renumbering was refused because `C-420` and `C-423` are cited by number in
+committed code, tests, `docs/CICs/HydraNetConfig.md` and a commit message. ⇒ The row below is kept
+as written, with its outcome stated.
 
 | id | tier | mechanism | trigger |
 |---|---|---|---|
 C-420 | **1** | `2^r − 1` on raw counts is **`inf` in float32** with no error signal — 16 cells (0.2392%) at `r ≥ 128`, max `2^681 ≈ 1e205`. Training is float32 with no AMP | first ranking-loss implementation taking raw counts as rating levels |
 C-421 | **2** | the set a listwise loss ranks (the 1,024-cell patch-month) is **not** the set the emission couples (the global firing set) | first listwise entry in `LOSS_REG_REGISTRY` |
-C-422 | **2** | 20 of 22 files of a `reports/` dossier were untracked **and invisible to `git status`**, so a dossier cited evidence absent from every clone | any dossier citing `reports/` artifacts as evidence |
+⛔ ~~C-422~~ **merged into C-407** | **2** | 20 of 22 files of a `reports/` dossier were untracked **and invisible to `git status`**, so a dossier cited evidence absent from every clone | any dossier citing `reports/` artifacts as evidence |
 C-423 | **3** | `\|R\|` read from *observed* levels drifts the `1/(\|R\|−1)` normaliser between folds — a different objective per fold | computing a level-indexed loss per fold |
 
 ---
