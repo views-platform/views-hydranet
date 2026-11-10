@@ -161,20 +161,32 @@ C-423 | **3** | `\|R\|` read from *observed* levels drifts the `1/(\|R\|−1)` n
 
 ---
 
-## 5 ⛔ Pre-flight checklist — RED
+## 5 ⛔ Pre-flight checklist — **still RED**, 5 of 10 boxes green (2026-11-10)
+
+⚠️ The five that remain are **not** implementation: three are the pre-registration and its two
+blocked inputs (`00 §5` items 1–2), one is the retrain-free readout, and one is a config-authoring
+choice. ⇒ Phases 1–2 closed every box that code can close.
 
 **Nothing may train until every box is green.** `/rnd-dossier status` must refuse to call this
 programme ready while any remains open.
 
-- [ ] **blocker** · the loss implemented, with its **numerics** tested first: the dyadic transform,
+- [x] **blocker** · the loss implemented, with its **numerics** tested first: the dyadic transform,
       the `float32` weight bound, the empty-level step, the all-one-level ⇒ exactly-0 case, and the
-      `|R|` fixed-a-priori property (§3.5 `C-420`, `C-423`)
-- [ ] **blocker** · the dispatch question answered: `n_params = 1` inside the family shape, or the
-      seam widened on purpose (§3.1)
-- [ ] **blocker** · a scalar-return assertion on the criterion (§3.3)
-- [ ] registered through the `ADR-067` seam, not by editing the dispatcher
-- [ ] behind a default-off flag, with the baseline **byte-identical** when off, asserted against the
-      parity anchor — not claimed in a docstring
+      `|R|` fixed-a-priori property (§3.5 `C-420`, `C-423`) — ⭐ **2026-11-10**, `04` phase 1
+- [x] **blocker** · the dispatch question answered: `n_params = 1` inside the family shape, or the
+      seam widened on purpose (§3.1) — ⭐ **2026-11-10**: *neither*. The legacy point branch at
+      `training_engine.py:923` already hands the criterion `[B,H,W]`, one channel per target, which
+      **is** the `n_params = 1` score. **No fourth branch; `ADR-067`'s registry untouched.** Asserted
+      against the real `_process_sequence`, not reasoned
+- [x] **blocker** · a scalar-return assertion on the criterion (§3.3) — for **this** loss
+      (`test_property_6_*`). ⚠️ The engine-level hole is unrepaired and still open to anything else
+      the dispatcher routes
+- [x] registered through the `ADR-067` seam, not by editing the dispatcher — one registry entry,
+      one config field; the 14 pre-existing entries asserted unchanged by class, not by count
+- [x] behind a default-off flag, with the baseline **byte-identical** when off, asserted against the
+      parity anchor — not claimed in a docstring. ⭐ **2026-11-10**:
+      `tests/distributions/test_parity_anchor.py` **6 passed** with the new code present and the flag
+      off; `loss_reg_y_max` defaults to `None` and no config in the fleet names the loss
 - [ ] fail-loud guards: non-finite, device, shape contract
 - [ ] full suite green, collection ≥ 2,443, lint clean
 - [ ] ⛔ **a pre-registration exists** — hypothesis, the one variable, predictions, pre-committed
@@ -182,6 +194,15 @@ programme ready while any remains open.
       measured dispersion. **Blocked on `00 §5` items 1 and 2.**
 - [ ] the retrain-free readout adapted to a scale-free score (`body_mean_dump_dir` writes a mean;
       a score is not a mean)
+- [ ] ⛔⛔ **`reg_activation: 'softplus'` — DECIDED by Simon, 2026-11-10. Not optional, and not a
+      recommendation: a ranking arm whose config omits it is mis-built.** Found in phase 2 and
+      measured. `output_distribution='standard'` resolves the head's activation to **ReLU**
+      (`HydraBNrecurrentUnet_06_LSTM4.py:125-127`), which maps the whole negative half-line to
+      exactly 0 and **re-creates the `tie@0` atom the ranking head exists to remove**. `softplus` is
+      strictly increasing, so it preserves the order element for element and adds no tie (both
+      halves asserted in `tests/test_listwise_level_loss.py`). ⚠️ **There is no validator behind
+      this** — deliberately, because `C-411` already counts ~50 validators and 15 `reject_*` guards
+      in `HydraNetConfig`. It is a config-authoring box, which is why it is here
 - [ ] new failure modes filed (§3.5)
 
 ⭐ **The honest summary: of ten boxes, zero are green, and three of the four blockers are ordinary

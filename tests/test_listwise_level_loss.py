@@ -12,6 +12,7 @@ followed by a ``test_property_N_refuses_*`` half that proves the check can fail.
 from __future__ import annotations
 
 import math
+import types
 
 import pytest
 import torch
@@ -333,3 +334,224 @@ def test_a_supervision_window_on_the_ranking_body_is_refused(valid_config_dict):
     cfg["body_supervision"] = "active"
     with pytest.raises(ValidationError, match="needs_latent"):
         HydraNetConfig(**cfg)
+
+
+# ---------------------------------------------------------------------------------------------
+# ⭐⭐ 04_roadmap PHASE 2 — the seam. Does the score fit the existing dispatch, or must it widen?
+#
+# ⛔ This section exists because of #308. That change passed 7 unit tests, 5/5 mutations, lint and
+# the full suite, and was a **no-op on the path production runs** — two arms trained to
+# byte-identical weights over 276 minutes (`C-324`, `tests/test_bptt_sa.py`). A listwise loss with
+# 23 green unit tests that never receives a gradient through `_process_sequence` would be the same
+# failure. ⇒ Every claim below is made against the REAL dispatcher.
+# ---------------------------------------------------------------------------------------------
+
+_H, _W, _T = 4, 4, 4
+_FEATURE_NAMES = ["reg0", "cls0", "feat0"]
+_SEQ_CONFIG = {
+    "regression_targets": ["reg0"],
+    "classification_targets": ["cls0"],
+    "features": ["feat0"],
+    "static_channels": [],
+}
+
+
+class _ScoreModel(torch.nn.Module):
+    """A trainable stub emitting ONE score channel per regression target, as a ranking head does.
+
+    ⭐ ``reg`` is deliberately ``relu(latent)`` — the ``output_distribution='standard'`` activation
+    — so ``reg`` and ``reg_latent`` DIFFER wherever the score is negative. That difference is what
+    makes the ``needs_latent`` assertion below able to fail.
+    """
+
+    def __init__(self, n_reg: int, n_cls: int) -> None:
+        super().__init__()
+        self.conv = torch.nn.Conv2d(1, n_reg + n_cls, kernel_size=1)
+        self.n_reg = n_reg
+
+    def forward(self, x, hidden):  # noqa: ANN001 - stub
+        out = self.conv(x[:, :1])
+        latent, cls = out[:, : self.n_reg], out[:, self.n_reg :]
+        return types.SimpleNamespace(
+            reg=torch.relu(latent), cls=cls, reg_latent=latent, h_next=hidden
+        )
+
+
+class _SpyListwiseLevelLoss(ListwiseLevelLoss):
+    """Records the shape and the identity of what the dispatcher actually handed the criterion."""
+
+    def __init__(self, y_max: float) -> None:
+        super().__init__(y_max=y_max)
+        self.seen_shapes: list[torch.Size] = []
+        self.saw_a_negative_score = False
+
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        self.seen_shapes.append(input.shape)
+        self.saw_a_negative_score |= bool((input < 0).any())
+        return super().forward(input, target)
+
+
+def _run_sequence(*, constant_target: float | None = None, seed: int = 0):
+    """One real ``_process_sequence`` pass with the listwise loss as ``criterion_reg``."""
+    from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
+
+    torch.manual_seed(seed)
+    idx = _SequenceIndices(_FEATURE_NAMES, _SEQ_CONFIG)
+    tensor = torch.rand(1, _T, len(_FEATURE_NAMES), _H, _W)
+    if constant_target is not None:
+        tensor[:, :, idx.reg] = constant_target
+    model = _ScoreModel(idx.n_reg, idx.n_cls)
+    crit = _SpyListwiseLevelLoss(y_max=_Y_MAX)
+    res = _process_sequence(
+        train_tensor=tensor,
+        model=model,
+        h=torch.zeros(1, 1, 1, 1),
+        criterion_reg=crit,
+        criterion_class=lambda pred, targ: (pred * 0.0).sum(),
+        multitaskloss_instance=lambda losses: losses.sum(),
+        idx=idx,
+        device=torch.device("cpu"),
+        event_threshold=0.0,
+    )
+    return res, crit, model
+
+
+def test_the_dispatcher_needs_no_fourth_branch_the_score_rides_the_point_path():
+    """⭐⭐ The answer to `03 §3.1`, measured rather than argued.
+
+    `03` asked whether a new loss *shape* forces a fourth `isinstance` branch at
+    `training_engine.py:916-923` — the one thing `ADR-067`'s seam exists to avoid. It does not:
+    the legacy `else` branch already slices **one channel per target** and hands the criterion
+    `[B, H, W]`, which IS the `n_params = 1` score. ⇒ **The dispatcher is not widened**, and
+    nothing in `ADR-067`'s registry is touched.
+    """
+    res, crit, _ = _run_sequence()
+    assert crit.seen_shapes, "the criterion was never called — the loss is not wired at all"
+    assert all(s == torch.Size([1, _H, _W]) for s in crit.seen_shapes), (
+        f"the dispatcher handed the criterion {set(crit.seen_shapes)}, not [1,H,W]: the "
+        "point-body branch is not the one being taken, so the seam DOES need widening"
+    )
+    assert torch.isfinite(res["total"]) and res["total"].ndim == 0
+
+
+def test_the_score_reaches_the_criterion_before_the_activation_on_the_real_path():
+    """⛔ `needs_latent = True` must actually route `reg_latent`. The stub's `reg` is
+    `relu(latent)`, so if the dispatcher handed over the ACTIVATED field the criterion would never
+    see a negative score — and a score clamped at 0 is the `tie@0` defect of `02 §5`, which is the
+    whole reason B is being tried."""
+    _, crit, _ = _run_sequence()
+    assert crit.saw_a_negative_score, (
+        "every score the criterion saw was >= 0, so it is being fed the ReLU-activated field "
+        "instead of reg_latent — half the ordering information is clamped into a tie block"
+    )
+
+
+def test_the_listwise_loss_actually_moves_the_model_through_the_real_loop():
+    """⛔⛔ The `#308` / `C-324` test. A loss that is registered, dispatched and inert is worse
+    than one that errors: it trains an arm that reads as a clean null."""
+    res, _, model = _run_sequence()
+    res["total"].backward()
+    grads = torch.cat([p.grad.flatten() for p in model.parameters() if p.grad is not None])
+    assert grads.numel() > 0, "no parameter received a gradient"
+    assert torch.isfinite(grads).all()
+    assert float(grads.abs().sum()) > 0.0, (
+        "the listwise loss produced a gradient of exactly zero on the real path — this is the "
+        "#308 no-op signature, and any arm built on it would measure the harness, not the idea"
+    )
+
+
+def test_a_single_level_patch_produces_no_gradient_on_the_real_path():
+    """⛔ The refusing half of the test above, and the property that makes it meaningful: the
+    gradient is zero exactly when there is nothing to rank. A per-cell magnitude loss would still
+    pull on an all-one-level patch; this must not."""
+    res, crit, model = _run_sequence(constant_target=0.0)
+    assert float(res["total"]) == 0.0, f"an all-zero patch cost {float(res['total'])}"
+    res["total"].backward()
+    grads = [p.grad for p in model.parameters() if p.grad is not None]
+    # ⛔ Not `all(...)` over a possibly-empty list: that is green when NOTHING was differentiated,
+    # which is the opposite of the property. The gradient must exist and be zero.
+    assert grads, "no parameter was differentiated at all, so 'the gradient is zero' says nothing"
+    assert all(float(g.abs().sum()) == 0.0 for g in grads), (
+        "an unrankable patch moved the model, so the loss is not purely an ordering objective"
+    )
+
+
+def test_the_objective_is_shift_invariant_which_no_magnitude_loss_is():
+    """⭐ The property that distinguishes a ranking objective from a magnitude one, on the real
+    numbers: Eq. 1 multiplies numerator and denominator by `e^c` under `f -> f + c`, so the loss
+    cannot see the score's level at all — only its order and its spacing."""
+    crit = ListwiseLevelLoss(y_max=_Y_MAX)
+    score = torch.tensor([0.4, -0.7, 2.1, 0.0], dtype=torch.float64)
+    target = torch.log1p(torch.tensor([0.0, 1.0, 17.0, 3.0], dtype=torch.float64))
+    base = crit(score, target)
+    for shift in (-50.0, -1.0, 3.0, 100.0):
+        assert crit(score + shift, target).item() == pytest.approx(base.item(), rel=1e-9), (
+            f"adding {shift} to every score changed the loss, so it is reading the score's LEVEL "
+            "and is not a pure ordering objective"
+        )
+    # ⛔ The refusing half: MSE is not shift-invariant, so the check above can fail.
+    mse = torch.nn.MSELoss()
+    assert mse(score, target).item() != pytest.approx(mse(score + 3.0, target).item(), rel=1e-9)
+
+
+def test_the_fourteen_pre_existing_registry_entries_are_untouched():
+    """⛔ Inertness, the registry half: phase 1 ADDED an entry and changed none. A snapshot rather
+    than a count, because a changed `cls` on an existing key would keep any count green."""
+    expected = {
+        "mse": "MSELoss",
+        "count_mean": "CountMeanMSELoss",
+        "mae": "L1Loss",
+        "huber": "HuberLoss",
+        "shrinkage": "ShrinkageLoss",
+        "lognormal_nll": "LogNormalFixedSigmaLoss",
+        "pareto": "ParetoLoss",
+        "tobit": "TobitLoss",
+        "hurdle_nb": "TruncatedNBLoss",
+        "quantile": "QuantileLoss",
+        "dense_nb": "DenseNBLoss",
+    }
+    for key, cls_name in expected.items():
+        assert key in LOSS_REG_REGISTRY, f"phase 1 removed the pre-existing entry {key!r}"
+        assert LOSS_REG_REGISTRY[key]["cls"].__name__ == cls_name, (
+            f"the class behind {key!r} changed to {LOSS_REG_REGISTRY[key]['cls'].__name__}"
+        )
+    assert set(LOSS_REG_REGISTRY) == set(expected) | {"listwise_level"}, (
+        f"the registry's key set is not the pre-existing one plus listwise_level: "
+        f"{sorted(LOSS_REG_REGISTRY)}"
+    )
+
+
+def test_relu_destroys_the_score_ordering_and_softplus_preserves_it_exactly():
+    """⛔⛔ The seam's one real hazard, found in phase 2 and measured rather than reasoned.
+
+    The loss reads `reg_latent`, so training is safe under any activation. **Emission is not.**
+    `output_distribution='standard'` resolves the head's activation to **ReLU**
+    (`HydraBNrecurrentUnet_06_LSTM4.py:125-127`), which maps the whole negative half-line to
+    exactly 0 — re-creating the atom at zero that `02 §5` measures as `tie@0` and that the ranking
+    head exists to remove. `reg_activation='softplus'` is **strictly increasing**, so it preserves
+    the order exactly and introduces no tie.
+
+    ⇒ A ranking arm sets `reg_activation: 'softplus'`, or emits from `reg_latent`. ⚠️ This is a
+    config choice with **no validator behind it** — deliberately: `C-411` already counts ~50
+    validators and 15 `reject_*` guards in `HydraNetConfig`. The constraint is recorded here, as a
+    measurement, and as a RED box in `03 §5`'s pre-flight checklist.
+    """
+    import torch.nn.functional as F
+
+    torch.manual_seed(0)
+    score = torch.randn(2048, dtype=torch.float64)
+    negatives = int((score < 0).sum())
+    assert negatives > 0, "the fixture has no negative scores, so it cannot show the clamp"
+
+    relu = F.relu(score)
+    assert int((relu == 0).sum()) == negatives, (
+        "ReLU did not collapse the negative half-line, so this check is not measuring the clamp"
+    )
+    assert len(torch.unique(relu)) < len(torch.unique(score)), "ReLU introduced no tie block"
+
+    softplus = F.softplus(score)
+    # Strictly increasing => the rank vector is identical, element for element.
+    assert torch.equal(torch.argsort(softplus), torch.argsort(score))
+    assert len(torch.unique(softplus)) == len(torch.unique(score)), (
+        "softplus produced a tie the raw score did not have"
+    )

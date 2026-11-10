@@ -85,6 +85,56 @@ against `tests/distributions/test_parity_anchor.py`'s golden — asserted, not c
 
 **Gate to phase 3:** the parity anchor passes with the new code present and the flag off.
 
+#### ⭐ Phase 2 is DONE · 2026-11-10 · gate PASSED
+
+**The dispatch question of `03 §3.1` is answered, and the answer is *neither* of the two options it
+offered.** The score needs no family shape and the seam needs no widening: the legacy point branch
+at `training_engine.py:923` — `pred_j = t1_pred_for_loss[:, j, :, :]` — already slices **one channel
+per target** and hands the criterion `[B, H, W]`, which *is* the `n_params = 1` score. With
+`needs_latent = True`, `t1_pred_for_loss` is `output.reg_latent` (`:847`), so the score arrives
+**pre-activation**, on the whole real line, which is what a scale-free score requires.
+⇒ **`ADR-067`'s registry and the `isinstance` dispatcher are both untouched.**
+
+⛔ **Asserted against the real `_process_sequence`, not reasoned about.** That is the `#308` /
+`C-324` lesson: a change with 7 unit tests, 5/5 mutations and a green suite was a **no-op on the
+path production runs**, and two arms trained to byte-identical weights over 276 minutes. Four
+integration tests now drive the real loop with the real dispatcher and a spy criterion, and they
+assert: the criterion is called with `[1,H,W]` · it sees **negative** scores, so it is being fed
+`reg_latent` and not the ReLU-activated field · the model's gradient is finite and **non-zero** ·
+and it is **exactly zero** on a single-level patch, which is the refusing half — the gradient
+vanishes precisely when there is nothing to rank, which no per-cell magnitude loss does.
+Three further mutations were applied and all three caught: `needs_latent = False`, an inert zero
+return, and a non-scalar return.
+
+⭐ **Inertness, measured:** `tests/distributions/test_parity_anchor.py` — **6 passed**, byte-exact
+over all six legacy `output_distribution` values, with the new code present and the flag off. The
+registry's 14 pre-existing entries are asserted unchanged **by class**, not by count, so an edited
+`cls` on an existing key cannot hide behind a stable length. Full suite **3,043 passed**, 12
+skipped, 34 xfailed; `ruff check` and `format --check` clean over 371 files.
+
+⭐ **One property worth having found: the objective is shift-invariant.** `f -> f + c` multiplies
+Eq. 1's numerator and denominator by `e^c`, so the loss cannot read the score's level at all — only
+its order and its spacing. Asserted over four shifts, with MSE as the refusing half. That is the
+mechanical difference between a ranking body and a magnitude body, in one line of test.
+
+⛔⛔ **And one hazard, which phase 2 exists to catch and nearly did not.** The loss reads the latent,
+so **training** is safe under any activation. **Emission is not.** `output_distribution='standard'`
+resolves the head's activation to **ReLU** (`HydraBNrecurrentUnet_06_LSTM4.py:125-127`), and ReLU
+maps the whole negative half-line to exactly 0 — **re-creating the atom at zero that `02 §5`
+measures as `tie@0` and that this entire programme exists to remove**. `reg_activation='softplus'`
+is strictly increasing: it preserves the ordering element for element and introduces no tie, both
+halves measured. ⇒ **A ranking arm sets `reg_activation: 'softplus'`.** ⭐ **Ratified by Simon, 2026-11-10**, so it
+is a constraint on every arm this programme builds rather than a preference: an arm whose config
+omits it is mis-built, and `03 §5`'s box says so.
+⚠️ Recorded as a RED box and as a test, **not** as a config validator — `C-411` already counts ~50
+validators and 15 `reject_*` guards in `HydraNetConfig`, and this is a config-authoring choice
+rather than an invalid combination. ⇒ The thing that catches an omission is the pre-flight box,
+read before a pod is paid for; if that proves too weak in practice, the validator is one line.
+
+⚠️ **What phase 2 does NOT establish:** nothing has been trained, and `03 §3.3`'s engine-level hole
+— nothing asserts a criterion reduced to a scalar — is closed for *this* loss only and remains open
+for anything else the dispatcher routes.
+
 ### Phase 3 — ⭐⭐ the cheap readout that bears on the finish line  ·  CPU/GPU, one short train
 
 **The question:** does a patch-trained ordering score sort the **global** grid?
