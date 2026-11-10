@@ -112,7 +112,7 @@ have no margin budget. Noted for the reserve.
 ## 4 Rare spatial events — the closest published analogues
 
 **`Mohler2020_CrimeRankHotspots`** · Mohler, Porter, Carter & LaFree, *Crime Science* 9(3),
-doi:10.1186/s40163-020-00112-x · ⚠️ **INGESTED, AUDIT PENDING — no claim taken**
+doi:10.1186/s40163-020-00112-x · ⭐ **AUDIT CLOSED 2026-11-10 — claims may now be taken**
 ⭐⭐ The closest published analogue to this programme: learning-to-rank for rare spatial events on a
 grid, optimising PAI@k directly via a LambdaMART-style pseudo-derivative of a non-smooth metric.
 Reports +36% (burglary) and +28% (robbery) over the next-best method, and **+42% on Baghdad IED
@@ -121,9 +121,23 @@ incidents**.
 of `02 §3.3` (lines 690–693) — *"PAI is not changed by a re-ordering of the top grid cells ranking"*
 — which is the reason we do **not** truncate at `k`. And the empirical demonstration that
 Calauzènes is sidesteppable in practice by a non-smooth metric plus a pseudo-derivative.
-⛔ Until `library` closes the audit this paper contributes **no library claim** to any document here.
-The prior batch's audit found 28 of 42 key passages were paraphrases presented as verbatim; that is
-why the rule exists.
+⭐ **Audit closed 2026-11-10** — reported by the `library` session and **verified here against the
+artifacts rather than taken on report**: 6 claims `C-4799`–`C-4804` in
+`~/brain/9_library/papers/_claims/Mohler2020_CrimeRankHotspots.json`, 4 relations, and the opponent
+seat's dossier at `~/brain/9_library/opponent/dossiers/single_mohler2020_2026-11-10/AUDIT.md`
+(three rounds; `H-1` of 2026-11-09 — the metadata/PDF mismatch, where this record described the
+2020 paper while holding the 2018 one — discharged, both papers now held separately). The
+paraphrase-as-verbatim pattern that gated this paper (`H-2`, 28 of 42 key passages in the original
+13-paper batch) was fixed **before** Mohler 2020 was ingested, so its passages were extracted under
+the corrected protocol.
+
+⚠️⚠️ **One caveat that survives the closure, and it lands on `02 §3.3`.** The audit's own finding
+**`S-6`** is that **`C-4803` drops the paper's hedge**: the paper says *"This is **likely** due to
+the fact that PAI is not changed by a re-ordering…"*, and the claim renders it *"arises because"* —
+a conjecture restated as a mechanism. The hedge survives in the key passage and is lost only in the
+claim. ⇒ **Cite the key passage, not `C-4803`.** `02 §3.3` quotes the passage verbatim *with*
+*"likely"* intact, which is what the design argument needs, and §3.3 now states the split
+explicitly.
 
 **`Mohler2018_RotationalGridPAI`** · Mohler & Porter, *Statistical Analysis and Data Mining*
 Joint selection of grid size/orientation plus a scoring function that directly maximises PAI; top
@@ -158,7 +172,7 @@ built on a proper rule.
 |---|---|---|
 | a | **ranking losses under a 99.6% tied-at-zero block** | ⚠️ **partially found.** Zhu 2020 and Jagerman 2017 address target-side ties; the R `PlackettLuce` package (Turner et al. 2020) generalises PL to ties of any order. **None** assumes one level holding 99.6% of items. `02 §2.4` is a construction, not a citation. ⇒ the hardest remaining gap |
 | b | **a ranking objective beating a regression objective in forecasting** | ⚠️ indirect only. Bai 2023 is the clearest evidence, and it is from IR. No clean head-to-head in a forecasting context |
-| c | **learning-to-rank for rare spatial events** | ✅ found — Mohler 2020 (audit pending), Mohler 2018, An 2023 |
+| c | **learning-to-rank for rare spatial events** | ✅ found — Mohler 2020 (⭐ audit CLOSED 2026-11-10), Mohler 2018, An 2023 |
 | d | **ordinal / rank-based heads for zero-inflated counts** | ⚠️ partial. CORAL/CORN (arXiv:2111.08851) give rank-consistent ordinal heads; Deep Hurdle Networks (arXiv:2010.16040) handle zero-inflated multi-target regression. **No published combination.** Not fetched — neither is needed for the cheapest B |
 | e | ⭐⭐ **"ranking index, then nonparametric distribution" as a two-stage design** | ⛔ **NOT FOUND.** Every Schaake/ECC design trains stage 1 with a likelihood or regression loss. This join is genuinely novel territory, which is what `02 §6.1` says |
 | f | **the ceiling of a rank-coupled emission** | ⛔ **NOT FOUND.** Arnold 2024's `DSC_ISO` remains the closest. Wang & Li (COLT 2013) show NDCG → 1 as `n` grows, which is a ceiling pathology rather than a useful bound |

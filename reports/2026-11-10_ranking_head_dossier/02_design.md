@@ -201,6 +201,19 @@ taken from it:
 > the top grid cells ranking, but instead is sensitive to cells either being inside or outside of
 > the top k."*
 
+⚠️⚠️ **Read that passage in two halves, because only one of them is load-bearing here** — a
+distinction forced by the audit that closed on 2026-11-10, whose finding `S-6` is that the library
+claim `C-4803` renders the paper's *"likely"* as *"arises because"*, turning a conjecture into a
+mechanism. ⇒ This document quotes the **passage**, hedge intact, and takes only the first half:
+
+1. ⭐ **Definitional, not conjectural:** *PAI is unchanged by a re-ordering within the top k.* PAI is
+   the fraction of events captured inside a set of `k` cells, so it is a function of **set
+   membership** and cannot depend on the order inside the set. This is arithmetic, and it is the
+   half our design rests on.
+2. ⚠️ **The paper's own conjecture, which we do NOT use:** that this is *"likely"* why CrimeRank's
+   very top cells hold fewer incidents than an MLE method's. An empirical pattern with a hedged
+   explanation. Nothing here depends on it.
+
 ⇒ A top-k metric **cannot see re-ordering inside the top k**, so a head trained on one comes out
 deliberately indifferent to it. But B assigns magnitude **by rank within the firing set** (§1): a
 membership score gives the coupling nothing to couple on. ⭐ **The objective must reward ordering

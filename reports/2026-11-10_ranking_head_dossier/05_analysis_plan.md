@@ -58,7 +58,7 @@ written down and defended **before** the number exists, not after.
 ⇒ **What is needed from Simon:** a primary quantity, or approval of `MCB` *with the frozen-cube
 contamination recorded in the prereg as a stated limit.*
 
-## Blocker 2 · the margin  ·  **owner: the `baseline` session**
+## Blocker 2 · the margin  ·  ⛔ **owner REASSIGNED 2026-11-10 — it cannot be the `baseline` session**
 
 Handover `§2` constraint 4:
 
@@ -72,9 +72,46 @@ six control-form arms (`../2026-11-10_rank_coupling_verdict/results/s7_sigma_hat
 a margin for whatever blocker 1 names.
 
 **What is needed:** the seed-to-seed dispersion of the quantity blocker 1 names, measured at
-`ddof=1` **declared**, at `n` = 2,905 event cells over the ten delivered arms. Handover `§5` item 1,
-commissioned 2026-11-09, reply pending. ⛔ **Not a go/no-go** — it sets the margin and the replicate
-count, nothing else.
+`ddof=1` **declared**. ⛔ **Not a go/no-go** — it sets the margin and the replicate count, nothing
+else.
+
+### ⛔⛔ Why the `baseline` session cannot supply it — answered 2026-11-10, and the answer is structural
+
+The `baseline` session was asked (handover `§5` item 1, commissioned 2026-11-09) and **replied with
+an inventory and a refusal, both correct.** Recorded here in full because it changes who owns this
+blocker:
+
+**What `baseline` holds, all of it:** average CRPS per target — plain CRPS, *not* fair-CRPS — over
+all PGM cells on the validation partition at `S = 64`, for 4 models (conflictology + 3 parametric
+dwarfs), seeds `{42, 123, 456}` so **`n = 3`**, estimator `np.std` i.e. ⛔ **`ddof = 0`**. On `lr_sb`,
+SD ≈ 0.002–0.003, range ≈ 0.006; tiny on `lr_ns`/`lr_os`. Plus a same-model distribution-distance
+null (Wasserstein / energy / C2ST) on a 5,197-entity subsample, which is not a scalar seed SD.
+
+⭐⭐ **And the argument that settles it, which this dossier had not made:** *a baseline model is
+deterministic given the history.* Changing its seed changes only the **Monte-Carlo draws**, not the
+model. So a baseline's seed SD measures **sampling noise alone**. A trained ranking head's seed SD
+also contains **training noise** — initialisation and data order. ⇒ **A baseline-supplied margin
+would systematically UNDERSTATE the dispersion of the thing being judged**, which makes a difference
+easier to call significant than it is. That is the wrong direction for a margin to err in.
+
+⇒ **The margin must come from retrained arms** — the dispersion of the quantity across seeds of a
+*trained* head. ⚠️ Which collides with `00 §6`'s separation rule: the session that supplies the
+yardstick must not also produce the number judged against it. **That conflict is unresolved and is
+Simon's to resolve**, and it is now the whole content of this blocker. Two shapes exist, neither
+chosen here: measure the dispersion on the **control** arm's existing seeds (available, same
+training machinery, no new arm) — or commission a third session that owns neither.
+
+⚠️ **One thing `baseline` flagged that was my error, not theirs:** my request implied `σ̂ = 0.4441`
+was a `baseline` number and they spent a search failing to find it in `views-baseline`. It is
+**ours** — `../2026-11-10_rank_coupling_verdict/results/s7_sigma_hat.out:66`, epic #579 S7, measured
+in-run across six control arms. Corrected to them directly.
+
+⛔⛔ **And a trap this uncovered, recorded before it bites: `0.4441` names TWO different quantities in
+this programme.** `σ̂_paired = 0.4441` is in **fair-CRPS** units (S7); `λ* = +0.4441` is in
+**`ρ_event`** units (S8). Same four digits, unrelated quantities, both load-bearing, both in
+committed documents. ⇒ Never write `0.4441` in this programme without its unit attached. This is
+`C-351` in its purest form — a number is its population, its transform and its estimator, and here
+two numbers collided on the digits alone.
 
 ---
 

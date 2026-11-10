@@ -96,11 +96,18 @@ the count moves, which is how an added row becomes visible rather than quiet.
 - [ ] **1 · Simon:** approve a primary superiority quantity for `05`. ⚠️ `MCB` is **contaminated** —
       it was measured before it was proposed (`MCB_A` 0.138 vs `MCB_B` 2.952), which is what
       `C-3531` forbids. A quantity whose value on a *trained* head is unknown is still available.
-- [ ] **2 · `baseline` session:** seed-to-seed dispersion of whatever `#1` names, `ddof=1` declared.
-      Sets the margin. Handover §2 constraint 4: *the margin is in units of measured dispersion,
-      never percent.* ⛔ Not a go/no-go.
-- [ ] **3 · `library` session:** close the audit on `Mohler2020_CrimeRankHotspots` so `01` may take
-      claims from it. Until then it is cited as *ingested, audit pending*.
+- [ ] **2 · ⛔ REASSIGNED to Simon, 2026-11-10 — was the `baseline` session:** seed-to-seed
+      dispersion of whatever `#1` names, `ddof=1` declared. Sets the margin. Handover §2 constraint
+      4: *the margin is in units of measured dispersion, never percent.* ⛔ Not a go/no-go.
+      ⭐ **`baseline` answered and correctly refused:** a baseline model is deterministic given the
+      history, so its seed SD is **sampling noise alone**, while a trained head's also carries
+      **training noise** ⇒ a baseline margin would *understate* the dispersion. The margin must come
+      from **retrained arms**, which collides with §6's separation rule. See `05` Blocker 2.
+- [x] **3 · `library` session:** close the audit on `Mohler2020_CrimeRankHotspots` so `01` may take
+      claims from it. ⭐ **DONE 2026-11-10**, verified here against the artifacts rather than taken
+      on report: 6 claims `C-4799`–`C-4804` in `~/brain/9_library/papers/_claims/`, opponent audit
+      dossier `single_mohler2020_2026-11-10/AUDIT.md`. ⚠️ Cite the **key passage**, not `C-4803` —
+      the audit's own finding `S-6` is that the claim drops the paper's *"likely"* hedge.
 - [x] **4 · next session:** implement the loss — `04` phase 1. Zhu Eq. 2 with the `02 §2` label
       transform, behind a default-off registry entry, with the numerics tested first.
       ⭐ **DONE 2026-11-10:** `views_hydranet/utils/listwise_level_loss.py`, registry key
