@@ -93,7 +93,7 @@ Every structural improvement tonight came from him, and three of them were corre
 
 ---
 
-## 5. The systemic pattern — three classes, not seven errors
+## 5. The systemic pattern — four classes, not seven errors
 
 **Class A · asserting an absence from the wrong check.** Failures 1 and 2 above, and four more in
 the peer session the same night (a `*.parquet` glob over a directory of `.npy`; a grep for a word
@@ -107,6 +107,22 @@ dominant failure mode, not an incident.
 chosen because it is the only thing that runs on a laptop in two minutes, then reported with figures
 (`+0.5154 ± 0.0397`) that look like results. The frozen-head refit is the same shape. Each
 measurement was honest about its own population and silent about why that population was picked.
+
+**Class D · holding the fact and drawing the wrong conclusion from it.** ⚠️ **Added after the
+session, from the peer's own correction, and it is not mine — it is recorded because the remedy
+differs from class A's.** The peer had *read* `tools/podrun/pod_run_model.sh` and quoted its line 172
+twice the same night. It then spent the evening concluding that `#729` needed a new runner written.
+The cause was not a blind check: it had filed the file under the repo's **never-modify** list, and
+*never-modify* became *unavailable* rather than *read-only*. So it went looking for something to
+write instead of something to run.
+
+⇒ Class A wants a better check. Class D wants a vocabulary distinction — **"I may not change this" is
+not "I may not use this"** — and it is the more dangerous of the two, because the fact was present
+and correct the whole time, so no check would have fired. My own instance of the same shape:
+`loss_reg_y_max` was *measured*, carefully, from a pull whose provenance I had read and recorded — and
+the number was still wrong, because measured-from-a-cache is a `[read]` claim wearing `[checked]`
+clothes. The peer's live-pod measurement found `os` had risen 178,459 → 212,558, which would have
+killed the run 75 minutes in.
 
 **Class C · volume as a substitute for a decision.** Three `AskUserQuestion` dialogs (two rejected
 as incomprehensible), tables where a sentence was owed, and a plan that answered questions he had
