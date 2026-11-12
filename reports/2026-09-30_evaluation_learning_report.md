@@ -3232,6 +3232,56 @@ the single heaviest cell.
 
 ---
 
+### ⛔⛔ D5b — ADDED LATER THE SAME DAY: the rebuilt store MEASURED, and most of this report's truth numbers are superseded
+
+D5 left an open item I said I could not close from here: no copy of the rebuilt store existed in
+either repo, so the fresh maxima were unknown. ⭐ **Closed by the `models` session from a live pod
+with access to the served store** — `http://204.168.219.108/grid.zarr`, region `land`,
+`views-datafactory 1.18.1`. **[checked by a peer, not re-measured here — I have no path to that
+store]**:
+
+| target | max, months 121–504 | where | this report's old value |
+|---|---|---|---|
+| `ged_sb_best` | **24,983** | priogrid 151638, month 234 | **113,395** at priogrid 148759 month 504 |
+| `ged_ns_best` | **1,653** | priogrid 124980, month 166 | 2,000 at priogrid 144451 month 152 |
+| `ged_os_best` | **212,558** | priogrid 125700, month 172 | 178,459, same cell |
+
+⚠️ `ged_*` and `lr_*` are the same raw counts under two prefixes — evidenced here, not assumed: the
+vehicle pull's `ged_sb_best` over months 457–469 gives 842,634 cell-months and **2,905** events,
+identical to `e1_data`'s `G-8` expectations built on `lr_sb_best`.
+
+**Three consequences, in order of how much they cost.**
+
+1. ⛔⛔ **The `#723` level-set value would have crashed, and the revision to `262143` is the only
+   reason it will not.** `os` at priogrid 125700 **rose 178,459 → 212,558**, +19% — mass moved *into*
+   the cell that sets `y_max`, which is the direction the unchanged three-target total
+   (~4,325,750) implied was possible. `dyadic_levels` raises on a count above `2^level_max − 1`, so
+   `y_max = 178,459` now refuses at the first patch containing that cell, ~75 minutes into a paid
+   run. `262,143` covers it, and `bit_length(212558) = 18` is the same `level_max` ⇒ the objective is
+   byte-identical. ⭐ The "identical level set, more headroom" argument holds on the fresh numbers and
+   not only on the stale ones.
+2. ⛔⛔ **`sb` fell 113,395 → 24,983 inside months 121–504**, i.e. inside the training *and* scoring
+   window, not only in the forecast tail. ⇒ **This report's own truth-side population figures are
+   superseded**: the `113,395` maximum quoted in §9b/§9c and in `e1_data`'s `C-351` slots, and — by
+   implication, since mass was redistributed rather than removed — the **2,905** event cell-months
+   and the **2,482** event maximum that §9c's event-restricted readouts are computed over.
+   ⚠️ **Nothing is retracted:** every figure remains correct *for the pull it was computed on*, and
+   those pulls are identified. But **no truth-side number in this report may be quoted as current
+   without re-measuring it against the rebuilt store**, and the event *set* itself may differ, which
+   would move every event-conditioned figure rather than just rescaling it. ❔ Unquantified: I have no
+   access to that store, so I cannot say by how much.
+3. ⛔ **The delivered `*_lander` / `*_orbiter` NB seeds are confirmed dead as comparators** for
+   anything trained after 2026-11-12, and re-delivering them is now the only way to restore the
+   comparison. D5's warning was inferred from one cell; it is now measured across all three targets.
+
+⚠️ **And the general lesson, which is not about this release.** A truth-side constant measured from a
+*cached* pull is a `[read]` claim wearing `[checked]` clothes, however carefully it was measured,
+because the cache's provenance is a date and not a guarantee. The rule this report already carries —
+*never validate on cached disk data, pull fresh* — applies to **the constants a config declares**,
+not only to the scores a run produces. `y_max` was the first place that bit.
+
+---
+
 ### D6 — What this section does NOT settle
 
 - ⛔ **No primary quantity is declared here.** D2 supplies candidates with their shapes; choosing one
