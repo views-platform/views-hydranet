@@ -37,6 +37,8 @@ __all__ = [
     "gpd_cdf",
     "gpd_pwm_fit",
     "reference_sample_width",
+    "CRPS_TRUTH_BAND_EDGES",
+    "crps_concentration",
     "require_headline_columns",
     "taillardat_index",
     "verdict_token",
@@ -51,6 +53,19 @@ _PWM_CEILING = 0.9
 # Required keys on each arm dict passed to crps_gap_decomposition.
 _REQUIRED = ("crps_all", "crps_none", "crps_events", "N", "n_event")
 
+#: Truth-magnitude band LOWER EDGES for :func:`crps_concentration`. Band ``i`` is
+#: ``[edge[i], edge[i+1])``, the last open above — so the bands always PARTITION the
+#: non-negative reals and cannot fail to cover a cell.
+#: ⛔ The positive edges are PRE-REGISTERED in
+#: ``reports/2026-10-30_upsample_arm_dossier/tools/exp03_magnitude.py:43`` ("Bands are fixed
+#: BEFORE looking at any arm"), where they are written as the closed integer bands
+#: ``(1,2) (3,5) (6,20) (21,100) (101,inf)``. ⭐ Half-open edges reproduce those EXACTLY for
+#: integer truth — which conflict counts are — while remaining total for a fractional truth,
+#: where a closed ``(1, 2)`` would silently leave 2.5 in no band at all.
+#: ⚠️ The leading ``0`` edge is an ADDITION made here, so the shares sum to 1 and the truly-zero
+#: cells are visible rather than outside every band. Every pre-registered share is untouched.
+CRPS_TRUTH_BAND_EDGES = (0, 1, 3, 6, 21, 101)
+
 # A headline row must carry all of these, so a bare crps_all can never be reported (C-219).
 HEADLINE_COLUMNS = (
     "crps_all",
@@ -59,6 +74,14 @@ HEADLINE_COLUMNS = (
     "AP",
     "crpss_vs_clim",
     "zero_share_of_gap",
+    #: ⭐ ADDED 2026-11-04 (#537). A pooled CRPS on this population is dominated by a handful of
+    #: cells — 118 of 842,634 carried 81.16% of the total at h36 — so a CRPS reported ALONE cannot
+    #: be told from a score that is blind to the effect. These two say how concentrated it is.
+    #: ⚠️ A previous attempt to extend this tuple was rejected because the proposed columns were
+    #: POST-HOC (they needed a CI, and this guard runs at emit time). These are emit-time
+    #: computable from the per-cell CRPS and the truth, which is exactly this guard's scope.
+    "crps_concentration",
+    "crps_effective_n",
 )
 
 
@@ -148,8 +171,14 @@ def reference_sample_width(arm_widths, *, where: str = "arms") -> int:
 def crps_gap_decomposition(a: dict, b: dict) -> dict:
     """Split ``crps_all(a) - crps_all(b)`` exactly into a zero-cell and an event-cell part.
 
-    On a ~99.3-99.7%-zero field, ``crps_all`` is dominated by the true-zero cells, so a
-    proper-score "win" can be bought entirely with confident zeros while the model's
+    ⛔ **CORRECTED 2026-11-04 (#537), and the correction matters for reading this function.**
+    An earlier version of this docstring said ``crps_all`` "is dominated by the true-zero cells".
+    **Measured, it is not**: ``crps_none`` is 0.0020-0.0034 against ``crps_events`` 13.2-14.5, so
+    on 842,634 cell-months the EVENT cells are 0.345% of the population and **96.2%** of the
+    pooled score at h1 and **99.2%** at h36. ⇒ The problem is CONCENTRATION, not dilution —
+    see :func:`crps_concentration`. What stands is the *consequence* below: because the split is
+    so lopsided, a proper-score "win" can still be bought entirely with confident zeros while the
+    model's
     *occurrence ranking* gets worse. That is not hypothetical: register C-231 records the v2
     scoreboard's ``gated_NB`` h36 win over climatology (``crps_all`` 0.879 vs 0.960)
     coinciding with a *worse* AP (0.159 vs 0.195) and ``size_ratio`` 0.0.
@@ -381,6 +410,124 @@ def crps_skill_score(crps_model: float, crps_ref: float, *, ref_n_samples: int) 
     return 1.0 - (crps_model / crps_ref)
 
 
+def crps_concentration(crps, truth, *, edges=CRPS_TRUTH_BAND_EDGES, where: str = "crps") -> dict:
+    """How concentrated a CRPS is, so a reader can tell a null from a blind instrument.
+
+    **Why this exists.** CRPS here is in *count units* and the truth is heavy-tailed, so the
+    pooled mean is a magnitude-weighted average. Measured on 842,634 cell-months, **118 cells
+    carried 81.16% of the total at h36**. A pooled CRPS that does not move therefore cannot be
+    distinguished from a score that cannot see the effect — and this programme spent a day
+    writing the first when it meant the second. ⇒ Every reported CRPS carries these two figures.
+
+    Args:
+        crps: per-cell CRPS, shape ``(N,)``. ⛔ Must be the *per-cell* vector, not a pooled mean —
+            there is nothing to concentrate in a scalar.
+        truth: the observed counts for the same cells, same shape and same order.
+        edges: ascending truth-magnitude band lower edges; band ``i`` is
+            ``[edges[i], edges[i+1])``, the last open above. Defaults to
+            :data:`CRPS_TRUTH_BAND_EDGES`.
+        where: named in every error message.
+
+    Returns:
+        ``{"crps_concentration", "crps_effective_n", "crps_band_share", "crps_band_n"}`` —
+        ``{"crps_concentration", "crps_effective_n", "crps_top_band", "crps_band_share",
+        "crps_band_n"}`` — the top band's share of total CRPS, the participation ratio
+        ``(sum c)^2 / sum c^2``, the top band's KEY (so a caller need not rely on dict ordering
+        to find it), and the per-band share and cell count. ⚠️ ``crps_concentration`` of **0.0**
+        is ambiguous on its own — it means either "the top band is cheap" or "the top band is
+        EMPTY", which are opposite readings. ⇒ a caller that keeps only the scalar must also keep
+        ``crps_band_n`` (or at least the top band's count) to tell them apart.
+
+    Raises:
+        ValueError: shapes differ; ``crps`` is not 1-D; any value is non-finite; any CRPS is
+            negative; or the bands do not cover every cell.
+
+    ⚠️ A **zero-cost** forecast (``sum c == 0``, e.g. a raw-truth construction row whose
+    ``crps_all`` is exactly 0) has no concentration. Both figures are ``nan`` rather than
+    invented, which makes such a row unreportable as a headline — deliberately, because a
+    raw-truth forecast is a construction gate and not a result.
+    """
+    c = np.asarray(crps, dtype=float)
+    y = np.asarray(truth, dtype=float)
+    if c.ndim != 1:
+        raise ValueError(
+            f"{where}: crps_concentration needs the PER-CELL crps vector, got shape {c.shape}. "
+            "A pooled mean has nothing to concentrate — pass crps_ensemble's (N,) return."
+        )
+    if c.shape != y.shape:
+        raise ValueError(f"{where}: crps {c.shape} and truth {y.shape} differ in shape")
+    if not np.isfinite(c).all() or not np.isfinite(y).all():
+        raise ValueError(
+            f"{where}: {int((~np.isfinite(c)).sum())} non-finite crps and "
+            f"{int((~np.isfinite(y)).sum())} non-finite truth values. A share computed over "
+            "these would be silently wrong rather than absent."
+        )
+    #: ⛔ The plug-in estimator is non-negative, but the FAIR estimator can go negative per cell.
+    #: A negative term makes the shares meaningless (they can exceed 1 or flip sign) and makes the
+    #: participation ratio uninterpretable, so refuse rather than report.
+    if (c < 0).any():
+        raise ValueError(
+            f"{where}: {int((c < 0).sum())} negative per-cell crps values. Shares and the "
+            "participation ratio are only defined for a non-negative cost vector; the fair "
+            "estimator can be negative per cell and must not be passed here."
+        )
+
+    e = tuple(edges)
+    #: ⚠️ A SINGLE edge is legal and well-defined — one band ``[e0, inf)`` — and the loop below
+    #: builds it correctly, so it is not refused. An earlier version demanded two and thereby
+    #: refused a legal input while never exercising that branch.
+    if not e or any(b <= a for a, b in zip(e, e[1:])):
+        raise ValueError(f"{where}: band edges must be non-empty and ascending: {e}")
+
+    keys, masks = [], []
+    for i, lo in enumerate(e):
+        hi = e[i + 1] if i + 1 < len(e) else None
+        if hi is None:
+            keys.append(f"{lo}+")
+        elif hi - lo == 1:
+            keys.append(f"{lo}")
+        else:
+            keys.append(f"{lo}-{hi - 1}")
+        masks.append((y >= lo) if hi is None else ((y >= lo) & (y < hi)))
+
+    total = float(c.sum())
+    band_n = {k: int(mk.sum()) for k, mk in zip(keys, masks)}
+
+    #: ⛔ COUNT the covered cells rather than arguing that half-open ascending edges must cover
+    #: them. Argued-total is not total: with ``edges=(0, 1, nan, 101)`` the ascending check above
+    #: passes (every comparison with nan is False), and the shares then summed to 0.625 over 2 of
+    #: 4 cells with no refusal — "a fraction of an unstated whole", which is precisely what this
+    #: is here to prevent. An earlier version only tested for a truth BELOW the first edge.
+    n_covered = sum(band_n.values())
+    if n_covered != c.size:
+        lo_miss = int((y < e[0]).sum())
+        raise ValueError(
+            f"{where}: the bands cover {n_covered} of {c.size} cells, so a share would be a "
+            f"fraction of an unstated whole. edges={e}"
+            + (
+                f" — {lo_miss} cells have truth below the first edge {e[0]} "
+                f"(min {float(y.min())})."
+                if lo_miss
+                else " — check the edges for a non-finite value."
+            )
+        )
+    if total == 0.0:
+        return {
+            "crps_concentration": float("nan"),
+            "crps_effective_n": float("nan"),
+            "crps_top_band": keys[-1],
+            "crps_band_share": dict.fromkeys(keys, float("nan")),
+            "crps_band_n": band_n,
+        }
+    return {
+        "crps_concentration": float(c[masks[-1]].sum() / total),
+        "crps_effective_n": float(total * total / float((c * c).sum())),
+        "crps_top_band": keys[-1],
+        "crps_band_share": {k: float(c[mk].sum() / total) for k, mk in zip(keys, masks)},
+        "crps_band_n": band_n,
+    }
+
+
 def require_headline_columns(row: dict, *, where: str = "headline row") -> dict:
     """Refuse to report a headline row that lacks the decomposition, AP, or the skill score.
 
@@ -420,8 +567,10 @@ def require_headline_columns(row: dict, *, where: str = "headline row") -> dict:
         raise KeyError(
             f"C-219: {where} is unreportable — missing {missing}, non-finite {nonfinite}. "
             "A headline crps_all may never be reported without its all/events/none split, "
-            "AP, the skill score, and zero_share_of_gap — on this DGP the bare number is "
-            "dominated by true zeros, and a NaN in any of them means the row cannot be read."
+            "AP, the skill score, zero_share_of_gap, and how CONCENTRATED it is — on this DGP "
+            "the bare number is a magnitude-weighted average dominated by a handful of event "
+            "cells (118 of 842,634 carried 81% of it at h36), and a NaN in any of these means "
+            "the row cannot be read."
         )
     return row
 

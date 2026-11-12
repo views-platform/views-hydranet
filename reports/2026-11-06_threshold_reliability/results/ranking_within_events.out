@@ -1,0 +1,98 @@
+================================================================================================================
+RANKING WITHIN EVENTS — among places where conflict happened, can we rank big vs small?
+================================================================================================================
+  PASS  G-E1  no calibration statistic in this file
+  PASS  G-E4  rank_values takes (draws, t) only and its body names no outcome
+  PASS  G-8   842,634 cell-months  2,905 events  max 2482.0
+  ⛔ Control arms only. ⛔ DISCRIMINATION ONLY — no calibration claim is sayable here.
+  ⚠️ Ranking is invariant to monotone transforms, so count vs log1p does not apply.
+   ctlfullzero_fortytwo       G-0 exact · G-E3 pass
+   ctlfullzero_fortythree     G-0 exact · G-E3 pass
+   ctlfullzero_fortyfour      G-0 exact · G-E3 pass
+   ctlfullzero_fortyfive      G-0 exact · G-E3 pass
+   ctlfullzero_fortyseven     G-0 exact · G-E3 pass
+  PASS  G-E2  population is the 2,905 event cells, identical for every seed
+  PASS  G-C2  5 seeds (floor 5)
+
+================================================================================================================
+  RANKED BY: ⭐⭐ mean of the 16 draws — THE FIRST MOMENT, Simon's question verbatim
+================================================================================================================
+      t    n>t    lv            DSC/UNC  floor (q99)   VERDICT
+        of 2905  ties  share ranked ± sd   noise here
+      1   2376  1435     6.80% ± 0.60%        0.45%   RANKS 13.6x floor
+      2   2062  1435    10.67% ± 1.08%        0.48%   RANKS 20.1x floor
+      5   1513  1435    13.64% ± 1.61%        0.53%   RANKS 22.9x floor
+     10   1014  1435    15.91% ± 1.74%        0.55%   RANKS 25.9x floor
+     25    479  1435    12.37% ± 1.81%        0.68%   RANKS 15.6x floor
+     50    213  1435     8.67% ± 2.08%        0.92%   RANKS 7.2x floor
+    100     51  1435     4.53% ± 2.01%        2.03%   RANKS 1.2x floor
+    250     10  1435     1.11% ± 0.70%        4.58%   NO RANKING ABILITY
+
+================================================================================================================
+  RANKED BY: ⭐ sd of the 16 draws — the SECOND moment (NOT 'can we rank variance')
+================================================================================================================
+      t    n>t    lv            DSC/UNC  floor (q99)   VERDICT
+        of 2905  ties  share ranked ± sd   noise here
+      1   2376  1751     6.47% ± 0.56%        0.46%   RANKS 12.9x floor
+      2   2062  1751    10.16% ± 0.94%        0.49%   RANKS 18.8x floor
+      5   1513  1751    12.54% ± 1.40%        0.51%   RANKS 21.9x floor
+     10   1014  1751    14.30% ± 1.16%        0.60%   RANKS 22.0x floor
+     25    479  1751    10.69% ± 0.96%        0.69%   RANKS 14.1x floor
+     50    213  1751     7.24% ± 0.92%        0.87%   RANKS 7.3x floor
+    100     51  1751     3.81% ± 1.47%        1.87%   RANKS 1.3x floor
+    250     10  1751     1.79% ± 1.34%        2.68%   NO RANKING ABILITY
+
+================================================================================================================
+  RANKED BY: fraction of draws above t — the previous table's index, for comparison
+================================================================================================================
+      t    n>t    lv            DSC/UNC  floor (q99)   VERDICT
+        of 2905  ties  share ranked ± sd   noise here
+      1   2376    16     6.19% ± 0.53%        0.36%   RANKS 15.8x floor
+      2   2062    16     9.79% ± 0.87%        0.37%   RANKS 24.4x floor
+      5   1513    15    12.77% ± 1.44%        0.37%   RANKS 30.8x floor
+     10   1014    13    14.95% ± 1.71%        0.40%   RANKS 32.7x floor
+     25    479     9    10.93% ± 1.61%        0.44%   RANKS 21.4x floor
+     50    213     7     6.13% ± 1.88%        0.57%   RANKS 7.4x floor
+    100     51     5     2.13% ± 0.99%        0.67%   RANKS 1.7x floor
+    250     10     3     0.21% ± 0.30%        1.74%   NOT RESOLVABLE
+
+================================================================================================================
+  THE READOUT. ⛔ These sentences are the result.
+================================================================================================================
+
+  ranked by mean_draw:
+    among events, above 1    : RANKS 13.6x floor
+    among events, above 2    : RANKS 20.1x floor
+    among events, above 5    : RANKS 22.9x floor
+    among events, above 10   : RANKS 25.9x floor
+    among events, above 25   : RANKS 15.6x floor
+    among events, above 50   : RANKS 7.2x floor
+    among events, above 100  : RANKS 1.2x floor
+    among events, above 250  : NO RANKING ABILITY
+
+  ranked by sd_draw:
+    among events, above 1    : RANKS 12.9x floor
+    among events, above 2    : RANKS 18.8x floor
+    among events, above 5    : RANKS 21.9x floor
+    among events, above 10   : RANKS 22.0x floor
+    among events, above 25   : RANKS 14.1x floor
+    among events, above 50   : RANKS 7.3x floor
+    among events, above 100  : RANKS 1.3x floor
+    among events, above 250  : NO RANKING ABILITY
+
+  ranked by frac_above:
+    among events, above 1    : RANKS 15.8x floor
+    among events, above 2    : RANKS 24.4x floor
+    among events, above 5    : RANKS 30.8x floor
+    among events, above 10   : RANKS 32.7x floor
+    among events, above 25   : RANKS 21.4x floor
+    among events, above 50   : RANKS 7.4x floor
+    among events, above 100  : RANKS 1.7x floor
+    among events, above 250  : NOT RESOLVABLE
+
+  FALSIFIERS
+    F20 did not fire — mean_draw clears its floor EVERYWHERE ⇒ no measured loss of ranking ability within events
+    F21 did not fire — mean_draw below its floor EVERYWHERE ⇒ no magnitude ranking at all; this branch kills the rank-coupled body
+    F22 did not fire — t=1 sd 0.60% vs value 6.80%
+
+  ⭐⭐ mean_draw ranks up to and including 100 fatalities, and not above it.

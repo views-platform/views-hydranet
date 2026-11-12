@@ -123,6 +123,24 @@ stale, miscounted, badly cited or incomplete. The cheapest high-value items:
   **§5.5 L1–L3** (the ceiling of a normalised statistic is not the ceiling of its unnormalised cousin)
   and **§5.10 L4–L6**. Two retractions added to `Appendix B`; one new instrument to `Appendix A.1`; a
   fourth row to `Appendix A.3`. ⛔ Nothing was deleted.
+- **2026-11-04** — §9b **AMENDED**: ⭐⭐ L1's framing is **qualified by its own measurement**.
+  `crps_effective_n` is now measured on real per-cell CRPS — **475–505 at h18**, but **2.58 at h36**
+  — so *"our primary score is blind"* is **too broad**; the accurate claim is **one horizon ruined by
+  one data artifact** (one annual summary event holding 62% of h36's truth mass, confirmed by
+  views-datafactory as a documented parity rule). ⛔ Two figures I had quoted the same day were
+  **proxies under this statistic's name** — 178.3 and 2.58 — which is this document's own L2
+  violated by its author within the hour. Plus **L9** (a default silently handing you the wrong
+  thing, now a class at **five** instances, #553), **L10** (do not commit while anything else is
+  mutating the tree — a reviewer's probe was captured by a commit and sat in HEAD while
+  `git status` read clean), **L11** (`ls` is not an import check). ⛔ Nothing deleted.
+- **2026-11-03/04** — EXP-03's eleven arms read out, and the readout produced **more about the
+  instruments than about the arm**. ⭐⭐ The headline is a property of our primary score that nothing
+  in this document had measured: **118 cells carry 81% of total CRPS**, so a pooled CRPS null cannot
+  be told from a blind instrument (**§9b L1**). It also **corrects a folk belief this document has
+  carried** — the zeros do *not* swamp CRPS; the events do. Five further lessons in **§9b**, four
+  retractions of my own claims made the same day, and ⚠️ **`Appendix F.4`'s `grep` warning was in
+  this file and I tripped over the same hazard anyway** (L7). ⛔ Nothing deleted; §9b is additive and
+  names which existing sections it qualifies.
 - **2026-10-26** — the structure-penalty arm returned **negative**, and produced the first case in
   this record of **two instruments for one quantity disagreeing by sign** (§7 **S18**). Three new §8
   rows — **16, 17, 18** — all earned the same day, which is the largest single-day addition to that
@@ -2266,6 +2284,684 @@ parameter-sensitivity is now a **paper artifact**, which means
   method, and it belongs in the paper rather than being quietly fixed.
 ---
 
+## §9b — 2026-11-03/04: what EXP-03 taught us about evaluating
+
+⛔ **Additive.** Nothing in §0–§9 or the appendices is edited or removed. Where a lesson qualifies an
+existing claim this section says so and leaves both standing. Source:
+`reports/2026-10-30_upsample_arm_dossier/FINDING_EXP03.md` and the four committed instruments beside
+it; every figure below is from `results/exp03_*.{out,json}`.
+
+**Population for everything here:** 13 origins × 64,818 global land cells = **842,634 cell-months**
+per horizon per arm, `sb`, count space, S = 16, truth = the arms' shared global pull. Eleven of
+twelve arms; five complete seed pairs.
+
+---
+
+### L1 ⭐⭐ Our primary score is a ~100-cell measurement, and nothing said so
+
+CRPS decomposed by truth magnitude, control arm:
+
+| truth band | n cells | % of cells | CRPS/cell | **% of TOTAL CRPS** |
+|---|---|---|---|---|
+| **h36, 101+** | **118** | **0.014%** | **1,234** | **81.16%** |
+| h36, 21–100 | 517 | 0.061% | 38.7 | 11.16% |
+| h36, 1–20 | 2,672 | 0.317% | 1.4–9.6 | 6.93% |
+| **h1, 101+** | **51** | **0.006%** | **253.8** | **29.64%** |
+| h1, 21–100 | 563 | 0.067% | 33.1 | 42.64% |
+
+⇒ At h36, **118 cells out of 842,634 carry 81% of the score**. At h1, 614 cells carry 72%.
+
+**Mechanism, not mystery:** CRPS is in **count units** and truth is heavy-tailed (max 2,482), so
+CRPS/cell runs **1.4 → 1,234** across bands and the pooled mean is a magnitude-weighted average
+dominated by the largest cells.
+
+⛔ **The consequence for how we read nulls.** A flat `crps_all` **cannot** refute a change spread
+over hundreds of thousands of cells, because the instrument's resolution is set by ~100 extreme
+cells. ⇒ *"CRPS did not move"* and *"CRPS cannot see this"* are different statements and we have
+been writing the first when we meant the second.
+
+⇒ **NEW DEFAULT:** report **the share of total CRPS carried by the top truth band** beside every
+CRPS number. One figure, descriptive, no interval needed, and it is what decides whether the CRPS
+beside it is interpretable. ⭐ Better form, **proposed and not yet measured**: CRPS's effective
+sample size, `(Σc)² / Σc²`.
+
+#### ⚠️ And it corrects a folk belief this document has carried
+
+The standing worry has been that the 99.66% zero cells swamp CRPS. **They do not.** `crps_none` is
+**0.0020–0.0034** against `crps_events` of **13.2–14.5**: event cells are **0.34%** of the
+population and **96.2%** of `crps_all`. The pooled score is dominated by **events**, and within
+events by the largest hundred. ⇒ This **qualifies §2.2** (*"AP, because it has dynamic range where
+CRPS does not"*): CRPS's problem here is not flatness from dilution, it is **concentration**.
+
+---
+
+### L2 ⭐⭐ Per-seed resolution is not replication — and the configuration that makes it misleading is measurable IN ADVANCE
+
+EXP-02 reported the gate's h1 effect as **+0.0049 and +0.0047, each resolved within its own seed,
+agreeing to 4%**. That description was accurate. Three more seeds later, **seed 47 resolved at
+−0.0063** with an interval excluding zero, and the across-seed interval straddles zero.
+
+⭐ **The diagnostic that would have warned us, and it needs no extra data:** the **between-seed sd
+(0.00511) was 1.6× the median within-seed MDE (0.00327)**. When the spread *between* seeds exceeds
+the width of each seed's *own* interval, per-seed resolution is systematically misleading — each arm
+looks resolved while the effect is not reproducible.
+
+⇒ **Report the ratio `between-seed sd / median within-seed MDE` with any multi-seed result.** Above
+~1 it is a warning that per-seed intervals are the wrong level of inference. ⇒ This **extends §2.5**
+(paired designs) with the limit of pairing: a paired design buys within-seed power and buys *nothing*
+against between-seed variance.
+
+⚠️ **This is not "use more seeds".** The derived requirement for the h1 gate effect was **45 seeds**
+(CI 19–255). The lesson is to report the level of inference honestly, not to buy it.
+
+---
+
+### L3 ⭐⭐ A negative control derived from the instrument's own physics beats more seeds
+
+Calibrating B-1 (the structure-share statistic) on a **3×3-smoothed truth** gave 0.2532 at lag 1
+rising to 1.1043 at lag 32 — because a 3-cell blur **provably cannot** change structure at lag 32,
+where two cells are uncorrelated either way.
+
+⇒ That handed us a **free negative control**: lags 16 and 32 *cannot* be moved by a sharpening. And
+the arm's result read:
+
+| | across-seed CI | per-seed behaviour |
+|---|---|---|
+| **d=1** (target) | **[+0.0229, +0.0780]** — replicates | all five positive |
+| d=16, d=32 (control) | straddle zero | ⭐ **seeds resolve and CONTRADICT each other** (−0.1464\* vs +0.0588\*) |
+
+⭐⭐ **"Resolved-and-consistent at the target lag, resolved-but-contradictory at the control lags" is
+stronger evidence than unanimity**, because it demonstrates *on the same data* that the method can
+tell seed-dependent structure from an effect. L2 is the proof that this discrimination is not
+automatic.
+
+⇒ **Where an instrument has a derivable invariance, measure it and use it as a control in the same
+table.** This **adds to §2.13** (validating the instrument on synthetic fields): the synthetic
+validation is not only a correctness check, it *generates* the negative control.
+
+---
+
+### L4 ⭐ Strata can MANUFACTURE a lead — decomposition is a diagnostic, not a reporting default
+
+Banding CRPS by truth magnitude produced an apparently coherent trade: small-event cells ~1% worse
+(**4 of 5 seeds**, three bands running), large-event cells better. It looked like the mechanism
+behind L1.
+
+⛔ **All ten banded effects failed their across-seed intervals.** At `101+`, h1, two seeds resolved
+in **opposite** directions **3.8 units apart** (−2.7567\* and +1.0849\*).
+
+⇒ 5 bands × 2 horizons = **10 tests**, and 4-of-5 sign agreement across them is what multiplicity
+looks like. ⛔ **Banded CRPS is a diagnostic — run when a pooled null needs explaining — and never
+reported without across-seed intervals.** An earlier draft of this day's finding recommended banded
+reporting as a default; that recommendation was **retracted within 24 hours by its own bootstrap**.
+⇒ **Extends §3.3.**
+
+---
+
+### L5 ⭐ When a gate fires, suspect the GATE — and narrow it rather than widen it
+
+Three times in one session a `G-0` fired and the **instrument was right while my derived expectation
+was wrong**:
+
+| the gate I wrote | why it was wrong |
+|---|---|
+| a blurred field must score < 1 at **every** lag | a 3-cell kernel cannot reach lag 32; the signature must **return** to 1.0 |
+| the blur signature is **monotone decreasing** | it **rises** toward 1.0 — the prose said so and the code was inverted |
+| a truth lookup via a 24.9M-key dict | correct but ran 40 min; the vectorised form takes **1.9 s** |
+
+⭐ **The rule this produces, and it is the opposite of the usual reflex:** when a gate fails, ask
+whether the *expectation* or the *instrument* is wrong. If the expectation, **narrow the gate to
+where the claim actually holds** — which makes it stronger, because it then pins a *shape* a broken
+instrument could not reproduce — rather than widening a tolerance.
+
+⛔ **And the asymmetry matters.** Relaxing a failed gate is the ad-hoc-rescue move this project
+refuses elsewhere (the same day, a sibling session was told not to lower a scale guard to pass its
+own run). The test for whether a gate change is legitimate is **verdict-neutrality**: does it alter
+any result already scored? For the scale guard the answer was measurable — no, the worst verified
+arm sat at 13.69 against a floor moving 12.0 → 9.0 — and that is what made the change a correction
+rather than a rescue.
+
+---
+
+### L6 ⛔ We adopted a default on an endpoint chosen AFTER seeing the data
+
+`PREREG.md` pre-registered `P-23` on **gate AP**. The recommendation to make `UpsampleConv2` the
+default rests on **B-1 at d=1**, which was **not** a pre-registered endpoint for that arm.
+
+⇒ The adoption case is **hypothesis-generating, not confirmatory**, however clean
+`[+0.0229, +0.0780]` looks. ⭐ **The remedy costs nothing and is the generalisable part:** adopt on
+narrow stated grounds, and **pre-register the new endpoint as PRIMARY for the next arm that touches
+the same mechanism**, so the claim becomes confirmable rather than discovered. A **revert condition**
+was pre-committed in the same document. ⇒ **Extends §2.12.**
+
+---
+
+### L7 ⚠️ A written warning in a 322 KB document is not a control
+
+`Appendix F.4` of **this file** already records: *"One auditor's shell `grep` was `ugrep
+--ignore-files`, which silently skips the gitignored `reports/` tree ... Any re-run must use
+`command grep`."*
+
+⛔ **I tripped over the identical hazard on 2026-11-03.** Measured: `grep -rn '28 min/origin' .` → **1
+hit**; `command grep -rn` → **15 hits across 10 files**. Every recursive search over `reports/` in
+that session under-reported, and an absence proved nothing. ⚠️ It is **intermittent by invocation
+shape** — an explicit `reports/` path can still return hits — which is why it survives being written
+down.
+
+⇒ The lesson is not "write it down again". It is that **F.5's rule needs a mechanism, not a
+sentence** — a wrapper, an alias, or a pre-commit check — because the prose remedy has now failed at
+least twice in this record.
+
+---
+
+### L8 ⚠️ An O(1) reformulation of a bootstrap needs an equality gate
+
+Both statistics bootstrapped here reduce to **per-origin sufficient statistics**, making a replicate
+O(1) instead of a rescore of 842,634 cells (per-cell CRPS is invariant to origin resampling; `γ(d)`
+is a ratio of per-origin pair sums). That is what made 400 replicates × 10 cells × 2 statistics
+feasible at all.
+
+⛔ **But a faster statistic is a different statistic until proven otherwise.** `G-1` asserts the
+reduction equals the committed direct computation to **< 1e-9** (`0.6820653315` vs `0.6820653315`)
+and the script **refuses to print an interval** otherwise. ⇒ An interval on the wrong statistic is
+worse than no interval, because it carries false authority. ⇒ **Adds a row in spirit to
+`Appendix A`'s inventory.**
+
+---
+
+### ⚠️ AMENDMENT 2026-11-04 — L1 is QUALIFIED by its own measurement, and three lessons are added
+
+⛔ **Additive. Nothing above is deleted.** L1–L8 stand as written; what follows corrects one of
+L1's framings and adds L9–L11 from the same session's later work.
+
+#### ⭐⭐ L1 QUALIFIED — the number is now measured, and it LOCALISES rather than generalises
+
+L1 above proposed `crps_effective_n` as *"a better form, **proposed and not yet measured**"*. It has
+since been measured on **real per-cell CRPS from the delivered arms**
+(`reports/2026-10-30_upsample_arm_dossier/results/exp03_p25.out`):
+
+| | |
+|---|---|
+| **h18**, all ten arms | **475.84 – 504.59** of 842,634 cells — ~**0.06%** |
+| **h36** | **2.58** |
+| cause of the h36 figure | **one** probable summary-event assignment — priogrid 148759, month 504, **113,395** fatalities ringed by zeros — holding **62%** of that horizon's truth mass |
+| that one cell removed | h36 → **214.94** |
+
+⇒ ⭐⭐ **So "our primary score is blind" — which is how L1 reads — is TOO BROAD.** The accurate
+statement is **one horizon ruined by one data artifact**. At h18 the score averages over ~490
+effective cells; it is concentrated, not pathological. The catastrophe is specific to h36 and to
+that cell.
+
+⛔ **And two figures quoted earlier the same day were PROXIES, neither of them this statistic:**
+
+| figure | what it actually was |
+|---|---|
+| **178.3** | a vector reconstructed **uniform within each band** — it smooths away the within-band concentration the statistic exists to find, so it over-estimates |
+| **2.58** | the participation ratio of the **truth** vector at h36 — a different statistic, and the one I stated to a sibling repo as though it were this one |
+
+⚠️ ⛔ **The lesson in that is the document's own L2 and §2.2, committed by me and then violated by me
+within the hour**: I quoted a *truth*-vector statistic under a *CRPS* statistic's name. ⇒ A proxy
+must carry its own name, not the name of the thing it stands in for — and *"I said it was a proxy"*
+is not sufficient when the number then travels into another repository's issue.
+
+⭐ **What the correction does NOT weaken:** the data finding. One annual summary event being 62% of a
+horizon's score is now confirmed by views-datafactory as `date_end_only` applied to annual-source
+events under a documented parity rule — *"a real aggregate assigned wholesale to one cell-month,
+not a measurement of what happened in that cell that month."* ⇒ The instrument was fine; **the data
+is concentrated**, and the instrument is what revealed it.
+
+#### L9 ⭐⭐ "A default silently hands you the wrong thing" is a CLASS, now at five instances
+
+| # | the default | what it hands you | loud? |
+|---|---|---|---|
+| 1 | recursive `grep` under gitignored `reports/` | 1 hit where there are 15 | ⛔ silent |
+| 2 | `git add -u` | silently omits a NEW file under `reports/` — nearly shipped four tools importing a module absent from the repo | ⛔ silent |
+| 3 | `pip`/`uv` on Python 3.12 | views-hydranet **0.1.3**, eight releases old, because 0.1.9 is `Requires-Python >=3.11,<3.12` | ⛔ silent |
+| 4 | `git clone` | **`main`**, 27 commits behind `development` and missing a symbol a dossier tool imports | ⛔ silent |
+| 5 | `score_v2_horizons.py`'s truth | the **retired 13,110-cell Africa crop** against a 64,818-cell population | ⚠️ raises |
+
+⇒ Every one is a tool doing **exactly what it documents**, on a default that does not match this
+repository's layout. Four of five are silent. Filed as **#553**; two are mitigated by the project
+`CLAUDE.md` (#545).
+
+⭐ **The remedy is one shape, not five:** a default that is wrong for the current task must
+**announce itself rather than succeed**. ⚠️ And the reason to record it as a class is that filing
+five separate issues gets each fixed in isolation and loses the pattern.
+
+#### L10 ⛔ Do not COMMIT while anything else is mutating the tree
+
+The standing rule here was *"commit **before** mutation testing"*, because `git checkout --` eats
+uncommitted work. ⇒ The converse half was missing, and it cost a bad commit: a `/code-review` agent
+was running its **own** guard audit with `y >= lo` → `y > lo` applied as a probe, and a commit made
+inside that window **captured the probe**. The buggy line sat in `HEAD` for 80 seconds while
+`git status` reported **clean** the whole time.
+
+⚠️ The mutation was a good one and the guard would have caught it — a test passes truth of exactly
+`101.0` and asserts 2 cells in the `101+` band, which fails under `y > lo`. **It was invisible only
+because it was committed rather than tested.**
+
+⇒ **A green `git status` proves nothing when another process is mid-probe.** Before committing, know
+what else is running against the tree; and a review agent that mutates must report tree-clean before
+the author commits.
+
+#### L11 ⚠️ `ls` is not an import check
+
+Provisioning a pod, the check *"`scripts/rollout_ruler_core.py` present"* **passed on `main`** — the
+file has existed for months. The **symbol** it was needed for was three days old. ⇒ Had that stood,
+four ~20-minute GPU emits would have completed and then died at the scoring step.
+
+⭐ **The general form, which this document already records in two other dresses** (L1's *"a guard
+whose failure mode is an empty collection cannot be checked by iterating it"*, and the `.gitkeep`
+substring grep that survived re-introducing its own defect): **a file-existence check on a module
+whose CONTENTS changed is a decorative guard.** Check the thing you actually depend on —
+`python -c "import x; x.the_symbol"`, not `ls x.py`.
+
+### ⚠️ What §9b does not establish
+
+- ⛔ **L1 is measured on ONE population** (global land, `sb`, 13 origins, S=16). The *concentration*
+  is a property of CRPS-in-count-units against a heavy-tailed target, so it should generalise — but
+  the figures 81% / 118 cells are this population's, not a constant.
+- ⛔ **No claim that banded CRPS is useless** — only that it is not a reporting default (L4).
+- ⛔ **L2's ratio threshold (~1) is a reading, not a derived critical value.** It came from one case.
+- ⚠️ **The arm's event-cell magnitude result is still un-intervalled**, so L3's "one effect
+  replicates" refers to B-1 at d=1 alone.
+- ⛔ **Nothing here revisits FAO-02**, which stays locked. L1 proposes a *decomposition* and a
+  *reported diagnostic*, not a replacement score, and twCRPS/LogScore/PIT remain rejected.
+
+
+## §9c — 2026-11-06: ORDERING is a third axis of evaluation, and it has a RESOLUTION
+
+⛔ **Additive.** Nothing in §0–§9b or the appendices is edited or removed. Where a lesson here
+qualifies or withdraws an earlier claim it says so and leaves both standing — including claims made
+earlier on **this same day**, which is most of what §9c.5 is about. Source:
+`reports/2026-11-06_threshold_reliability/` — four committed instruments, their `.out` files, and
+`HOW_TO_READ.md`. Ledger rows `M95`–`M98`; predictions `P-49`–`P-68` resolved as `W-125`–`W-133` and
+`R-63`–`R-69`.
+
+**Population for everything here:** 13 origins × 64,818 global land cells = **842,634 cell-months**
+at h1, `sb`, count space, S = 16, truth `lr_sb_best` in **raw counts, no transform**, five control
+arms `ctlfullzero_{fortytwo..fortyseven}`. Where a readout is restricted to event cells the
+population is the **2,905** cell-months with `lr_sb_best > 0` — identical for every seed, because
+the event set is a property of the truth, so the across-seed spread is pure model variation.
+**CPU only, zero GPU.** Every script was committed before it ran (`D-5`).
+
+---
+
+### ⛔⛔ N0 — HOLD, ADDED 2026-11-06 AFTER `/code-review max`: THREE CLAIMS BELOW ARE NOT ESTABLISHED
+
+⛔ **Read this before N1–N6.** A `max`-effort review of the branch, run before the merge, found that
+three of §9c's claims rest on things that do not hold. ⭐ **Nothing below is deleted** — this
+document is append-only and the original text stands so the error is auditable. But the claims
+named here **may not be quoted** until the work in the final row of each block is done.
+
+⚠️ **Two of the three I re-verified myself** rather than taking the reviewer's word; those are
+marked **[verified here]**. The rest are **[reviewer, not re-verified]** and are recorded at that
+weight.
+
+| # | the claim | what is actually true | status |
+|---|---|---|---|
+| **H1** | `N2`'s *"magnitude knowledge has a resolution of about a factor of ten"*, and `R-68`/`P-66` (*"the top row exceeds 0.70"*) | ⛔ **[verified here]** Both move with `RATIO_EDGES`, a constant that was **never swept**. Pooling the committed table's own rows under alternative top edges: **0.8120** at edge 16 (as shipped) → **0.7692** at 8 → **0.7240** at 4 → **0.6775** at 2 → **0.6644** at 1.5. ⇒ `P-66`'s 0.70 threshold is **crossed between edges 4 and 2**, and *"a factor of ten"* is the median ratio of whichever bin first clears ≈0.72 — a label on an unswept constant. Under edges (1, 2, 8, ∞) the same data reads *"a factor of fifteen"* | ⛔ **ON HOLD.** Needs `RATIO_EDGES` swept the way `ordering_within_bands.py` swept its band scheme — or, better, `P(correct)` fitted against `log(ratio)` over all 3.94M pairs and inverted for 0.70, which deletes the edges entirely |
+| **H2** | `N3`'s *"the free parameter is **gone**, not swept"*, and the same sentence in `ordering_by_separation.py`'s docstring | ⛔ **[verified here]** True of the **magnitude** axis, **false of the ratio axis the numbers are read on.** ⇒ `F24`'s failure mode did not go away; it moved to a different axis under a different name, in the instrument written to end it. ⭐ `N3`'s transferable *method* lesson — *ask whether the binning variable is the quantity you mean before sweeping it* — **survives, and is in fact the lesson this failure teaches twice** | ⚠️ **PARTLY HELD.** The method lesson stands. The claim that this instrument escaped the problem does not |
+| **H3** | `N4`'s *"every score here now carries a null floor"* and `HOW_TO_READ` §2/§7's claim that `G-R1` makes a composite *"impossible"* | ⛔ **[verified here]** `G-R1` is an **algebraic tautology**. `brier_parts` defines `mcb = s_bar - s_rc` and `dsc = unc - s_rc`, so `mcb - dsc + unc` expands to `s_bar` identically, for **any** `unc` and any `s_rc`. Measured: with `UNC` taken from a deliberately wrong population the gate returns **PASS at residual 0.00e+00** while `DSC` is **−0.1622** — a negative discrimination, which is impossible. ⇒ The dossier's headline structural guarantee **cannot fail**, which is this repository's own named defect class, inside the instrument presented as its remedy | ⛔ **ON HOLD.** The invariant has to be asserted on the **population** (that `ybar` comes from the same `n_k`/`s_k` as the score), not on a rearrangement of the definitions |
+
+### ⭐⭐ N7 — `H1` AND `H3` ARE CLEARED, 2026-11-06, LATER THE SAME DAY. `H2` IS CLEARED IN PART.
+
+⛔ Added, nothing above removed. The `N0` table and its three HOLDs stay exactly as written,
+because what they recorded was true when they were written and the record of having been wrong is
+the point. This block says what was done about them.
+
+| # | what was wrong | what was done | where it now stands |
+|---|---|---|---|
+| **H1** | The headline was a label on `RATIO_EDGES`, a constant chosen in the file and never swept | ⭐⭐ **The edges were not swept — they were taken off the measurement entirely.** `resolution_curve` groups pairs by their **exact truth ratio**, one group per distinct value (5,935 of them over 3,938,827 pairs), and projects the group means onto the non-decreasing functions by **PAV**. No edges, no bandwidth, no link function | ⭐ **CLEARED, and the number is now sharper than the one it replaces.** The 0.70 target is crossed at **8.61× ± 0.76** separation, against a permuted null that needs **445×**. Also 0.60 at **2.98× ± 0.22** and 0.80 at **26.71× ± 7.33**. ⇒ *"about a factor of ten"* was roughly right and badly grounded; it is now **a factor of 8.6 at the 0.70 target**, and it does not move if `RATIO_EDGES` does — a test rebinds that constant to four schemes, including a single bin and an eleven-bin one, and requires the crossing to be bit-identical |
+| **H2** | *"the free parameter is gone, not swept"* was false on the ratio axis | The sentence is **retracted in place** in the docstring rather than deleted, with the five alternative edge readings printed beside it. ⚠️ `RATIO_EDGES` still exists and still formats a table — it is now labelled **PRESENTATIONAL**, and no reported number depends on it | ⚠️ **CLEARED FOR THE REPORTED FIGURES, NOT FOR THE FILE.** The axis the numbers are read from has no free parameter. One parameter is irreducible and is now **stated rather than hidden**: a resolution needs a skill threshold, so three targets are reported and ⛔ a figure may never be quoted without its target |
+| **H3** | `G-R1` was an algebraic tautology — the dossier's headline structural guarantee could not fail | `G-R1` now asserts the **population**: `ybar` recomputed from the same `(n_k, s_k)` that produced `S_bar`, plus `MCB >= 0` and `DSC >= 0`. Both inequalities are **theorems** — `p_k` and the constant `ybar` are each feasible isotonic candidates PAV cannot be beaten by — so a mismatched `UNC` breaks the second | ⭐ **CLEARED.** And the retraction is pinned by a test that shows the **old** form passing at residual 0.00e+00 on exactly the input it was credited with catching; if that ever stops being true, the retraction written above is wrong and the suite says so. ⭐ The whole instrument re-ran **bit-identical except the two changed labels** ⇒ the vacuous gate was not hiding a defect, it simply was not checking |
+
+⭐⭐ **THE METHOD LESSON, and it is not the one I drew this morning.** `N3` said: when a readout
+moves with its bins, ask whether the binning variable is the quantity you mean. That still holds.
+⭐ But the stronger move was available and was not taken for most of a day: **when a grouping is a
+free parameter, the finest grouping the data admits is not a choice — and it is often computable.**
+The truths are integers, so "every distinct ratio" is a well-defined grouping with 5,935 cells, and
+a monotone projection over it needs no parameter at all. ⇒ Sweeping a constant proves instability;
+*deleting the need for it* produces a number. Two instruments this week swept, and one of them
+(`F24`) destroyed its own headline by sweeping. The third did not have to.
+
+⚠️ **AND A DEFECT I FOUND IN MY OWN REPLACEMENT, recorded because it was found by a test and not by
+thinking.** The first version of the new readout compared the isotonic fit's **peak** to a
+permutation null. That quantity **saturates at exactly 1.0 under pure noise**: the widest
+separations are singleton groups, so a raw group mean is 0 or 1, and PAV pools only *downward*, so
+a rightmost 1.0 survives untouched. ⇒ The comparison compared nothing, and `P-69` as first drafted
+was near-vacuous. It was amended **before the instrument ran on real data**, with the reason in the
+docstring. The reported quantity is the **crossing**, which PAV protects from the same singleton.
+⭐ The observed fit does top out at **0.9520** — printed, and explicitly labelled *not a result*.
+
+⛔ **WHAT IS STILL OWED AND IS NOT CLEARED BY ANY OF THIS:** the reviewer-weight findings in the
+next section, unchanged — `ordering_within_bands`'s 200-permutation floor and its uncorrected
+quantile over 43 rows, `ranking_within_events`'s 24 rows, and the 22-row hole in the prediction
+ledger. ⛔ And `M98` still ranks by the **delivered composed emission**, so it cannot separate *the
+ranking carries no information* from *the composition destroyed it*. That is the next measurement,
+not a correction to this one.
+
+### ⛔⛔ N8 — A SECOND `/code-review max` ON THE FIX ITSELF. FOUR OF `N7`'s STATEMENTS ARE WRONG.
+
+⛔ Added, nothing above removed. `N7` was written three hours earlier in the same session and
+announced `H1` and `H3` cleared. ⭐ **They are cleared** — the figures below stand and are better
+grounded than `N7`'s. ⛔ But four of the things `N7` said while clearing them were false, and the
+pattern is the one this report exists to record: **each error ran toward the account I had already
+formed, and each was cheap to check and was not checked.**
+
+| `N7` said | what is true | how it was caught |
+|---|---|---|
+| *"the widest separations are singleton groups, so the fit's right end saturates under pure noise"* — the stated reason for amending `P-69` and for deleting the peak comparison | ⛔ **FALSE on this population.** 641 of 5,935 codes are singletons (10.8%) and **the right tail is dense**: the rightmost code (ratio 2,482) holds **529** pairs, and among the rightmost 50 codes the minimum is 41 and the median 314. The reason is plain — 529 of the 2,905 events have truth exactly 1, so every ratio `max/1` is shared by 529 pairs. Pure-noise fit peak is median **0.5921**, not 1.0. ⇒ `P-69`'s ORIGINAL form would have been a real test, since 0.9520 sits far outside that null. `D-5` holds (the amendment preceded the run) but **the recorded reason was wrong** | I measured the premise on a **unit-test fixture** — `np.unique(rng.integers(1, 500, 80))`, 75 distinct truths over 75 cells, which forces singleton tails — and wrote it down as a fact about the real data. ⭐ One tool call on the real truth would have caught it |
+| *"`DSC` was −0.1622"*, cited in three documents as the measurement behind `H3`'s retraction | ⛔ **Reproduced by NO committed fixture.** The committed fixture gives **−0.0503**. The −0.1622 came from an uncommitted scratch probe. The qualitative claim — PASS at residual 0.00e+00 with a negative `DSC` — is real and is now pinned | `/code-review max`. ⛔ This is the repository's own named failure twice over: a number without its population, and describing an artifact nobody opened |
+| *"a test rebinds `RATIO_EDGES` to four schemes and requires the crossing to be bit-identical"*, cited as the measurement that cleared `H1` | ⚠️ **That test cannot fail for any fixture.** `resolution_curve` structurally never reads `RATIO_EDGES`, so the assertion is true regardless of the data. It is a sound forward-looking coupling guard; it was **not** evidence. A paired test now couples a readout to the edges on purpose and requires the guard to notice, which is what was missing | `/code-review max` — and it is the same shape as the `G-P2` tautology repaired two commits earlier, reintroduced in the block written to close it |
+| *"`RATIO_EDGES` survives only to format a table and no reported number depends on it"* | ⛔ **FALSE.** The crossings do not depend on it. But `F28`'s spread, `F29`, and the HELD/FAILED tokens for `P-65`, `P-67` and `P-68` are all read off the binned rows — and `P-68`'s criterion (*at most 2 of 6*) is itself a function of the row count, becoming *at most 7 of 11* under an eleven-bin scheme. ⇒ **`P-67` and `P-68` have exactly the edge-set subject `P-66` was retired for.** They are flagged, not re-scored; a sweep is owed before either is cited | `/code-review max` |
+
+### ⛔ AND THE PERMUTATION NULL BEHIND `N7`'s HEADLINE WAS INVALID. IT IS DELETED.
+
+`N7` reported *"8.61x against a null needing 445x — a margin of 435x"*. ⛔ That margin was not
+evidence. Under a permutation the dense left of the ratio axis pools to ~0.5, so the floor measured
+**where our data runs out**, not the null's skill. Two measurements, the second mine:
+
+* at constant null skill, growing only the population moves the 0.70 floor 36.0 → 42.8 → 114.9 →
+  149.9 for n = 400/700/1400/2400, while the observed crossing stays at ~3x;
+* ⭐⭐ **a model eight times noisier — 0.70 crossing 269.83x against this model's 3.00x on the same
+  synthetic, ninety times worse — still read ⭐ RESOLVES at both 0.60 and 0.70.** The test had
+  essentially no power.
+
+⇒ Deleted. `P-69` and `P-71` are **VOID**. ⭐ What carries the existence claim instead was always
+the stronger thing and was sitting right there: **the binned table's per-row permutation floors**,
+which are valid — row membership is truth-only and cannot move under permutation, which `G-P2`
+proves — and all six rows clear theirs. The crossing does not establish that the model orders
+events; it **quantifies** it. ⛔ There is now no sampling-uncertainty interval on the crossing at
+all; the ± is across-seed reproducibility only, and a bootstrap over event cells is **owed**.
+
+### ⭐⭐ N8b — THE FINDING THAT CAME OUT OF THIS, AND IT IS SIMON'S QUESTION
+
+The promoted readout was computed on the **pooled** view only, while `LEVEL_SPLIT` exists precisely
+to keep *"is it worse at the top?"* alive. 85% of pairs have a smaller member under 10 fatalities,
+so the headline was largely a low-magnitude number presented as the model's. Split:
+
+| target | pooled | smaller < 10 | smaller ≥ 10 |
+|---|---|---|---|
+| 0.60 | 2.98× | 3.13× | **2.85×** (better) |
+| 0.70 | 8.61× | 8.60× | ⛔ **never reached** |
+| 0.80 | 26.71× | 26.74× | ⛔ **never reached** |
+
+⚠️⚠️ **And this is NOT the declining-ability result it looks like.** The high half's smaller member
+is ≥ 10, so its maximum ratio is ~248 against ~2,482 — the two columns are read over different
+ratio ranges, and the high half is **never offered** the wide separations where the low half earns
+0.70. The raw curve shows it: at a matched ratio near 10 the low half reads **0.727** and the high
+half **0.676**; near 4–5× the high half reads **0.658** against the low half's **0.625**, i.e.
+slightly *better*. ⇒ `M98`'s *"not supported"* for the declining-ability hypothesis **survives**,
+now on the edge-free axis too. What is established is narrower and still worth having: **the pooled
+headline is a low-magnitude figure, and how much of the gap is ability versus available range is
+NOT measured.**
+
+⭐ The raw curve is now printed at ten equal-pair deciles for all three views — which is also the
+first direct evidence on the monotonicity question raised in
+`~/brain/4_notes/2026-11-06_resolution_not_ranking.md`: **on our data, on this axis, the raw curve
+is monotone in all three views** (pooled 0.526 → 0.817; low 0.536 → 0.820; high 0.510 → 0.676).
+⛔ That is evidence about the shape, **not a test of it** — a test needs a sweep over grouping width
+AND offset, which this instrument still does not do.
+
+### ⭐⭐⭐ N9 — THE ANSWER TO THE QUESTION `N7`/`N8` WERE BUILT TO ASK: THE EMISSION IS LOSING IT
+
+⛔ Added 2026-11-07, nothing above removed. `M99`, `ordering_by_index.py`, committed before it ran.
+
+The question `M95` and `M98` left open was whether `8.61×` is the **model's** resolution or the
+**emission's**. It is partly the emission's.
+
+| index | 0.60 | 0.70 | 0.80 | |
+|---|---|---|---|---|
+| **`gate`** | **2.38× ± 0.01** | **6.32× ± 0.40** | **22.39× ± 0.53** | ⭐ wins at every target |
+| `mean_draw` | 2.98× ± 0.22 | **8.61× ± 0.76** | 26.71× ± 7.33 | ⭐ the control, pinned to `M98` |
+| `gate_x_mean` | 2.81× (thin) | 8.14× ± 1.18 | 23.13× ± 0.54 | — indistinguishable |
+| `sd_draw` | 3.12× ± 0.04 | 9.24× ± 0.17 | 31.62× ± 8.97 | — indistinguishable |
+| `frac_above_0` | 3.10× ± 0.00 | 9.93× ± 1.26 | 31.88× ± 9.30 | ⛔ worse |
+| `max_draw` | 3.12× ± 0.04 | 10.03× ± 1.17 | 31.82× ± 8.79 | ⛔ worse |
+
+⭐⭐ **The ordering of the six is exactly what the resolution hypothesis predicts, and that is the
+strongest thing here** — stronger than any single number. The two indices with the *least*
+resolution are the two that lose: `frac_above_0` takes at most 17 values, and `max_draw` is capped
+at 728 against a truth maximum of 2,482. The gate takes **64,732 distinct values over 64,818
+cells**. ⭐ And the gate's across-seed spread is **one fourteenth** of the control's at 0.80 (±0.53
+against ±7.33) — the quantisation showing up as irreproducibility rather than as bias.
+
+⚠️ **But the win is 1.36×, not a transformation.** 8.61× → 6.32×. ⇒ The emission *is* a
+bottleneck and it is **not the whole story.** For v1 that cuts both ways: the ceiling is better
+than `M98` implied, and it is still coarse. ⛔ Any v1 claim has to carry that sentence.
+
+⛔⛔ **THE CONFOUND, NOT CLOSED.** The gate is an **occurrence** probability. Part of its
+magnitude-ordering ability may come from *big events happen where conflict is likely* rather than
+from magnitude information — and `R-75` confirms that correlation exists, at the tightest seed
+spread in the dossier. ⇒ *"the gate ranks magnitude better than the delivered draws"* is
+**established**. *"The model knows more about magnitude than it emits"* is **supported, not
+proven**. Separating the two needs `mu`, the body's mean field, which is **NOT ON DISK** for any
+delivered run — that is `S8` (#568) and it needs a re-emit, so it is not a CPU afternoon.
+
+⭐ **The one genuinely new design fact**, from `R-74` and `R-77` read together: the gate **alone**
+beats the draws, and the gate **times** the draws does not. ⇒ The composition is not merely failing
+to add information — it is **cancelling the gate's advantage**. That is a statement about
+`compose_samples`, not about the heads, and it is the most actionable thing in this section.
+
+### ⭐ AND THE METHOD NOTE, because it is the first time this worked first time
+
+`ordering_by_index.py` is the fifth instrument in this dossier and the first whose headline did not
+have to be withdrawn. Three things were different, and they are cheap to repeat:
+
+1. ⭐⭐ **The estimator is IMPORTED from the instrument it is compared against, not copied**, and a
+   test asserts the *same function objects*. Every earlier comparison in this dossier was against a
+   near-copy, and `M98`'s two HOLDs were both about a baseline that moved.
+2. ⭐⭐ **`G-I2` pins the control to the published figure by arithmetic.** `mean_draw` had to
+   reproduce `M98`'s `8.61×` to 0.05 or the run refuses to print. It came back `8.6067×`. ⇒ The
+   comparison is legitimate because a gate says so, not because I believed it was.
+3. ⭐ **The free parameter is the swept axis.** The index is the thing in question, so it is the
+   thing varied — six of them — and the readout is the table. There is no single number to move.
+
+⛔ What is still owed and is NOT improved by any of this: a bootstrap interval on the crossing; the
+`P-67`/`P-68` sweep; `_agg`'s four copies in two incompatible behaviours; `GLOSSARY.md` has no row
+for `resolution`, `crossing` or `concordance`, while *"resolution"* is already Murphy's name for
+the `DSC` term this same dossier computes.
+
+### ⚠️ Further findings recorded at the reviewer's weight, not re-verified here
+
+⛔ These are **[reviewer, not re-verified]**. They are written down because leaving them in a chat
+transcript is how a finding is lost, not because they are established.
+
+| finding | consequence if it holds |
+|---|---|
+| `ordering_within_bands`' floor is the **99th percentile of only 200 draws** — the instability its sibling's own comment says 2000 draws exist to fix. The single `ORDERS` verdict in the headline scheme reportedly flips to `NO ORDERING` under **6 of 40** alternative seeds | `M97`'s surviving positive claims, and `W-130`…`W-132`'s settlements, are read off verdicts that may not be stable |
+| The **Bonferroni correction** that `threshold_reliability.py` documents as the reason its table is trustworthy was **not inherited** by the two later instruments: 24 and 43 verdict rows each decided at a 1%-per-row floor ⇒ family-wise false-positive rates of ~21% and ~35% | every marginal verdict in `M96`/`M97` is uncorrected, including `RANKS 1.2x floor` at `t = 100` on 51 events, which settled `W-128` |
+| **22 pre-registered predictions, `P-31`…`P-52`**, were committed and settled on earlier branches and **never got a ledger row**, not even `OPEN` | the base rate in `PREDICTION_LEDGER.md` has a 22-row hole, and the omitted set contains known failures ⇒ the tally is biased |
+| `occurrence_vs_magnitude.py`'s `gate_c1` reportedly **never executes** (no AST node reaches its allowlist), and the composite it outlaws lives one import away in `profile_noise_floor.py` and is **published** in that module's `.out` as the `pooled` column | the "composite made unwritable" claim in that dossier is not established |
+| `conditional_magnitude.py`'s `G-M1` and `paired_magnitude.py`'s `G-P1`/`G-P3` are reportedly **inert** — one short-circuits on a `TypeError`, one compares a mask with itself, one builds two ASTs and compares neither | three more guards in the same family as `H3` |
+| `e1_data.gate_5_alignment` — *"the gate that catches the failure every other gate would survive"* — is reportedly **called by none** of the six new instruments | every figure in §9c would be computed on mismatched cells if a delivery were ever reordered |
+| ⭐ **Independent corroboration of the 200-draw floor**, by a second route: 12 permutation seeds on the marginal `powers_of_2` 8–16 band give floors spanning 0.0145 (sd 0.0047) against a verdict margin of 0.0084, so it returns `ORDERS` in only **10 of 12** runs | that band's verdict is seed-dependent. ⭐ But I checked `F24` itself: the empty intersection is driven by `powers_of_5` (margin +0.0396) against `powers_of_3` (+0.0167), and dropping `powers_of_2` leaves it **still empty**, so **`F24`'s firing is robust** |
+| `paired_magnitude.py`'s `P-44` — its own *"THE ONE THAT MATTERS"* — is pre-registered as *"one-signed **toward 1**"* but scored as pure sign-consistency; the quantity that measures "toward 1" is computed, printed parenthetically and **never scored**. The committed `.out` already shows the two disagree | `F10`'s firing, and therefore the `UpsampleConv2` retraction, rests on a different boolean from the one the prediction names. ⚠️ The retraction itself is still right for the pooled-ratio reason, which is independent |
+| `threshold_reliability.py`'s amendment is **half-propagated**: `P-53` names `MCB / MCB_0_p95` while the code uses the 99.5th percentile, and the two floors are not proportional across rows whose event counts fall 2,905 → 6 | `W-125` records `P-53` as refuted while describing a statistic the run did not compute |
+| `conditional_magnitude.py:314` silently drops bins with no observed event before scoring `P-31`/`P-32`/`P-33` — hiding exactly the direction `P-32` asserts cannot happen | those three predictions were scored over a different bin set from the table printed beside them |
+| `profile_noise_floor.py:244` divides by a top-bin ratio that is exactly 0.0 when that bin has no event ⇒ `ZeroDivisionError` mid-run, on the statistic `P-38`/`P-42`/`P-43` are pre-registered on | same crash class as `H3`'s sibling; the 10-arm floor run would die partway with no refusal line |
+| `occurrence_vs_magnitude.py` captions every table *"[range in brackets]"* and **never prints a range**, though its docstring declares printing it as the fix for a named 2026-11-05 failure — and a test asserts on the discarded value | the readout tells a reader a remedy is in place when it is not, and the suite reports it as covered |
+| Two tests are **structurally unable to fail**: one asserts a gate does *not* fire and is named `..._FIRES_...`; the other's false-positive check passes with the rejected quantile in 14 of 20 reseeds | ⇒ the claim *"the instrument's own false-positive rate is pinned by a test"* overstates what is pinned |
+
+⇒ ⭐ **The honest summary of 2026-11-06.** The day's *method* lessons (`N1`, `N3`'s rule, `N4`'s
+floors, `N5`) stand and are the durable part. The day's *numbers* are on hold pending the work in
+`H1`–`H3`. ⛔ And the pattern is the one `N5` already named: **the defect class "a guard that cannot
+fire" was not closed by this dossier — it was reproduced inside it, three more times.**
+
+---
+
+### N1 ⭐⭐ Evaluation has THREE axes here, not two, and we had been collapsing them
+
+Until today this report treated the forecast as **occurrence** plus **magnitude**. That is one
+distinction too few. The 2026-11-05/06 confusion — four statements about the same forecast, three
+withdrawn — happened because three different questions were all being called "magnitude":
+
+| axis | the question | the right instrument | what it says here |
+|---|---|---|---|
+| **occurrence** | does it fire where it fires? | Brier/CORP at `t = 0` | real skill: `DSC/UNC` **33.8%** |
+| **calibration of magnitude** | when it says a probability of exceeding `t`, is that the frequency? | Brier/CORP at `t > 0`, against a null floor | `MISCALIBRATED 1.4–2.5x` low, undetectable high |
+| ⭐ **ordering of magnitude** | given two events, does it know which is bigger? | **pairwise concordance** | a resolution of ~10x |
+
+⇒ **These can disagree without contradiction**, and that is exactly what happened. A forecast can
+order events well and be badly calibrated (ours), or be calibrated and order nothing (the tail).
+⛔ Any sentence about "magnitude" that does not say which of the three it means is unsafe, and three
+withdrawn claims are the evidence.
+
+⭐ The cheapest usable form of this: **a model 30× too small everywhere scores 1.0 on ordering and
+fails calibration completely.** Ours is that model. ⇒ The two axes are not just conceptually
+separate, they are separate *in our own forecast*, which is why collapsing them produced
+contradictions rather than mere imprecision.
+
+---
+
+### N2 ⭐⭐⭐ THE FINDING: the model's magnitude knowledge has a resolution of about a factor of ten
+
+All 3,938,827 comparable pairs of the 2,905 event cells, grouped by how many times bigger one event
+is than the other. Chance is **exactly 0.5** by construction. Five seeds, each row against its own
+permutation floor (`M98`):
+
+| if two events differ by | order correct | floor (q99) |
+|---|---|---|
+| 1.25× | 0.5272 ± 0.0023 | 0.5065 |
+| 1.64× | 0.5480 ± 0.0033 | 0.5122 |
+| 2.56× | 0.5882 ± 0.0052 | 0.5094 |
+| 5.20× | 0.6591 ± 0.0095 | 0.5166 |
+| 10.67× | **0.7225 ± 0.0130** | 0.5242 |
+| 29.0× | **0.8120 ± 0.0147** | 0.5315 |
+
+Monotone, every row clear of its floor, spread 0.2848, **no free parameter on the measured axis**.
+
+⇒ **Roughly an order of magnitude of separation is needed before the model is reliably right.**
+Stated as a design constraint rather than a score: *the grain of this model's magnitude knowledge is
+a factor of ten.*
+
+⭐ Simon's band question in his own units — and the answer is yes, when the bands are far apart:
+
+| smaller event in | larger in | order correct |
+|---|---|---|
+| 1–25 | 25–100 | 0.7371 |
+| 1–25 | 100–500 | 0.8155 |
+| 1–25 | 500+ | **0.8572** |
+| 25–100 | 100–500 | 0.6113 |
+| 100–500 | 500+ | 0.5348 (270 pairs — chance) |
+
+---
+
+### N3 ⭐⭐⭐ THE METHOD LESSON, and it is the transferable one: a magnitude cut point was the WRONG AXIS
+
+**Three claims died this week because a number moved with its binning** (`W-130`, and two before it).
+The instinct each time was to sweep the bin count harder (`D-4`). ⛔ **That instinct was wrong here.**
+
+`ordering_within_bands.py` swept five band schemes — powers of 2, 3 and 5, equal steps in `log1p`,
+and hand-chosen conflict sizes. The best-ordering band came back as **8–16, 9–27, 1–5, 2–6 and
+1–25**. The intersection is empty; `F24` fired; the shape was not quotable.
+
+⭐ The fix was not a better sweep. It was noticing that **bands confound two things**: where an event
+sits on the scale, and how far apart the two compared events are. A band 25 wide at the bottom of
+the scale is a 25× comparison; the same width at 500 is a 1.05× comparison. ⇒ Any band-wise curve is
+a mixture of ability and band width, and sweeping the edges only re-mixes it.
+
+Removing the magnitude axis and grouping by **separation** instead:
+
+- has **no cut point to choose** — the free parameter is *gone*, not swept;
+- and **retro-predicts every band readout of the day, to within 1–2 points**, without being fitted
+  to any of them:
+
+| band | typical pair ratio | measured | curve at that ratio |
+|---|---|---|---|
+| 1–25 | 3.0× | 0.6124 | 0.5882 |
+| 25–100 | 1.49× | 0.5433 | 0.5480 |
+| 100–500 | 1.37× | 0.5221 | 0.5272 |
+| `powers_of_2` (all) | ~1.25× | 0.50–0.55 | 0.5272 |
+
+⇒ ⭐⭐ **The generalisable rule: when a readout moves with its bins, ask whether the binning variable
+is the quantity you mean, before sweeping it.** A sweep tells you the answer is unstable; it does not
+tell you the axis is wrong. Here the axis was wrong, and the stable answer was one re-parameterisation
+away.
+
+ℹ️ This qualifies, and does not replace, the standing device *"sweep the free parameter before
+reporting a scalar"* (`feedback_sweep_before_reporting_a_scalar`). The sweep is still what detected
+the problem. The lesson added is what to do when it fires.
+
+---
+
+### N4 ⭐⭐ Absence of a detected defect is not a pass — and every score here needs its own null floor
+
+Two instruments on this day reported a quantity whose value **under a perfect model is not zero**:
+
+- **MCB** (miscalibration): an isotonic refit removes score even from a perfectly calibrated
+  forecast, purely by fitting noise. ⇒ `MCB > 0` is not evidence of anything.
+- **DSC / concordance**: the same refit, and any in-sample ordering statistic, extracts apparent
+  signal from a shuffled index.
+
+⇒ Both now carry a floor computed **on their own population and tie structure** — Bernoulli
+resampling for MCB, permutation for concordance. ⛔ Without it:
+
+| row | raw figure | floor | honest reading |
+|---|---|---|---|
+| `P(Y > 250)` MCB/UNC | 4.32% | **11.91%** | **nothing** — noise exceeds the figure |
+| 100–500 vs 500+ concordance | 0.5348 | — (270 pairs) | not resolvable |
+
+⚠️ **And the decision threshold matters more than it looks.** The first threshold-reliability run used
+the **95th** percentile of the null and a perfectly calibrated synthetic forecast came back
+`MISCALIBRATED 1.1x` on the first seed tried — a 5%-per-row false-positive rate behaving exactly as
+specified. It is now the **99.5th** percentile, Bonferroni over the ten thresholds, and the resulting
+rate is **measured by a test** rather than asserted. ⇒ A verdict that flips one row in twenty is
+indistinguishable, to a reader, from a verdict that is wrong.
+
+⭐ Hence the standing phrasing this report should use from now on: **`CALIBRATED` means *not
+detectably miscalibrated at this sample size*, never *right*.** Our own `t ≥ 50` rows rest on 6–213
+events with floors running 1.2%–13.6% of `UNC`.
+
+---
+
+### N5 ⛔⛔ What 2026-11-06 WITHDREW, including claims made earlier the same day
+
+⛔ Listed here rather than corrected in place, because this document is append-only and because the
+sequence is the lesson.
+
+| withdrawn | what it actually was | caught by |
+|---|---|---|
+| *"the lowest prediction bin is under-predicted **18.7×**"* (2026-11-05) | a **composite**: in that bin only 110 of 530 cells carry an event, so the ratio multiplies an occurrence error by a magnitude error and reports the product as the second | re-deriving it per component (`M95`'s predecessor) |
+| *"the top of the body is **too high**"* / *"it over-predicts at the top"* | the top **prediction** bin is not the tail of the **outcome**. The model under-predicts every real extreme by **47×–3,480×** | Simon, who said it contradicted everything we knew |
+| *"ranking **peaks at 10 fatalities**"* (earlier the same day) | a property of the **cut points**: the best band moves to 8–16, 9–27, 1–5, 2–6, 1–25 across five schemes | ⭐ `F24`, pre-committed and arithmetic — **before** the figure reached Simon |
+| *"the 11 delivered arms differ by **seed only**"* | they are **control vs `UpsampleConv2`** on matched seeds. I diffed the config files, which are identical, instead of the manifest's `arm:` line | the manifest |
+| an `UpsampleConv2` **magnitude effect** | the same pooled-ratio artefact; `F10` fired. Relayed to the `models` session and **corrected there** | `F10` |
+| my **9.8%** integrated-spread figure | left-rectangles on the same 8 points that caused the error it was correcting; overstated the tail **2.3×** | ⭐ *"a figure computed by the method that caused an error is not a correction of it"* |
+
+⇒ ⭐ One structural observation, offered as the day's only process claim: **the one withdrawal that
+cost nothing was the one a pre-committed arithmetic falsifier caught.** The other five were caught by
+a person, by a re-derivation, or by a peer — i.e. after the claim had already been stated.
+
+---
+
+### N6 ⭐ What this adds to the battery, and when it is worth running
+
+Three reusable instruments, all CPU-only, all five-seed, all with their gates shown to fire:
+
+| instrument | answers | cost |
+|---|---|---|
+| `threshold_reliability.py` | is the predictive distribution calibrated, threshold by threshold, against its own noise floor | ~4 min, 5 arms |
+| `ordering_by_separation.py` | ⭐ what is the **resolution** of the magnitude ranking | ~4 min, 5 arms |
+| `occurrence_vs_magnitude.py` | which of occurrence or magnitude is the larger defect | ~4 min, 5 arms |
+
+⭐⭐ **When to run the ordering one.** Before any work that assumes the ranking can be preserved —
+which is the whole premise of a rank-coupled or empirical-lookup magnitude head. It answers *"is
+there a ranking to preserve, and how fine is it"* for about four minutes of CPU, and the answer here
+(a factor of ten) is a **design constraint**, not a score: a method that needs to order events 1.5×
+apart has nothing to work with, and one that needs to separate 1–25 from 500+ has 86%.
+
+⛔ **What it must never be quoted for.** It says the ORDER is right, never that the SIZE is. Our model
+scores 0.81 at wide separation **and predicts 11.1 for a 2,482-fatality event.** Both are true.
+
+⚠️ **The open confound, stated so it is not forgotten.** Every figure in §9c ranks by the
+**delivered composed emission**. ⇒ None of it separates *the underlying ranking carries no tail
+information* from *the composition destroyed it*. Conditioning the same instruments on the **gate**
+is the measurement that separates them, it is CPU-only, and it is not done.
+
+---
+
 ## Appendix A — The instrument inventory
 
 **Where the ruler lives.** ⚠️ **No forecast metric is computed anywhere in `views_hydranet/` ⛔ **CORRECTED 2026-10-20: FALSE.** `views_hydranet/utils/training_forensics.py:344,359,364` computes `average_precision_score` and `roc_auc_score`, with **AP the default** (`:32`), reachable and imported by `train/training_engine.py:38`. ⛔ **The metric this universal negative misses is this report's own primary metric.**.** The
@@ -2394,7 +3090,7 @@ the audit tool". **Nothing tests that they still match.**
 
 ## Appendix B — The retraction log
 
-31 traceable retractions or overturns, 2026-05 → 2026-09. ⛔ **[UPDATED 2026-10-25: **33**, through
+31 traceable retractions or overturns, 2026-05 → 2026-09. ⛔ **[UPDATED 2026-11-06: **39**, through 2026-11. The six added on 2026-11-06 are tabulated in §9c's `N5` rather than below, with what each one actually was and what caught it; five of the six were stated before they were caught, and the sixth — *"ranking peaks at 10 fatalities"* — was caught by a pre-committed arithmetic falsifier **before** it reached Simon. ⚠️ Three of the six were made and withdrawn on the SAME DAY. ⛔ The prose counts in this paragraph are NOT re-derived.]** ⛔ **[UPDATED 2026-10-25: **33**, through
 2026-10. The two added are the last two rows of the table below and are dated there. The prose counts in
 this paragraph are NOT re-derived — they are the 2026-09 figures and are left as measured.]** **≥14 concern a published ledger row or a
 delivered verdict.** Two independent internal estimates of the base rate exist and both are lower

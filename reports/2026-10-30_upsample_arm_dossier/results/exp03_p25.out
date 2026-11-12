@@ -1,0 +1,67 @@
+P-25 — is the body untouched? Δ `crps_all` at h18, from data already on disk.
+
+**The prediction** (`PREREG.md` §5b): *"The body is untouched"* — threshold
+**|Δ `crps_all`| @h18 ≤ 0.006**, where Δ is each arm minus its **own-seed** control, so the
+symmetric difference between the two configs is exactly ``{"model"}``.
+
+⛔ **POPULATION: seeds 42 and 43 ONLY.** `PREREG.md` §3's population slot reads *"the bake-off's
+own: `fullzero_*` controls, seeds **42** and **43**, L=300, paired"*. The four later seeds arrived
+with `PREREG_EXP03_SEEDS.md` and are **not** part of this prediction. They are reported **beside**
+the verdict as context, explicitly labelled as outside the registered population — reporting them
+inside it would be moving the goalposts after the numbers exist.
+
+⭐ **Why h18 is permitted here**, when §6 device 2 forbids an h18 verdict: §3's estimator slot
+provisions scoring *"at **h1/6/12/18/24/30/36**, plus the oracle ceiling"*, so device 2 scopes to
+§6's own verdict branch for `P-23`. Full reading in `FINDING_EXP03.md` §12 (#541). ⛔ No frozen
+instrument's `HORIZONS` constant is changed; h18 is computed here.
+
+**C-351 slots.** Population = 13 origins × 64,818 global land cells = **842,634 cell-months** at
+h18, per arm. Transform = none (count space). Estimator = the arm's own **S = 16** posterior draws;
+CRPS via the **frozen** plug-in `crps_ensemble`, imported. Truth = the arms' shared global pull,
+`lr_sb_best`. ⛔ NOT `V2_TRUTH`, the retired 13,110-cell Africa crop.
+
+⭐ **It also reports the concentration figures (#536/#537) beside every CRPS**, which is the new
+default — and this is the **first measurement of `crps_effective_n` on real per-cell CRPS from a
+delivered arm**. Everything quoted before this was a proxy.
+
+truth grid (384, 64818) from the arms' shared pull
+
+  scored seed fortytwo
+  scored seed fortythree
+  scored seed fortyfour
+  scored seed fortyfive
+  scored seed fortyseven
+
+====================================================================================================
+P-25 — THE VERDICT. h18, seeds 42 and 43, the PRE-REGISTERED population (§3)
+====================================================================================================
+  seed          crps_all ctl  crps_all arm          Δ  |Δ| ≤ 0.006?   eff n ctl  top band
+  --------------------------------------------------------------------------------------------
+  fortytwo          0.053520      0.051937  -0.001583           YES      495.61    0.2253
+  fortythree        0.051791      0.052284  +0.000493           YES      475.84    0.2295
+
+  ⇒ max |Δ| = 0.001583 against the pre-registered 0.006
+  ⇒ P-25 VERDICT: CONFIRMED (every pre-registered seed is within threshold)
+
+====================================================================================================
+CONTEXT ONLY — ⛔ outside P-25's registered population, NOT part of the verdict
+====================================================================================================
+  seed          crps_all ctl  crps_all arm          Δ  |Δ| ≤ 0.006?   eff n ctl  top band
+  --------------------------------------------------------------------------------------------
+  fortyfour         0.052550      0.052416  -0.000134           YES      502.09    0.2240
+  fortyfive         0.053411      0.053582  +0.000171           YES      487.68    0.2276
+  fortyseven        0.053563      0.054081  +0.000518           YES      499.53    0.2221
+
+====================================================================================================
+⭐ crps_effective_n on REAL per-cell CRPS at h18 — first measurement, not a proxy
+====================================================================================================
+  ctlfullzero_fortyfive        eff n     487.68 of 842,634   top band 0.2276   cells 57
+  ctlfullzero_fortyfour        eff n     502.09 of 842,634   top band 0.2240   cells 57
+  ctlfullzero_fortyseven       eff n     499.53 of 842,634   top band 0.2221   cells 57
+  ctlfullzero_fortythree       eff n     475.84 of 842,634   top band 0.2295   cells 57
+  ctlfullzero_fortytwo         eff n     495.61 of 842,634   top band 0.2253   cells 57
+  upctwofullzero_fortyfive     eff n     490.86 of 842,634   top band 0.2264   cells 57
+  upctwofullzero_fortyfour     eff n     496.71 of 842,634   top band 0.2255   cells 57
+  upctwofullzero_fortyseven    eff n     504.59 of 842,634   top band 0.2206   cells 57
+  upctwofullzero_fortythree    eff n     480.36 of 842,634   top band 0.2286   cells 57
+  upctwofullzero_fortytwo      eff n     483.65 of 842,634   top band 0.2288   cells 57

@@ -1,0 +1,75 @@
+E-1 loader — the delivered gate at h1, the truth, and the emission's own draws, ALIGNED.
+
+Epic #559, story #563. Pre-registration: ``PREREG.md``, committed 2026-11-04 before this file
+existed (``D-5``).
+
+⭐⭐ WHY THIS FILE IS THE LOAD-BEARING ONE, AND IT IS NOT THE SCORER. Every scorer this epic
+needs already exists, frozen and self-tested (``03_harness_and_invariants.md`` §B). The
+marginal risk is a **one-step misalignment** between the gate, the truth and the draws, which
+would produce a plausible WRONG number that survives every statistical check downstream. The
+gates below exist for that and nothing else.
+
+**C-351 slots, every one.**
+  population   64,818 global ``land`` cells x 13 delivered origins; at h1 the origins are
+               months 457..469, one month per origin, so a fold's score window is exactly
+               64,818 cells.
+  truth        ``lr_sb_best`` from the arms' shared global pull. ⚠️ **RAW COUNTS, no
+               transform**, despite the ``lr_`` prefix — verified by reading the column
+               maximum (113,395) and the single cell behind it (``priogrid 148759, month
+               504``).
+  index        the per-cell **mean of the gate's 16 MC-dropout draws**. ⭐ The construction
+               the published ``exp03_pairs`` readout used, and the reason is at
+               ``hydranet_inference.py:929-931``: the scorer ranks on the gate averaged over
+               all posterior columns, and a single pass reproduces its AP only to ~11%.
+  emission     the delivered composed draws, ``[2333448, 16]`` per origin = 36 horizons x
+               64,818 cells x 16 draws, **unit-major with stride 36**, so h1 is ``[0::36]``.
+               ⛔ Already composed (post-``threshold_gate``, tau=0.20) and in **count space**
+               — h1 max 728.0001 against a truth max of 552 at month 457, so there is no
+               ``expm1`` anywhere.
+  inference    ⭐ **DELIVERED AUTOREGRESSIVE, h = 1.** The slot whose absence is ``C-399``.
+  arm          ``ctlfullzero_fortytwo`` (control, seed 42). ⛔ One arm; a test of a method.
+
+⛔ THE GATES, declared before the run:
+
+  G-0  ⭐⭐ COPY GATE, exact, and it is load-bearing. The per-cell gate mean, pooled over all
+       13 origins (842,634 cell-months), through the FROZEN ``average_precision``
+       (``lodestar_score.py:36``), must reproduce ``ap_ctl = 0.5667056384496834`` from
+       ``reports/2026-10-30_upsample_arm_dossier/results/exp03_pairs.json``, record
+       ``{"seed": "fortytwo", "h": 1}``. Tolerance 1e-12 — the construction is reproduced step
+       for step from ``exp03_pairs.py:58-84``, so near-exactness is the right demand
+       (``W-96``).
+       ⛔ On failure this module raises ``SystemExit`` and NOTHING else is reported. It is
+       ``PREREG.md`` §6 device 4's single void condition.
+       ⭐ Why this is a legitimate copy gate under ``W-98`` (*"a copy gate's anchor is the
+       committed implementation, never a ledger row"*): the anchor is a committed artifact
+       produced by a committed script through the frozen ruler, and the figure is this arm's
+       OWN absolute AP on exactly the population loaded here. Wrong arm, wrong origin set,
+       wrong target or a different draw average and the number moves.
+
+  G-4  ⭐ LEAKAGE, by COUNTING and not by argument. For each of the 7 folds the intersection
+       of the fit months with the score month must be empty, asserted on the month arrays
+       themselves. Reports the intersection size per fold; a non-zero anywhere is fatal.
+
+  G-5  ALIGNMENT. Per origin, ``np.array_equal`` on three things: the gate's ``unit`` array,
+       the draws' h1 ``unit`` array, and the truth grid's cell order. ⚠️ This is the gate that
+       catches the failure every other gate would survive.
+
+  G-8  STRUCTURAL, recomputed and not quoted. Over h1 months 457..469 the truth must give
+       842,634 cell-months, **2,905** events (0.3448%) and a maximum of **2,482**.
+
+⚠️ C-347. ``python <path>`` puts this file's own directory on ``sys.path[0]``, not the repo root,
+so ``views_hydranet`` would resolve to the installed wheel rather than the working tree. Nothing
+here imports ``views_hydranet``, but the repo root is inserted explicitly anyway so that a later
+import cannot acquire the hazard silently.
+
+Run: ``conda run --no-capture-output -n views-hydranet-env python <this file>``
+
+====================================================================================================
+E-1 LOADER — the delivered gate at h1, the truth, and the emission's draws
+====================================================================================================
+  PASS  G-0  COPY: pooled h1 gate AP 0.5667056384496834 vs committed 0.5667056384496834  |Δ| 0.000e+00  (tol 1e-12)
+  PASS  G-4  LEAKAGE: per-fold fit∩score sizes [0, 0, 0, 0, 0, 0, 0] over 7 folds
+  PASS  G-5  ALIGNMENT: gate units == draws units == truth cell order on 13/13 origins
+  PASS  G-8  STRUCTURAL: 842,634 cell-months, 2,905 events (0.3448%), max 2482  (expected 842,634 / 2,905 / 2482)
+
+  loaded 13 origins covering months 457..469, 7 folds, 453,726 scored cell-months, in 36.4 s

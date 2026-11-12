@@ -1,0 +1,81 @@
+EXP-03, the question the arm was actually FOR: is the BODY less SMEARED?
+
+⭐ `UpsampleConv2` was adopted to stop the body smearing mass across cells. That is a SPATIAL
+property. Magnitude on event cells is a proxy for it and cannot tell "same blur, scaled up" from
+"genuinely tighter placement". This measures the spatial property directly.
+
+**Instrument.** B-1, the structure share, mirroring
+`reports/2026-10-26_body_optimisation_gap/c366_two_instruments.py::b1`:
+
+    B1(d) = [gamma_pred(d) / gamma_truth(d)] / [var_pred / var_truth]
+
+`gamma(d)` is the method-of-moments semivariogram at E-W lag d. **B1 = 1.0 means the field carries
+its FULL due share of short-range variance; B1 < 1 means SMEARED** — too little variance at lag d
+relative to the variance it does have. Swept over d, ⛔ never reported as a scalar (D-4): the
+"12.8x correlation length" was withdrawn precisely for extrapolating one lag.
+
+⛔ **Why the committed `gamma_ew` is NOT imported.** It averages over every raster pair. On the
+global 360x720 grid ~75% of cells are ocean and are structurally zero in BOTH fields, so those
+pairs contribute 0 to both numerator and denominator and drag every ratio toward 1.0 — attenuating
+the signal this script exists to find. The land-masked form below restricts to land-land pairs and
+takes variance over land cells only. The unmasked value is printed beside it to show the size of
+that effect rather than asserting it.
+
+**C-351 slots.** Population = 13 origins x 64,818 global land cells, per horizon per arm.
+Transform = none (count space). Estimator = E[Y] over the arm's 16 draws, rasterised to 360x720
+using the pull's OWN `row`/`col` columns. ⛔ No hardcoded grid offsets: `sharpness_scorecard.py:34`
+pins 87/310/180, which are Africa-only and would silently mis-place every cell on a global arm.
+Truth = the shared pull's `lr_sb_best`.
+
+land mask: 64,818 of 259,200 raster cells (25.0%) — the other 75% is ocean and zero in BOTH fields
+
+==============================================================================================
+G-0  the instrument, on fields whose answer is known by hand
+==============================================================================================
+  lag  1   B1(truth,truth) = 1.000000000000   B1(3x3-smoothed truth, truth) = 0.2532
+  lag  2   B1(truth,truth) = 1.000000000000   B1(3x3-smoothed truth, truth) = 0.4523
+  lag  4   B1(truth,truth) = 1.000000000000   B1(3x3-smoothed truth, truth) = 0.9080
+  lag  8   B1(truth,truth) = 1.000000000000   B1(3x3-smoothed truth, truth) = 1.0045
+  lag 16   B1(truth,truth) = 1.000000000000   B1(3x3-smoothed truth, truth) = 1.0885
+  lag 32   B1(truth,truth) = 1.000000000000   B1(3x3-smoothed truth, truth) = 1.1043
+
+  PASS  identity is exactly 1.0 at every lag
+  PASS  blur reads deeply SMEARED at d=1 (< 0.5)
+  PASS  blur signature RISES monotonically toward 1.0 as the lag outruns the kernel
+  PASS  blur has essentially no effect by d=32 (|B1-1| < 0.15)
+
+  ⇒ d=16 and d=32 are therefore a BUILT-IN NEGATIVE CONTROL: a sharpness change cannot
+    move them. Movement there would be a scale/magnitude change, not sharpening.
+
+==============================================================================================
+B-1 STRUCTURE SHARE of the BODY   ·   1.0 = full due short-range variance, <1 = SMEARED
+==============================================================================================
+  seed fortytwo done
+  seed fortythree done
+  seed fortyfour done
+  seed fortyfive done
+  seed fortyseven done
+
+  h1
+  lag      ctl (mean of 5)      upctwo         Δ   per-seed Δ sign   unanimous
+  ------------------------------------------------------------------------------------
+  d=1               0.5648      0.6152   +0.0504   +++++             YES
+  d=2               0.6686      0.6662   -0.0025   -++++             no
+  d=4               1.1742      1.1575   -0.0167   -+++-             no
+  d=8               1.2783      1.2490   -0.0293   -+++-             no
+  d=16              1.3893      1.3563   -0.0330   -+++-             no
+  d=32              1.3787      1.3365   -0.0422   -+-+-             no
+  ⇒ control carries 0.565 of its due structure at d=1 and 1.379 at d=32
+
+  h36
+  lag      ctl (mean of 5)      upctwo         Δ   per-seed Δ sign   unanimous
+  ------------------------------------------------------------------------------------
+  d=1               0.5396      0.5390   -0.0006   -+--+             no
+  d=2               0.7059      0.7065   +0.0006   -+--+             no
+  d=4               0.7865      0.7672   -0.0193   -+---             no
+  d=8               0.8172      0.8085   -0.0086   -++--             no
+  d=16              1.6377      1.6120   -0.0257   +++--             no
+  d=32              1.6054      1.5810   -0.0244   +++--             no
+  ⇒ control carries 0.540 of its due structure at d=1 and 1.605 at d=32
+
+wrote /tmp/claude-1000/-home-simon-Documents-scripts-views-platform-views-hydranet/f7a7ca8c-4eb9-45a0-8923-271b8be2a39c/scratchpad/exp03_sharpness.json

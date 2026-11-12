@@ -63,8 +63,14 @@ import argparse
 import ast
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+#: This tool's own name, for error prefixes. Derived, never retyped: five of this
+#: file's refusal messages named a DIFFERENT dossier's tool because the name was a
+#: literal copied down the make_ss -> make_itf -> make_trunc -> make_arch lineage.
+_TOOL = Path(__file__).stem
 
 _MODELS = Path("/home/simon/Documents/scripts/views_platform/views-models/models")
 _FLOOR = _MODELS / "violet_visitor"
@@ -145,7 +151,7 @@ def arm_label(*, lessons: int, eps: float, seed: int, variant: str | None = None
     """Pipeline-legal directory name: (2, 0.0, 42, "0.1") -> `pftinyzero_fortytwo`."""
     if variant not in _PF_TAG:
         raise SystemExit(
-            f"make_pf_arm: --variant must be one of {sorted(_PF_TAG)}; got {variant!r}. "
+            f"{_TOOL}: --variant must be one of {sorted(_PF_TAG)}; got {variant!r}. "
             "Add a tag to the table rather than improvising a name."
         )
     for table, key, what in (
@@ -155,7 +161,7 @@ def arm_label(*, lessons: int, eps: float, seed: int, variant: str | None = None
     ):
         if key not in table:
             raise SystemExit(
-                f"make_pf_arm: no word for {what}={key}. Add one to the table rather than "
+                f"{_TOOL}: no word for {what}={key}. Add one to the table rather than "
                 "improvising a name — the mapping must stay deterministic in both directions."
             )
     # The tag prefixes the ADJECTIVE. The pipeline requires EXACTLY two lowercase parts
@@ -171,7 +177,7 @@ def arm_identity(*, lessons: int, eps: float, seed: int, variant: str | None = N
     a different weight — or on the other side of the state fork — and score it as this one.
     """
     if variant not in _PF_SPEC:
-        raise SystemExit(f"make_pf_arm: unknown variant {variant!r}")
+        raise SystemExit(f"{_TOOL}: unknown variant {variant!r}")
     weight, detach = _PF_SPEC[variant]
     return {
         "pushforward_weight": weight,
@@ -188,7 +194,7 @@ def _set_key(text: str, key: str, literal: str) -> str:
     pat = re.compile(rf"('{re.escape(key)}':\s*)[^\n]*?,")
     new, n = pat.subn(rf"\g<1>{literal},", text, count=1)
     if n != 1:
-        raise SystemExit(f"make_pf_arm: key {key!r} not found exactly once")
+        raise SystemExit(f"{_TOOL}: key {key!r} not found exactly once")
     return new
 
 
@@ -201,13 +207,63 @@ def _resolve(path: Path, fn: str) -> dict:
     return ns[fn]()
 
 
+
+def _strip_orphaned_import(qs: Path) -> None:
+    """Remove the import that pinning ``model_name`` orphans, and REFUSE if it survives.
+
+    ⛔ Pinning the name deletes the import's only executable use, so ``ruff`` fires F401 on the
+    generated arm. That reddens ``ruff check .`` in views-models — ``ship-it`` Step 1 for every
+    seat shipping from that repo — and the arm directory is not this tool's to revisit afterwards.
+
+    ⭐ ``ruff`` does the removal rather than a text edit here, because ``ruff`` is what *defines*
+    the failure: it is already pinned in ``pyproject.toml`` and already shelled out to by
+    ``tests/test_falsification_repo_clean.py``, and it is AST-aware. A hand-rolled removal has to
+    get an ``__all__`` re-export, a string annotation, a parenthesised or aliased import, an
+    indented import inside ``if TYPE_CHECKING:``, and a docstring copy of the import line all
+    right, and when it does not it either ships the F401 anyway or deletes a binding ``ruff``
+    considers live — turning the check it exists to satisfy from green to red.
+
+    ⛔ The post-check is the point, not a belt-and-braces extra. The failure mode of an anchored
+    rewrite that misses its anchor is SILENCE: the builder prints success and the arm ships
+    F401-red. So ``--fix`` is verified, never trusted.
+
+    ``--isolated`` keeps the rule set this tool's own, rather than inheriting whatever config
+    happens to sit above the arm directory in views-models.
+    """
+    cmd = ["ruff", "check", "--isolated", "--select", "F401"]
+    try:
+        # ⚠️ The --fix result is deliberately discarded: the re-check below is the verification, so
+        # `check=True` here would only add an uncaught crash site without proving anything.
+        subprocess.run([*cmd, "--fix", "-q", str(qs)], check=False, capture_output=True, text=True)
+        after = subprocess.run([*cmd, str(qs)], check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise SystemExit(
+            f"{_TOOL}: `ruff` is not on PATH, so the import orphaned by pinning model_name in "
+            f"{qs} cannot be removed and the arm would ship F401-red. Run this inside the "
+            "project environment."
+        ) from None
+    # ruff exits 1 for findings and 2 for its own failure. Both refuse, but they are different
+    # problems and a message that names the wrong one sends the operator to the wrong file.
+    if after.returncode == 1:
+        raise SystemExit(
+            f"{_TOOL}: {qs} still fails `ruff check --select F401` after --fix:\n"
+            f"{after.stdout}{after.stderr}"
+        )
+    if after.returncode != 0:
+        raise SystemExit(
+            f"{_TOOL}: `ruff` itself failed (exit {after.returncode}) on {qs}, so whether the arm "
+            f"is F401-clean is UNKNOWN and it must not ship on an unverified config:\n"
+            f"{after.stdout}{after.stderr}"
+        )
+
+
 def build(
     *, lessons: int, eps: float, seed: int, variant: str, out_root: Path = _MODELS
 ) -> Path:
     label = arm_label(lessons=lessons, eps=eps, seed=seed, variant=variant)
     dest = out_root / label
     if dest.exists():
-        raise SystemExit(f"make_pf_arm: {dest} already exists — refusing to overwrite an arm")
+        raise SystemExit(f"{_TOOL}: {dest} already exists — refusing to overwrite an arm")
 
     shutil.copytree(
         _FLOOR,
@@ -224,7 +280,7 @@ def build(
     # data/raw carries the cached parquet, so no arm fetches from the network mid-sweep.
     src_raw = _FLOOR / "data" / "raw"
     if not src_raw.is_dir():
-        raise SystemExit(f"make_pf_arm: {src_raw} missing — an arm would fetch data mid-sweep")
+        raise SystemExit(f"{_TOOL}: {src_raw} missing — an arm would fetch data mid-sweep")
     shutil.copytree(src_raw, dest / "data" / "raw")
 
     hp = dest / "configs" / "config_hyperparameters.py"
@@ -241,7 +297,7 @@ def build(
     anchor = "'model': "
     if anchor not in text:
         raise SystemExit(
-            "make_pf_arm: no 'model' key to anchor the pushforward insert on — the floor config "
+            f"{_TOOL}: no 'model' key to anchor the pushforward insert on — the floor config "
             "changed shape; fix the anchor rather than guessing a location."
         )
     for key, value in (("pushforward_weight", weight), ("pushforward_detach_state", detach)):
@@ -276,7 +332,7 @@ def build(
     marker = "model_name = ModelPathManager.get_model_name_from_path(__file__)"
     if marker not in qtext:
         raise SystemExit(
-            "make_pf_arm: config_queryset.py no longer derives model_name as expected"
+            f"{_TOOL}: config_queryset.py no longer derives model_name as expected"
         )
     qs.write_text(
         qtext.replace(
@@ -289,6 +345,7 @@ def build(
         )
     )
 
+
     meta = dest / "configs" / "config_meta.py"
     mtext = meta.read_text().replace('"name": "violet_visitor"', f'"name": "{label}"')
     mtext = re.sub(
@@ -300,6 +357,10 @@ def build(
     # existing directory, so the wreckage of a rejected build would block every later attempt and
     # look like "the builder is broken" rather than "the config was wrong".
     try:
+        # Inside the cleanup deliberately: this refuses, and a refusal outside the `try`
+        # would leave `dest` with config_meta.py un-rewritten — which `run_queue.sh:114`
+        # reuses and `arm_identity_check.py:117` passes, training a mislabelled arm.
+        _strip_orphaned_import(qs)
         _verify(dest, lessons=lessons, eps=eps, seed=seed, variant=variant)
     except BaseException:
         shutil.rmtree(dest, ignore_errors=True)
@@ -315,7 +376,7 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
     expected = {k for k in _INTENDED if arm.get(k) != floor.get(k)}
     if diff != expected:
         raise SystemExit(
-            f"make_pf_arm: config differs from the floor in {sorted(diff)}, expected exactly "
+            f"{_TOOL}: config differs from the floor in {sorted(diff)}, expected exactly "
             f"{sorted(expected)}. An unintended key changed — the arm is NOT built."
         )
 
@@ -327,13 +388,13 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
     # comment or a docstring would still be present as a string and must not pass.
     if arm.get("pushforward_weight") != weight:
         raise SystemExit(
-            f"make_pf_arm: pushforward_weight is {arm.get('pushforward_weight')!r}, expected "
+            f"{_TOOL}: pushforward_weight is {arm.get('pushforward_weight')!r}, expected "
             f"{weight!r} — the insert did not take, and this arm would train WITHOUT the "
             "intervention while being scored as if it had it."
         )
     if arm.get("pushforward_detach_state") != detach:
         raise SystemExit(
-            f"make_pf_arm: pushforward_detach_state is {arm.get('pushforward_detach_state')!r}, "
+            f"{_TOOL}: pushforward_detach_state is {arm.get('pushforward_detach_state')!r}, "
             f"expected {detach!r} — this arm is on the wrong side of the state fork."
         )
     # `_process_sequence` computes the term only when the head resolves to a family. A non-family
@@ -343,13 +404,13 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
 
     if weight > 0.0 and resolve_family(arm.get("output_distribution", "")) is None:
         raise SystemExit(
-            f"make_pf_arm: output_distribution={arm.get('output_distribution')!r} is not a "
+            f"{_TOOL}: output_distribution={arm.get('output_distribution')!r} is not a "
             "distribution family, so the pushforward term is never computed — this arm would "
             "look clean and train nothing extra."
         )
     if arm.get("model") != floor.get("model"):
         raise SystemExit(
-            "make_pf_arm: model changed. Only the pushforward keys may differ — this program "
+            f"{_TOOL}: model changed. Only the pushforward keys may differ — this program "
             "varies the LOSS, and M45 is what a two-key experiment costs."
         )
 
@@ -374,13 +435,13 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
             allowed = allowed | {"total_lessons"}
         if vs_control != allowed:
             raise SystemExit(
-                f"make_pf_arm: arm differs from its control {control_dir.name} in "
+                f"{_TOOL}: arm differs from its control {control_dir.name} in "
                 f"{sorted(vs_control)}, expected exactly {sorted(allowed)}. The experiment is "
                 "NOT single-variable — the arm is NOT built."
             )
     elif lessons == 300:
         raise SystemExit(
-            f"make_pf_arm: control {control_dir} not found — a scored arm has nothing to be "
+            f"{_TOOL}: control {control_dir} not found — a scored arm has nothing to be "
             "compared against."
         )
 
@@ -453,13 +514,13 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
         # flag at all. If it were merely close, the control would itself be a weak treatment.
         if on != off:
             raise SystemExit(
-                f"make_pf_arm: the control's loss at weight 0.0 is {on}, not the {off} of a run "
+                f"{_TOOL}: the control's loss at weight 0.0 is {on}, not the {off} of a run "
                 "with no pushforward at all. Default-off is not inert, so this control is a "
                 "treatment and every contrast against it is confounded."
             )
     elif on == off:
         raise SystemExit(
-            f"make_pf_arm: pushforward_weight={weight} does not change the loss "
+            f"{_TOOL}: pushforward_weight={weight} does not change the loss "
             f"({on} == {off}). The flag reaches the config but the term is not being computed — "
             "this arm would train exactly like its control and be scored as a treatment."
         )
