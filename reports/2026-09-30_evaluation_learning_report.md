@@ -3074,6 +3074,177 @@ instruments are `AP` and the `crossing`. Adding the decomposition is an open dec
 
 ---
 
+## §9d — 2026-11-12: the top-n question has a literature, and `rho_event` has the wrong SHAPE
+
+⛔ **Additive.** Nothing in §0–§9c or the appendices is edited or removed. One claim of §9c's family
+is **withdrawn as a verdict metric** below and left standing as a diagnostic; both readings stay on
+the page.
+
+**Sources.** Four papers already in `~/brain/9_library` — `Mohler2020_CrimeRankHotspots`,
+`An2023_SpatialRankNDCG`, `Walz2026_MonotoneDependenceAUC`,
+`Lerch2017_ForecastersDilemmaExtremeEvents` — read from their extracted claim files, plus
+`Bai2023_RegressionCompatibleListwise` read in full from
+`papers/_extracted_text/`. ⚠️ The library's semantic search was **not** used: its BM25 path raises
+`sqlite3.OperationalError: no such column: k`, so every hit here came from reading the claim store
+directly. **[checked]** Code claims are from this repo at `9d8b847`+. **Zero GPU, and — unlike
+§9b/§9c — zero new instruments: this section is a literature result, not a measurement.**
+
+---
+
+### ⛔⛔ D1 — WITHDRAWN AS A VERDICT METRIC: `rho_event` is conditioned on the OUTCOME
+
+`rho_event` is Spearman on midranks between an index and truth over **event cells** — its population
+is `open_m & truth > 0`. ⇒ **It is conditioned on what was observed.**
+
+`Lerch2017_ForecastersDilemmaExtremeEvents`, claim 1, verbatim: *"Restricting forecast evaluation to
+cases with extreme observations discredits skillful forecasts and favors deliberately misspecified
+ones (the forecaster's dilemma). If evaluation is conditioned on a catastrophic event having been
+observed, always predicting calamity becomes a worthwhile strategy."* Claim 2 gives the mechanism:
+multiplying any proper score by a non-constant weight `w(y)` renders it improper, and the indicator
+`w(y) = 1{y > r}` *"produces the same ranking of competing forecasts"* as restricting the evaluation
+set. The paper also finds (claim 4, simulation) that the **proper** weighted alternatives lose power
+as the threshold rises.
+
+⇒ **What this does and does not retract:**
+
+| | |
+|---|---|
+| ⛔ **withdrawn** | `rho_event` as the quantity a ranking arm is **judged** on. Its population is selected by the truth, so an arm that over-predicts violence everywhere is not penalised by it |
+| ⭐ **stands** | `rho_event` as a **diagnostic** and as the bridge to the published figures (`+0.3127` body / `+0.4418` gate delivered; `+0.5154 ± 0.0397` teacher-forced). Those numbers are reproducible and internally consistent; the objection is to their **role**, not their arithmetic |
+| ⚠️ **unresolved** | every §9b/§9c readout restricted to the **2,905** event cell-months inherits the same shape. They were not framed as promotion criteria, so nothing is retracted — but none of them may become one |
+
+⇒ **The safe shape is a metric scored on the PREDICTED set**, i.e. on a decision the forecast makes,
+not on a subset the outcome selects. That is what D2 supplies.
+
+---
+
+### ⭐⭐ D2 — THE DECISION-RELEVANT BATTERY ALREADY EXISTS IN THE LITERATURE
+
+The operational question is *"if we name n units to watch, how often is that the right n, how good is
+the order inside it, and how big must a difference be before we can rank it at all?"* Four published
+answers, three of them on the same decision problem:
+
+| metric | question | source | shape |
+|---|---|---|---|
+| **PAI@k** — share of all events inside the **predicted** top-k cells, normalised by area | *"how much of what happens is in the n we named?"* | `Mohler2020_CrimeRankHotspots` | ⭐ prediction-conditioned ⇒ **dodges D1** |
+| **NDCG@k** | *"how good is the order **within** the top n?"* | `An2023_SpatialRankNDCG`, `Bai2023` | outcome-graded, so report-only for an arm trained on an NDCG-family loss |
+| **AUC^(α)** as a **curve over the cut point α** | *"is it easier to rank small, mid or large events?"* | `Walz2026_MonotoneDependenceAUC` Thm 2.5 | needs **no bins** — see D3 |
+| **psychometric curve** — P(correct pairwise order) against the true **log-ratio** gap | *"how big must a difference be to beat chance, and is that stable across range?"* | psychophysics (Weber); ⛔ **no application to forecast evaluation found** | a gap in the literature, not in our reading |
+
+⭐⭐ **And Mohler already measured the trade-off we would otherwise have discovered the hard way.**
+Claim 5, on four datasets: CrimeRank's *"hotspot cells contain fewer incidents than baseline methods
+in the very top ranked cells (top ~10) but significantly more incidents further down the ranking …
+PAI is sensitive to whether a cell is inside or outside the top-k set, not to the ordering within
+top-k."* ⇒ **Top-n membership and within-top-n ordering are different objectives and can move in
+opposite directions.** Optimising one is not evidence about the other, and a battery reporting only
+one is not reporting the user's question.
+
+⭐ `An2023`'s diagnosis of why count-trained models rank badly is our own WALL finding, published:
+*"Prior forecasting methods aim at minimizing average prediction error, which leads the model to
+predict zero at most sparse locations, producing rankings that are naturally inaccurate at the top."*
+It also introduces **local NDCG** over spatial neighbourhoods of radius `R`, which is the same axis as
+our own scale profile (0.391 of due structure at 1 cell, 0.870 at 32).
+
+---
+
+### ⭐⭐ D3 — THE BIN QUESTION DISSOLVES: rank correlation IS an average of AUCs over every cut
+
+`Walz2026_MonotoneDependenceAUC`, claim 4, **proven** (Thm 2.5): for a continuous outcome
+
+```
+CMA(X, Y) = 6 ∫ α(1−α) · AUC^(α)(X, Y) dα
+```
+
+where `AUC^(α)` dichotomises the outcome at its `α`-quantile. ⇒ *"CMA aggregates discrimination
+performance across all possible dichotomization thresholds."*
+
+**Three consequences for this report's battery:**
+
+1. ⭐ **"How good are we at each magnitude band" needs no bands.** It is the integrand. Report
+   `AUC^(α)` as a curve over the cut point: no edges to choose, nothing arbitrary to defend, no
+   overlapping or smoothed boundaries.
+2. ⭐ **Grade-based measures survive an arbitrary discretisation; Kendall-based ones do not.** Same
+   claim: *"AGC depends much less on the discretization level of the outcome than AKC … AGC(X,Y_k)
+   varies little with the number of levels k, whereas AKC(X,Y_k) decreases substantially."* ⇒ if bins
+   are used for **reporting**, use the grade-based form.
+3. ⭐ **It unifies what §9b/§9c treated as separate instruments.** `CMA` reduces to **AUC** for a
+   dichotomous outcome and to `(ρ+1)/2` for continuous ones; `CID` bridges AUC and Kendall's τ. Our
+   `AP`/`crossing`/`rho_event` family and the gate's AUC are points on one object. The paper also
+   proves the **perfect-monotone-predictor property**, which symmetric ρ and τ *cannot* attain on
+   non-continuous data — relevant here, where 99.6% of cells are tied at zero.
+
+⚠️ **An ordering ladder is already chosen inside our own loss.** `listwise_level_loss.py` grades truth
+by `r = ceil(log2(1 + y))` — a constant-**ratio** (×2) ladder. ⇒ Evaluating a listwise arm on that
+same ladder marks its own exam. A ratio ladder is the right *kind* (Weber: what matters is the ratio,
+not the absolute gap — 3500 vs 3544 is not the same problem as 5000 vs 1000), but the evaluation
+ladder must be chosen and declared separately from the training one.
+
+---
+
+### ⛔⛔ D4 — UNDER TEACHER FORCING THERE IS NO LEAD TIME, SO A TEACHER-FORCED HORIZON COLUMN IS A CATEGORY ERROR
+
+**[checked]** `hydranet_inference.py:1432-1437`, the in-package teacher-forced branch: *"EXP-3
+ORACLE: feed the REAL month-t input (zero exposure bias) … this is the one-step-conditioned
+ceiling."* ⇒ "teacher-forced `h18`" is **`h1` applied to a later month**: the conditioning is
+one-step either way and only the scored months differ. Corroborated by the measured absence of decay
+(`AUC` 0.99777 teacher-forced vs 0.72340 delivered, *"with no decay in horizon"*).
+
+⇒ **Three rules follow, and they bind this report:**
+
+1. A teacher-forced figure is a **one-step** figure. It may not be placed in a column headed by a
+   lead time, and three such figures side by side are three one-step numbers on different months —
+   not a horizon profile. Publishing them as one would be a fresh `C-399` instance.
+2. ⭐ The horizon axis exists **only** in the delivered autoregressive mode. Any instrument that
+   must report `t0/t17/t35` has to read delivered artifacts.
+3. ⭐ The one-step number on a later month window is still **useful** — as a *month-difficulty*
+   control. It separates "later months are harder" from "the rollout is losing ordering", which the
+   delivered decay currently confounds. Labelled as one-step, never as a lead time.
+
+⚠️ **And why teacher forcing kept appearing at all, stated as a bias rather than a finding:** it is
+the only mode that runs on a laptop in minutes — one forward pass per month, no 36-step loop, no
+draws, no pod. It was selected for **cost** and reported with figures that look like **relevance**.
+See `reports/postmortem_ranking_programme_2026-11.md` §5 class B.
+
+---
+
+### D5 — Two facts about the delivered artifacts that bear on any comparator
+
+1. ⛔ **The delivered gate exists at `h1` and `h36` ONLY.** `EXP02_MANIFEST`: *"gate endpoints: h1 and
+   h36"*; `gate_endpoints.tar.zst` holds 157 files and no `_h2`…`_h35` member, for any of the three
+   targets. The composed **draws** and the draw-mean **parquets** are complete — 36 × 64,818 × 16 per
+   origin for all three targets, stride-36 unit-major confirmed from the identifiers. ⇒ **a
+   gate-conditioned metric is restricted to two horizons; a draws-only metric is free across all 36
+   and all three targets.** That is a second, independent reason to prefer D2's battery.
+2. ❔📌 **The gate's firing set is not the emission's own mask.** At `sb`/`t0`, origin_0, τ = 0.20:
+   the posterior-mean rule fires on **308** cells, the composed draws are non-zero on **352**, and 74
+   disagree — **59 of them draws-only**, which a posterior-mean mask cannot produce. Tracked as
+   `views-hydranet#597`; per-draw vs posterior-mean gating is undetermined. Every `rho_event` figure
+   conditions on the posterior-mean rule, which is *declared*, so nothing published moves — but the
+   population may not be described as "the cells the emission fired on".
+
+⚠️ **A comparator was invalidated by a data release on the day this was written.** Cell 148759 fell
+from 273,930 to 38,637 (views-datafactory#533, fixed as a side effect of the 2026-11-12 un_crafd
+release), and it was the heaviest cell in the window — it also carries this report's own
+`lr_sb_best` maximum of **113,395** at month 504. ⇒ **the delivered `*_lander`/`*_orbiter` NB seeds
+are no longer a valid comparator for anything trained after 2026-11-12** without re-delivery. Any
+figure in §9b/§9c computed against a pull taken before that date is on materially different data in
+the single heaviest cell.
+
+---
+
+### D6 — What this section does NOT settle
+
+- ⛔ **No primary quantity is declared here.** D2 supplies candidates with their shapes; choosing one
+  is `reports/2026-11-10_ranking_head_dossier/05_analysis_plan.md` blocker 1 and it is Simon's. ⚠️
+  Naming one *after* reading these papers would be defensible; naming one after seeing its numbers
+  would not (`C-3531`).
+- ⛔ **`k` is not chosen.** In `PAI@k` it is an operational quantity — how many units a user can
+  actually watch — not a statistical one. Report the sweep whole (`C-393`).
+- ⛔ **Nothing here is measured on our own data.** D1–D4 are literature results and code readings.
+  The battery has never been computed on a HydraNet forecast.
+
+---
+
 ## Appendix A — The instrument inventory
 
 **Where the ruler lives.** ⚠️ **No forecast metric is computed anywhere in `views_hydranet/` ⛔ **CORRECTED 2026-10-20: FALSE.** `views_hydranet/utils/training_forensics.py:344,359,364` computes `average_precision_score` and `roc_auc_score`, with **AP the default** (`:32`), reachable and imported by `train/training_engine.py:38`. ⛔ **The metric this universal negative misses is this report's own primary metric.**.** The
