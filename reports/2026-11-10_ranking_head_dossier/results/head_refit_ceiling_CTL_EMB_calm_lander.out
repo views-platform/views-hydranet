@@ -1,0 +1,103 @@
+head_refit_ceiling.py — is the body's ordering limited by the EMBEDDING or by the 289
+coefficients that read it?
+
+**The question, in one line.** `HydraBNrecurrentUnet_06_LSTM4.py:642-643` ends the magnitude
+pathway with a `Conv2d(32 -> 2, 3x3)` followed only by a monotone activation, so the body's
+ordering of cells is the rank of **one linear functional of a 32-channel embedding**. Those
+coefficients were fitted by the negative binomial's log-likelihood. Nobody ever asked them to get
+the ORDER right. ⇒ Refit them against rank agreement, with the trunk frozen, and see whether the
+ordering moves.
+
+⭐ **What this can decide, and what it cannot.** It is the one-layer version of the GPU experiment:
+same embedding, different objective. If a refit beats the body, the embedding already carries
+ranking information the NB fit discards. If no refit beats it, the embedding is the ceiling **for a
+linear read of it** — which does NOT settle the real question, because a trained ranking head also
+changes the trunk that MAKES the embedding, and that is only reachable on a GPU. ⛔ Neither outcome
+is a verdict on the ranking body; `04_roadmap` phase 3's pre-commitment and `00_README` §6's kill
+rule both apply.
+
+⛔ **NO NEW ESTIMATOR.** `midrank` and `spearman` are imported from
+`../../2026-11-10_rank_coupling_verdict/tools/rank_coupling_verdict.py` — the module that published
+`+0.3127` — and `rho_event`, `_summarise`, `distinct_share` and `_fold_inputs` from
+`rho_event_readout.py`, so both sides of every comparison are literally the same function objects.
+The offset resolver is `rho_event_teacher_forced.resolve_offset`, not a reimplementation.
+
+⭐⭐ **THREE GATES, and the arm rows are refused if any fails.**
+
+* **G-1 · the control pin.** The body's own score, read through this script's own population,
+  offset and event mask, must reproduce `+0.5154 ± 0.0397` to `_TOL`. That pins the hook, the offset, the
+  month map and the firing set in one arithmetic check. ⚠️ The field here is the conv's
+  **pre-activation** output, so passing G-1 additionally PROVES the activation is rank-preserving
+  on this population — if it were not, the number would differ.
+* **G-BODY · the nesting gate.** A refit given the body's score as its ONLY predictor must return
+  the control's ρ exactly. A linear map of one predictor cannot reorder anything unless its
+  coefficient is negative, so any deviation means the fitting path is broken, not informative.
+* **G-2 · distinct values.** §0.2 of `2026-09-30_evaluation_learning_report.md`: a delivery served
+  0.0 for all 2,330,712 cells and every structural check passed. Every row's distinct share is
+  printed beside it.
+
+⛔⛔ **OUT-OF-FOLD BY DEFAULT, and the in-sample row is LABELLED A CEILING.** Coefficients are
+fitted on the fold's own six-month fit window and read on its score month — the pre-registered
+design, unchanged. The in-sample row (fit and read the same month) is reported **only** as an upper
+bound on what any linear read could reach, never as a result. Fitting 33 coefficients on ~148
+events and reading them on the same 148 would be guaranteed to "win".
+
+⛔ **The ridge sweep is reported WHOLE** (`C-393`): quoting the best lambda without the grid beside
+it is not a result.
+
+**Population, per `C-351`:** 7 folds (fixed six-month fit, one score month, months 463..469), `sb`,
+h1, truth `lr_sb_best` in raw counts, no transform. `ρ_event` is Spearman on **midranks** between
+the score and the truth over the **event cells** of the firing set — `open_m & (truth > 0)` at `τ`
+from the arm config — on the **global** 360x720 grid. Mean ± SD over the 7 folds at `ddof=1`.
+⛔ `input_mode="teacher_forced"` throughout (`C-399`): comparable to `+0.5154`, never to `+0.3127`.
+
+The regression target is the truth's midrank **within each fit month**, mapped to `(r - 0.5) / n_m`
+so that months with different event counts contribute on one scale. Features are z-scored on the
+fit window's own statistics, never the score month's.
+
+
+====================================================================================================
+  population: 7 folds, score months 463..469, fit months 457..468, sb h1,
+  firing set = DELIVERED gate >= tau 0.2 · truth in raw counts · ddof=1 · input_mode=teacher_forced
+  embedding 32 channels · fed months 450..469 · sha 4e0ab288d4d550eb… · head dec_conv4_head1_reg
+  ⭐ G-ALIGN offset -1 · anomaly r +0.827527 · margin +0.333231 ⇒ the forecast for month m is read at fed index m-1
+  1,034 event cell-months on the score months · 1,673 on the fit months
+
+  ⭐ PASS G-1 · the body's PRE-ACTIVATION score reads +0.5154 ± 0.0397 against the pin +0.5154 ± 0.0397 (|Δ| 1.01e-05 / 4.86e-05, tol 5e-05)
+     ⇒ and therefore the monotone activation is rank-preserving on this population: the pin was
+       measured post-activation and this field is pre-activation.
+
+  ⭐ PASS G-BODY · a refit on the body's score ALONE reads +0.5154 ± 0.0397, the control to 0.0e+00
+
+  OUT-OF-FOLD · fit on the fold's six-month window, read on its score month
+  index                    lambda   rho_event       SD   vs BODY   distinct   n_fit
+  BODY mu (TF) · control        —     +0.5154   0.0397   +0.0000   1.000000       —
+  GATE (TF) · context           —     +0.4470   0.0453   -0.0684   1.000000       —
+  NESTED  (mu+emb32)            0     +0.5001   0.0205   -0.0153   1.000000   5,903
+  NESTED  (mu+emb32)        0.001     +0.5001   0.0205   -0.0153   1.000000   5,903
+  NESTED  (mu+emb32)         0.01     +0.5001   0.0205   -0.0153   1.000000   5,903
+  NESTED  (mu+emb32)          0.1     +0.5000   0.0206   -0.0154   1.000000   5,903
+  NESTED  (mu+emb32)            1     +0.4999   0.0204   -0.0155   1.000000   5,903
+  NESTED  (mu+emb32)           10     +0.5006   0.0200   -0.0148   1.000000   5,903
+  NESTED  (mu+emb32)          100     +0.5015   0.0206   -0.0139   1.000000   5,903
+
+  EMB ONLY (emb32)              0     +0.4845   0.0217   -0.0309   1.000000   5,903
+  EMB ONLY (emb32)          0.001     +0.4845   0.0217   -0.0309   1.000000   5,903
+  EMB ONLY (emb32)           0.01     +0.4845   0.0217   -0.0309   1.000000   5,903
+  EMB ONLY (emb32)            0.1     +0.4844   0.0218   -0.0310   1.000000   5,903
+  EMB ONLY (emb32)              1     +0.4844   0.0219   -0.0310   1.000000   5,903
+  EMB ONLY (emb32)             10     +0.4840   0.0225   -0.0314   1.000000   5,903
+  EMB ONLY (emb32)            100     +0.4851   0.0261   -0.0303   1.000000   5,903
+
+  IN-SAMPLE CEILING · ⛔ fit and read the SAME month — an upper bound, never a result
+  NESTED  (mu+emb32)            0     +0.6378   0.0324   +0.1224   1.000000   1,034
+  EMB ONLY (emb32)              0     +0.6224   0.0329   +0.1070   1.000000   1,034
+
+  ⇒ best out-of-fold per feature set, with the paired per-fold gap against the body
+  NESTED  (mu+emb32)     lambda 100      rho +0.5015 ± 0.0206 · paired gap -0.0139 ± 0.0323 (ddof=1) · 3/7 folds better
+  EMB ONLY (emb32)       lambda 100      rho +0.4851 ± 0.0261 · paired gap -0.0303 ± 0.0430 (ddof=1) · 2/7 folds better
+
+  ⛔ INSTRUMENT READING, not a verdict. A refit that loses rules out only the CHEAP half of the
+     question: the trunk that MAKES the embedding is unchanged here, and changing it needs a GPU.
+
+  30.3s

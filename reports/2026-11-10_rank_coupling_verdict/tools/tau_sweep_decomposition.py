@@ -226,8 +226,8 @@ def load_folds() -> tuple[list[Fold], float]:
     for more than one fold (``PREREG.md`` §0.3: the disk and the box are both near their limit).
     """
     grid, _cells, m0 = e1_data.truth_grid()
-    gates = {mo: g for (g, _u, mo) in e1_data.load_gate_h1().values()}
-    draws = {mo: d for (d, _u, mo) in e1_data.load_draws_h1().values()}
+    gates = {mo: g for (g, _u, mo) in e1_data.load_gate_t0().values()}
+    draws = {mo: d for (d, _u, mo) in e1_data.load_draws_t0().values()}
 
     folds, tmax = [], 0.0
     for fit_months, score_month in e1_data.FOLDS:

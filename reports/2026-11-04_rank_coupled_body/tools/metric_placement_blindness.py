@@ -185,7 +185,7 @@ def main() -> None:
     print("=" * 100)
 
     grid, cells, m0 = e1_data.truth_grid()
-    gate = e1_data.load_gate_h1()
+    gate = e1_data.load_gate_t0()
     folds = e1_data.FOLDS
     print(
         f"\n  {len(folds)} folds, R={R} samples per arm, {N_PAIRS:,} cell pairs for the variogram"

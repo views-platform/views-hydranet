@@ -140,8 +140,8 @@ def main() -> None:
 
     tau = arm_config.resolve_tau()
     grid, _cells, m0 = e1_data.truth_grid()
-    gates = e1_data.load_gate_h1()
-    draws = e1_data.load_draws_h1()
+    gates = e1_data.load_gate_t0()
+    draws = e1_data.load_draws_t0()
     by_month_gate = {mo: g for (g, _u, mo) in gates.values()}
     by_month_draws = {mo: d for (d, _u, mo) in draws.values()}
     print(f"  tau = {tau} (read from the arm config, S4 #583); S = {e1_data.N_DRAWS}; "

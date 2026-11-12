@@ -233,7 +233,7 @@ def main() -> None:
     print("=" * 110)
     print(
         f"  arm {e1_data.ARM}  target {e1_data.TARGET}  h1  months "
-        f"{e1_data.H1_MONTHS[0]}..{e1_data.H1_MONTHS[-1]}"
+        f"{e1_data.T0_MONTHS[0]}..{e1_data.T0_MONTHS[-1]}"
     )
     print("  ⛔ DELIVERED AUTOREGRESSIVE. Truth lr_sb_best, RAW COUNTS, no transform.")
     print("  ⛔ Binned by PREDICTION ONLY. G-M1 enforces it.")
@@ -241,8 +241,8 @@ def main() -> None:
     print("     calibration inference. The clean column is `ratio`.")
 
     grid, cells, m0 = e1_data.truth_grid()
-    gate = e1_data.load_gate_h1()
-    draws = e1_data.load_draws_h1()
+    gate = e1_data.load_gate_t0()
+    draws = e1_data.load_draws_t0()
 
     ok0, ap, d0 = e1_data.gate_0_ap_copy(gate, grid, cells, m0)
     print(

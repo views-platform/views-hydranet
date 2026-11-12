@@ -182,8 +182,8 @@ def main() -> None:
     print(f"\n  truth: {grid.shape[0]} months x {grid.shape[1]} cells, max {grid.max():.0f}")
     assert grid.max() > 1000, "⛔ raw counts expected; a transform would compress the maximum"
 
-    gates = e1_data.load_gate_h1()
-    draws = e1_data.load_draws_h1()
+    gates = e1_data.load_gate_t0()
+    draws = e1_data.load_draws_t0()
     by_month_gate = {mo: g for (g, _u, mo) in gates.values()}
     by_month_draws = {mo: d for (d, _u, mo) in draws.values()}
     n_cells = e1_data.N_CELLS

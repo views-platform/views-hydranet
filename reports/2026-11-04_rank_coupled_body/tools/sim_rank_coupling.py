@@ -108,7 +108,7 @@ def recovered_yhat(month: int) -> np.ndarray:
     arm_dir, arms = e1_data.arm_dir, e1_data.arm_directories()
     delivery = arm_dir(e1_data.ARM, arms=arms) / e1_data.DELIVERY
     src = sorted((delivery / "draws").glob("*_lr.tar.zst"))[0]
-    origin = month - e1_data.H1_MONTHS[0]
+    origin = month - e1_data.T0_MONTHS[0]
     with tempfile.TemporaryDirectory(prefix="e2_draws_") as td:
         subprocess.run(
             [
@@ -174,7 +174,7 @@ def main() -> None:
     print("=" * 100)
 
     grid, cells, m0 = e1_data.truth_grid()
-    gate = e1_data.load_gate_h1()
+    gate = e1_data.load_gate_t0()
     o = [k for k in gate if gate[k][2] == SCORE][0]
     pi = gate[o][0]
     truth = grid[SCORE - m0]

@@ -102,8 +102,8 @@ def distinct_share(x: np.ndarray) -> float:
 def _fold_inputs():
     """-> per fold: (score_month, truth, open_m, event_m, gate, draws). One pass, cached by e1."""
     grid, cells, m0 = e1_data.truth_grid()
-    gates = {mo: g for (g, _u, mo) in e1_data.load_gate_h1().values()}
-    draws = {mo: d for (d, _u, mo) in e1_data.load_draws_h1().values()}
+    gates = {mo: g for (g, _u, mo) in e1_data.load_gate_t0().values()}
+    draws = {mo: d for (d, _u, mo) in e1_data.load_draws_t0().values()}
     tau = arm_config.resolve_tau()
     out = []
     for _fit, score_month in e1_data.FOLDS:

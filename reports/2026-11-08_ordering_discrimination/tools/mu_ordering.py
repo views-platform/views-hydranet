@@ -173,7 +173,7 @@ def main(argv: list[str]) -> int:
 
     # ---- the delivered gate and the truth, from the committed loaders
     t0 = time.perf_counter()
-    gate_del = e1_data.load_gate_h1()
+    gate_del = e1_data.load_gate_t0()
     grid, cells, m0 = e1_data.truth_grid()
     out(f"\n  delivered gate: {len(gate_del)} origins · truth grid {grid.shape} from month {m0}")
     out(f"  (loaders took {time.perf_counter() - t0:.1f} s)")

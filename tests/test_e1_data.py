@@ -67,13 +67,13 @@ def _toy(n_cells: int = 40, n_origins: int = 3, n_draws: int = 4):
 
 
 def _align_months(monkeypatch, gate):
-    """Point H1_MONTHS at the toy's own months, so G-5's month-set precondition is satisfied.
+    """Point T0_MONTHS at the toy's own months, so G-5's month-set precondition is satisfied.
 
     ⭐ The precondition itself is tested directly by
     ``test_gate_5_FIRES_when_the_loaded_months_are_not_the_expected_set``; here it is satisfied so
     the per-origin array checks are reachable at all.
     """
-    monkeypatch.setattr(e1_data, "H1_MONTHS", tuple(sorted(m for _, _, m in gate.values())))
+    monkeypatch.setattr(e1_data, "T0_MONTHS", tuple(sorted(m for _, _, m in gate.values())))
 
 
 # ── G-0 · the copy gate ──────────────────────────────────────────────────────────────────────
@@ -247,7 +247,7 @@ def test_gate_5_FIRES_when_the_loaded_months_are_not_the_expected_set(monkeypatc
     """
     gate, draws, _grid, cells, _m0 = _toy()
     monkeypatch.setattr(
-        e1_data, "H1_MONTHS", tuple(m + 1 for m in sorted(m for _, _, m in gate.values()))
+        e1_data, "T0_MONTHS", tuple(m + 1 for m in sorted(m for _, _, m in gate.values()))
     )
     with pytest.raises(SystemExit, match="not the expected"):
         e1_data.gate_5_alignment(gate, draws, cells)
@@ -270,9 +270,9 @@ def test_gate_4_is_labelled_a_construction_gate_not_evidence_about_the_analysis(
 
 def test_gate_8_passes_on_a_grid_built_to_the_expected_figures(monkeypatch):
     """Non-vacuity, with the expectations moved to the toy's own scale."""
-    n_months, n_cells = len(e1_data.H1_MONTHS), 10
-    grid = np.zeros((max(e1_data.H1_MONTHS) + 1 - 400, n_cells), np.float64)
-    rows = np.array(e1_data.H1_MONTHS) - 400
+    n_months, n_cells = len(e1_data.T0_MONTHS), 10
+    grid = np.zeros((max(e1_data.T0_MONTHS) + 1 - 400, n_cells), np.float64)
+    rows = np.array(e1_data.T0_MONTHS) - 400
     grid[rows[0], 0] = 7.0
     grid[rows[1], 1] = 3.0
     monkeypatch.setattr(e1_data, "G8_CELL_MONTHS", n_months * n_cells)
@@ -286,20 +286,20 @@ def test_gate_8_passes_on_a_grid_built_to_the_expected_figures(monkeypatch):
 def test_gate_8_FIRES_on_a_wrong_event_count(monkeypatch):
     """⛔ A truth column that is not the one the record describes must be refused."""
     n_cells = 10
-    grid = np.zeros((max(e1_data.H1_MONTHS) + 1 - 400, n_cells), np.float64)
-    grid[np.array(e1_data.H1_MONTHS) - 400, 0] = 1.0  # one event in EVERY month, not 2 in total
-    monkeypatch.setattr(e1_data, "G8_CELL_MONTHS", len(e1_data.H1_MONTHS) * n_cells)
+    grid = np.zeros((max(e1_data.T0_MONTHS) + 1 - 400, n_cells), np.float64)
+    grid[np.array(e1_data.T0_MONTHS) - 400, 0] = 1.0  # one event in EVERY month, not 2 in total
+    monkeypatch.setattr(e1_data, "G8_CELL_MONTHS", len(e1_data.T0_MONTHS) * n_cells)
     monkeypatch.setattr(e1_data, "G8_EVENTS", 2)
     monkeypatch.setattr(e1_data, "G8_MAX", 7.0)
     ok, _n, ev, _mx = e1_data.gate_8_structural(grid, 400)
     assert not ok, "G-8 accepted a grid with the wrong event count"
-    assert ev == len(e1_data.H1_MONTHS)
+    assert ev == len(e1_data.T0_MONTHS)
 
 
 def test_gate_8_reads_the_h1_months_and_not_the_whole_grid():
     """⛔ The structural gate must be scoped to 457..469, or it would pass on h36's months too."""
-    assert e1_data.H1_MONTHS == tuple(range(457, 470))
-    assert 504 not in e1_data.H1_MONTHS, (
+    assert e1_data.T0_MONTHS == tuple(range(457, 470))
+    assert 504 not in e1_data.T0_MONTHS, (
         "month 504 carries the 113,395-fatality summary-event assignment and must never enter an "
         "h1 population (PREREG.md section 6, device 2)"
     )

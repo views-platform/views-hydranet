@@ -349,8 +349,8 @@ def _agg(vals: list[float]) -> tuple[float, float]:
 def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int, cache: dict) -> dict:
     """-> ``{index name: {target: (crossing, support)}}`` for ONE seed. ⛔ Never reported alone."""
     with pnf._as_arm(arm):
-        gate = e1_data.load_gate_h1()
-        draws_by_origin = e1_data.load_draws_h1()
+        gate = e1_data.load_gate_t0()
+        draws_by_origin = e1_data.load_draws_t0()
 
     ok5, bad5 = e1_data.gate_5_alignment(gate, draws_by_origin, cells)
     if not ok5:

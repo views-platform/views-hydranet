@@ -235,8 +235,8 @@ def gate_c4_reconstructs(draws: np.ndarray) -> tuple[bool, float]:
 def summarise(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict[int, list[dict]]:
     """-> ``{B: [one row per bin]}`` for ONE seed. ⛔ Never printed alone; see G-C2."""
     with pnf._as_arm(arm):
-        gate = e1_data.load_gate_h1()
-        draws = e1_data.load_draws_h1()
+        gate = e1_data.load_gate_t0()
+        draws = e1_data.load_draws_t0()
     origins = sorted(gate)
 
     y_bin = np.concatenate(

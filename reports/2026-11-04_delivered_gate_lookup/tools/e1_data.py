@@ -1,5 +1,12 @@
 """E-1 loader — the delivered gate at h1, the truth, and the emission's own draws, ALIGNED.
 
+⚠️ **NAMING, after the 2026-11-12 rename.** The loaders are `load_gate_t0` / `load_draws_t0`
+and the window is `T0_MONTHS`, because **reports are 0-based (`t0` is the first forecast
+month)** while the platform contract is a **1-based LEAD TIME** (`step` / `h`): `month =
+origin + step`, so `t_k == step_(k+1) == h(k+1)` and this module serves `t0 == step 1 == h1`.
+Prose below that still says `h1` is correct — it is naming the lead time, not an index.
+See `reports/KNOWNS_AND_REPORTING_RULES.md` §A3.
+
 Epic #559, story #563. Pre-registration: ``PREREG.md``, committed 2026-11-04 before this file
 existed (``D-5``).
 
@@ -100,9 +107,9 @@ N_HORIZONS = 36
 #: The pre-registered rolling design: fixed six-month fit, one score month, 7 folds.
 #: ⭐ FIXED length and not expanding, so fit-window length never confounds which month is scored.
 FIT_LEN = 6
-H1_MONTHS = tuple(range(457, 470))  # origin_0..origin_12 at h1
+T0_MONTHS = tuple(range(457, 470))  # origin_0..origin_12 at h1
 FOLDS = tuple(
-    (tuple(range(m - FIT_LEN, m)), m) for m in range(H1_MONTHS[0] + FIT_LEN, H1_MONTHS[-1] + 1)
+    (tuple(range(m - FIT_LEN, m)), m) for m in range(T0_MONTHS[0] + FIT_LEN, T0_MONTHS[-1] + 1)
 )
 
 #: G-0's anchor, read from the committed artifact at import time rather than typed in.
@@ -164,10 +171,10 @@ def truth_grid() -> tuple[np.ndarray, np.ndarray, int]:
     #: ⛔ Every later read is `grid[month - m0]`. If the pull were ever re-scoped to the
     #: calibration window — which its own filename invites — `457 - m0` would go NEGATIVE and
     #: NumPy would silently return rows from the END of the grid instead of raising. Refuse.
-    if not (m0 <= H1_MONTHS[0] and int(mo.max()) >= H1_MONTHS[-1]):
+    if not (m0 <= T0_MONTHS[0] and int(mo.max()) >= T0_MONTHS[-1]):
         raise SystemExit(
             f"e1_data: the pull covers months {m0}..{int(mo.max())}, which does not contain "
-            f"the h1 window {H1_MONTHS[0]}..{H1_MONTHS[-1]}. Every `grid[month - m0]` read "
+            f"the h1 window {T0_MONTHS[0]}..{T0_MONTHS[-1]}. Every `grid[month - m0]` read "
             f"would be out of range, and a negative index wraps silently rather than raising."
         )
     grid = np.zeros((int(mo.max()) - m0 + 1, cells.size), np.float64)
@@ -175,7 +182,7 @@ def truth_grid() -> tuple[np.ndarray, np.ndarray, int]:
     return grid, cells, m0
 
 
-def load_gate_h1() -> dict[int, tuple[np.ndarray, np.ndarray, int]]:
+def load_gate_t0() -> dict[int, tuple[np.ndarray, np.ndarray, int]]:
     """-> ``{origin: (gate_mean[N_CELLS], units, month)}`` at h1.
 
     ⛔ Extraction is scoped to ``*/by_sb_best/*_h1.*``, which writes **only** the two h1 arrays
@@ -219,7 +226,7 @@ def load_gate_h1() -> dict[int, tuple[np.ndarray, np.ndarray, int]]:
     return out
 
 
-def load_draws_h1() -> dict[int, tuple[np.ndarray, np.ndarray, int]]:
+def load_draws_t0() -> dict[int, tuple[np.ndarray, np.ndarray, int]]:
     """-> ``{origin: (draws[N_CELLS, N_DRAWS], units, month)}`` for the DELIVERED emission at h1.
 
     ⛔ Streams ONE origin at a time and deletes each extracted array before the next, because every
@@ -337,11 +344,11 @@ def gate_5_alignment(
 
       * the key sets are now a **precondition**. ``gate``'s keys are parsed from archive directory
         names and ``draws``' are ``range(N_ORIGINS)``, so a 1-indexed archive passed the origin
-        COUNT check in ``load_gate_h1`` and then raised a bare ``KeyError`` *inside* this gate — a
+        COUNT check in ``load_gate_t0`` and then raised a bare ``KeyError`` *inside* this gate — a
         traceback instead of the reportable refusal the gate contract promises.
-      * the loaded months are now checked against ``H1_MONTHS``. Previously nothing joined the two
+      * the loaded months are now checked against ``T0_MONTHS``. Previously nothing joined the two
         halves: this gate checked gate-month == draws-month per origin, and ``gate_8_structural``
-        read the truth at the hardcoded ``H1_MONTHS`` regardless of what was loaded. A re-delivery
+        read the truth at the hardcoded ``T0_MONTHS`` regardless of what was loaded. A re-delivery
         starting at 458 would have passed **both** while the printed event count described a month
         set that was not the one in hand.
     """
@@ -351,10 +358,10 @@ def gate_5_alignment(
             f"{sorted(draws)}. Alignment is undefined across different origin sets."
         )
     loaded = sorted(m for _, _, m in gate.values())
-    if loaded != list(H1_MONTHS):
+    if loaded != list(T0_MONTHS):
         raise SystemExit(
             f"e1_data: G-5 — the loaded origins cover months {loaded}, not the expected "
-            f"{list(H1_MONTHS)}. G-8 reads the truth at the expected months regardless, so every "
+            f"{list(T0_MONTHS)}. G-8 reads the truth at the expected months regardless, so every "
             f"reported count would describe a different population from the one loaded."
         )
     bad = [
@@ -371,7 +378,7 @@ def gate_5_alignment(
 
 def gate_8_structural(grid: np.ndarray, m0: int) -> tuple[bool, int, int, float]:
     """-> (passed, cell-months, events, max). Recomputed from the pull, not quoted."""
-    rows = grid[np.array(H1_MONTHS) - m0, :]
+    rows = grid[np.array(T0_MONTHS) - m0, :]
     n, ev, mx = int(rows.size), int((rows > 0).sum()), float(rows.max())
     return (n == G8_CELL_MONTHS and ev == G8_EVENTS and mx == G8_MAX), n, ev, mx
 
@@ -380,8 +387,8 @@ def run_gates() -> dict[str, object]:
     """Load everything, run every gate, print the block, and refuse on G-0."""
     t0 = time.time()
     grid, cells, m0 = truth_grid()
-    gate = load_gate_h1()
-    draws = load_draws_h1()
+    gate = load_gate_t0()
+    draws = load_draws_t0()
 
     ok0, ap, d0 = gate_0_ap_copy(gate, grid, cells, m0)
     ok4, sizes = gate_4_leakage()

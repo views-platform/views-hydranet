@@ -100,7 +100,7 @@ def resolve_offset(gate: np.ndarray, months: list[int]) -> int:
     ⛔ Raises `SystemExit` unless exactly one candidate resolves at `gate_alignment`'s own
     thresholds. Those thresholds are imported, not restated, so the two instruments cannot drift.
     """
-    delivered = {mo: g for (g, _u, mo) in e1_data.load_gate_h1().values()}
+    delivered = {mo: g for (g, _u, mo) in e1_data.load_gate_t0().values()}
     rows = []
     for off in OFFSETS:
         pairs = [(months.index(dm + off), dm) for dm in sorted(delivered) if dm + off in months]

@@ -750,8 +750,8 @@ def verdict(conc: float, sd: float, floor: float, n_pairs: int) -> str:
 def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int, cache: dict) -> dict:
     """-> rows, level-split rows, floor and Simon's band matrix for ONE seed. ⛔ Never alone."""
     with pnf._as_arm(arm):
-        gate = e1_data.load_gate_h1()
-        draws_by_origin = e1_data.load_draws_h1()
+        gate = e1_data.load_gate_t0()
+        draws_by_origin = e1_data.load_draws_t0()
 
     #: ⛔⛔ ``G-P5``, BEFORE the forecast and the truth are paired. Nothing downstream can see a
     #: mis-pairing: every statistic here is computed from the joined arrays and is internally

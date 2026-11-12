@@ -8,7 +8,7 @@ answers.
 
 ⭐ So the offset is fixed **BY MEASUREMENT, not by reading the code.** `score_on_the_grid.py`
 collects the **gate** on every run whatever `--channel` asked for, and the **delivered** gate at h1
-is on disk for all 13 origins (`e1_data.load_gate_h1`). This sweeps the candidate offsets and
+is on disk for all 13 origins (`e1_data.load_gate_t0`). This sweeps the candidate offsets and
 requires **exactly one** to resolve. ⛔ If none does, or more than one does, the dumped field is
 not trustworthy and nothing may be read off it.
 
@@ -88,7 +88,7 @@ def main() -> int:
         )
         return 1
 
-    delivered = {mo: g for (g, _u, mo) in e1_data.load_gate_h1().values()}
+    delivered = {mo: g for (g, _u, mo) in e1_data.load_gate_t0().values()}
     dmonths = sorted(delivered)
     print(f"  delivered gate on disk: {len(dmonths)} origins, months {dmonths[0]}..{dmonths[-1]}")
 

@@ -182,8 +182,8 @@ def load_arm(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict[str
     96% (#448).
     """
     with pnf._as_arm(arm):
-        gate = e1_data.load_gate_h1()
-        draws = e1_data.load_draws_h1()
+        gate = e1_data.load_gate_t0()
+        draws = e1_data.load_draws_t0()
     origins = sorted(gate)
     y_bin = np.concatenate(
         [

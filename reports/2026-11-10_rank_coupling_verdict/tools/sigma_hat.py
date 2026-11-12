@@ -83,8 +83,8 @@ def arm_within_b_gap(arm: str, tau: float, grid: np.ndarray, m0: int) -> tuple[f
     previous = e1_data.ARM
     try:
         e1_data.ARM = arm
-        gates = {mo: g for (g, _u, mo) in e1_data.load_gate_h1().values()}
-        draws = {mo: d for (d, _u, mo) in e1_data.load_draws_h1().values()}
+        gates = {mo: g for (g, _u, mo) in e1_data.load_gate_t0().values()}
+        draws = {mo: d for (d, _u, mo) in e1_data.load_draws_t0().values()}
     finally:
         e1_data.ARM = previous
 

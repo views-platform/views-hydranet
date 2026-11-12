@@ -417,8 +417,8 @@ def verdict(conc: float, sd: float, floor: float, n_pairs: int) -> str:
 def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict:
     """-> ``{scheme: {band index: row}}`` for ONE seed. ⛔ Never printed alone; see ``G-C2``."""
     with pnf._as_arm(arm):
-        gate = e1_data.load_gate_h1()
-        draws_by_origin = e1_data.load_draws_h1()
+        gate = e1_data.load_gate_t0()
+        draws_by_origin = e1_data.load_draws_t0()
     origins = sorted(gate)
 
     obs_all = np.concatenate(

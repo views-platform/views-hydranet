@@ -101,7 +101,7 @@ def gate_t1_tigray_is_outside(
     ci = int(np.searchsorted(cells, TIGRAY_CELL))
     if cells[ci] != TIGRAY_CELL:
         raise SystemExit(f"top_event_influence: priogrid {TIGRAY_CELL} is not in the pull at all.")
-    inside = float(grid[np.array(e1_data.H1_MONTHS) - m0, ci].sum())
+    inside = float(grid[np.array(e1_data.T0_MONTHS) - m0, ci].sum())
     at504 = float(grid[TIGRAY_MONTH - m0, ci])
     return (inside == 0.0 and at504 == TIGRAY_VALUE), inside, at504
 
@@ -128,8 +128,8 @@ def main() -> None:
     print("     probe, NEVER a remedy -- see the docstring on Vesco et al. and Weidmann 2015.")
 
     grid, cells, m0 = e1_data.truth_grid()
-    gate = e1_data.load_gate_h1()
-    draws = e1_data.load_draws_h1()
+    gate = e1_data.load_gate_t0()
+    draws = e1_data.load_draws_t0()
 
     ok0, ap, d0 = e1_data.gate_0_ap_copy(gate, grid, cells, m0)
     print(f"\n  {'PASS' if ok0 else '⛔ FAIL'}  G-0  ap {ap:.16f}  |delta| {d0:.3e}")
@@ -149,7 +149,7 @@ def main() -> None:
         f"        ⇒ its influence on every conditional-magnitude number is EXACTLY {inside:,.0f}"
     )
 
-    W = np.array(e1_data.H1_MONTHS)
+    W = np.array(e1_data.T0_MONTHS)
     rows = grid[W - m0, :]
     flat = rows.ravel()
     order = np.argsort(flat)[::-1][: max(K_SWEEP + (TOP_N_INSPECT,))]

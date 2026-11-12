@@ -261,8 +261,8 @@ def score_arm(
 ) -> dict:
     """-> one arm on all four axes. Loads, measures, discards. ⛔ Never reported alone."""
     with pnf._as_arm(arm):
-        gate = e1_data.load_gate_h1()
-        draws_by_origin = e1_data.load_draws_h1()
+        gate = e1_data.load_gate_t0()
+        draws_by_origin = e1_data.load_draws_t0()
     if e1_data.ARM != _E1_DEFAULT_ARM:
         raise SystemExit(
             f"⛔ F37: e1_data.ARM was left as {e1_data.ARM!r} after loading {arm}; the next arm "

@@ -563,8 +563,8 @@ def mcb_null(n_k: np.ndarray, levels: int, rng: np.random.Generator) -> tuple[fl
 def profile_seed(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict[float, dict]:
     """-> ``{threshold: parts}`` for ONE seed. ⛔ Never printed alone; see ``G-C2``."""
     with pnf._as_arm(arm):
-        gate = e1_data.load_gate_h1()
-        draws_by_origin = e1_data.load_draws_h1()
+        gate = e1_data.load_gate_t0()
+        draws_by_origin = e1_data.load_draws_t0()
 
     #: ⛔⛔ BEFORE anything is paired. ``G-R1`` cannot see a mis-paired forecast and truth and is
     #: no longer credited with it; this is where that is caught.

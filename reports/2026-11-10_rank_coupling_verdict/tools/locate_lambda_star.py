@@ -140,8 +140,8 @@ def main() -> None:
     print(f"  tau = {tau}, read from the arm config; R = {R}; lambda grid = {len(LAMS)} points")
 
     grid, _cells, m0 = e1_data.truth_grid()
-    gates = {mo: g for (g, _u, mo) in e1_data.load_gate_h1().values()}
-    draws = {mo: d for (d, _u, mo) in e1_data.load_draws_h1().values()}
+    gates = {mo: g for (g, _u, mo) in e1_data.load_gate_t0().values()}
+    draws = {mo: d for (d, _u, mo) in e1_data.load_draws_t0().values()}
 
     # ── build every arm's per-fold score in one pass over the folds
     arm_names = ([f"lam={lam:.2f}" for lam in LAMS]

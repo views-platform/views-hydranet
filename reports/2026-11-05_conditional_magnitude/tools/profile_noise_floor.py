@@ -202,8 +202,8 @@ def _as_arm(arm: str):
 def profile(arm: str, grid: np.ndarray, cells: np.ndarray, m0: int) -> dict[str, object]:
     """-> one arm's AP and its ratio profile at each reported B. Loads, measures, discards."""
     with _as_arm(arm):
-        gate = e1_data.load_gate_h1()
-        draws = e1_data.load_draws_h1()
+        gate = e1_data.load_gate_t0()
+        draws = e1_data.load_draws_t0()
     if e1_data.ARM != _ORIGINAL_ARM:
         raise SystemExit(f"⛔ G-N1: e1_data.ARM was left as {e1_data.ARM!r} after loading {arm}.")
 
