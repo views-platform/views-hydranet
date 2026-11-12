@@ -134,9 +134,12 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
     # ⛔ Nothing has been trained with it. Reachable only by naming it in `loss_reg`.
     "listwise_level": {
         "cls": ListwiseLevelLoss,
-        "params": ["loss_reg_y_max"],
+        "params": ["loss_reg_y_max", "loss_reg_listwise_transform"],
         "factory": lambda config, device: ListwiseLevelLoss(
             y_max=config["loss_reg_y_max"],
+            # .get with the schema's own default, unlike y_max above: this field HAS a default, so
+            # a pre-schema raw dict that omits it must get the shipped objective, not a KeyError.
+            transform=config.get("loss_reg_listwise_transform", "exp"),
         ).to(device),
     },
     # Dense NB body (C-168 sharpness experiment): plain NB NLL on ALL cells (zeros supervised).

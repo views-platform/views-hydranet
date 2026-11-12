@@ -212,6 +212,12 @@ class HydraNetConfig(BaseModel):
     # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
     # the field fails the schema instead of riding on extra="allow" (the W-22 trap).
     loss_reg_y_max: float | None = Field(default=None, ge=1.0)
+    # Ranking body (loss_reg='listwise_level'): the normalising transformation T of the listwise
+    # objective (Bai 2023 Def. 1). 'exp' is Zhu's softmax form, translation-invariant; 'softplus'
+    # shares a global minimum with the negative-binomial mean map (Bai 2023 Prop. 2).
+    # ⛔ The default must stay 'exp': it is byte-identical to the shipped objective, so no existing
+    # config changes behaviour. listwise_level_loss.TRANSFORMS is the authority on the set.
+    loss_reg_listwise_transform: str = Field(default="exp")
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
@@ -795,6 +801,21 @@ class HydraNetConfig(BaseModel):
         vals = v if isinstance(v, list) else [v]
         if any(x is None or x <= 0 for x in vals):
             err_msg = f"loss_class_pos_weight values must be > 0; got {v}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("loss_reg_listwise_transform")
+    @classmethod
+    def validate_loss_reg_listwise_transform(cls, v: str) -> str:
+        # Imported inside the validator so the schema module keeps no import-time dependency on
+        # a loss module, and so the accepted set is declared in exactly one place.
+        from views_hydranet.utils.listwise_level_loss import TRANSFORMS
+
+        if v not in TRANSFORMS:
+            err_msg = (
+                f"loss_reg_listwise_transform='{v}' is not valid. Expected one of {TRANSFORMS}."
+            )
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
