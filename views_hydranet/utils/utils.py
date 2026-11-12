@@ -11,6 +11,7 @@ from views_hydranet.architectures.registry import get_architecture
 from views_hydranet.utils.count_mean_loss import CountMeanMSELoss
 from views_hydranet.utils.dense_nb_loss import DenseNBLoss
 from views_hydranet.utils.focal_loss import FocalLoss
+from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
 from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.pareto_loss import ParetoLoss
@@ -125,6 +126,18 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "factory": lambda config, device: QuantileLoss(midpoint_levels(config["n_quantiles"])).to(
             device
         ),
+    },
+    # Ranking body (#578, 2026-11-10_ranking_head_dossier 04 phase 1): the FIRST listwise entry
+    # here — its value depends on the relative order of the 1,024-cell patch-month, not on any
+    # cell alone. Level-indexed (Zhu & Klabjan 2020 Eq. 2) on dyadic rating levels
+    # r = ceil(log2(1+y)); `loss_reg_y_max` declares the level set a priori (C-423).
+    # ⛔ Nothing has been trained with it. Reachable only by naming it in `loss_reg`.
+    "listwise_level": {
+        "cls": ListwiseLevelLoss,
+        "params": ["loss_reg_y_max"],
+        "factory": lambda config, device: ListwiseLevelLoss(
+            y_max=config["loss_reg_y_max"],
+        ).to(device),
     },
     # Dense NB body (C-168 sharpness experiment): plain NB NLL on ALL cells (zeros supervised).
     # Per-target instances built in choose_loss() so each θ reaches the optimizer.
