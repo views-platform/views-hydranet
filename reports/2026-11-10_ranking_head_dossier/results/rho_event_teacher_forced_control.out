@@ -1,8 +1,7 @@
-  CONTROL
-  score_grid_CONTROL_MU_v20261012.npz · channel=mu · input_mode=teacher_forced · 49 fed months
-  ⭐ G-ALIGN offset -1 · anomaly r +0.828477 · margin +0.326949 ⇒ the forecast for month m is read at fed index m-1
+  score_grid_CONTROL_MU_calm_lander.npz · channel=mu · input_mode=teacher_forced · 49 fed months
+  ⭐ G-ALIGN offset -1 · anomaly r +0.827527 · margin +0.333231 ⇒ the forecast for month m is read at fed index m-1
 
-  ⭐ PASS G-1 · control +0.5189 ± 0.0473 against the pin +0.5189 ± 0.0473 (|Δ| 4.39e-06 / 2.87e-06, tol 5e-05)
+  ⭐ PASS G-1 · control +0.5154 ± 0.0397 against the pin +0.5154 ± 0.0397 (|Δ| 1.01e-05 / 4.86e-05, tol 5e-05)
 
   index              rho_event        SD    distinct
-  BODY mu (TF)         +0.5189    0.0473    1.000000
+  BODY mu (TF)         +0.5154    0.0397    1.000000

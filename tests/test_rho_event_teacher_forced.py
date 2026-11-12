@@ -149,8 +149,9 @@ def test_the_teacher_forced_control_is_pinned_and_is_not_the_delivered_anchor(tf
     """⭐⭐ The pin must be set, and must NOT be the delivered figure.
 
     ⚠️ `+0.3127` is the body's **delivered autoregressive** `ρ_event`. The teacher-forced control
-    measures `+0.5189` on the same weights, and the `+0.2062` difference is the `C-399` carry and
-    the `C-317` checkpoint identity together. Pasting the delivered number in here would silently
+    measures `+0.5154` (`calm_lander`, the arm's matched control) and `+0.5189` (`violet_visitor`,
+    corroboration); the ~`+0.20` difference is the `C-399` carry and `C-317` together.
+    Pasting the delivered number in here would silently
     lower an arm's bar by that whole amount, which is the single most expensive mistake available
     in this table.
     """
@@ -158,9 +159,10 @@ def test_the_teacher_forced_control_is_pinned_and_is_not_the_delivered_anchor(tf
     assert tf._ANCHOR_TF_MU is not None, (
         "the pin is unset, so the tool will print a control it has not verified and refuse arms"
     )
-    assert tf._ANCHOR_TF_MU == pytest.approx(0.5189), (
-        "the pinned teacher-forced control moved; it was measured at +0.5189 on "
-        "score_grid_CONTROL_MU_v20261012.npz and may only change WITH a re-measurement"
+    assert tf._ANCHOR_TF_MU == pytest.approx(0.5154), (
+        "the pinned teacher-forced control moved; it was measured at +0.5154 on "
+        "score_grid_CONTROL_MU_calm_lander.npz -- the MATCHED control for the eager_sorter arm -- "
+        "and may only change WITH a re-measurement"
     )
     assert tf._ANCHOR_TF_MU != readout._ANCHOR_BODY, (
         "the teacher-forced pin equals the DELIVERED anchor +0.3127 — the two are different "

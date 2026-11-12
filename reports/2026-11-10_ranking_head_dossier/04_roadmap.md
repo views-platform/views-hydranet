@@ -311,7 +311,133 @@ directions are distinguishable on this design's months.
 ⇒ Noted, not fixed: `mu_ordering.py`'s own sentence is in the `2026-11-08_ordering_discrimination`
 dossier and its code is correct; this dossier does not edit another's tool.
 
-⇒ **What remains for phase 3 is a trained ranking arm** — the dump, the alignment gate, the cell
+#### ⭐⭐⭐ THE CONTROL IS ALREADY TRAINED · 2026-11-11 · only the ARM needs a GPU
+
+A stored fact was **wrong** and it was costing this programme a training run. `project_exp02_four_arms_pinned`
+said EXP-02's arms were *"none built, none trained"*. They are built: **300-lesson calibration
+checkpoints on disk since 2026-11-03**, under
+`views-models/models/<arm>/data/generated/calibration_delivery_20261103/artifact/`.
+
+| arm | architecture (from the `.pt.config.json` sidecar) | seed |
+|---|---|---|
+| `calm_lander` | **`UpsampleConv2`** | **42** |
+| `keen_/mellow_/nimble_/rapid_lander` | `UpsampleConv2` | 43 / 44 / 45 / 47 |
+| `*_orbiter` | `HydraBNUNet06_LSTM4` | 44–47 |
+
+⚠️ **The configs no longer describe those artifacts.** views-models `8d8e0574` (#712) flipped all
+27 HydraNets to `UpsampleConv2` *after* that training, so every config reads `UpsampleConv2` while
+the orbiter checkpoints are `HydraBNUNet06_LSTM4`. ⇒ Read the **sidecar**, never the config, for
+what a trained artifact actually was.
+
+⇒ **`calm_lander` is the comparator**: `UpsampleConv2`, seed 42, `nb` + `mse`, 300 lessons, same
+pull. One field away from a ranking arm, and **no control run has to be paid for.**
+
+#### ⭐⭐ The comparator, re-measured on the matched control
+
+`--channel mu` on `calibration_model_20261103_021022.pt` (sha `4e0ab288…`, 174 s CPU), `G-ALIGN`
+passing independently at offset `-1` (anomaly `r +0.8275`, margin `+0.3332`):
+
+| control | `ρ_event` | SD | distinct |
+|---|---|---|---|
+| **`calm_lander` `mu`, teacher-forced** — the pin | **+0.5154** | 0.0397 | 1.000000 |
+| `violet_visitor` `mu`, teacher-forced — corroboration only | +0.5189 | 0.0473 | 1.000000 |
+
+⭐ **Two architectures, two campaigns three weeks apart, agreeing to 0.0035.** So ~0.515 is the
+teacher-forced body's ranking of event cells, not an artifact of one checkpoint. ⛔ The pin is
+`calm_lander`'s because that is the arm's own control. ⭐ And the pin **fired in production** when
+handed the other dump: `FAIL G-1 … REFUSED`, exit 1, before any number was printed.
+
+#### ⭐⭐ The arm exists: `views-models/models/eager_sorter`
+
+`calm_lander`'s config with the body's objective replaced. **The complete diff**, printed by
+loading both configs through `HydraNetConfig`:
+
+| field | control | arm | why |
+|---|---|---|---|
+| `loss_reg` | `mse` | **`listwise_level`** | ⭐⭐ the intervention |
+| `loss_reg_y_max` | — | **`178459.0`** | measured, below |
+| `output_distribution` | `nb` | `standard` | a listwise loss scores ONE value per cell; `nb` emits 2 |
+| `n_head_samples` | 4 | 1 | `standard` has no per-cell sampler — **refused** otherwise |
+| `forecast_composition` | `threshold_gate` | `self_zeroed` | the ADR-069 composer cannot run on the legacy path |
+| `gate_threshold` | 0.20 | *deleted* | declared-but-unread is refused |
+
+⇒ One deliberate change; four **forced** consequences of the head's width. ⭐ `reg_activation`
+needs no edit at all: `'softplus'` was already there and **inert** under `nb` (the family branch
+wins at `HydraBNrecurrentUnet_06_LSTM4.py:118-126`, which is why the control's sidecar records
+`reg_activation: None`), and it becomes **effective** under `standard` — verified by
+`choose_model`, which resolves `_reg_activation` to `softplus`.
+
+⭐ **Proven before any pod is rented** — config validates (116 fields), `choose_model` builds
+`UpsampleConv2` (904,422 params), and **one real `_process_sequence` step** gives a finite loss with
+gradient reaching **145 of 145** parameter tensors.
+
+#### ⛔⛔ `loss_reg_y_max = 178459` is MEASURED, and larger than `02_design` implied
+
+Max over **all three** regression targets on the calibration TRAIN range (months 121–456, `land`,
+21,778,848 rows): **178,459** `ged_os_best`, pgid 125700, month 172 — **April 1994, Rwanda**.
+Verified real: the five largest cell-months are all month 172 in that neighbourhood.
+
+⇒ `level_max = 18`, so the top level's gain is `2^18 − 1 = 262,143` against `1,023` at level 10.
+⚠️ `02_design`'s table measured **10** levels and a `[0, 1023]` range on the **S11** population
+(`gate ≥ 0.05`, months 463–469), which **excludes the historical extremes**. On the training range:
+135 cell-months above level 10, 3 above 65,536, 1 above 131,072.
+
+#### ⛔⛔ A measured consequence, not a conjecture: the arm's own gate will train slower
+
+Synthetic Poisson(0.3) 32×32 patch, 6 steps, seed 42, body-only vs gate-only backward through the
+real `_process_sequence`:
+
+| | body loss | body `|grad|` | gate `|grad|` | body:gate |
+|---|---|---|---|---|
+| ARM `listwise_level` + `standard` | 1955.5 | 171.9 | 14.6 | **11.7×** |
+| CTRL `mse` + `nb` | 4.7 | 23.5 | 12.9 | **1.8×** |
+
+`clip_grad_max_norm` is **1.0** and the clip is applied **once** to the summed gradient over
+`model.parameters()`, so the gate's share of each update falls from ~36% to ~8%.
+
+⭐ **Why this does not contaminate the headline.** `ρ_event` is measured on the firing set of the
+**DELIVERED** gate — identical for the control row and the arm, by construction in
+`rho_event_teacher_forced.py` — so the arm's own gate never enters the population. ⛔ It does mean
+the arm's **emission** is not comparable, which `forecast_composition` already records.
+⚠️ The available lever, named and **not** taken: unfreezing `freeze_multitask_balancer` would let
+the balance adapt, and would change a second variable.
+
+#### ⛔⛔ Getting it to a GPU: the pod installs views-hydranet from PyPI
+
+`pod_run_model.sh:172` runs `uv pip install "views-hydranet~=0.1.1"` and `:236` clones views-models
+`-b development`. ⇒ Neither the loss nor the arm reaches a pod from a local branch.
+
+| # | step | state |
+|---|---|---|
+| 1 | **release 0.1.10** | ⭐ PREPARED: `pyproject` bumped, 19 publication-path guards green, and the **built wheel verified** to carry `listwise_level_loss.py`, its registry entry and `loss_reg_y_max` (`C-347` has fired six times on trusting site-packages instead) |
+| 2 | push the arm to views-models `development` | ⭐ WRITTEN + its governance declared; ⛔ not staged |
+| 3 | pod: RAM ≥ 32 GB, VRAM ≥ 16 GB, disk ≥ 60 GB | Simon |
+| 4 | `/root/.netrc` on the pod | Simon |
+| 5 | `pod_run_model.sh --preflight eager_sorter`, then the run | whoever owns it |
+
+⭐ **Phase 2's inertness proof is what makes step 1 safe.** `~=0.1.1` means the fleet picks up
+0.1.10 automatically, and the parity anchor passes **byte-exact** across all six legacy
+`output_distribution` values with the new loss present and unselected.
+
+⇒ **The pod now buys ONE training run, not two.**
+
+#### ⭐ views-models' governance refused a silent model, correctly
+
+Adding `models/eager_sorter` turned **12** tests red (8 unrelated failures were already red on a
+clean tree, proven by removing the arm and re-running). Each was a declaration owed:
+
+- ⭐ `test_upsampleconv2_is_the_hydranet_default[eager_sorter]` — **passes**, because the arm takes
+  the fleet default. An earlier draft pinned `HydraBNUNet06_LSTM4` to match the *violet_visitor*
+  checkpoint and would have needed an entry in `LEGACY_ARCHITECTURE_ALLOWED`, a list that is
+  deliberately **empty**. Finding `calm_lander` removed the need entirely. **The list stays empty.**
+- `test_data_source_catalog` datafactory census 79 → **80**; `docs/forecast_delivery_map.md`
+  maturity census 136/139 → **137/140**; `test_requirements_hygiene` deferral census 53 → **54**.
+  All three green.
+- ⛔ The remaining **9** are `git ls-files` checks (`.gitkeep` × 7, `README.md`): the files are
+  written and they clear the moment the arm is **staged**, which is step 2 above.
+
+⇒ **What remains for phase 3 is ONE trained ranking arm** (see the 2026-11-11 block above: the
+control is already trained) — the dump, the alignment gate, the cell
 contract, the readout **and now the pinned comparator** are all built and proven. ⚠️ `body_mean_dump_dir` could not serve — it
 refuses a head with no registered family (`hydranet_inference.py:428-430`) and it lives inside the
 posterior-pass loop (`:1738`), so it would have built the draw cube that OOM-killed both EXP-02 arms

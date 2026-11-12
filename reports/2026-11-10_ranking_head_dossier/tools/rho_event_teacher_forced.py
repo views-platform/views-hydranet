@@ -73,14 +73,24 @@ _TF_MODE = "teacher_forced"
 #: tool prints the control and **refuses to score an arm**, because an arm row read against
 #: an unverified
 #: control is exactly the shape §9c's withdrawn headlines had.
-#: ⭐ MEASURED 2026-11-10 on `score_grid_CONTROL_MU_v20261012.npz` (sha `4acbf4d3…`, 7 folds,
-#: months 463-469, ddof=1): **+0.5189 ± 0.0473**, distinct share **1.000000**.
-#: ⚠️⚠️ THIS IS NOT THE DELIVERED `+0.3127` AND MAY NOT BE SET BESIDE IT. The same body's
-#: delivered autoregressive `ρ_event` is `+0.3127 ± 0.0713`; the +0.2062 difference is the
-#: `C-399` teacher-forcing carry and the `C-317` checkpoint identity together, and nothing on
-#: disk separates them. ⇒ A ranking arm's bar in THIS table is **+0.5189**, not `+0.3127`.
-_ANCHOR_TF_MU: float | None = 0.5189
-_ANCHOR_TF_MU_SD: float | None = 0.0473
+#: ⭐ MEASURED on the MATCHED control — `calm_lander`, `UpsampleConv2`, seed 42, `nb` + `mse`,
+#: 300 lessons, checkpoint `calibration_model_20261103_021022.pt` (sha `4e0ab288…`), which is the
+#: control the ranking arm `eager_sorter` is one field away from:
+#:     **+0.5154 ± 0.0397**, distinct share 1.000000, 7 folds, months 463-469, ddof=1.
+#:
+#: ⭐ AND A SECOND, INDEPENDENT READING THAT AGREES. `violet_visitor`'s 2026-10-12 checkpoint
+#: (sha `4acbf4d3…`, `HydraBNUNet06_LSTM4`) measures **+0.5189 ± 0.0473** on the same population.
+#: Two architectures, two campaigns three weeks apart, agreeing to **0.0035** — so the
+#: teacher-forced body's ranking of event cells is ~0.515-0.519 and is not an artifact of one
+#: checkpoint. ⛔ The pin is `calm_lander`'s, because that is the arm's own control; the
+#: violet_visitor figure is recorded here as corroboration and is NOT the comparator.
+#:
+#: ⚠️⚠️ NEITHER IS THE DELIVERED `+0.3127`, AND NEITHER MAY BE SET BESIDE IT. The body's delivered
+#: autoregressive `ρ_event` is `+0.3127 ± 0.0713`; the ~+0.20 difference is the `C-399`
+#: teacher-forcing carry and the `C-317` checkpoint identity together, and nothing on disk
+#: separates them. ⇒ A ranking arm's bar in THIS table is **+0.5154**, not `+0.3127`.
+_ANCHOR_TF_MU: float | None = 0.5154
+_ANCHOR_TF_MU_SD: float | None = 0.0397
 _TOL = 5e-5
 
 

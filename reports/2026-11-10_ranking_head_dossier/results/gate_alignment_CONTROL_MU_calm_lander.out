@@ -1,0 +1,12 @@
+       +1   +0.935758   +0.321358       12
+       +2   +0.926365   +0.209729       11
+
+  ⇒ best offset -1 at anomaly r +0.827527; runner-up -2 at +0.494297; margin +0.333231
+  ⭐ PASS G-ALIGN (anomaly r >= 0.3, margin >= 0.1)
+
+  ⇒ the h1 forecast for month m is read at fed index m-1; equivalently the field at fed month t carries the forecast for t+1 — established by measurement, not by reading the code.
+
+  ⛔⛔ And what this does NOT establish: the anomaly r is not 1.0, and the dumping checkpoint's
+     identity (C-317) and the teacher-forced input mode (C-399) are both live explanations
+     for the gap. They are NOT separated by anything on disk. A PASS fixes the offset and the
+     cell order; it does not license comparing this field to a delivered number.
