@@ -207,6 +207,11 @@ class HydraNetConfig(BaseModel):
     # Hurdle-NB body (D2, #99): NB dispersion θ init + whether θ is learned (loss_reg='hurdle_nb').
     loss_reg_theta_init: float | None = Field(default=None, gt=0.0)
     learnable_theta: bool = Field(default=True)
+    # Ranking body (loss_reg='listwise_level'): the grid's truth MAXIMUM in raw counts, which
+    # declares the dyadic level set 0..ceil(log2(1+y_max)) and the fixed 1/(|R|-1) normaliser.
+    # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
+    # the field fails the schema instead of riding on extra="allow" (the W-22 trap).
+    loss_reg_y_max: float | None = Field(default=None, ge=1.0)
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
@@ -1048,6 +1053,104 @@ class HydraNetConfig(BaseModel):
                 "straight-through estimator does not apply, ss_feedback_grad_clip is skipped, and "
                 "fed_grad_max logs a constant 0.0 that reads as a healthy gradient. Use a family "
                 "head (e.g. 'nb'), or set ss_backprop_through_feedback=False (#308)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_discarded_or_inert_listwise_level(self) -> "HydraNetConfig":
+        """⛔⛔ A config that reads as a ranking arm must not train the magnitude body.
+
+        Two halves of one silent discard, both found by `/code-review` on 2026-11-12 and both
+        reproduced by execution before this guard was written:
+
+        **1. The loss is discarded.** `choose_loss` resolves the family FIRST — its own comment
+        says *"loss_reg is irrelevant for a family"* — so `loss_reg='listwise_level'` with
+        `output_distribution='nb'` validates, logs a config that reads as a ranking arm, and
+        returns `FamilyLoss` (the NB NLL). Measured: that config constructs fine and
+        `choose_loss` hands back `FamilyLoss`. ⇒ The arm would train the thing it was built to
+        replace and come home as a clean null — the **C-324** inert-knob signature, and the
+        single most expensive failure available to this programme.
+
+        **2. The parameter is inert.** `loss_reg_y_max` with any other `loss_reg` is read by
+        nothing. An operator who sets it and mistypes `loss_reg` gets a silent magnitude arm.
+        The field's own note already invokes the W-22 trap for *declaring* it; this closes the
+        other half.
+
+        ⚠️ A listwise loss needs the **point** branch (`n_params = 1`): a family emits
+        `n_params` reg channels per target, so its `reg_latent` is more than one channel and
+        there is no single score to rank. Use a legacy `output_distribution` such as
+        `'standard'`.
+
+        Mirrors `reject_ignored_body_nll_denominator` and `reject_inert_clamp`, which this
+        repository added for the same signature.
+        """
+        if self.loss_reg == "listwise_level":
+            # ⚠️ From `registry`, not the package: `family_n_params` is not in
+            # `views_hydranet.distributions.__all__`. Both are torch-free, which is what keeps
+            # config validation torch-free (A-S2 / CRP), the same reason
+            # `validate_output_distribution` imports `family_names` locally.
+            from views_hydranet.distributions.registry import family_n_params, family_names
+
+            # ⭐⭐ Mirror the head's OWN sizing rule, which is the authority:
+            # `HydraBNrecurrentUnet_06_LSTM4.py:152-155` — a family emits `n_params`, the quantile
+            # head emits `n_quantiles`, every other legacy head emits `output_channels`. Gating on
+            # the derived CHANNEL COUNT rather than on a hand-listed set of names is deliberate:
+            # the first version of this guard tested `resolve_family(...) is not None`, which let
+            # `quantile` (9 channels per target), and any legacy head with `output_channels != 1`,
+            # validate — the property was "one score per cell" and the condition was "not a
+            # registered family". A guard audit found it the same day it was written.
+            if self.output_distribution in family_names():
+                reg_channels = family_n_params(self.output_distribution)
+                err_msg = (
+                    f"loss_reg='listwise_level' with output_distribution="
+                    f"'{self.output_distribution}' is a SILENT DISCARD: choose_loss resolves the "
+                    "distribution family first and never consults loss_reg, so this arm would "
+                    "train the family NLL while its config reads as a ranking arm (C-324). The "
+                    f"family also emits {reg_channels} reg channels per target, so there is no "
+                    "single score to rank. Use a legacy point head, e.g. "
+                    "output_distribution='standard'."
+                )
+            else:
+                if self.output_distribution == "quantile":
+                    # ⚠️ `n_quantiles` is validated `>= 2` for a quantile head, but this
+                    # validator can run before that one, so `None` is reachable here. Reporting
+                    # it as "emits 0" and then advising `output_channels=1` names a number the
+                    # config never set and a remedy that does not apply — the M7 leak a guard
+                    # audit found on 2026-11-12. Say "unset", and advise the head.
+                    reg_channels = self.n_quantiles if self.n_quantiles is not None else 0
+                    emits = (
+                        f"n_quantiles={self.n_quantiles}"
+                        if self.n_quantiles is not None
+                        else "n_quantiles channels (unset here)"
+                    )
+                    source = f"the quantile head emits {emits}"
+                    remedy = (
+                        "Use a single-channel point head, e.g. output_distribution='standard'."
+                    )
+                else:
+                    reg_channels = self.output_channels
+                    source = f"a legacy head emits output_channels={reg_channels}"
+                    remedy = (
+                        "Use a point head with output_channels=1, e.g. "
+                        "output_distribution='standard'."
+                    )
+                err_msg = (
+                    f"loss_reg='listwise_level' needs ONE reg channel per target and "
+                    f"{source} per target (output_distribution="
+                    f"'{self.output_distribution}'). A listwise loss ranks a single score per "
+                    f"cell; with more than one channel there is no score to rank. {remedy}"
+                )
+            if reg_channels != 1:
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        if self.loss_reg_y_max is not None and self.loss_reg != "listwise_level":
+            err_msg = (
+                f"loss_reg_y_max={self.loss_reg_y_max} is set but loss_reg='{self.loss_reg}' "
+                "does not read it — the only consumer is 'listwise_level'. An inert parameter "
+                "reads as an arm that changed a variable when it changed nothing (C-324). "
+                "Remove loss_reg_y_max, or set loss_reg='listwise_level'."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
