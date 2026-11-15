@@ -82,6 +82,7 @@ Architectural decisions specific to the HydraNet system.
 - **[075](active/075_emitting_the_body_as_a_diagnostic.md)**: ADR-075: A run can be asked to emit the body, which is otherwise unrecoverable
 - **[077](active/077_global_land_coverage.md)**: ADR-077: HydraNet models forecast global land
 - **[078](active/078_horizon_selection_for_emission.md)**: ADR-078: Horizons are selectable for emission, never for computation
+- **[079](active/079_declarative_body_vocabulary.md)**: ADR-079: One Field Names the Body
 
 ## [Proposed (Emerging)](./proposed/)
 
