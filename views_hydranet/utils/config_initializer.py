@@ -1672,6 +1672,23 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
+        # ADR-079 §5 condition 3 (#623). 'sample' feeds a random draw from the body back in during
+        # a multi-month forecast, so it needs a body that can draw samples: a registered
+        # distribution family. `HydraNetInference.__init__` already refuses this pair, but only
+        # when a forecast starts, after the model has been trained. Refuse it here, when the
+        # config is built. Same predicate as the forecast-time refusal, which stays.
+        if self.rollout_feedback == "sample":
+            from views_hydranet.distributions import family_names
+
+            if self.output_distribution not in family_names():
+                err_msg = (
+                    "rollout_feedback='sample' feeds back a random draw from the body, which "
+                    f"needs a distribution family; output_distribution="
+                    f"{self.output_distribution!r} cannot draw samples. Set rollout_feedback to "
+                    "'mean', or leave it unset (it then resolves to 'mean' for this body)."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         if self.ss_schedule is None:
             return self
         valid = ["linear", "inverse_sigmoid", "exponential"]
