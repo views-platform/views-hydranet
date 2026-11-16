@@ -23,6 +23,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from views_hydranet.body.bodies import Body, build_body
 from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.base import DistributionFamily
 from views_hydranet.distributions.family_loss import FamilyLoss
@@ -677,6 +678,7 @@ def _process_sequence(
     input_noise_dropout: float | None = None,
     input_noise_segment: int | None = None,
     input_noise_channels: list[int] | None = None,
+    body: Body | None = None,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -684,6 +686,13 @@ def _process_sequence(
     Runs the recurrent model step-by-step through the temporal sequence,
     computes multi-task losses, and optionally records forensic data.
     No optimizer, no diagnostics, no data augmentation — just forward + loss.
+
+    ``body`` (ADR-079, epic #616) is the object for one of the five bodies in use, as built by
+    ``build_body``. When given, the regression loss is ``body.loss`` on the heads' outputs from
+    BEFORE the activation (``output.reg_latent``), and the body says whether it must be trained
+    on all cells. When ``None`` — an unused body, or a caller passing a bare criterion — the
+    older path below runs unchanged. Everything that reads the ACTIVATED output (feedback,
+    penalties, forensics, QS99) is the same on both paths.
 
     Returns dict with keys: total, reg, cls, h, per_task, task_names, per_step_losses.
     ``per_task`` is the summed 6-vector the balancer combines (body then gate, in
@@ -708,7 +717,11 @@ def _process_sequence(
     # in the loss loop. It applies only to a POINT body: a latent loss owns its own zero handling
     # (validated by validate_body_supervision_latent), so it is a no-op there and we keep the
     # all-cell path (byte-identical for `all`+latent). `event_threshold` from derivation (C-195).
-    apply_body_mask = body_supervision == "active" and not use_latent
+    if body is not None:
+        # The body states the fact directly; `use_latent` is not consulted for it.
+        apply_body_mask = body_supervision == "active" and not body.requires_all_cells
+    else:
+        apply_body_mask = body_supervision == "active" and not use_latent
     body_mask_full: torch.Tensor | None = (
         resolve_body_supervision(onset_lead, cessation_lag, event_threshold)(
             train_tensor[:, 1:, idx.reg, :, :]
@@ -787,6 +800,22 @@ def _process_sequence(
 
         output = model(t0_input, h)
         t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
+        body_step = None
+        if body is not None:
+            if output.reg_latent is None:
+                err_msg = (
+                    "a body reads the heads' outputs from before the activation, which the model "
+                    "returns only in training mode; `output.reg_latent` is None here."
+                )
+                logger.error(err_msg)
+                raise RuntimeError(err_msg)
+            # ADR-079 rule 2: the body receives the raw outputs and applies the activation
+            # itself, once. Every consumer below (loss, feedback, penalties, forensics) reads
+            # this one activation, so the gradient reaches the head through a single node, as it
+            # did when the model's own activation was read. The values are bit-identical to
+            # `output.reg` (tests/body/test_bodies.py).
+            body_step = body.read(output.reg_latent)
+            t1_pred = body_step.activated
         # EXP-4 (GTF): only compute the fed-back copy when scheduled sampling is active (ε>0), so
         # ε=0 stays byte-identical (branch never runs). A family emits n_params channels/target, so
         # the raw `t1_pred` is shape-mismatched to the n_reg dynamic inputs — collapse it to the
@@ -929,7 +958,9 @@ def _process_sequence(
                 # = per-step positives; `pos_timelines` = the full timeline of ever-active cells
                 # (the decay signal, dossier 15). Resolved once above; here we only index it.
                 mask = body_mask_full[:, i, j]
-                if isinstance(loss_fn_j, FamilyLoss):
+                if body_step is not None:
+                    losses_list.append(tw * body_step.loss(target_j, j, mask=mask))
+                elif isinstance(loss_fn_j, FamilyLoss):
                     # C-199: pass the mask as a broadcast weight into family.nll instead of
                     # boolean-indexing pred_j[mask] — numerically identical for a 0/1 mask, but a
                     # graph-connected 0 on an all-zero-active batch (not a detached tensor(0.0)).
@@ -959,6 +990,8 @@ def _process_sequence(
                         (qs99_tau - 1.0) * error,
                     )
                     qs99_loss = qs99_loss + tw * pinball.mean()
+            elif body_step is not None:
+                losses_list.append(tw * body_step.loss(target_j, j))
             else:
                 losses_list.append(tw * loss_fn_j(pred_j, target_j))
 
@@ -1090,6 +1123,7 @@ def _process_sequence(
                 pf_out = model(pf_in, pf_h)
             y2_reg = train_tensor[:, i + 2, idx.reg, :, :]
             pf_terms = []
+            pf_step = None
             for j, name in enumerate(idx.reg_names):
                 loss_fn_j = (
                     criterion_reg[name] if isinstance(criterion_reg, dict) else criterion_reg
@@ -1101,13 +1135,25 @@ def _process_sequence(
                 # C-87 parity with the main reg loop: the same per-target weight, or the auxiliary
                 # term silently re-weights the targets relative to the primary objective.
                 tw_pf = 1.0 if target_weights is None else target_weights[name]
-                pf_terms.append(
-                    tw_pf
-                    * loss_fn_j(
-                        pf_out.reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
-                        y2_reg[:, j],
+                if body is not None:
+                    if pf_out.reg_latent is None:
+                        err_msg = (
+                            "the pushforward loss of a body reads `pf_out.reg_latent`, which the "
+                            "model returns only in training mode; it is None here."
+                        )
+                        logger.error(err_msg)
+                        raise RuntimeError(err_msg)
+                    if pf_step is None:
+                        pf_step = body.read(pf_out.reg_latent)
+                    pf_terms.append(tw_pf * pf_step.loss(y2_reg[:, j], j))
+                else:
+                    pf_terms.append(
+                        tw_pf
+                        * loss_fn_j(
+                            pf_out.reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
+                            y2_reg[:, j],
+                        )
                     )
-                )
             pf_loss = torch.stack(pf_terms).sum()
 
         losses = torch.stack(losses_list)
@@ -1349,6 +1395,8 @@ def train(
         input_noise_dropout=_input_noise,
         input_noise_segment=config["time_steps"] if _input_noise is not None else None,
         input_noise_channels=_noisable_channels(config) if _input_noise is not None else None,
+        # ADR-079 / epic #616: one object for the body, or None for an unused body.
+        body=build_body(config, ctx.criterion_reg),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 

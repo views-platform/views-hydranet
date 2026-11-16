@@ -154,7 +154,7 @@ def _body_kwarg(cfg: dict, criterion_reg) -> dict:
     return {"body": build_body(cfg, criterion_reg)}
 
 
-def _run(case: str) -> dict:
+def _run(case: str, *, use_body: bool = True) -> dict:
     body_name, kwargs = CASES[case]
     cfg = {**BASE, **BODIES[body_name]}
     torch.manual_seed(1234)
@@ -183,7 +183,7 @@ def _run(case: str) -> dict:
         idx=idx,
         device=CPU,
         family=resolve_family(cfg["output_distribution"]),
-        **_body_kwarg(cfg, criterion_reg),
+        **(_body_kwarg(cfg, criterion_reg) if use_body else {}),
         **kwargs,
     )
     out["total"].backward()
@@ -219,6 +219,26 @@ def test_one_training_step_reproduces_the_golden(case):
             f"({'bit-for-bit' if exact else 'rtol 1e-5, another machine'}). "
             f"got sum {got[key]['sum']!r}, golden sum {want[key]['sum']!r}. "
             "Epic #616 claims training is numerically unchanged; this is the check of that claim."
+        )
+
+
+@pytest.mark.parametrize("body_name", list(BODIES))
+def test_every_live_body_gets_an_object_so_the_golden_runs_the_new_path(body_name):
+    """Without this the cases above could fall back to the older path and prove nothing."""
+    cfg = {**BASE, **BODIES[body_name]}
+    kwarg = _body_kwarg(cfg, choose_loss(cfg, CPU)[0])
+    assert "body" in kwarg, "`_process_sequence` has no `body` argument"
+    assert kwarg["body"] is not None, f"{body_name} got no body object"
+
+
+@pytest.mark.parametrize("case", list(CASES))
+def test_the_body_path_equals_the_older_path_in_one_process(case):
+    """The same claim as the golden, without the golden: both paths, one process, any CPU."""
+    with_body, without = _run(case, use_body=True), _run(case, use_body=False)
+    for key in with_body:
+        assert with_body[key]["sha256"] == without[key]["sha256"], (
+            f"{case}: {key} differs between the body path and the older path "
+            f"(sums {with_body[key]['sum']!r} vs {without[key]['sum']!r})"
         )
 
 

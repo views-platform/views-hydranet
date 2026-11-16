@@ -4,7 +4,7 @@ A body is one complete specification of what the regression heads compute and ho
 Each class below states, in one place, what ADR-079 says a body fixes: its width, its activation,
 its loss, and the yes-or-no facts other settings are checked against.
 
-ADR-079 rule 2 lives here: `loss` always receives the head's outputs from **before** the
+ADR-079 rule 2 lives here: a body always receives the heads' outputs from **before** the
 activation and applies the activation itself, so the activation and the loss that depends on it
 cannot be paired wrongly.
 
@@ -99,7 +99,10 @@ class Body(ABC):
         ]
         return torch.cat(heads, dim=1)
 
-    @abstractmethod
+    def read(self, raw: torch.Tensor) -> BodyStep:
+        """Read one training step: the raw outputs of all heads, activated once."""
+        return BodyStep(self, raw)
+
     def loss(
         self,
         raw: torch.Tensor,
@@ -107,13 +110,45 @@ class Body(ABC):
         j: int,
         mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """The training loss for target ``j``.
+        """The training loss for target ``j``, from the raw outputs alone.
 
         ``raw`` is the output of all regression heads from before the activation,
         ``[B, n_targets * width, H, W]``. ``target`` is target ``j`` as the data delivers it,
         ``[B, H, W]``. ``mask`` is an optional boolean ``[B, H, W]`` selecting the cells to train
-        on.
+        on. Shorthand for ``self.read(raw).loss(target, j, mask)``.
         """
+        return self.read(raw).loss(target, j, mask)
+
+    @abstractmethod
+    def _loss(
+        self,
+        raw: torch.Tensor,
+        activated: torch.Tensor,
+        target: torch.Tensor,
+        j: int,
+        mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        """The loss for target ``j``, given the raw outputs and this body's activation of them."""
+
+
+class BodyStep:
+    """One training step as its body reads it: the raw outputs, and their activation, once.
+
+    The training loop needs the activated values in several places besides the loss (feedback,
+    penalties, forensics). If the loss activated the raw outputs a second time, the gradient would
+    reach the head through two activation nodes instead of one. The sum is the same number, but
+    not the same float32 bits (measured: about 1e-9 relative, in the one case where two terms
+    share a target). So the activation is computed once here and everything reads this object.
+    """
+
+    def __init__(self, body: Body, raw: torch.Tensor) -> None:
+        self.body = body
+        self.raw = raw
+        self.activated = body.activate(raw)
+
+    def loss(self, target: torch.Tensor, j: int, mask: torch.Tensor | None = None) -> torch.Tensor:
+        """The training loss for target ``j``; ``mask`` optionally selects the cells."""
+        return self.body._loss(self.raw, self.activated, target, j, mask)
 
 
 class MeanSquaredErrorBody(Body):
@@ -131,14 +166,15 @@ class MeanSquaredErrorBody(Body):
     def _activate_head(self, raw_head: torch.Tensor) -> torch.Tensor:
         return F.softplus(raw_head)
 
-    def loss(
+    def _loss(
         self,
         raw: torch.Tensor,
+        activated: torch.Tensor,
         target: torch.Tensor,
         j: int,
-        mask: torch.Tensor | None = None,
+        mask: torch.Tensor | None,
     ) -> torch.Tensor:
-        prediction = self.activate(raw)[:, j, :, :]
+        prediction = activated[:, j, :, :]
         if mask is None:
             return self.criterion(prediction, target)
         if mask.any():
@@ -171,12 +207,13 @@ class RankingBody(Body):
     def _activate_head(self, raw_head: torch.Tensor) -> torch.Tensor:
         return F.softplus(raw_head)
 
-    def loss(
+    def _loss(
         self,
         raw: torch.Tensor,
+        activated: torch.Tensor,
         target: torch.Tensor,
         j: int,
-        mask: torch.Tensor | None = None,
+        mask: torch.Tensor | None,
     ) -> torch.Tensor:
         if mask is not None:
             err_msg = (
@@ -216,15 +253,16 @@ class DistributionBody(Body):
         params = self.family.activate(raw_head.permute(0, 2, 3, 1))
         return params.permute(0, 3, 1, 2).contiguous()
 
-    def loss(
+    def _loss(
         self,
         raw: torch.Tensor,
+        activated: torch.Tensor,
         target: torch.Tensor,
         j: int,
-        mask: torch.Tensor | None = None,
+        mask: torch.Tensor | None,
     ) -> torch.Tensor:
         w = self.width
-        params = self.activate(raw)[:, j * w : (j + 1) * w, :, :].permute(0, 2, 3, 1)
+        params = activated[:, j * w : (j + 1) * w, :, :].permute(0, 2, 3, 1)
         if mask is None:
             return self.family.nll(params, target, weight=None)
         # A 0/1 weight, not boolean indexing: an all-zero mask then gives a graph-connected zero.
