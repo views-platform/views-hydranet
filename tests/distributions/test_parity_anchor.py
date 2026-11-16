@@ -43,7 +43,6 @@ _DISTRIBUTIONS = [
     "hurdle_lognormal",
     "hurdle_shrinkage",
     "dense_nb",
-    "quantile",
 ]
 
 

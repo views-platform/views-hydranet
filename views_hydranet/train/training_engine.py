@@ -36,7 +36,6 @@ from views_hydranet.utils.body_supervision import (
 )
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
-from views_hydranet.utils.quantile_head import QuantileLoss
 from views_hydranet.utils.training_forensics import TrainingForensics
 from views_hydranet.utils.utils import (
     choose_loss,
@@ -911,14 +910,11 @@ def _process_sequence(
 
             # ADR-067 (C-207): a distribution family emits n_params channels per target; slice this
             # target's n_params and move them to the last dim ([B,H,W,n_params]) for family.nll.
-            # Quantile head: K channels per target (multi-tau pinball). Every other head keeps one
-            # channel per target. Registry-first via FamilyLoss, so legacy dispatch is untouched.
+            # Every other head keeps one channel per target. Registry-first via FamilyLoss, so
+            # legacy dispatch is untouched.
             if isinstance(loss_fn_j, FamilyLoss):
                 npar = loss_fn_j.n_params
                 pred_j = t1_pred_for_loss[:, j * npar : (j + 1) * npar, :, :].permute(0, 2, 3, 1)
-            elif isinstance(loss_fn_j, QuantileLoss):
-                k = loss_fn_j.taus.numel()
-                pred_j = t1_pred_for_loss[:, j * k : (j + 1) * k, :, :].permute(0, 2, 3, 1)
             else:
                 pred_j = t1_pred_for_loss[:, j, :, :]
             target_j = y_reg[:, j, :, :]

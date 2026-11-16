@@ -9,7 +9,7 @@ a name -> lazy-factory dict, so importing the registry does not import torch or 
 `tests/architectures/test_architecture_registry.py`):
 
 * constructor ``(input_channels, total_hidden_channels, output_channels, dropout_rate, *,
-  output_distribution, n_static_channels, static_top_skip, reg_activation, n_quantiles)`` —
+  output_distribution, n_static_channels, static_top_skip, reg_activation)`` —
   the incumbent's signature, so `choose_model` stays uniform;
 * ``forward(x, h) -> ModelOutput`` with ``reg`` of width ``n_targets * n_params``, ``cls`` of width
   ``n_targets``, and ``h_next`` the same shape as ``h``;

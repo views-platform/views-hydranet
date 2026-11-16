@@ -44,7 +44,6 @@ BACKLOG = {
     "utils/lognormal_nll_loss.py": 1,
     "utils/pareto_loss.py": 1,
     "utils/prediction_frame_assembler.py": 2,
-    "utils/quantile_head.py": 1,
     "utils/rollout_diagnostics.py": 1,
     "utils/static_channels.py": 2,
     "utils/tobit_loss.py": 1,

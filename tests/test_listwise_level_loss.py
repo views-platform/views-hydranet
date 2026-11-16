@@ -546,7 +546,6 @@ def test_the_fourteen_pre_existing_registry_entries_are_untouched():
         "pareto": "ParetoLoss",
         "tobit": "TobitLoss",
         "hurdle_nb": "TruncatedNBLoss",
-        "quantile": "QuantileLoss",
         "dense_nb": "DenseNBLoss",
     }
     for key, cls_name in expected.items():

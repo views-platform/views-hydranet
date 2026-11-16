@@ -7,7 +7,6 @@ import torch.nn.functional as F
 
 from views_hydranet.architectures.locked_dropout import LockedDropout
 from views_hydranet.distributions import resolve_family
-from views_hydranet.utils.quantile_head import init_quantile_conv_, monotone_quantiles
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ def _family_activation(family):
     """Wrap a ``DistributionFamily.activate`` for the channel-first reg head (ADR-067).
 
     The head emits ``[B, n_params, H, W]`` per target, but ``activate`` takes the params in the
-    LAST dim (``[..., n_params]``) — permute in, activate, permute back (the quantile-head idiom).
+    LAST dim (``[..., n_params]``) — permute in, activate, permute back.
     """
 
     def _act(x):
@@ -74,7 +73,6 @@ class HydraBNUNet06_LSTM4(nn.Module):
         n_static_channels=0,
         static_top_skip=True,
         reg_activation=None,
-        n_quantiles=None,
         state_channels=None,
     ):
         """
@@ -88,7 +86,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             dropout_rate (float): Probability of dropout for regularization.
             output_distribution (str): regression-head output distribution/activation —
                 "standard" (ReLU, default, pre-#100 behavior) or a family/head name
-                (nb, zinb, quantile, hurdle_nb, hurdle_lognormal, hurdle_shrinkage), which
+                (nb, zinb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage), which
                 selects the ADR-067 family activation / head param count.
         """
         super().__init__()
@@ -126,33 +124,13 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 F.softplus if output_distribution.startswith("hurdle") else F.relu
             )
 
-        # Quantile head (2026-07 build): each reg head emits K monotone quantiles
-        # (cumulative-softplus
-        # in log1p space) instead of a single activated mu. output_channels stays the
-        # feedback/class
-        # width (1); n_quantiles (K) sizes ONLY the reg heads, so the AR-feedback invariant
-        # (input_channels == 3*output_channels + static) is untouched. See quantile_head.py.
-        self._is_quantile = output_distribution == "quantile"
-        self.n_quantiles = n_quantiles
-        if self._is_quantile:
-            if not n_quantiles or n_quantiles < 2:
-                err_msg = "output_distribution='quantile' requires n_quantiles >= 2"
-                logger.error(err_msg)
-                raise ValueError(err_msg)
-
-            # [B, K, H, W] -> monotone along the channel (quantile) axis
-            def _monotone_channels(x):
-                q = monotone_quantiles(x.permute(0, 2, 3, 1))  # [B, H, W, K]
-                return q.permute(0, 3, 1, 2).contiguous()
-
-            self._reg_activation = _monotone_channels
-        # A family emits n_params reg channels per target (nb=2 [mu,theta], zinb=3 [+pi]); the
-        # quantile head emits K; every other legacy head emits output_channels (the AR-feedback
+        # A family emits n_params reg channels per target (nb=2 [mu,theta], zinb=3 [+pi]);
+        # every legacy head emits output_channels (the AR-feedback
         # width, unchanged so the invariant input_channels == 3*output_channels + static holds).
         if self._family is not None:
             reg_out_ch = self._family.n_params
         else:
-            reg_out_ch = n_quantiles if self._is_quantile else output_channels
+            reg_out_ch = output_channels
 
         # ADR-061 top-skip: the last n_static_channels of the input are static (e.g. coordinates);
         # re-injected raw at each decoder head's full-resolution dec_conv1. 0 => byte-identical.
@@ -309,17 +287,13 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         # Informed init (C-199 / C-203): seed each reg head's bias from the family's own recipe so
         # theta/pi start away from the saturated dead-zone (family DEFAULT priors — the head has no
-        # data; data-derived priors are a later refinement). Narrow-fan init for the quantile heads
-        # (channel 0 = base, 1: = pre-softplus gaps) so the cumulated softplus opens narrow.
+        # data; data-derived priors are a later refinement).
         _reg_convs = (self.dec_conv4_head1_reg, self.dec_conv4_head2_reg, self.dec_conv4_head3_reg)
         if self._family is not None:
             _bias = self._family.initial_raw_bias()
             for _c in _reg_convs:
                 with torch.no_grad():
                     _c.bias.copy_(_bias.to(_c.bias.dtype))
-        elif self._is_quantile:
-            for _c in _reg_convs:
-                init_quantile_conv_(_c)
 
         # HEAD3 class
         self.upsample0_head3_class = nn.ConvTranspose2d(

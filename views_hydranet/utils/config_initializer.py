@@ -35,7 +35,6 @@ LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
     "hurdle_lognormal",
     "hurdle_shrinkage",
     "dense_nb",
-    "quantile",
 )
 
 # authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
@@ -110,9 +109,6 @@ class HydraNetConfig(BaseModel):
     # 2. Data Slicing & Scaling (The Physics)
     input_channels: int = Field(..., ge=1, description="Checksum for 'features'")
     output_channels: int = Field(..., ge=1, description="Channels per model head")
-    n_quantiles: int | None = Field(
-        default=None, ge=2, description="Quantile head: K monotone quantiles per reg target (K>=2)"
-    )
     regression_targets: list[str] = Field(
         ..., description="Intensity mission (must start with lr_)"
     )
@@ -222,7 +218,7 @@ class HydraNetConfig(BaseModel):
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
     # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
-    # name (nb, zinb, dense_nb, quantile, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
+    # name (nb, zinb, dense_nb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
     # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
@@ -327,7 +323,7 @@ class HydraNetConfig(BaseModel):
     total_lessons: int = Field(..., ge=1)
     n_posterior_samples: int = Field(..., ge=1)
     # K = per-cell head draws (aleatoric) for a sampleable distribution family (ADR-067 D×K).
-    # Legacy point/quantile heads keep K=1; K>1 requires an nb/zinb family (see model validator).
+    # Legacy point heads keep K=1; K>1 requires an nb/zinb family (see model validator).
     n_head_samples: int = Field(default=1, ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
@@ -1105,7 +1101,7 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def reject_pushforward_without_a_family(self) -> "HydraNetConfig":
         """The #289 pushforward term is only computed when the head resolves to a distribution
-        family — `_process_sequence` guards on `family is not None`. A legacy / point / quantile
+        family — `_process_sequence` guards on `family is not None`. A legacy / point
         head with `pushforward_weight > 0` would therefore train with NO pushforward at all and
         report a clean run, leaving the experiment's premise silently invalid. Mirrors
         `reject_unwired_rollout_horizon`, which exists for exactly this failure mode."""
@@ -1369,7 +1365,7 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_head_samples_family(self) -> "HydraNetConfig":
         # ADR-067 (D×K): per-cell head draws (K = n_head_samples > 1) are only meaningful for a
-        # SAMPLEABLE distribution family (nb/zinb). A legacy point/quantile head has no per-cell
+        # SAMPLEABLE distribution family (nb/zinb). A legacy point head has no per-cell
         # sampler, so K>1 there would be silently ignored — RAISE. Single authority for "is this
         # sampleable?" is the registry's `family_names()` (torch-free), not a hardcoded list.
         if self.n_head_samples > 1:

@@ -165,7 +165,7 @@ types (module docstring `training_engine.py:1`).
 - **Model:** consumes `model(t0_input, h)` returning `output.reg` / `output.cls` / `output.h_next`
   (`training_engine.py:346-347`) and `model.init_hTtime(...)` (`:632`). Treats the architecture as
   opaque.
-- **Losses:** consumes `choose_loss` (`:98`), per-target `FamilyLoss` / `QuantileLoss` dispatch
+- **Losses:** consumes `choose_loss` (`:98`), per-target `FamilyLoss` dispatch
   (`:434-441`), the `MultiTaskLoss` balancer (`:516`), and `resolve_family` for the feedback /
   biopsy (`:688`, `:727`, `:743`).
 - **Curriculum / sampling:** handshakes `CurriculumLearner` (planner) and `VolumeSampler` (lens)

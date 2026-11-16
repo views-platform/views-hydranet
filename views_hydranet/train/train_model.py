@@ -102,22 +102,14 @@ def train_model_artifact(
         # C-179: persist the RESOLVED reg-head activation (the function actually used) so a reload
         # uses the trained activation even if the default keyed off output_distribution changes
         # (ADR-063). softplus/relu share weight shapes => a mismatch loads silently, wrong.
-        # Quantile head sets its own monotone activation from output_distribution (the
-        # reg_activation
-        # arg is ignored); its closure name is not a valid reg_activation on reload, so persist
-        # None +
-        # the quantile count K instead.
-        # A distribution family (nb/zinb, ADR-067) or the quantile head installs its OWN activation
+        # A distribution family (nb/zinb, ADR-067) installs its OWN activation
         # (a closure keyed off output_distribution) whose name is not a valid reg_activation string
         # on reload — persist None; output_distribution reconstructs it. Registry-driven
         # (resolve_family), so new families need no edit here.
         from views_hydranet.distributions import resolve_family
 
         _od = config_snapshot["output_distribution"]
-        if _od == "quantile":
-            config_snapshot["reg_activation"] = None
-            config_snapshot["n_quantiles"] = config.get("n_quantiles")
-        elif resolve_family(_od) is not None:
+        if resolve_family(_od) is not None:
             config_snapshot["reg_activation"] = None
             # C-206: K (n_head_samples) changes the sampled D×K cube at inference (A-S8), so it
             # must ride in the manifest — else two runs with different K share a snapshot and

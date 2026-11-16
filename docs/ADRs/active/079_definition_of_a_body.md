@@ -445,8 +445,10 @@ decisions. The items are independent of each other.
 - **The five ranking configs do not choose a version of the ranking loss.** They get the code's
   default, the exponential version. By this document the exponential and the softplus versions are two
   bodies, so the body of those five models is picked by a default.
-- **The quantile head** is referred to in 9 files of the package and 14 test files, and by no
-  config.
+- **The quantile head was removed from the code on 2026-11-16.** Its module and its test file are
+  deleted, its branches are removed from the head, the loss factory, the training loop, the model
+  saving and the forecast code, and the config setting `n_quantiles` is gone. The config now has
+  106 settings. No config and no saved model used it.
 - **Wrong record number in existing files.** One test file and the new `body` folder in the
   package say "ADR-079" where they mean the record that is now ADR-081.
 

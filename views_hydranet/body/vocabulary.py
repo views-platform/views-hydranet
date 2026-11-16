@@ -14,7 +14,7 @@ exactly and quarantined.
 
 Adding a row is a deliberate act with an owner and a stated reason. It is not a config edit.
 Membership is *currently in use*, not *ever tried*: other combinations have been trained here in
-the past — `zinb` and the quantile head among them — and have no row, so no config can name them.
+the past — `zinb` among them — and have no row, so no config can name them.
 They remain loadable from a saved artifact, which never passes through the schema.
 
 Torch-free, like `distributions/registry.py` and for the same reason: `config_initializer` imports

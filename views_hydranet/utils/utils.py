@@ -15,7 +15,6 @@ from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
 from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.pareto_loss import ParetoLoss
-from views_hydranet.utils.quantile_head import QuantileLoss, midpoint_levels
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.tobit_loss import TobitLoss
 from views_hydranet.utils.truncated_nb_loss import TruncatedNBLoss
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def choose_model(config: dict, device: torch.device) -> nn.Module:
     """Factory for model instantiation."""
-    # ADR-061 top-skip / C-228 encoder-only / Exp B emit activation / quantile head width are all
+    # ADR-061 top-skip / C-228 encoder-only / Exp B emit activation are all
     # passed to EVERY architecture, so the registry stays a name lookup rather than a per-model
     # argument table. get_architecture raises on an unknown name, naming what is registered.
     model_cls = get_architecture(config["model"])
@@ -40,7 +39,6 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
         n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
         static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
         reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
-        n_quantiles=config.get("n_quantiles"),  # quantile head: K reg channels per target
     ).to(device)
 
 
@@ -116,16 +114,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
             theta_init=config["loss_reg_theta_init"],
             learnable=config.get("learnable_theta", True),
         ).to(device),
-    },
-    # Quantile head (2026-07 build): K monotone quantiles/target, multi-tau pinball (Riemann-CRPS).
-    # A single shared instance is built in choose_loss(); the training loop slices K
-    # channels/target.
-    "quantile": {
-        "cls": QuantileLoss,
-        "params": ["n_quantiles"],
-        "factory": lambda config, device: QuantileLoss(midpoint_levels(config["n_quantiles"])).to(
-            device
-        ),
     },
     # Ranking body (#578, 2026-11-10_ranking_head_dossier 04 phase 1): the FIRST listwise entry
     # here — its value depends on the relative order of the 1,024-cell patch-month, not on any
@@ -230,17 +218,6 @@ def choose_loss(
             target: body_cls(theta_init=theta_init, learnable=learnable_theta).to(device)
             for target in config.get("regression_targets", [])
         }
-    elif config["loss_reg"] == "quantile":
-        # Quantile head: a single multi-tau pinball instance shared across targets (the head emits
-        # K
-        # monotone quantiles/target; the training loop slices K channels per target). K =
-        # n_quantiles.
-        k = config.get("n_quantiles")
-        if not k or k < 2:
-            err_msg = "loss_reg='quantile' requires config['n_quantiles'] >= 2"
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        criterion_reg = QuantileLoss(midpoint_levels(k)).to(device)
     elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
         criterion_reg = {
             target: TobitLoss(sigma=s, learnable=learnable).to(device)

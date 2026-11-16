@@ -47,7 +47,6 @@ from views_hydranet.distributions.zero_inflated_negative_binomial import (  # no
     ZINBFamily,
 )
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss  # noqa: E402
-from views_hydranet.utils.quantile_head import QuantileLoss  # noqa: E402
 from views_hydranet.utils.tobit_loss import TobitLoss  # noqa: E402
 from views_hydranet.utils.utils import choose_loss  # noqa: E402
 
@@ -63,15 +62,14 @@ LIVE = [
     ("mse", "mixture_nb", None, "nll_softplus_mixture_nb"),
 ]
 
-# The six `output_distribution` values that keep their code but get no vocabulary row
-# (owner decision 2026-11-15). After ADR-079 no config can name them; a saved artifact still can.
+# The five `output_distribution` values that keep their code but get no vocabulary row
+# (owner decision 2026-11-15). A sixth, `quantile`, was purged on 2026-11-16 (ADR-079 §4).
 ORPHANS = [
     "zinb",
     "hurdle_nb",
     "hurdle_lognormal",
     "hurdle_shrinkage",
     "dense_nb",
-    "quantile",
 ]
 
 
@@ -187,19 +185,6 @@ def test_the_per_target_nb_losses_build_one_instance_per_target(valid_config_dic
         assert criterion.raw_theta.requires_grad is True
 
 
-def test_the_quantile_loss_is_one_shared_multi_tau_instance(valid_config_dict):
-    reg = _reg(
-        _cfg(
-            valid_config_dict,
-            loss_reg="quantile",
-            n_quantiles=9,
-            output_distribution="standard",
-        )
-    )
-    assert type(reg) is QuantileLoss
-    assert len(reg.taus) == 9
-
-
 def test_the_dict_valued_tobit_builds_one_instance_per_target(valid_config_dict):
     sigmas = {t: 1.5 for t in valid_config_dict["regression_targets"]}
     reg = _reg(
@@ -217,12 +202,12 @@ def test_the_dict_valued_tobit_builds_one_instance_per_target(valid_config_dict)
 
 @pytest.mark.parametrize("distribution", ORPHANS)
 def test_an_orphan_distribution_still_resolves_its_criterion(valid_config_dict, distribution):
-    """`zinb` is the only orphan that names a family; the other five fall to the `loss_reg` path.
+    """`zinb` is the only orphan that names a family; the other four fall to the `loss_reg` path.
 
     That asymmetry is the thing to remember when reading ADR-079: `output_distribution` is a
-    distribution name for four values and a head-shape name for six.
+    distribution name for four values and a head-shape name for five.
     """
-    cfg = _cfg(valid_config_dict, loss_reg="mse", output_distribution=distribution, n_quantiles=9)
+    cfg = _cfg(valid_config_dict, loss_reg="mse", output_distribution=distribution)
     reg = _reg(cfg)
     if distribution == "zinb":
         assert type(reg) is FamilyLoss
@@ -235,7 +220,7 @@ def test_an_orphan_distribution_still_resolves_its_criterion(valid_config_dict, 
 # ──────────────────────────────── the head: width and activation ────────────────────────────────
 
 
-def _head(output_distribution, reg_activation=None, n_quantiles=None):
+def _head(output_distribution, reg_activation=None):
     torch.manual_seed(0)
     return HydraBNUNet06_LSTM4(
         3,
@@ -244,7 +229,6 @@ def _head(output_distribution, reg_activation=None, n_quantiles=None):
         0.0,
         output_distribution=output_distribution,
         reg_activation=reg_activation,
-        n_quantiles=n_quantiles,
     )
 
 
@@ -258,11 +242,6 @@ def test_head_width_is_the_emit_distributions_parameter_count(distribution, widt
     assert model.dec_conv4_head1_reg.out_channels == width
     assert model.dec_conv4_head2_reg.out_channels == width
     assert model.dec_conv4_head3_reg.out_channels == width
-
-
-def test_the_quantile_head_is_k_channels_wide():
-    model = _head("quantile", n_quantiles=9)
-    assert model.dec_conv4_head1_reg.out_channels == 9
 
 
 @pytest.mark.parametrize("distribution", ["standard", "hurdle_nb", "dense_nb"])

@@ -149,7 +149,7 @@ def test_the_rejection_message_names_the_offending_value():
 
 
 @pytest.mark.parametrize(
-    "orphan", ["zinb", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb", "quantile"]
+    "orphan", ["zinb", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb"]
 )
 def test_an_orphan_distribution_is_not_a_declared_body(orphan):
     """The six values that keep their code and get no row (owner decision 2026-11-15)."""
@@ -203,7 +203,6 @@ def test_legacy_body_spec_discards_loss_reg_when_a_family_is_named():
         ("hurdle_lognormal", "softplus"),
         ("hurdle_shrinkage", "softplus"),
         ("dense_nb", "relu"),
-        ("quantile", "relu"),
     ],
 )
 def test_legacy_body_spec_mirrors_the_architectures_activation_default(

@@ -41,7 +41,8 @@ class TestF5_CICFieldCountDrift:
         # ADR-078 / Epic #500 S4: +emit_horizons -> 105
         # #578 ranking body (04_roadmap phase 1): +loss_reg_y_max -> 106
         # #578 Bai2023 regression-compatible T: +loss_reg_listwise_transform -> 107
-        CIC_CLAIMED_COUNT = 107
+        # ADR-079 (2026-11-16): the quantile head is purged, -n_quantiles -> 106
+        CIC_CLAIMED_COUNT = 106
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "
