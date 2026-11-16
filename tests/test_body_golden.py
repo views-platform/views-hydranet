@@ -111,6 +111,10 @@ CASES = {
 }
 
 
+#: The one body whose full gradient is compared with a tolerance between the two paths, not bit
+#: for bit. Pinned by an assertion in the one-process test.
+_GRAD_ALL_TOLERANT = {"mixture_nb"}
+
 #: Tolerance on a machine other than the one the golden was recorded on; see `_same`.
 _OTHER_MACHINE_RTOL = 1e-4
 
@@ -262,8 +266,12 @@ def test_every_live_body_gets_an_object_so_the_golden_runs_the_new_path(body_nam
 def test_the_body_path_equals_the_older_path_in_one_process(case):
     """The same claim as the golden, without the golden: both paths, one process, any CPU."""
     with_body, without = _run(case, use_body=True), _run(case, use_body=False)
+    assert "grad_all" in with_body, "the comparison of every parameter's gradient was removed"
+    assert _GRAD_ALL_TOLERANT == {"mixture_nb"}, (
+        "widening the exception is a decision, not an edit"
+    )
     for key in with_body:
-        if key == "grad_all" and CASES[case][0] == "mixture_nb":
+        if key == "grad_all" and CASES[case][0] in _GRAD_ALL_TOLERANT:
             # The one measured exception (code review, 2026-11-16): on this 8 x 8 grid the
             # mixture body's three head-bias gradients differ by up to 3e-8 between the paths.
             assert _same(with_body[key], without[key], exact=False), f"{case}: {key} is far off"
@@ -304,9 +312,25 @@ def test_the_comparison_can_fail():
     assert not _same(far, d, exact=False)
     assert _same(d, d, exact=True) and _same(d, d, exact=False)
     assert _same(moved, d, exact=False), "float noise of 1e-6 must pass on another machine"
-    # NaN anywhere must be a mismatch on another machine too: it reaches the sums.
-    nan = _digest(torch.tensor([1.0, 2.0, float("nan")]))
-    assert not _same(nan, d, exact=False) and not _same(nan, d, exact=True)
+    # NaN anywhere must be a mismatch on another machine too. Beyond the first 24 values it is
+    # seen only through the two sums, so each sum is tried alone as well.
+    ones = _digest(torch.ones(31))
+    late_nan = _digest(torch.cat([torch.ones(30), torch.tensor([float("nan")])]))
+    assert late_nan["head"] == ones["head"], "the NaN must lie beyond the stored values"
+    assert not _same(late_nan, ones, exact=False) and not _same(late_nan, ones, exact=True)
+    for key in ("sum", "abs_sum"):
+        assert not _same({**ones, key: float("nan")}, ones, exact=False), f"NaN in {key} passed"
+
+
+def test_the_fingerprint_names_the_thread_count_and_changes_with_it():
+    """The same CPU gives other float32 bits with another thread count (measured 2026-11-16)."""
+    before = torch.get_num_threads()
+    assert f"| {before} threads" in _fingerprint()
+    try:
+        torch.set_num_threads(before + 1)
+        assert f"| {before + 1} threads" in _fingerprint()
+    finally:
+        torch.set_num_threads(before)
 
 
 if __name__ == "__main__":

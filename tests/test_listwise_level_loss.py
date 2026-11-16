@@ -1203,10 +1203,19 @@ def test_the_schema_defaults_the_transform_to_the_shipped_objective(valid_config
     assert set(TRANSFORMS) == {"exp", "softplus"}
 
 
-def test_the_transform_is_refused_beside_a_loss_that_does_not_read_it(valid_config_dict):
-    """The same inert-setting signature as `loss_reg_y_max` beside another loss (C-324)."""
+@pytest.mark.parametrize("other_loss", sorted(set(LOSS_REG_REGISTRY) - {"listwise_level"}))
+def test_the_transform_is_refused_beside_a_loss_that_does_not_read_it(
+    valid_config_dict, other_loss
+):
+    """The same inert-setting signature as `loss_reg_y_max` beside another loss (C-324).
+
+    Every other loss, not only the fixture's: narrowing the refusal to `mse` left a single-case
+    version of this test green (guard audit, 2026-11-16).
+    """
     cfg = dict(valid_config_dict)
-    assert cfg["loss_reg"] != "listwise_level"
+    cfg["loss_reg"] = other_loss
+    for param in LOSS_REG_REGISTRY[other_loss]["params"]:
+        cfg[param] = _REQUIRED_PARAM_STUBS[param]
     cfg["loss_reg_listwise_transform"] = "softplus"
     with pytest.raises(ValidationError, match="does not read it"):
         HydraNetConfig(**cfg)

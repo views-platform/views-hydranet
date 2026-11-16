@@ -260,10 +260,10 @@ def test_a_body_on_a_model_built_for_another_activation_is_refused_at_the_first_
         def forward(self, losses):
             return losses.sum()
 
-    with pytest.raises(RuntimeError, match="was not built for this body"):
-        _process_sequence(
+    def step(m):
+        return _process_sequence(
             x,
-            model,
+            m,
             h,
             criterion_reg=criterion_reg,
             criterion_class=criterion_class,
@@ -273,3 +273,20 @@ def test_a_body_on_a_model_built_for_another_activation_is_refused_at_the_first_
             family=resolve_family("standard"),
             body=build_body(softplus_cfg, criterion_reg),
         )
+
+    calls = []
+    hook = model.register_forward_hook(lambda *_: calls.append(1))
+    with pytest.raises(RuntimeError, match="was not built for this body"):
+        step(model)
+    hook.remove()
+    assert len(calls) == 1, "the refusal must come at the first step, before anything trains"
+
+    # A ReLU output is exactly zero in half the cells, so the case above is caught by the
+    # absolute tolerance alone. This one is positive everywhere and 1% off: only the relative
+    # tolerance can see it (guard audit, 2026-11-16).
+    torch.manual_seed(3)
+    off = choose_model(softplus_cfg, CPU).float()
+    off.train()
+    off._reg_activation = lambda z: 1.01 * torch.nn.functional.softplus(z)
+    with pytest.raises(RuntimeError, match="was not built for this body"):
+        step(off)
