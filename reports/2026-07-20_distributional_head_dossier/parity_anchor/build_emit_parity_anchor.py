@@ -43,7 +43,6 @@ CASES = {
     "hurdle_lognormal": (None, SIGMA),
     "hurdle_shrinkage": (None, None),
     "dense_nb": (None, None),
-    "quantile": (None, None),
 }
 
 

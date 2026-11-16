@@ -1,6 +1,6 @@
 {
  "what": "One _process_sequence step per live body; see tests/test_body_golden.py (#617).",
- "recorded_on": "torch 2.6.0+cu124 | x86_64 | 13th Gen Intel(R) Core(TM) i9-13900H",
+ "recorded_on": "torch 2.6.0+cu124 | x86_64 | 13th Gen Intel(R) Core(TM) i9-13900H | 14 threads",
  "cases": {
   "mse/all": {
    "out_reg": {

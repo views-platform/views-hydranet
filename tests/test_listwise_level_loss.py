@@ -522,7 +522,7 @@ def test_the_loss_promotes_to_float64_and_returns_the_inputs_dtype():
 def test_the_registry_entry_exists_and_declares_its_parameter():
     entry = LOSS_REG_REGISTRY["listwise_level"]
     assert entry["cls"] is ListwiseLevelLoss
-    assert entry["params"] == ["loss_reg_y_max", "loss_reg_listwise_transform"]
+    assert entry["params"] == ["loss_reg_y_max"], "the transform has a default; it is not required"
     crit = entry["factory"]({"loss_reg_y_max": _Y_MAX}, torch.device("cpu"))
     assert isinstance(crit, ListwiseLevelLoss) and crit.level_max == 10
     # ⛔ A raw dict that omits the transform must get the SHIPPED objective, never a KeyError:
@@ -656,7 +656,6 @@ _REQUIRED_PARAM_STUBS: dict[str, object] = {
     "loss_reg_tau": 0.5,
     "loss_reg_cap": 10.0,
     "loss_reg_y_max": _Y_MAX,
-    "loss_reg_listwise_transform": "exp",
 }
 
 
@@ -691,41 +690,37 @@ def test_the_level_set_parameter_is_refused_beside_every_other_loss(valid_config
         HydraNetConfig(**cfg)
 
 
-def test_a_multi_output_channel_config_is_unreachable_so_the_third_arm_is_defence_in_depth(
+def _two_channel_cfg(valid_config_dict: dict) -> dict:
+    """-> a valid config whose point head emits TWO channels per target (6 features, 5 targets)."""
+    targets = ["lr_t1", "lr_t2", "lr_t3", "lr_t4", "lr_t5"]
+    gates = ["by_c1", "by_c2", "by_c3", "by_c4", "by_c5"]
+    return {
+        **valid_config_dict,
+        "features": [*targets, "lr_extra"],
+        "regression_targets": targets,
+        "classification_targets": gates,
+        "input_channels": 6,
+        "output_channels": 2,
+        "transformations": {"log1p": [*targets, *gates, "lr_extra"]},
+        "derivations": {},
+    }
+
+
+def test_a_multi_channel_point_head_is_refused_because_there_is_no_single_score(
     valid_config_dict,
 ):
-    """⚠️ The audit's C04 survivor, DISPUTED — and the dispute is itself measured.
+    """A point head with `output_channels != 1` has no single score to rank.
 
-    The guard's condition has two arms (family ⇒ `n_params`, otherwise ⇒ `output_channels`;
-    a third, for the quantile head, went with that head), and replacing the last with the
-    constant `1` leaves the
-    suite green. That is a true mutation survivor. ⛔ But it is **not a reachable gap**: no valid
-    config can set `output_channels != 1` at all, because other invariants refuse first. Measured
-    on three different attempts, every one refused before reaching this guard:
-
-      * `output_channels=3, input_channels=9`, features ×3 → **Feature Lifecycle Violation**
-      * `output_channels=3, input_channels=9`, features ×1 → **Checksum Law Violation**
-      * `output_channels=3, input_channels=3`, features ×3 → **Checksum Law Violation**
-
-    ⇒ That arm is defence-in-depth, and this test is the thing that makes that claim
-    falsifiable: if the Checksum Law is ever relaxed, `output_channels != 1` becomes reachable,
-    THIS test starts failing, and it points at the arm that then has to be covered for real.
+    ⚠️ An earlier test here asserted this arm of the guard could not be reached, because "no valid
+    config can set `output_channels != 1`". That was false (a code review found it, 2026-11-16):
+    the config below validates with mean squared error, and only this arm refuses it with the
+    ranking loss.
     """
-    cfg = _ranking_cfg(valid_config_dict)
-    assert cfg["output_channels"] == 1, "the fixture no longer pins output_channels"
-    cfg["output_channels"] = 3
-    cfg["input_channels"] = 9
-    with pytest.raises(ValidationError) as excinfo:
+    base = _two_channel_cfg(valid_config_dict)
+    assert HydraNetConfig(**base).output_channels == 2, "the fixture must be valid on its own"
+    cfg = {**_ranking_cfg(base)}
+    with pytest.raises(ValidationError, match="ONE reg channel"):
         HydraNetConfig(**cfg)
-    message = str(excinfo.value)
-    assert "ONE reg channel" not in message, (
-        "output_channels != 1 now reaches the listwise guard, so it is REACHABLE and the third "
-        "arm needs a real test rather than this one"
-    )
-    assert "Checksum Law" in message or "Feature Lifecycle" in message, (
-        f"a multi-output-channel config was refused for an unexpected reason: {message[:200]}. "
-        "The unreachability argument above rests on which validator fires, so it must be named."
-    )
 
 
 def test_the_point_branch_is_accepted_so_the_guard_does_not_simply_ban_the_loss(
@@ -997,7 +992,7 @@ def test_the_objective_is_shift_invariant_under_exp_which_no_magnitude_loss_is()
     )
 
 
-def test_the_eleven_pre_existing_registry_entries_are_untouched():
+def test_the_ten_pre_existing_registry_entries_are_untouched():
     """⛔ Inertness, the registry half: phase 1 ADDED an entry and changed none. A snapshot rather
     than a count, because a changed `cls` on an existing key would keep any count green.
 
@@ -1206,3 +1201,14 @@ def test_the_schema_defaults_the_transform_to_the_shipped_objective(valid_config
     every future ranking arm against a different objective than the one phase 1 published."""
     assert HydraNetConfig(**valid_config_dict).loss_reg_listwise_transform == "exp"
     assert set(TRANSFORMS) == {"exp", "softplus"}
+
+
+def test_the_transform_is_refused_beside_a_loss_that_does_not_read_it(valid_config_dict):
+    """The same inert-setting signature as `loss_reg_y_max` beside another loss (C-324)."""
+    cfg = dict(valid_config_dict)
+    assert cfg["loss_reg"] != "listwise_level"
+    cfg["loss_reg_listwise_transform"] = "softplus"
+    with pytest.raises(ValidationError, match="does not read it"):
+        HydraNetConfig(**cfg)
+    cfg["loss_reg_listwise_transform"] = "exp"
+    assert HydraNetConfig(**cfg).loss_reg_listwise_transform == "exp"

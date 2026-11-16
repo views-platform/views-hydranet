@@ -240,3 +240,36 @@ def test_a_wrongly_shaped_raw_output_is_refused():
     body = build_body(cfg, criterion)
     with pytest.raises(ValueError, match="raw output of all regression heads"):
         body.loss(out.reg_latent[:, 0:5], target[:, 0], 0)
+
+
+def test_a_body_on_a_model_built_for_another_activation_is_refused_at_the_first_step():
+    """A ReLU head with a softplus body would train on values the model never reports."""
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
+
+    relu_cfg = {**BASE, **LIVE["mse"], "reg_activation": None}
+    torch.manual_seed(3)
+    model = choose_model(relu_cfg, CPU).float()
+    model.train()
+    softplus_cfg = {**BASE, **LIVE["mse"]}
+    criterion_reg, criterion_class, _ = choose_loss(softplus_cfg, CPU)
+    x = torch.rand(1, 3, 6, 8, 8)
+    h = model.init_hTtime(model.base, 8, 8).float()
+
+    class _Sum(nn.Module):
+        def forward(self, losses):
+            return losses.sum()
+
+    with pytest.raises(RuntimeError, match="was not built for this body"):
+        _process_sequence(
+            x,
+            model,
+            h,
+            criterion_reg=criterion_reg,
+            criterion_class=criterion_class,
+            multitaskloss_instance=_Sum(),
+            idx=_SequenceIndices(REG + BASE["classification_targets"], softplus_cfg),
+            device=CPU,
+            family=resolve_family("standard"),
+            body=build_body(softplus_cfg, criterion_reg),
+        )

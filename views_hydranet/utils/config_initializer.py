@@ -1149,6 +1149,16 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
+        # The same signature for the sibling field. 'exp' is the default, so only a value someone
+        # wrote on purpose is refused.
+        if self.loss_reg_listwise_transform != "exp" and self.loss_reg != "listwise_level":
+            err_msg = (
+                f"loss_reg_listwise_transform='{self.loss_reg_listwise_transform}' is set but "
+                f"loss_reg='{self.loss_reg}' does not read it — the only consumer is "
+                "'listwise_level' (C-324). Remove it, or set loss_reg='listwise_level'."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")

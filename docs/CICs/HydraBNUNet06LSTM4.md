@@ -35,8 +35,11 @@ steps are chained.
   a `DistributionFamily` only to size the reg heads and activate their raw channels (lines 99,
   138-139, 106-107); `nll`/`sample`/`mean`/gate-composition belong to the family (see its CIC) and
   the loss/inference layers.
-- Does **not** own the loss. The train-only `reg_latent` field exists so a censored loss (TobitLoss,
-  ADR-054/055) can read the pre-ReLU mu (lines 42, 681, 366 in `training_engine.py`); the class emits
+- Does **not** own the loss. The train-only `reg_latent` field holds the regression heads' outputs
+  from before the activation. A body object (ADR-079, `views_hydranet/body/bodies.py`) reads it
+  and applies the activation itself, and the training step refuses a body whose activation
+  differs from this class's own. It also lets a censored loss (TobitLoss,
+  ADR-054/055) read the pre-ReLU mu (lines 42, 681, 366 in `training_engine.py`); the class emits
   it, it does not consume it.
 - Does **not** validate config semantics. `choose_model` (`utils/utils.py:30`) reads the config dict
   and passes primitives in; this class validates no config value itself.
@@ -53,7 +56,8 @@ steps are chained.
   consumed at line 157 `num_lstm_state_layers = total/(4*2)` and line 520 `split_h = h.shape[1]/8`).
 - `forward(x, h) -> ModelOutput(reg, cls, h_next, reg_latent)` (lines 502-685). Single timestep.
   `reg` `[B, n_reg, H, W]` post-activation, `cls` `[B, n_cls, H, W]` logits, `h_next`
-  `[B, total_hidden_channels, H, W]`, `reg_latent` `[B, n_reg, H, W]` pre-ReLU or `None`.
+  `[B, total_hidden_channels, H, W]`, `reg_latent` `[B, n_reg * width, H, W]` before the activation, or `None` outside training mode
+  (`width` is 1 for a point head and the family's parameter count otherwise).
 - `set_locked_dropout(enabled: bool)` (lines 687-701) / `reset_locked_dropout()` (lines 703-709) —
   toggle / refresh MC-dropout (ADR-057). `set_locked_dropout` switches ONLY the `LockedDropout`
   submodules to train mode (line 700), leaving BatchNorm running stats and the train-only

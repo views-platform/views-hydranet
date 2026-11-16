@@ -109,7 +109,8 @@ This is what that produces today. Every item was read in the code and in the 37 
 ### Only 5 of 360 combinations are used
 
 `loss_reg` has 12 allowed values, `output_distribution` has 10 and `reg_activation` has 3. That
-allows 12 × 10 × 3 = 360 combinations. The 37 configs use 5 of them.
+allows 12 × 10 × 3 = 360 combinations. The 37 configs use 5 of them. (Counted on 2026-11-15, with
+the quantile head. Without it: 11 × 9 × 3 = 297.)
 
 ### Earlier fixes
 
@@ -323,10 +324,11 @@ zero. It gives a gradient everywhere. It has no upper limit.
 All 37 configs already set softplus. Writing it into the code removes a choice that no config
 makes.
 
-**Why the loss receives the outputs from before the activation.** The head then no longer needs
-to return its output twice, and the switch described in section 1 no longer has to decide which of
-the two a loss reads. The activation and the loss that depends on it are written in the same place,
-so they cannot be combined wrongly.
+**Why the loss receives the outputs from before the activation.** The switch described in section
+1 then no longer has to decide which of the two outputs a loss reads. The activation and the loss
+that depends on it are written in the same place, so they cannot be combined wrongly. (Corrected
+2026-11-16: an earlier version also said the head would no longer need to return its output twice.
+It still does; see rule 2 in section 2.)
 
 **Why the transform is not part of the body, although the activation is.** Both are functions
 applied to numbers, so they could be treated alike. They differ in what they affect. The
@@ -432,9 +434,13 @@ decisions. The items are independent of each other.
   is chosen whole, and only Option B makes that true in the code.
 - **What was built.** One file, `views_hydranet/body/bodies.py`, holds an object for each of the
   five bodies in use. During training the body receives the outputs from before the activation,
-  applies the activation once, and computes the loss. Training is unchanged: for all five bodies
-  the real training loop reaches bit-for-bit identical weights with and without the body objects
-  (measured on one CPU; not measured on a GPU). Two findings shaped it. First, the result of
+  applies the activation once, and computes the loss. Training is unchanged in this sense, measured
+  on one CPU and not on a GPU: the loss is bit-for-bit the same with and without the body objects
+  for all five bodies, and so is every gradient for four of them. The exception is the mixture
+  body (corrected 2026-11-16, found by a code review). On an 8 × 8 test grid the gradients of its
+  three regression-head biases differ by up to 3e-8, and over a few hundred optimizer steps the
+  weights of the two paths drift apart. On the 32 × 32 window every live config trains on, all
+  145 gradients are identical. Two findings shaped it. First, the result of
   softplus depends on how the numbers are laid out in memory, for the value and for the gradient,
   so the body repeats the model's own sequence of operations exactly. Second, if the loss applied
   the activation a second time, the gradient changed in its last digits in the one case where two
@@ -464,7 +470,9 @@ decisions. The items are independent of each other.
   and their models trained, and the run then stops when a forecast starts. With the code as of
   2026-11-16, not yet released, they are refused when the config is read. The fix belongs in the
   models repository and was handed over there (views-models issue #737). None of the ten configs
-  was run for this document.
+  was run for this document. (Added 2026-11-16: the five mean-squared-error configs are refused
+  for a second reason, already under release 0.1.10. They set `loss_reg_y_max`, which only the
+  ranking loss reads. That is also for the models repository to resolve.)
 - **The five ranking configs do not choose a version of the ranking loss.** They get the code's
   default, the exponential version. By this document the exponential and the softplus versions are two
   bodies, so the body of those five models is picked by a default.

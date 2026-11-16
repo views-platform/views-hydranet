@@ -104,3 +104,16 @@ def test_a_sidecar_without_the_new_keys_still_builds_a_model(tmp_path):
         sidecar.pop(key, None)
     model = choose_model(sidecar, CPU)
     model.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True))
+
+
+def test_two_truncated_nb_models_with_different_denominators_write_different_sidecars(tmp_path):
+    """The likelihood is normalised differently, so the sidecar must tell them apart."""
+    a, _ = _save(tmp_path / "a", output_distribution="truncated_nb", loss_reg="mse")
+    b, _ = _save(
+        tmp_path / "b",
+        output_distribution="truncated_nb",
+        loss_reg="mse",
+        body_nll_denominator="all_cells",
+    )
+    assert "body_nll_denominator" not in a
+    assert b["body_nll_denominator"] == "all_cells"

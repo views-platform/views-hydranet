@@ -133,7 +133,12 @@ def _fingerprint() -> str:
                     break
     except OSError:
         pass
-    return f"torch {torch.__version__} | {platform.machine()} | {cpu}"
+    # The thread count is part of it: the same CPU gives different float32 bits with a different
+    # number of threads (measured 2026-11-16: 1, 2, 6 and 8 threads all differ from the default).
+    return (
+        f"torch {torch.__version__} | {platform.machine()} | {cpu} | "
+        f"{torch.get_num_threads()} threads"
+    )
 
 
 def _digest(t: torch.Tensor) -> dict:
@@ -200,6 +205,10 @@ def _run(case: str, *, use_body: bool = True) -> dict:
         "grad_reg_head1": _digest(model.dec_conv4_head1_reg.weight.grad),
         "grad_reg_head3": _digest(model.dec_conv4_head3_reg.weight.grad),
         "grad_first_conv": _digest(next(model.parameters()).grad),
+        # Every parameter's gradient. Not in the golden file; read by the one-process test.
+        "grad_all": _digest(
+            torch.cat([p.grad.reshape(-1) for p in model.parameters() if p.grad is not None])
+        ),
     }
 
 
@@ -214,9 +223,10 @@ def _same(got: dict, want: dict, *, exact: bool) -> bool:
     # signed sum, which cancels). Measured on the CI runner, 2026-11-16: up to 2e-6 relative, in
     # the gradient that has passed through the whole recurrent rollout.
     mean_abs = want["abs_sum"] / max(want["n"], 1)
-    if abs(got["sum"] - want["sum"]) > _OTHER_MACHINE_RTOL * want["abs_sum"]:
+    # Written as `not (difference <= tolerance)` so that NaN, which compares False, is a mismatch.
+    if not abs(got["sum"] - want["sum"]) <= _OTHER_MACHINE_RTOL * want["abs_sum"]:
         return False
-    if abs(got["abs_sum"] - want["abs_sum"]) > _OTHER_MACHINE_RTOL * want["abs_sum"]:
+    if not abs(got["abs_sum"] - want["abs_sum"]) <= _OTHER_MACHINE_RTOL * want["abs_sum"]:
         return False
     return all(
         abs(g - w) <= _OTHER_MACHINE_RTOL * (abs(w) + mean_abs)
@@ -253,6 +263,11 @@ def test_the_body_path_equals_the_older_path_in_one_process(case):
     """The same claim as the golden, without the golden: both paths, one process, any CPU."""
     with_body, without = _run(case, use_body=True), _run(case, use_body=False)
     for key in with_body:
+        if key == "grad_all" and CASES[case][0] == "mixture_nb":
+            # The one measured exception (code review, 2026-11-16): on this 8 x 8 grid the
+            # mixture body's three head-bias gradients differ by up to 3e-8 between the paths.
+            assert _same(with_body[key], without[key], exact=False), f"{case}: {key} is far off"
+            continue
         assert with_body[key]["sha256"] == without[key]["sha256"], (
             f"{case}: {key} differs between the body path and the older path "
             f"(sums {with_body[key]['sum']!r} vs {without[key]['sum']!r})"
@@ -289,6 +304,9 @@ def test_the_comparison_can_fail():
     assert not _same(far, d, exact=False)
     assert _same(d, d, exact=True) and _same(d, d, exact=False)
     assert _same(moved, d, exact=False), "float noise of 1e-6 must pass on another machine"
+    # NaN anywhere must be a mismatch on another machine too: it reaches the sums.
+    nan = _digest(torch.tensor([1.0, 2.0, float("nan")]))
+    assert not _same(nan, d, exact=False) and not _same(nan, d, exact=True)
 
 
 if __name__ == "__main__":

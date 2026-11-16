@@ -29,7 +29,7 @@ def _standard(valid_config_dict, **overrides):
     ids=["mean squared error", "ranking"],
 )
 def test_sampled_feedback_is_refused_for_a_body_that_cannot_sample(valid_config_dict, body):
-    """The exact state of the ten live `*_counter` and `*_sorter` configs."""
+    """The feedback setting of the ten live `*_counter` and `*_sorter` configs before their fix."""
     with pytest.raises(ValidationError) as excinfo:
         HydraNetConfig(**_standard(valid_config_dict, rollout_feedback="sample", **body))
     message = str(excinfo.value)
@@ -68,11 +68,5 @@ def test_sampled_feedback_is_still_accepted_for_a_distribution_body(
     assert cfg.rollout_feedback == "sample"
 
 
-def test_the_forecast_time_refusal_is_still_there():
-    """A caller that bypasses the schema with a raw dict must still be stopped."""
-    import inspect
-
-    from views_hydranet.utils import hydranet_inference
-
-    source = inspect.getsource(hydranet_inference.HydraNetInference.__init__)
-    assert "rollout_feedback='sample' needs a registered distribution family" in source
+# The forecast-time refusal in `HydraNetInference.__init__` stays, for a caller that bypasses the
+# schema with a raw dict. It is tested in tests/distributions/test_rollout_feedback.py.

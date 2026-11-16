@@ -425,7 +425,7 @@ def _structure_penalty(
     (§2 of the pre-registration).
 
     The gate for regression target ``j`` is classification channel ``j``: the pairing is
-    ``gate order = reg``, stated at ``utils/hydranet_inference.py:1643`` and relied on by
+    ``gate order = reg``, relied on by
     ``:1075``'s ``prob[:, :n_reg]``.
 
     Within-block variance is ``E[x²] − E[x]²`` over each ``k×k`` block, via two average pools. The
@@ -815,6 +815,18 @@ def _process_sequence(
             # did when the model's own activation was read. The values are bit-identical to
             # `output.reg` (tests/body/test_bodies.py).
             body_step = body.read(output.reg_latent)
+            if i == 0 and not torch.allclose(
+                body_step.activated, output.reg, rtol=1e-4, atol=1e-6, equal_nan=True
+            ):
+                # A model built from one config and a body built from another (a ReLU head with a
+                # softplus body, say) would otherwise train on values the model never reports.
+                err_msg = (
+                    f"{type(body).__name__} activates the heads' outputs differently from the "
+                    "model itself: the model was not built for this body. Training would use "
+                    "values the model does not report at forecast time."
+                )
+                logger.error(err_msg)
+                raise RuntimeError(err_msg)
             t1_pred = body_step.activated
         # EXP-4 (GTF): only compute the fed-back copy when scheduled sampling is active (ε>0), so
         # ε=0 stays byte-identical (branch never runs). A family emits n_params channels/target, so
@@ -1020,7 +1032,7 @@ def _process_sequence(
                 # The FAMILY composes its own mean — never `pred_j[..., 0]`, which is the raw
                 # mu channel and under `truncated_nb` is ~2x below the magnitude the head emits
                 # (see `_structure_penalty`). The gate for reg target j is classification channel
-                # j ("gate order = reg", utils/hydranet_inference.py:1643).
+                # j ("gate order = reg").
                 struct_pen = struct_pen + tw * _structure_penalty(
                     loss_fn_j.family, pred_j, t1_pred_class[:, j, :, :], target_j
                 )

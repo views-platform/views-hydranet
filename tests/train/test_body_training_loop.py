@@ -61,7 +61,11 @@ def _varied_handler(cfg):
 
 def _train(name, monkeypatch, *, use_body: bool):
     overrides, _ = LIVE[name]
-    cfg = loop_config(reg_activation="softplus", loss_class="weighted_bce", **overrides)
+    # weight_decay=0: with decay the head moves even when no loss trains it, and the last
+    # assertion of the test would pass for that reason (code review, 2026-11-16).
+    cfg = loop_config(
+        reg_activation="softplus", loss_class="weighted_bce", weight_decay=0.0, **overrides
+    )
     seen: list = []
     real = engine.build_body
 
