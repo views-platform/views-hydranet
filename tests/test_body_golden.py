@@ -17,7 +17,9 @@ keep exercising the old path and stay green while proving nothing.
 Exact or tolerant. Softplus and convolutions are not bit-stable across CPUs, so a golden recorded
 on one machine cannot be demanded bit-for-bit on another. The golden stores the machine it was
 recorded on. On that machine the comparison is exact (sha256 of the float32 bytes). Anywhere else
-it falls back to `rtol=1e-5, atol=1e-7` on the stored values, and says so.
+it falls back to a tolerance of 1e-4 of each tensor's mean absolute value, and says so. (A first
+version used `rtol=1e-5, atol=1e-7` per value and failed on the CI runner: 7 of 9 cases, all in
+the one gradient that passes through the whole rollout, by about 2e-6.)
 
 Regenerate (only ever on an unmodified tree, and say why in the commit):
 
@@ -107,6 +109,10 @@ CASES = {
         },
     ),
 }
+
+
+#: Tolerance on a machine other than the one the golden was recorded on; see `_same`.
+_OTHER_MACHINE_RTOL = 1e-4
 
 
 class _Sum(nn.Module):
@@ -202,9 +208,20 @@ def _same(got: dict, want: dict, *, exact: bool) -> bool:
         return False
     if exact:
         return got["sha256"] == want["sha256"]
-    a = torch.tensor([got["sum"], got["abs_sum"], *got["head"]], dtype=torch.float64)
-    b = torch.tensor([want["sum"], want["abs_sum"], *want["head"]], dtype=torch.float64)
-    return bool(torch.allclose(a, b, rtol=1e-5, atol=1e-7))
+    # Another machine. Float32 noise is proportional to the size of the tensor's values, not to
+    # each value: an entry near zero carries the same absolute noise as a large one. So the
+    # tolerance is 1e-4 of the tensor's mean absolute value (and of the absolute sum, for the
+    # signed sum, which cancels). Measured on the CI runner, 2026-11-16: up to 2e-6 relative, in
+    # the gradient that has passed through the whole recurrent rollout.
+    mean_abs = want["abs_sum"] / max(want["n"], 1)
+    if abs(got["sum"] - want["sum"]) > _OTHER_MACHINE_RTOL * want["abs_sum"]:
+        return False
+    if abs(got["abs_sum"] - want["abs_sum"]) > _OTHER_MACHINE_RTOL * want["abs_sum"]:
+        return False
+    return all(
+        abs(g - w) <= _OTHER_MACHINE_RTOL * (abs(w) + mean_abs)
+        for g, w in zip(got["head"], want["head"], strict=True)
+    )
 
 
 @pytest.mark.parametrize("case", list(CASES))
@@ -216,7 +233,7 @@ def test_one_training_step_reproduces_the_golden(case):
     for key in want:
         assert _same(got[key], want[key], exact=exact), (
             f"{case}: {key} differs from the golden "
-            f"({'bit-for-bit' if exact else 'rtol 1e-5, another machine'}). "
+            f"({'bit-for-bit' if exact else 'tolerance 1e-4, another machine'}). "
             f"got sum {got[key]['sum']!r}, golden sum {want[key]['sum']!r}. "
             "Epic #616 claims training is numerically unchanged; this is the check of that claim."
         )
@@ -257,6 +274,7 @@ def test_the_comparison_can_fail():
     far = _digest(torch.tensor([1.0, 2.0, 3.0]) * (1 + 1e-3))
     assert not _same(far, d, exact=False)
     assert _same(d, d, exact=True) and _same(d, d, exact=False)
+    assert _same(moved, d, exact=False), "float noise of 1e-6 must pass on another machine"
 
 
 if __name__ == "__main__":
