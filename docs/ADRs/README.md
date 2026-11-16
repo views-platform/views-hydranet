@@ -82,12 +82,15 @@ Architectural decisions specific to the HydraNet system.
 - **[075](active/075_emitting_the_body_as_a_diagnostic.md)**: ADR-075: A run can be asked to emit the body, which is otherwise unrecoverable
 - **[077](active/077_global_land_coverage.md)**: ADR-077: HydraNet models forecast global land
 - **[078](active/078_horizon_selection_for_emission.md)**: ADR-078: Horizons are selectable for emission, never for computation
+- **[079](active/079_definition_of_a_body.md)**: ADR-079: The Definition of a Body
+- **[081](active/081_declarative_body_vocabulary.md)**: ADR-081: One Field Names the Body
 
 ## [Proposed (Emerging)](./proposed/)
 
 - **[053](proposed/053_build_and_package_management_tooling.md)**: Build and Package Management Tooling
 - **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
 - **[073](proposed/073_emit_time_distribution_split.md)**: ADR-073: What a model emits from need not be what it was trained on
+- **[080](proposed/080_definition_of_a_gate.md)**: ADR-080: The Definition of a Gate
 
 ## [Archive (Historical)](./archive/)
 

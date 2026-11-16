@@ -2,7 +2,7 @@
 
 The regression head sizes reg channels to `family.n_params` and installs `family.activate` when
 `output_distribution` is a registered family (nb/zinb); legacy values fall through to the untouched
-`.startswith("hurdle")` / `_is_quantile` path (byte-identical). `output_channels`/`cls` (the AR
+`.startswith("hurdle")` path (byte-identical). `output_channels`/`cls` (the AR
 feedback width) is unchanged.
 """
 
@@ -94,15 +94,6 @@ def test_dense_nb_head_unchanged_relu():
     assert m._reg_activation is F.relu  # dense_nb does NOT start with "hurdle"
 
 
-def test_quantile_head_unchanged_width_and_monotone():
-    k = 5
-    out = _fwd(_build("quantile", n_quantiles=k))
-    assert out.reg.shape[1] == 3 * k
-    # monotone non-decreasing along each target's quantile channels
-    q = out.reg[:, 0:k]
-    assert (q[:, 1:] - q[:, :-1] >= -1e-6).all()
-
-
 # ── informed init: the family's initial_raw_bias seeds the reg conv biases ──
 
 
@@ -149,7 +140,6 @@ def test_legacy_values_resolve_to_none():
         "hurdle_lognormal",
         "hurdle_shrinkage",
         "dense_nb",
-        "quantile",
     )
     for legacy in legacy_values:
         assert resolve_family(legacy) is None

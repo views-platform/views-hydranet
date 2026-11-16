@@ -39,8 +39,7 @@ steps are chained.
   ADR-054/055) can read the pre-ReLU mu (lines 42, 681, 366 in `training_engine.py`); the class emits
   it, it does not consume it.
 - Does **not** validate config semantics. `choose_model` (`utils/utils.py:30`) reads the config dict
-  and passes primitives in; this class validates only its own local invariant (quantile count, line
-  126).
+  and passes primitives in; this class validates no config value itself.
 - Does **not** persist, log, or perform I/O. Pure `nn.Module` compute.
 
 ---
@@ -50,8 +49,7 @@ steps are chained.
 **Public API.**
 
 - `__init__(input_channels, total_hidden_channels, output_channels, dropout_rate,
-  output_distribution="standard", n_static_channels=0, static_top_skip=True, reg_activation=None,
-  n_quantiles=None)` (lines 64-75). `total_hidden_channels` MUST be divisible by 8 (docstring line 82;
+  output_distribution="standard", n_static_channels=0, static_top_skip=True, reg_activation=None)`. `total_hidden_channels` MUST be divisible by 8 (docstring line 82;
   consumed at line 157 `num_lstm_state_layers = total/(4*2)` and line 520 `split_h = h.shape[1]/8`).
 - `forward(x, h) -> ModelOutput(reg, cls, h_next, reg_latent)` (lines 502-685). Single timestep.
   `reg` `[B, n_reg, H, W]` post-activation, `cls` `[B, n_cls, H, W]` logits, `h_next`
@@ -91,8 +89,7 @@ steps are chained.
 - **AR-feedback width invariant.** For legacy heads the caller must satisfy
   `input_channels == 3*output_channels + n_static_channels` (comments lines 121-122, 135-137): the 3
   regression heads each emit `output_channels`, and their concatenation plus statics becomes the next
-  step's input. Family and quantile heads size ONLY the reg heads (`reg_out_ch = family.n_params` or
-  `n_quantiles`, lines 138-141) while `output_channels` stays the feedback/class width — so the
+  step's input. Family heads size ONLY the reg heads (`reg_out_ch = family.n_params`) while `output_channels` stays the feedback/class width — so the
   invariant is preserved unchanged by those heads.
 - The last `n_static_channels` of `x` are the static/coordinate channels, captured raw at full
   resolution before `x` is fused with the hidden state (line 517). `static_top_skip=False` keeps them
@@ -119,8 +116,6 @@ steps are chained.
 
 ## 6. Failure Modes and Loudness
 
-- `output_distribution="quantile"` with `n_quantiles` missing or `< 2` raises `ValueError`
-  (lines 126-127) — a quantile head needs at least 2 monotone quantiles to be well-defined.
 - A mis-sized `total_hidden_channels` (not divisible by 8) corrupts the state split
   (`torch.split(h, split_h, ...)`, line 521) — the class documents the divisibility precondition
   (line 82) but does not assert it; a caller violating it fails at the first forward via a shape
@@ -128,7 +123,7 @@ steps are chained.
 - Violating the AR-feedback width invariant surfaces loud as a channel-count mismatch in
   `enc_conv0` (line 162, expecting `input_channels + total_hidden_channels/2`) or when the next
   step's fed-back input is re-consumed — a torch shape `RuntimeError`, never silent.
-- Reg-family / quantile head sizing and activation are chosen once at `__init__` and cannot drift at
+- Reg-family head sizing and activation are chosen once at `__init__` and cannot drift at
   forward time; a head sized for the wrong family fails loud downstream at the family's `activate`
   (see DistributionFamily CIC), not here.
 - Unpacking `ModelOutput` with 3 targets (`r, c, h = model(x, h)`) raises `ValueError` (too many
@@ -139,9 +134,7 @@ steps are chained.
 ## 7. Boundaries and Interactions
 
 - **Consumes** `resolve_family` (ADR-067, imports line 8; called line 99), `LockedDropout`
-  (ADR-057, import line 7; instantiated as a 15-site `ModuleDict`, lines 316-335), and the quantile
-  head helpers `init_quantile_conv_` / `monotone_quantiles` (import line 9; used lines 130-134,
-  287-288). It treats the family as an opaque activation/param-count provider (DIP).
+  (ADR-057, import line 7; instantiated as a 15-site `ModuleDict`, lines 316-335). It treats the family as an opaque activation/param-count provider (DIP).
 - **Produced by** `choose_model` (`utils/utils.py:30`), which maps config keys to the constructor
   args — the only instantiation site.
 - **`forward` consumed by** `training_engine._process_sequence` (`training_engine.py:253`, reads
@@ -183,9 +176,8 @@ for _ in range(n_posterior):
   `hydranet_inference`, not here.
 - Reading `reg_latent` at eval time — it is `None` outside training (line 681); the censored-loss
   latent is a train-only signal.
-- Passing `output_distribution="quantile"` without `n_quantiles>=2`, or a channel budget that breaks
-  `input_channels == 3*output_channels + n_static` for a legacy head — both fail loud, but calling
-  them "config the model tolerates" is a misuse.
+- Passing a channel budget that breaks `input_channels == 3*output_channels + n_static` for a
+  legacy head — it fails loud, but calling it "config the model tolerates" is a misuse.
 
 ---
 
@@ -199,7 +191,7 @@ for _ in range(n_posterior):
   masks independent across sites, per-step default (unlocked) behavior, reset-between-samples
   changes output, and that the 15 instances add no state-dict keys (artifact-compat).
 - **Green (head selection / activation):** `tests/test_reg_activation.py`,
-  `tests/test_output_distribution_head.py`, `tests/test_quantile_head.py`,
+  `tests/test_output_distribution_head.py`,
   `tests/test_falsify_reg_head_dead_relu.py` (C-178 softplus-not-dead-ReLU),
   `tests/test_onset_bias_init.py` (informed init).
 - **Green (static top-skip / coords):** `tests/test_static_top_skip.py`,

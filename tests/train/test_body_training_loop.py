@@ -1,0 +1,102 @@
+"""S3 (#619, epic #616): the real training loop, with a body and without, ends at the same weights.
+
+`tests/test_body_golden.py` pins one `_process_sequence` call. This file goes one level up: the
+real `make()` and `training_loop()`, optimizer steps included, for each body in use. The loop is
+run twice from the same seed — once as written, once with `build_body` forced to return ``None``
+so the older path runs — and every parameter must be `torch.equal` afterwards.
+
+🟥 Red by the ADR-005 taxonomy: this is the claim "training is unchanged" at the level a run
+actually executes.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+torch = pytest.importorskip("torch")
+
+import numpy as np  # noqa: E402
+
+import views_hydranet.train.training_engine as engine  # noqa: E402
+from tests.train.conftest import loop_config  # noqa: E402
+from views_hydranet.body.bodies import (  # noqa: E402
+    DistributionBody,
+    MeanSquaredErrorBody,
+    RankingBody,
+)
+from views_hydranet.train.training_engine import make, training_loop  # noqa: E402
+from views_hydranet.utils.volume_handler import VolumeHandler  # noqa: E402
+
+LIVE = {
+    "mse": ({"output_distribution": "standard", "loss_reg": "mse"}, MeanSquaredErrorBody),
+    "ranking": (
+        {"output_distribution": "standard", "loss_reg": "listwise_level", "loss_reg_y_max": 1e4},
+        RankingBody,
+    ),
+    "nb": ({"output_distribution": "nb", "loss_reg": "mse"}, DistributionBody),
+    "truncated_nb": ({"output_distribution": "truncated_nb", "loss_reg": "mse"}, DistributionBody),
+    "mixture_nb": ({"output_distribution": "mixture_nb", "loss_reg": "mse"}, DistributionBody),
+}
+
+
+def _varied_handler(cfg):
+    """Cells with different values. The shared `loop_handler` sets every cell to 1.0, which ties
+    every cell on one level: the ranking loss then has a gradient of exactly zero and its head
+    never moves, so equal weights would prove nothing for that body."""
+    rng = np.random.default_rng(3)
+    data = rng.random((5, 8, 8, 4))
+    data[..., 1:] = (rng.random((5, 8, 8, 3)) < 0.4) * rng.random((5, 8, 8, 3)) * 4.0
+    return VolumeHandler(
+        data=data,
+        axes=("T", "H", "W", "C"),
+        channel_map=["t", "lr_f1", "lr_f2", "lr_f3"],
+        time_col="t",
+        id_col="i",
+        spatial_cols=["y", "x"],
+        identity_cols=["t", "i"],
+        feature_cols=["lr_f1", "lr_f2", "lr_f3"],
+        config=cfg,
+    )
+
+
+def _train(name, monkeypatch, *, use_body: bool):
+    overrides, _ = LIVE[name]
+    cfg = loop_config(reg_activation="softplus", loss_class="weighted_bce", **overrides)
+    seen: list = []
+    real = engine.build_body
+
+    def spy(config, criterion_reg):
+        body = real(config, criterion_reg) if use_body else None
+        seen.append(body)
+        return body
+
+    monkeypatch.setattr(engine, "build_body", spy)
+    device = torch.device("cpu")
+    torch.manual_seed(cfg["torch_seed"])
+    model, criterion, optimizer, scheduler = make(cfg, device)
+    initial = {k: v.clone() for k, v in model.state_dict().items()}
+    training_loop(cfg, model, criterion, optimizer, scheduler, _varied_handler(cfg), device)
+    return model, seen, initial
+
+
+@pytest.mark.parametrize("name", list(LIVE))
+def test_the_loop_reaches_the_same_weights_with_and_without_the_body(name, monkeypatch):
+    with_body, seen, initial = _train(name, monkeypatch, use_body=True)
+    assert seen, "`train()` never asked for a body"
+    assert all(type(b) is LIVE[name][1] for b in seen), (
+        f"{name}: expected {LIVE[name][1].__name__} on every step, got "
+        f"{sorted({type(b).__name__ for b in seen})}"
+    )
+    without, seen_old, _ = _train(name, monkeypatch, use_body=False)
+    assert seen_old and all(b is None for b in seen_old)
+
+    for (key, a), (_, b) in zip(
+        with_body.state_dict().items(), without.state_dict().items(), strict=True
+    ):
+        assert torch.equal(a, b), f"{name}: `{key}` differs between the body path and the older"
+
+    # The equality above would hold trivially if nothing trained.
+    head = "dec_conv4_head1_reg.weight"
+    assert not torch.equal(with_body.state_dict()[head], initial[head]), (
+        f"{name}: the regression head did not move, so equal weights prove nothing"
+    )

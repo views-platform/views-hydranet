@@ -1,6 +1,10 @@
 # ADR-063: Regression-head output activation — softplus for hurdle bodies, ReLU for standard
 
-**Status:** Accepted
+**Status:** Accepted — ⚠️ **partly superseded by ADR-079 (the definition of a body), decided 2026-11-15.**
+Superseded: the ReLU default for `standard`, and `reg_activation` as an override. ADR-079 fixes
+softplus on every count channel of every body, with no config field. Still in force: softplus for
+the hurdle bodies, and the reasoning against ReLU (`C-178`). ADR-079 was accepted on 2026-11-16. The
+code has not changed yet, so the code still behaves as this ADR describes.
 **Date:** 2026-06-26
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers
@@ -25,6 +29,8 @@
 
 ## 2. Decision
 **The new Law of the Land.**
+- ⚠️ **Superseded in part by ADR-079 (2026-11-15):** the "ReLU for `standard`" default and the
+  `reg_activation` override in the statement below no longer stand as the decision.
 - **Statement:** "The regression-head output activation defaults to **softplus** for all hurdle output
   distributions (`hurdle_nb`, `hurdle_shrinkage`, `hurdle_lognormal`) and **ReLU** for `standard`. An explicit
   `reg_activation` config key still overrides the default."

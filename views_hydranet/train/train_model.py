@@ -31,6 +31,7 @@ from views_hydranet.train.training_engine import (  # noqa: F401 — backward co
     train,
     training_loop,
 )
+from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
@@ -102,22 +103,14 @@ def train_model_artifact(
         # C-179: persist the RESOLVED reg-head activation (the function actually used) so a reload
         # uses the trained activation even if the default keyed off output_distribution changes
         # (ADR-063). softplus/relu share weight shapes => a mismatch loads silently, wrong.
-        # Quantile head sets its own monotone activation from output_distribution (the
-        # reg_activation
-        # arg is ignored); its closure name is not a valid reg_activation on reload, so persist
-        # None +
-        # the quantile count K instead.
-        # A distribution family (nb/zinb, ADR-067) or the quantile head installs its OWN activation
+        # A distribution family (nb/zinb, ADR-067) installs its OWN activation
         # (a closure keyed off output_distribution) whose name is not a valid reg_activation string
         # on reload — persist None; output_distribution reconstructs it. Registry-driven
         # (resolve_family), so new families need no edit here.
         from views_hydranet.distributions import resolve_family
 
         _od = config_snapshot["output_distribution"]
-        if _od == "quantile":
-            config_snapshot["reg_activation"] = None
-            config_snapshot["n_quantiles"] = config.get("n_quantiles")
-        elif resolve_family(_od) is not None:
+        if resolve_family(_od) is not None:
             config_snapshot["reg_activation"] = None
             # C-206: K (n_head_samples) changes the sampled D×K cube at inference (A-S8), so it
             # must ride in the manifest — else two runs with different K share a snapshot and
@@ -127,6 +120,19 @@ def train_model_artifact(
         else:
             config_snapshot["reg_activation"] = model._reg_activation.__name__
         criterion_reg = criterion[0]
+        # ADR-079 / #620: record which loss trained the model. Two models that differ only in
+        # their loss (mean squared error against the ranking loss, both `standard`) otherwise have
+        # identical sidecars. Written only when `loss_reg` is what trained: under a distribution
+        # family the likelihood trains and `loss_reg` is not read, so repeating it here would
+        # record a loss the model was not trained with; `output_distribution` already names it.
+        # Provenance only; reload does not consume these keys.
+        if resolve_family(_od) is None:
+            config_snapshot["loss_reg"] = config.get("loss_reg")
+            if isinstance(criterion_reg, ListwiseLevelLoss):
+                # Read off the criterion, not the config: the ranking loss's own function has a
+                # default, and the sidecar must say what was used, not what was written.
+                config_snapshot["loss_reg_y_max"] = config.get("loss_reg_y_max")
+                config_snapshot["loss_reg_listwise_transform"] = criterion_reg.transform
         is_hurdle = config_snapshot["output_distribution"] == "hurdle_nb"
         if is_hurdle and isinstance(criterion_reg, dict):
             config_snapshot["hurdle_nb_theta"] = {
