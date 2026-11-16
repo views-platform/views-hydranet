@@ -1076,6 +1076,82 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def reject_discarded_or_inert_listwise_level(self) -> "HydraNetConfig":
+        """⛔⛔ A config that reads as a ranking arm must not train the magnitude body.
+
+        Two halves of one silent discard, both found by `/code-review` on 2026-11-12 and both
+        reproduced by execution before this guard was written:
+
+        **1. The loss is discarded.** `choose_loss` resolves the family FIRST — its own comment
+        says *"loss_reg is irrelevant for a family"* — so `loss_reg='listwise_level'` with
+        `output_distribution='nb'` validates, logs a config that reads as a ranking arm, and
+        returns `FamilyLoss` (the NB NLL). Measured: that config constructs fine and
+        `choose_loss` hands back `FamilyLoss`. ⇒ The arm would train the thing it was built to
+        replace and come home as a clean null — the **C-324** inert-knob signature, and the
+        single most expensive failure available to this programme.
+
+        **2. The parameter is inert.** `loss_reg_y_max` with any other `loss_reg` is read by
+        nothing. An operator who sets it and mistypes `loss_reg` gets a silent magnitude arm.
+        The field's own note already invokes the W-22 trap for *declaring* it; this closes the
+        other half.
+
+        ⚠️ A listwise loss needs the **point** branch (`n_params = 1`): a family emits
+        `n_params` reg channels per target, so its `reg_latent` is more than one channel and
+        there is no single score to rank. Use a legacy `output_distribution` such as
+        `'standard'`.
+
+        Mirrors `reject_ignored_body_nll_denominator` and `reject_inert_clamp`, which this
+        repository added for the same signature.
+        """
+        if self.loss_reg == "listwise_level":
+            # ⚠️ From `registry`, not the package: `family_n_params` is not in
+            # `views_hydranet.distributions.__all__`. Both are torch-free, which is what keeps
+            # config validation torch-free (A-S2 / CRP), the same reason
+            # `validate_output_distribution` imports `family_names` locally.
+            from views_hydranet.distributions.registry import family_n_params, family_names
+
+            # Mirror the head's OWN sizing rule, which is the authority
+            # (`HydraBNrecurrentUnet_06_LSTM4.py`): a family emits `n_params` channels per
+            # target, every other head emits `output_channels`. Gating on the derived CHANNEL
+            # COUNT rather than on a hand-listed set of names is deliberate: the first version of
+            # this guard tested "is not a registered family" and let a multi-channel legacy head
+            # validate. (That head, the quantile head, was removed on 2026-11-16, ADR-079 §4.)
+            if self.output_distribution in family_names():
+                reg_channels = family_n_params(self.output_distribution)
+                err_msg = (
+                    f"loss_reg='listwise_level' with output_distribution="
+                    f"'{self.output_distribution}' is a SILENT DISCARD: choose_loss resolves the "
+                    "distribution family first and never consults loss_reg, so this arm would "
+                    "train the family NLL while its config reads as a ranking arm (C-324). The "
+                    f"family also emits {reg_channels} reg channels per target, so there is no "
+                    "single score to rank. Use a legacy point head, e.g. "
+                    "output_distribution='standard'."
+                )
+            else:
+                reg_channels = self.output_channels
+                err_msg = (
+                    f"loss_reg='listwise_level' needs ONE reg channel per target and "
+                    f"a legacy head emits output_channels={reg_channels} per target "
+                    f"(output_distribution='{self.output_distribution}'). A listwise loss ranks "
+                    "a single score per cell; with more than one channel there is no score to "
+                    "rank. Use a point head with output_channels=1, e.g. "
+                    "output_distribution='standard'."
+                )
+            if reg_channels != 1:
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        if self.loss_reg_y_max is not None and self.loss_reg != "listwise_level":
+            err_msg = (
+                f"loss_reg_y_max={self.loss_reg_y_max} is set but loss_reg='{self.loss_reg}' "
+                "does not read it — the only consumer is 'listwise_level'. An inert parameter "
+                "reads as an arm that changed a variable when it changed nothing (C-324). "
+                "Remove loss_reg_y_max, or set loss_reg='listwise_level'."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
     def reject_bptt_sa_that_cannot_run(self):
         """BPTT-SA needs scheduled sampling to be active, or its whole block never executes (#308).
 
