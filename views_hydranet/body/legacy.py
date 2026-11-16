@@ -1,6 +1,6 @@
-"""The pre-ADR-079 three-field rule, preserved exactly and quarantined. **Torch-free at import.**
+"""The pre-ADR-081 three-field rule, preserved exactly and quarantined. **Torch-free at import.**
 
-Before ADR-079 the body was described by `loss_reg`, `output_distribution` and `reg_activation`,
+Before ADR-081 the body was described by `loss_reg`, `output_distribution` and `reg_activation`,
 and what actually trained it was decided by statement order inside `choose_loss`: a registered
 distribution family won, and `loss_reg` was then never read. That rule is reproduced here, once, as
 a total function.
@@ -11,8 +11,8 @@ driver that builds a raw dict without passing through the schema. Both are legit
 why the six orphan distribution values stay loadable.
 
 The function is pinned by `tests/test_body_characterization.py`, which was committed before any of
-ADR-079 moved, with pairs whose stated loss *disagrees* with what trains. Delete this file whole on
-the day the last pre-ADR-079 artifact is retired.
+ADR-081 moved, with pairs whose stated loss *disagrees* with what trains. Delete this file whole on
+the day the last pre-ADR-081 artifact is retired.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def legacy_body_spec(
     output_distribution: str = "standard",
     reg_activation: str | None = None,
 ) -> BodySpec:
-    """The body a pre-ADR-079 triple describes — including the six values with no declared row.
+    """The body a pre-ADR-081 triple describes — including the six values with no declared row.
 
     The precedence, in one line: if `output_distribution` names a registered family, that family's
     likelihood trains the body and `loss_reg` is irrelevant. Otherwise `loss_reg` trains it.

@@ -1,11 +1,11 @@
-"""The closed vocabulary of regression bodies (ADR-079). **Torch-free at import.**
+"""The closed vocabulary of regression bodies (ADR-081). **Torch-free at import.**
 
 One config field, `body`, names what trains the regression head, what activation that head applies,
 and what the model emits forecasts from. Its value comes from the frozen mapping below and from
 nowhere else: a combination that is not a key here cannot be written in a config, so there is no
 pair of fields to cross-check against each other.
 
-Why this module exists at all. Before ADR-079 the body was described by three fields — `loss_reg`,
+Why this module exists at all. Before ADR-081 the body was described by three fields — `loss_reg`,
 `output_distribution` and `reg_activation` — and the objective that actually trained it was
 *inferred* from the combination, by statement order inside `choose_loss`. The inference discarded
 `loss_reg` whenever a distribution was named, silently, and 27 of the 37 live configs therefore
@@ -44,7 +44,7 @@ class BodySpec:
         not consulted (`HydraBNrecurrentUnet_06_LSTM4.py:118-119`). ⚠️ On a family row the segment
         is therefore approximate: the NB and truncated-NB families do apply softplus to both
         channels, but the mixture applies `sigmoid` to its weight and `mu1 + softplus(delta)` to
-        its second mean. ADR-079 §4 records that as the accepted price of the long spelling.
+        its second mean. ADR-081 §4 records that as the accepted price of the long spelling.
     loss : str | None
         A key of ``LOSS_REG_REGISTRY``, for a body trained by a named loss, not a likelihood.
     family : str | None
@@ -70,7 +70,7 @@ class BodySpec:
     def width(self) -> int:
         """Channels the head emits per target — the emit family's parameter count, or 1.
 
-        ⛔ Derived, never declared. ADR-079 §2 refuses a config field for the width because the
+        ⛔ Derived, never declared. ADR-081 §2 refuses a config field for the width because the
         number is already fixed by the distribution, and two places recording one number can
         disagree — which is the defect this ADR removes, relocated to a new field.
         """
@@ -90,7 +90,7 @@ class BodySpec:
         return f"width {self.width}, {self.activation}{owner}, {trains}, emits {emits}"
 
 
-#: The declared vocabulary: exactly the combinations live in the fleet today (ADR-079 §2).
+#: The declared vocabulary: exactly the combinations live in the fleet today (ADR-081 §2).
 BODIES: dict[str, BodySpec] = {
     "mse_softplus_point": BodySpec(activation="softplus", loss="mse"),
     "listwise_softplus_point": BodySpec(activation="softplus", loss="listwise_level"),
@@ -118,7 +118,7 @@ def resolve_body(value: str) -> BodySpec:
             f"body={value!r} is not a declared body. The declared bodies are:\n"
             f"{declared_bodies()}\n"
             "A combination that is not listed cannot be written in a config. Adding a row is a "
-            "deliberate act with an owner and a stated reason (ADR-079 §2), not a config edit."
+            "deliberate act with an owner and a stated reason (ADR-081 §2), not a config edit."
         )
         logger.error(err_msg)
         raise ValueError(err_msg)

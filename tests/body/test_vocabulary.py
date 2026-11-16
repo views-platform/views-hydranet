@@ -1,4 +1,4 @@
-"""S2 (#605, epic #603): the declared body vocabulary (ADR-079), and that it cannot lie.
+"""S2 (#605, epic #603): the declared body vocabulary (ADR-081), and that it cannot lie.
 
 🟩 Green. Three of these tests exist because of a specific way the vocabulary could go wrong and
 still look right:
@@ -70,7 +70,7 @@ def test_the_declared_width_matches_adr_079s_table(name, width):
 
 
 def test_width_is_read_off_the_distribution_registry_not_stored():
-    """ADR-079 §2: the width is the emit distribution's parameter count, with no second home.
+    """ADR-081 §2: the width is the emit distribution's parameter count, with no second home.
 
     Asserted against the registry rather than against a literal, so the two cannot drift.
     """
@@ -185,7 +185,7 @@ def test_resolve_body_returns_the_spec_for_each_declared_value():
 def test_legacy_body_spec_reproduces_the_rename_table(
     loss_reg, output_distribution, reg_activation, becomes
 ):
-    """ADR-079 §2's rename table, as an equality between the old spelling and the new."""
+    """ADR-081 §2's rename table, as an equality between the old spelling and the new."""
     assert legacy_body_spec(loss_reg, output_distribution, reg_activation) == BODIES[becomes]
 
 
@@ -226,7 +226,7 @@ def test_a_family_head_ignores_whatever_the_activation_field_said():
 
 
 def test_every_declared_body_names_the_activation_its_own_value_spells():
-    """⛔ The code and ADR-079 §2's table must agree, value by value.
+    """⛔ The code and ADR-081 §2's table must agree, value by value.
 
     Every declared value's middle segment is `softplus`, so every spec's activation is `softplus`.
     A row whose stored activation disagreed with its own name would be the same class of defect

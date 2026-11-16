@@ -1,8 +1,8 @@
-"""The regression body's declared vocabulary (ADR-079).
+"""The regression body's declared vocabulary (ADR-081).
 
 `body` is the one config field that names what trains the regression head, what activation it
 applies, and what the model emits from. `BODIES` is the closed set of values; `resolve_body` is the
-seam every reader goes through. `legacy_body_spec` is the quarantined pre-ADR-079 rule, kept only
+seam every reader goes through. `legacy_body_spec` is the quarantined pre-ADR-081 rule, kept only
 for saved artifacts and schema-bypassing drivers.
 
 Torch-free at import, so `config_initializer` can depend on it.

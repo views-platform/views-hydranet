@@ -1,12 +1,12 @@
-"""S1 (#604, epic #603): what the body dispatch does TODAY, pinned before ADR-079 moves anything.
+"""S1 (#604, epic #603): what the body dispatch does TODAY, pinned before ADR-081 moves anything.
 
-ADR-079 collapses `loss_reg` + `output_distribution` + `reg_activation` into one `body` field and
+ADR-081 collapses `loss_reg` + `output_distribution` + `reg_activation` into one `body` field and
 claims that no model changes what it computes. That claim is only checkable against a pinned
 baseline, and before this file the baseline was not pinned.
 
 🟥 Red by the ADR-005 taxonomy: it describes behaviour that must be preserved, and it is the file
 every later story in #603 is measured against. It asserts the criterion object **and a constructor
-parameter** of it, never bare `isinstance` — ADR-079 §5 invariant 1 requires "an object of the
+parameter** of it, never bare `isinstance` — ADR-081 §5 invariant 1 requires "an object of the
 identical type, with identical parameters".
 
 ⛔ The gap this file exists to close. `tests/distributions/test_loss_wiring.py` already pins two
@@ -52,7 +52,7 @@ from views_hydranet.utils.utils import choose_loss  # noqa: E402
 
 CPU = torch.device("cpu")
 
-# The five combinations live in views-models today — ADR-079 §2's rename table, left-hand column.
+# The five combinations live in views-models today — ADR-081 §2's rename table, left-hand column.
 # `becomes` is the value each is renamed to, carried here so this file and the ADR cannot drift.
 LIVE = [
     ("mse", "standard", "softplus", "mse_softplus_point"),
@@ -132,7 +132,7 @@ def test_the_rename_table_covers_every_live_combination():
 
 
 def test_loss_reg_is_discarded_when_a_distribution_is_named(valid_config_dict):
-    """⛔ The defect, with a pair that DISAGREES — the gap ADR-079 §5 names as mattering most.
+    """⛔ The defect, with a pair that DISAGREES — the gap ADR-081 §5 names as mattering most.
 
     A config asking for the listwise ranking loss beside `nb` trains the NB likelihood instead,
     and nothing warns. This is how the defect was found, and it is what would have made the
@@ -204,7 +204,7 @@ def test_the_dict_valued_tobit_builds_one_instance_per_target(valid_config_dict)
 def test_an_orphan_distribution_still_resolves_its_criterion(valid_config_dict, distribution):
     """`zinb` is the only orphan that names a family; the other four fall to the `loss_reg` path.
 
-    That asymmetry is the thing to remember when reading ADR-079: `output_distribution` is a
+    That asymmetry is the thing to remember when reading ADR-081: `output_distribution` is a
     distribution name for four values and a head-shape name for five.
     """
     cfg = _cfg(valid_config_dict, loss_reg="mse", output_distribution=distribution)
@@ -237,7 +237,7 @@ def _head(output_distribution, reg_activation=None):
     [("standard", 1), ("nb", 2), ("truncated_nb", 2), ("mixture_nb", 5), ("zinb", 3)],
 )
 def test_head_width_is_the_emit_distributions_parameter_count(distribution, width):
-    """ADR-079 §2: the width is read off the distribution, never declared. Pinned per target."""
+    """ADR-081 §2: the width is read off the distribution, never declared. Pinned per target."""
     model = _head(distribution)
     assert model.dec_conv4_head1_reg.out_channels == width
     assert model.dec_conv4_head2_reg.out_channels == width
@@ -259,7 +259,7 @@ def test_a_family_owns_its_activation_and_ignores_the_field(distribution):
 
 
 def test_standard_without_an_activation_trains_relu():
-    """⛔ ADR-079 §2's "case to watch", and the reason S5 must REFUSE this combination.
+    """⛔ ADR-081 §2's "case to watch", and the reason S5 must REFUSE this combination.
 
     `(mse, standard, unset)` is not `mse_softplus_point`: it trains relu. All ten live `standard`
     configs set `reg_activation='softplus'` (checked 2026-11-14), so no live model is affected —
@@ -279,5 +279,5 @@ def test_standard_without_an_activation_trains_relu():
 )
 def test_the_legacy_default_activation_keys_off_the_hurdle_prefix(distribution, expected_name):
     """`startswith("hurdle")` is the rule, so `dense_nb` gets relu while the three hurdles get
-    softplus. A string prefix deciding an activation is exactly what ADR-079 removes."""
+    softplus. A string prefix deciding an activation is exactly what ADR-081 removes."""
     assert _head(distribution)._reg_activation.__name__ == expected_name
