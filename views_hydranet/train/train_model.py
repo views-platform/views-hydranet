@@ -32,6 +32,7 @@ from views_hydranet.train.training_engine import (  # noqa: F401 — backward co
     training_loop,
 )
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
+from views_hydranet.utils.utils import LOSS_REG_REGISTRY
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
@@ -127,12 +128,19 @@ def train_model_artifact(
         # record a loss the model was not trained with; `output_distribution` already names it.
         # Provenance only; reload does not consume these keys.
         if resolve_family(_od) is None:
-            config_snapshot["loss_reg"] = config.get("loss_reg")
+            _loss_reg = config.get("loss_reg")
+            config_snapshot["loss_reg"] = _loss_reg
+            # Every parameter that loss requires, from the registry, so that two models trained
+            # with different values of one do not write the same sidecar.
+            for _param in LOSS_REG_REGISTRY.get(_loss_reg, {}).get("params", []):
+                config_snapshot[_param] = config.get(_param)
             if isinstance(criterion_reg, ListwiseLevelLoss):
                 # Read off the criterion, not the config: the ranking loss's own function has a
                 # default, and the sidecar must say what was used, not what was written.
-                config_snapshot["loss_reg_y_max"] = config.get("loss_reg_y_max")
                 config_snapshot["loss_reg_listwise_transform"] = criterion_reg.transform
+        elif config.get("body_nll_denominator") is not None:
+            # The truncated NB's likelihood is normalised differently per value of this setting.
+            config_snapshot["body_nll_denominator"] = config.get("body_nll_denominator")
         is_hurdle = config_snapshot["output_distribution"] == "hurdle_nb"
         if is_hurdle and isinstance(criterion_reg, dict):
             config_snapshot["hurdle_nb_theta"] = {

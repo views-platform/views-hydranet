@@ -30,8 +30,8 @@ def _ranking(valid_config_dict, **overrides):
     }
 
 
-def _move_out_of_log1p(valid_config_dict, to: str):
-    target = valid_config_dict["regression_targets"][0]
+def _move_out_of_log1p(valid_config_dict, to: str, which: int = 0):
+    target = valid_config_dict["regression_targets"][which]
     tf = copy.deepcopy(valid_config_dict["transformations"])
     tf["log1p"] = [c for c in tf.get("log1p", []) if c != target]
     tf.setdefault(to, []).append(target)
@@ -44,8 +44,11 @@ def test_the_ranking_loss_with_log1p_targets_is_accepted(valid_config_dict):
     assert cfg.loss_reg == "listwise_level"
 
 
-def test_the_ranking_loss_with_a_non_log1p_target_is_refused(valid_config_dict):
-    target, tf = _move_out_of_log1p(valid_config_dict, "identity")
+@pytest.mark.parametrize("which", [0, 1, 2])
+def test_the_ranking_loss_with_a_non_log1p_target_is_refused(valid_config_dict, which):
+    """Every target is checked, not only the first (guard audit, 2026-11-16)."""
+    assert len(valid_config_dict["regression_targets"]) == 3
+    target, tf = _move_out_of_log1p(valid_config_dict, "identity", which)
     with pytest.raises(ValidationError) as excinfo:
         HydraNetConfig(**_ranking(valid_config_dict, transformations=tf))
     message = str(excinfo.value)
@@ -66,8 +69,12 @@ def test_the_refusal_is_about_the_ranking_loss_not_about_standard_heads(valid_co
     assert HydraNetConfig(**cfg).loss_reg == "mse"
 
 
-def test_under_a_distribution_the_family_check_speaks_not_this_one(valid_config_dict):
-    """With a distribution named, `loss_reg` does not train; the family's message applies."""
+def test_under_a_distribution_another_check_speaks_not_this_one(valid_config_dict):
+    """With a distribution named, `loss_reg` does not train, so this check stays silent.
+
+    The pair is refused all the same: a ranking loss beside a distribution is thrown away without
+    an error, and `reject_discarded_or_inert_listwise_level` (0.1.10) refuses it.
+    """
     _, tf = _move_out_of_log1p(valid_config_dict, "identity")
     cfg = _ranking(
         valid_config_dict,
@@ -75,5 +82,8 @@ def test_under_a_distribution_the_family_check_speaks_not_this_one(valid_config_
         forecast_composition="soft_gate",
         transformations=tf,
     )
-    with pytest.raises(ValidationError, match="count distribution"):
+    with pytest.raises(ValidationError) as excinfo:
         HydraNetConfig(**cfg)
+    message = str(excinfo.value)
+    assert "SILENT DISCARD" in message or "count distribution" in message
+    assert "recovers raw counts" not in message, "the log1p check spoke under a distribution"

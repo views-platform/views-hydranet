@@ -122,7 +122,9 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
     # ⛔ Nothing has been trained with it. Reachable only by naming it in `loss_reg`.
     "listwise_level": {
         "cls": ListwiseLevelLoss,
-        "params": ["loss_reg_y_max", "loss_reg_listwise_transform"],
+        # Required parameters only. `loss_reg_listwise_transform` has a default and is read with
+        # `.get` below, so it is not listed: every reader of this list treats it as "must be set".
+        "params": ["loss_reg_y_max"],
         "factory": lambda config, device: ListwiseLevelLoss(
             y_max=config["loss_reg_y_max"],
             # .get with the schema's own default, unlike y_max above: this field HAS a default, so

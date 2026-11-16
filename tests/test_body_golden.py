@@ -17,7 +17,9 @@ keep exercising the old path and stay green while proving nothing.
 Exact or tolerant. Softplus and convolutions are not bit-stable across CPUs, so a golden recorded
 on one machine cannot be demanded bit-for-bit on another. The golden stores the machine it was
 recorded on. On that machine the comparison is exact (sha256 of the float32 bytes). Anywhere else
-it falls back to `rtol=1e-5, atol=1e-7` on the stored values, and says so.
+it falls back to a tolerance of 1e-4 of each tensor's mean absolute value, and says so. (A first
+version used `rtol=1e-5, atol=1e-7` per value and failed on the CI runner: 7 of 9 cases, all in
+the one gradient that passes through the whole rollout, by about 2e-6.)
 
 Regenerate (only ever on an unmodified tree, and say why in the commit):
 
@@ -109,6 +111,14 @@ CASES = {
 }
 
 
+#: The one body whose full gradient is compared with a tolerance between the two paths, not bit
+#: for bit. Pinned by an assertion in the one-process test.
+_GRAD_ALL_TOLERANT = {"mixture_nb"}
+
+#: Tolerance on a machine other than the one the golden was recorded on; see `_same`.
+_OTHER_MACHINE_RTOL = 1e-4
+
+
 class _Sum(nn.Module):
     """A plain sum in place of the task balancer, so the per-task terms are read directly."""
 
@@ -127,7 +137,12 @@ def _fingerprint() -> str:
                     break
     except OSError:
         pass
-    return f"torch {torch.__version__} | {platform.machine()} | {cpu}"
+    # The thread count is part of it: the same CPU gives different float32 bits with a different
+    # number of threads (measured 2026-11-16: 1, 2, 6 and 8 threads all differ from the default).
+    return (
+        f"torch {torch.__version__} | {platform.machine()} | {cpu} | "
+        f"{torch.get_num_threads()} threads"
+    )
 
 
 def _digest(t: torch.Tensor) -> dict:
@@ -194,6 +209,10 @@ def _run(case: str, *, use_body: bool = True) -> dict:
         "grad_reg_head1": _digest(model.dec_conv4_head1_reg.weight.grad),
         "grad_reg_head3": _digest(model.dec_conv4_head3_reg.weight.grad),
         "grad_first_conv": _digest(next(model.parameters()).grad),
+        # Every parameter's gradient. Not in the golden file; read by the one-process test.
+        "grad_all": _digest(
+            torch.cat([p.grad.reshape(-1) for p in model.parameters() if p.grad is not None])
+        ),
     }
 
 
@@ -202,9 +221,21 @@ def _same(got: dict, want: dict, *, exact: bool) -> bool:
         return False
     if exact:
         return got["sha256"] == want["sha256"]
-    a = torch.tensor([got["sum"], got["abs_sum"], *got["head"]], dtype=torch.float64)
-    b = torch.tensor([want["sum"], want["abs_sum"], *want["head"]], dtype=torch.float64)
-    return bool(torch.allclose(a, b, rtol=1e-5, atol=1e-7))
+    # Another machine. Float32 noise is proportional to the size of the tensor's values, not to
+    # each value: an entry near zero carries the same absolute noise as a large one. So the
+    # tolerance is 1e-4 of the tensor's mean absolute value (and of the absolute sum, for the
+    # signed sum, which cancels). Measured on the CI runner, 2026-11-16: up to 2e-6 relative, in
+    # the gradient that has passed through the whole recurrent rollout.
+    mean_abs = want["abs_sum"] / max(want["n"], 1)
+    # Written as `not (difference <= tolerance)` so that NaN, which compares False, is a mismatch.
+    if not abs(got["sum"] - want["sum"]) <= _OTHER_MACHINE_RTOL * want["abs_sum"]:
+        return False
+    if not abs(got["abs_sum"] - want["abs_sum"]) <= _OTHER_MACHINE_RTOL * want["abs_sum"]:
+        return False
+    return all(
+        abs(g - w) <= _OTHER_MACHINE_RTOL * (abs(w) + mean_abs)
+        for g, w in zip(got["head"], want["head"], strict=True)
+    )
 
 
 @pytest.mark.parametrize("case", list(CASES))
@@ -216,7 +247,7 @@ def test_one_training_step_reproduces_the_golden(case):
     for key in want:
         assert _same(got[key], want[key], exact=exact), (
             f"{case}: {key} differs from the golden "
-            f"({'bit-for-bit' if exact else 'rtol 1e-5, another machine'}). "
+            f"({'bit-for-bit' if exact else 'tolerance 1e-4, another machine'}). "
             f"got sum {got[key]['sum']!r}, golden sum {want[key]['sum']!r}. "
             "Epic #616 claims training is numerically unchanged; this is the check of that claim."
         )
@@ -235,10 +266,33 @@ def test_every_live_body_gets_an_object_so_the_golden_runs_the_new_path(body_nam
 def test_the_body_path_equals_the_older_path_in_one_process(case):
     """The same claim as the golden, without the golden: both paths, one process, any CPU."""
     with_body, without = _run(case, use_body=True), _run(case, use_body=False)
+    assert "grad_all" in with_body, "the comparison of every parameter's gradient was removed"
+    assert _GRAD_ALL_TOLERANT == {"mixture_nb"}, (
+        "widening the exception is a decision, not an edit"
+    )
     for key in with_body:
+        if key == "grad_all" and CASES[case][0] in _GRAD_ALL_TOLERANT:
+            # The one measured exception (code review, 2026-11-16): on this 8 x 8 grid the
+            # mixture body's three head-bias gradients differ by up to 3e-8 between the paths.
+            assert _same(with_body[key], without[key], exact=False), f"{case}: {key} is far off"
+            continue
         assert with_body[key]["sha256"] == without[key]["sha256"], (
             f"{case}: {key} differs between the body path and the older path "
             f"(sums {with_body[key]['sum']!r} vs {without[key]['sum']!r})"
+        )
+
+
+def test_the_ranking_body_is_trained_on_all_cells_even_under_active_supervision(monkeypatch):
+    """`requires_all_cells` must be read by the training step, not only declared.
+
+    A guard audit (2026-11-16) found that ignoring the flag in `_process_sequence` left every test
+    green. With the flag read, `body_supervision='active'` changes nothing for the ranking body.
+    """
+    monkeypatch.setitem(CASES, "ranking/active", ("ranking", {"body_supervision": "active"}))
+    active, all_cells = _run("ranking/active"), _run("ranking/all")
+    for key in all_cells:
+        assert active[key]["sha256"] == all_cells[key]["sha256"], (
+            f"{key}: the ranking body was trained on a subset of the cells"
         )
 
 
@@ -257,6 +311,26 @@ def test_the_comparison_can_fail():
     far = _digest(torch.tensor([1.0, 2.0, 3.0]) * (1 + 1e-3))
     assert not _same(far, d, exact=False)
     assert _same(d, d, exact=True) and _same(d, d, exact=False)
+    assert _same(moved, d, exact=False), "float noise of 1e-6 must pass on another machine"
+    # NaN anywhere must be a mismatch on another machine too. Beyond the first 24 values it is
+    # seen only through the two sums, so each sum is tried alone as well.
+    ones = _digest(torch.ones(31))
+    late_nan = _digest(torch.cat([torch.ones(30), torch.tensor([float("nan")])]))
+    assert late_nan["head"] == ones["head"], "the NaN must lie beyond the stored values"
+    assert not _same(late_nan, ones, exact=False) and not _same(late_nan, ones, exact=True)
+    for key in ("sum", "abs_sum"):
+        assert not _same({**ones, key: float("nan")}, ones, exact=False), f"NaN in {key} passed"
+
+
+def test_the_fingerprint_names_the_thread_count_and_changes_with_it():
+    """The same CPU gives other float32 bits with another thread count (measured 2026-11-16)."""
+    before = torch.get_num_threads()
+    assert f"| {before} threads" in _fingerprint()
+    try:
+        torch.set_num_threads(before + 1)
+        assert f"| {before + 1} threads" in _fingerprint()
+    finally:
+        torch.set_num_threads(before)
 
 
 if __name__ == "__main__":

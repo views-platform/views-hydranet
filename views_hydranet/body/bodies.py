@@ -26,14 +26,17 @@ Deliberately small:
   contiguous tensor the head activates (up to 5e-7);
 * activating one target's slice alone gives the same loss value but a gradient that differs by
   about 1e-7, in every negative-binomial trial. Activating every head and concatenating them, as
-  the model's own ``forward`` does, gives the identical value and gradient in 240 of 240 trials.
+  the model's own ``forward`` does, gives the identical value in 240 of 240 trials, and the
+  identical gradient for every parameter except one case: the mixture body's three head biases on
+  a small grid (8 x 8: up to 3e-8; 32 x 32, the live window: identical). The body hands the head
+  a contiguous gradient where the older path hands it a channels-last one, which changes the
+  order in which the bias gradient is summed.
 
 So `activate` takes the raw outputs of **all** targets, ``[B, n_targets * width, H, W]``, activates
 them head by head on contiguous slices, and concatenates. `loss` then slices its target out of
 that, exactly as the training loop slices the model's activated output.
 
-This module imports torch. It is not imported by ``views_hydranet.body.__init__``, which must stay
-torch-free for the config layer.
+This module imports torch. It is not imported by ``views_hydranet.body.__init__``.
 """
 
 from __future__ import annotations

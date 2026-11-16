@@ -61,7 +61,11 @@ def _varied_handler(cfg):
 
 def _train(name, monkeypatch, *, use_body: bool):
     overrides, _ = LIVE[name]
-    cfg = loop_config(reg_activation="softplus", loss_class="weighted_bce", **overrides)
+    # weight_decay=0: with decay the head moves even when no loss trains it, and the last
+    # assertion of the test would pass for that reason (code review, 2026-11-16).
+    cfg = loop_config(
+        reg_activation="softplus", loss_class="weighted_bce", weight_decay=0.0, **overrides
+    )
     seen: list = []
     real = engine.build_body
 
@@ -71,11 +75,25 @@ def _train(name, monkeypatch, *, use_body: bool):
         return body
 
     monkeypatch.setattr(engine, "build_body", spy)
+    # Which body each training step actually received. Equal weights cannot show this, because
+    # the two paths are bit-identical by design (guard audit, 2026-11-16).
+    used: list = []
+    real_step = engine._process_sequence
+
+    def step_spy(*args, **kwargs):
+        used.append(kwargs.get("body"))
+        return real_step(*args, **kwargs)
+
+    monkeypatch.setattr(engine, "_process_sequence", step_spy)
     device = torch.device("cpu")
     torch.manual_seed(cfg["torch_seed"])
     model, criterion, optimizer, scheduler = make(cfg, device)
     initial = {k: v.clone() for k, v in model.state_dict().items()}
     training_loop(cfg, model, criterion, optimizer, scheduler, _varied_handler(cfg), device)
+    assert used, "the loop never ran a training step"
+    assert len(used) == len(seen) and all(u is b for u, b in zip(used, seen, strict=True)), (
+        "a training step did not receive the body `train()` built"
+    )
     return model, seen, initial
 
 

@@ -104,3 +104,40 @@ def test_a_sidecar_without_the_new_keys_still_builds_a_model(tmp_path):
         sidecar.pop(key, None)
     model = choose_model(sidecar, CPU)
     model.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True))
+
+
+def test_two_truncated_nb_models_with_different_denominators_write_different_sidecars(tmp_path):
+    """The likelihood is normalised differently, so the sidecar must tell them apart."""
+    a, _ = _save(tmp_path / "a", output_distribution="truncated_nb", loss_reg="mse")
+    b, _ = _save(
+        tmp_path / "b",
+        output_distribution="truncated_nb",
+        loss_reg="mse",
+        body_nll_denominator="all_cells",
+    )
+    assert "body_nll_denominator" not in a
+    assert b["body_nll_denominator"] == "all_cells"
+
+
+@pytest.mark.parametrize(
+    "loss_reg,params",
+    [
+        ("shrinkage", {"loss_reg_a": 2.0, "loss_reg_c": 0.5}),
+        ("lognormal_nll", {"loss_reg_sigma": 1.5}),
+        ("pareto", {"loss_reg_pareto_alpha": 1.5}),
+        ("tobit", {"loss_reg_sigma": 1.5}),
+    ],
+)
+def test_every_required_parameter_of_the_loss_that_trained_is_recorded(tmp_path, loss_reg, params):
+    """Two models that differ in one of these would otherwise write the same sidecar.
+
+    Not the ranking loss: its bound was already recorded by hand, so it cannot show that the
+    registry is read (guard audit, 2026-11-16).
+    """
+    from views_hydranet.utils.utils import LOSS_REG_REGISTRY
+
+    assert set(LOSS_REG_REGISTRY[loss_reg]["params"]) == set(params), "the registry moved"
+    sidecar, _ = _save(tmp_path, output_distribution="standard", loss_reg=loss_reg, **params)
+    assert sidecar["loss_reg"] == loss_reg
+    for key, value in params.items():
+        assert sidecar[key] == value

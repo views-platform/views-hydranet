@@ -31,11 +31,24 @@ Two design decisions this module implements, both settled in ``02_design``:
   * **Labels are dyadic**: ``r = ceil(log2(1 + y))``. The exponential gain then *inverts* the
     transform — ``2^r - 1 ~= y``, median ratio 1.348, max 1.984 — so the loss weights each level
     by roughly the number of people killed in it. ⛔ On **raw** counts that weight is ``inf`` in
-    float32 at ``r >= 128`` with no error signal (``C-420``, Tier 1); the whole truth range
-    collapses to levels ``0..10``, weights ``0..1023``.
+    float32 at ``r >= 128`` with no error signal (``C-420``, Tier 1).
   * ⛔ **The level set is declared a priori** from ``y_max``, never read off a fold's observed
     levels — which would drift the ``1/(|R|-1)`` normaliser and make each fold a different
-    objective (``C-423``). Level 9 is empty on the S11 population; it still occupies a step.
+    objective (``C-423``).
+
+⚠️ **The level set's size depends entirely on the population, so size ``y_max`` from the data the
+loss will actually see** (``C-351``: population + transform + estimator):
+
+  * **S11** (``gate >= 0.05``, months 463-469, n = 6,689 cell-months): levels ``0..10``, gain
+    weights ``0..1023``, 9 occupied levels.
+  * **The calibration TRAIN range** (months 121-456, ``region='land'``, 21,778,848 rows, max over
+    all three regression targets): ``y_max = 178,459`` — ``ged_os_best`` in pgid 125700 at month
+    172, April 1994, Rwanda. ⇒ levels ``0..18``, and the top level's gain is ``2^18 - 1 =
+    262,143`` against ``1,023`` at level 10. Occupancy above level 10 is 135 cell-months of
+    21.8M; 3 above 65,536; **1** above 131,072.
+
+⇒ Reading the S11 figures as the general case understates ``level_max`` by 8 and the top gain by
+256×. Both are real measurements of different populations.
 
 ``needs_latent = True``: the score lives on the whole real line and must reach the loss
 PRE-activation — under ``transform='exp'`` because the objective is then scale-free, and under
@@ -232,8 +245,10 @@ class ListwiseLevelLoss(nn.Module):
                 internally and graded dyadically.
 
         Returns:
-            A 0-dim tensor, ``>= 0``, and exactly ``0.0`` when every cell shares one level —
-            there is then no ordering to learn. ``0.0`` with a live grad path on an empty list.
+            A 0-dim tensor, ``>= 0``, **graph-connected in every case**. Numerically zero (as
+            ``-0.0``, which compares equal) when every cell shares one level or the list is
+            empty — there is then no ordering to learn, and the grad path stays live so a caller
+            that backwards the regression term alone does not raise.
         """
         score = input.reshape(-1).to(torch.float64)
         if score.numel() == 0:
@@ -256,7 +271,15 @@ class ListwiseLevelLoss(nn.Module):
         occupied = sorted(int(v) for v in torch.unique(level).tolist())
         log_mass = {lvl: torch.logsumexp(log_t[level == lvl], dim=0) for lvl in occupied}
 
-        total = score.new_zeros(())
+        # ⛔ Graph-connected, NOT `score.new_zeros(())`. When no step contributes — every cell at
+        # one level, which an all-zero patch-month hits constantly on a 99.6%-zero grid — this IS
+        # the return value, and a detached zero makes `.backward()` raise for any caller that
+        # backwards the regression term alone (a reg-only probe, a per-target dict path, a
+        # measurement driver). Today it survives only because `torch.stack(losses_list)` at
+        # `training_engine.py:1117` also carries the gate term. The empty-list branch above was
+        # written `input.sum() * 0.0` for exactly this reason (`C-199`); this is the same case and
+        # the far more common one.
+        total = score.sum() * 0.0
         # Steps 1 .. |R|-1: the levels DESCENDING, with the lowest level dropped. Zeros therefore
         # never appear as a c_t numerator — and their gain weight 2^0 - 1 is 0 besides.
         for step in range(self.level_max, 0, -1):
