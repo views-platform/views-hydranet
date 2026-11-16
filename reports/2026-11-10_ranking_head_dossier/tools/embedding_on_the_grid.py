@@ -1,9 +1,23 @@
+# ⛔⛔⛔ DEPRECATED — DO NOT USE. ⛔⛔⛔
+# Deprecated 2026-11-16 by Simon Polichinel von der Maase. Not to be used, for now and until
+# further notice from him.
+#
+# Reason: this tool produces or consumes TEACHER-FORCED measurements (the model is handed the
+# observed truth at every month instead of its own output). Teacher forcing has confounded and
+# ruined multiple experiments in this repository and produced false conclusions. Simon's
+# decision: "There will be no more teacher forcing."
+#
+# The teacher-forced comparison is removed from the ranking plan (04_roadmap.md). The ranking
+# experiment will be compared against a NEW control run, made after the body refactor and
+# WITHOUT teacher forcing. No number this tool has produced may be cited or compared.
+# The file is kept only so that nothing is deleted before Simon says so.
+
 """embedding_on_the_grid.py — dump the 32-channel decoder embedding the magnitude head reads.
 
 ⭐ **NO NEW INFRASTRUCTURE.** The vehicle loader, the volume builder, the grid mapping, the data
 pull, the sweep window, the thread cap, the determinism proof and the BatchNorm refusal are all
 taken from `score_on_the_grid.py`, which is committed and whose `mu` field is the pinned comparator
-(`+0.5154 ± 0.0397`, `calm_lander`). What is new here is **one forward hook**, nothing else.
+([ERASED 2026-11-16 by Simon: teacher-forced number, not to be used], `calm_lander`). What is new here is **one forward hook**, nothing else.
 
 **What it collects and why.** `HydraBNrecurrentUnet_06_LSTM4.py:642-643` is the whole magnitude
 pathway's last step::
@@ -21,7 +35,7 @@ laptop, with the trunk frozen.
 series into the input channels for every month, and this loop steps over that volume, so the model
 is handed observed history at every step. Every file carries `input_mode="teacher_forced"` and may
 **never** be compared to the delivered autoregressive figures (the body's `+0.3127`, the gate's
-`+0.4418`). The matched comparator is the teacher-forced `mu` row, `+0.5154 ± 0.0397`.
+`+0.4418`). The matched comparator is the teacher-forced `mu` row, [ERASED 2026-11-16 by Simon: teacher-forced number, not to be used].
 
 ⛔ **The hook is VERIFIED, not assumed.** Which of `head1/head2/head3` serves target `SB` is a
 convention, and a wrong guess would silently dump another target's embedding. So on the first kept
@@ -235,7 +249,7 @@ def main() -> int:
     print(f"\n  saved {out_path} ({out_path.stat().st_size / 1e6:.1f} MB)")
     print(
         f"  ⛔ input_mode={INPUT_MODE} is stored IN the file (C-399). The matched comparator is "
-        "the teacher-forced mu row, +0.5154 ± 0.0397 — never the delivered +0.3127."
+        "the teacher-forced mu row, [ERASED 2026-11-16 by Simon: teacher-forced number, not to be used] — never the delivered +0.3127."
     )
     print(f"  cost: {time.time() - t0:.0f}s wall · {rss:.2f} GB peak RSS · {N_THREADS} threads")
     return 0

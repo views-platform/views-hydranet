@@ -105,7 +105,7 @@ dominant failure mode, not an incident.
 
 **Class B · choosing by cost and reporting as if by relevance.** Teacher forcing is the pure case:
 chosen because it is the only thing that runs on a laptop in two minutes, then reported with figures
-(`+0.5154 ± 0.0397`) that look like results. The frozen-head refit is the same shape. Each
+([ERASED 2026-11-16 by Simon: teacher-forced number, not to be used]) that look like results. The frozen-head refit is the same shape. Each
 measurement was honest about its own population and silent about why that population was picked.
 
 **Class D · holding the fact and drawing the wrong conclusion from it.** ⚠️ **Added after the

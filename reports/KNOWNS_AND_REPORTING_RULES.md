@@ -139,7 +139,7 @@ teacher-forced AUC **0.99777** against delivered **0.72340**, with no decay in h
 * **Retention levers are closed**: training plateaus at 300 lessons; scheduled sampling hurts AP.
   **[read]**
 * ⚠️ **Measured 2026-11-12 and new**: at h1 on `sb`, the body's `mu` ranks event cells at
-  **+0.5154 ± 0.0397** teacher-forced against **+0.3127 ± 0.0713** delivered, while the gate moves
+  [ERASED 2026-11-16 by Simon: teacher-forced number, not to be used] teacher-forced against **+0.3127 ± 0.0713** delivered, while the gate moves
   only **+0.4470 → +0.4418**. ⇒ The body's ranking deficit in the delivered numbers is largely a
   **rollout** deficit. ⛔ Not a clean decomposition: the delivered body row is the mean of 16 draws
   (distinct share 0.7796) and the teacher-forced row is `mu` (1.000000), so draw quantisation is

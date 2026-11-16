@@ -1,3 +1,17 @@
+# ⛔⛔⛔ DEPRECATED — DO NOT USE. ⛔⛔⛔
+# Deprecated 2026-11-16 by Simon Polichinel von der Maase. Not to be used, for now and until
+# further notice from him.
+#
+# Reason: this tool produces or consumes TEACHER-FORCED measurements (the model is handed the
+# observed truth at every month instead of its own output). Teacher forcing has confounded and
+# ruined multiple experiments in this repository and produced false conclusions. Simon's
+# decision: "There will be no more teacher forcing."
+#
+# The teacher-forced comparison is removed from the ranking plan (04_roadmap.md). The ranking
+# experiment will be compared against a NEW control run, made after the body refactor and
+# WITHOUT teacher forcing. No number this tool has produced may be cited or compared.
+# The file is kept only so that nothing is deleted before Simon says so.
+
 """rho_event_teacher_forced.py — ρ_event for TEACHER-FORCED fields, in a table of their own.
 
 **Serves:** *"if we changed the 'magnitude head' to a 'ranking head' do we think we could rank
@@ -76,7 +90,7 @@ _TF_MODE = "teacher_forced"
 #: ⭐ MEASURED on the MATCHED control — `calm_lander`, `UpsampleConv2`, seed 42, `nb` + `mse`,
 #: 300 lessons, checkpoint `calibration_model_20261103_021022.pt` (sha `4e0ab288…`), which is the
 #: control the ranking arm `eager_sorter` is one field away from:
-#:     **+0.5154 ± 0.0397**, distinct share 1.000000, 7 folds, months 463-469, ddof=1.
+#:     [ERASED 2026-11-16 by Simon: teacher-forced number, not to be used], distinct share 1.000000, 7 folds, months 463-469, ddof=1.
 #:
 #: ⭐ AND A SECOND, INDEPENDENT READING THAT AGREES. `violet_visitor`'s 2026-10-12 checkpoint
 #: (sha `4acbf4d3…`, `HydraBNUNet06_LSTM4`) measures **+0.5189 ± 0.0473** on the same population.
@@ -88,9 +102,9 @@ _TF_MODE = "teacher_forced"
 #: ⚠️⚠️ NEITHER IS THE DELIVERED `+0.3127`, AND NEITHER MAY BE SET BESIDE IT. The body's delivered
 #: autoregressive `ρ_event` is `+0.3127 ± 0.0713`; the ~+0.20 difference is the `C-399`
 #: teacher-forcing carry and the `C-317` checkpoint identity together, and nothing on disk
-#: separates them. ⇒ A ranking arm's bar in THIS table is **+0.5154**, not `+0.3127`.
-_ANCHOR_TF_MU: float | None = 0.5154
-_ANCHOR_TF_MU_SD: float | None = 0.0397
+#: separates them. ⇒ A ranking arm's bar in THIS table is [ERASED 2026-11-16 by Simon: teacher-forced number, not to be used], not `+0.3127`.
+_ANCHOR_TF_MU: float | None = None  # erased 2026-11-16 by Simon: teacher-forced, not to be used
+_ANCHOR_TF_MU_SD: float | None = None  # erased 2026-11-16 by Simon
 _TOL = 5e-5
 
 

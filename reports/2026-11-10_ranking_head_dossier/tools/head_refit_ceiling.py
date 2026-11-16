@@ -1,3 +1,17 @@
+# ⛔⛔⛔ DEPRECATED — DO NOT USE. ⛔⛔⛔
+# Deprecated 2026-11-16 by Simon Polichinel von der Maase. Not to be used, for now and until
+# further notice from him.
+#
+# Reason: this tool produces or consumes TEACHER-FORCED measurements (the model is handed the
+# observed truth at every month instead of its own output). Teacher forcing has confounded and
+# ruined multiple experiments in this repository and produced false conclusions. Simon's
+# decision: "There will be no more teacher forcing."
+#
+# The teacher-forced comparison is removed from the ranking plan (04_roadmap.md). The ranking
+# experiment will be compared against a NEW control run, made after the body refactor and
+# WITHOUT teacher forcing. No number this tool has produced may be cited or compared.
+# The file is kept only so that nothing is deleted before Simon says so.
+
 """head_refit_ceiling.py — is the body's ordering limited by the EMBEDDING or by the 289
 coefficients that read it?
 
@@ -25,7 +39,7 @@ The offset resolver is `rho_event_teacher_forced.resolve_offset`, not a reimplem
 ⭐⭐ **THREE GATES, and the arm rows are refused if any fails.**
 
 * **G-1 · the control pin.** The body's own score, read through this script's own population,
-  offset and event mask, must reproduce `+0.5154 ± 0.0397` to `_TOL`. That pins the hook, the offset, the
+  offset and event mask, must reproduce [ERASED 2026-11-16 by Simon: teacher-forced number, not to be used] to `_TOL`. That pins the hook, the offset, the
   month map and the firing set in one arithmetic check. ⚠️ The field here is the conv's
   **pre-activation** output, so passing G-1 additionally PROVES the activation is rank-preserving
   on this population — if it were not, the number would differ.
@@ -49,7 +63,7 @@ it is not a result.
 h1, truth `lr_sb_best` in raw counts, no transform. `ρ_event` is Spearman on **midranks** between
 the score and the truth over the **event cells** of the firing set — `open_m & (truth > 0)` at `τ`
 from the arm config — on the **global** 360x720 grid. Mean ± SD over the 7 folds at `ddof=1`.
-⛔ `input_mode="teacher_forced"` throughout (`C-399`): comparable to `+0.5154`, never to `+0.3127`.
+⛔ `input_mode="teacher_forced"` throughout (`C-399`): comparable to [ERASED 2026-11-16 by Simon: teacher-forced number, not to be used], never to `+0.3127`.
 
 The regression target is the truth's midrank **within each fit month**, mapped to `(r - 0.5) / n_m`
 so that months with different event counts contribute on one scale. Features are z-scored on the

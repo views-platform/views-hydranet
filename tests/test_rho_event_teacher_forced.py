@@ -1,3 +1,17 @@
+# ⛔⛔⛔ DEPRECATED — DO NOT USE. ⛔⛔⛔
+# Deprecated 2026-11-16 by Simon Polichinel von der Maase. Not to be used, for now and until
+# further notice from him.
+#
+# Reason: the tool under test produces TEACHER-FORCED measurements (the model is handed the
+# observed truth at every month instead of its own output). Teacher forcing has confounded and
+# ruined multiple experiments in this repository and produced false conclusions. Simon's
+# decision: "There will be no more teacher forcing."
+#
+# The teacher-forced comparison is removed from the ranking plan (04_roadmap.md). The ranking
+# experiment will be compared against a NEW control run, made after the body refactor and
+# WITHOUT teacher forcing. No number this tool has produced may be cited or compared.
+# The file is kept only so that nothing is deleted before Simon says so.
+
 """⛔ The guards on the TEACHER-FORCED ρ_event table — the instrument phase 3 reads.
 
 ⭐⭐ Built to the same recipe as `test_rho_event_readout.py`, which exists because
@@ -148,22 +162,18 @@ def test_a_field_without_its_gate_is_refused_because_the_offset_cannot_be_resolv
 def test_the_teacher_forced_control_is_pinned_and_is_not_the_delivered_anchor(tf):
     """⭐⭐ The pin must be set, and must NOT be the delivered figure.
 
-    ⚠️ `+0.3127` is the body's **delivered autoregressive** `ρ_event`. The teacher-forced control
-    measures `+0.5154` (`calm_lander`, the arm's matched control) and `+0.5189` (`violet_visitor`,
-    corroboration); the ~`+0.20` difference is the `C-399` carry and `C-317` together.
-    Pasting the delivered number in here would silently
-    lower an arm's bar by that whole amount, which is the single most expensive mistake available
-    in this table.
+    ⚠️ `+0.3127` is the body's **delivered autoregressive** `ρ_event`. A teacher-forced control
+    used to be pinned here. Simon erased it on 2026-11-16: teacher-forced numbers are not to be
+    used.
     """
     readout = pytest.importorskip("rho_event_readout")
-    assert tf._ANCHOR_TF_MU is not None, (
-        "the pin is unset, so the tool will print a control it has not verified and refuse arms"
+    # 2026-11-16: Simon erased the teacher-forced pin. Teacher forcing has confounded and ruined
+    # multiple experiments here, and the number is not to be used in any capacity. The pin must
+    # stay unset; a value here means someone has put a teacher-forced number back.
+    assert tf._ANCHOR_TF_MU is None, (
+        "the teacher-forced pin was erased on 2026-11-16 and must stay unset"
     )
-    assert tf._ANCHOR_TF_MU == pytest.approx(0.5154), (
-        "the pinned teacher-forced control moved; it was measured at +0.5154 on "
-        "score_grid_CONTROL_MU_calm_lander.npz -- the MATCHED control for the eager_sorter arm -- "
-        "and may only change WITH a re-measurement"
-    )
+    assert tf._ANCHOR_TF_MU_SD is None
     assert tf._ANCHOR_TF_MU != readout._ANCHOR_BODY, (
         "the teacher-forced pin equals the DELIVERED anchor +0.3127 — the two are different "
         "populations and an arm scored against the wrong one gets a free +0.2062"

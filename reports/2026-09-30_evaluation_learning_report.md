@@ -3110,7 +3110,7 @@ as the threshold rises.
 | | |
 |---|---|
 | ⛔ **withdrawn** | `rho_event` as the quantity a ranking arm is **judged** on. Its population is selected by the truth, so an arm that over-predicts violence everywhere is not penalised by it |
-| ⭐ **stands** | `rho_event` as a **diagnostic** and as the bridge to the published figures (`+0.3127` body / `+0.4418` gate delivered; `+0.5154 ± 0.0397` teacher-forced). Those numbers are reproducible and internally consistent; the objection is to their **role**, not their arithmetic |
+| ⭐ **stands** | `rho_event` as a **diagnostic** and as the bridge to the published figures (`+0.3127` body / `+0.4418` gate delivered; [ERASED 2026-11-16 by Simon: teacher-forced number, not to be used] teacher-forced). Those numbers are reproducible and internally consistent; the objection is to their **role**, not their arithmetic |
 | ⚠️ **unresolved** | every §9b/§9c readout restricted to the **2,905** event cell-months inherits the same shape. They were not framed as promotion criteria, so nothing is retracted — but none of them may become one |
 
 ⇒ **The safe shape is a metric scored on the PREDICTED set**, i.e. on a decision the forecast makes,

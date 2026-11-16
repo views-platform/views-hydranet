@@ -1,3 +1,17 @@
+# ⛔⛔⛔ DEPRECATED — DO NOT USE. ⛔⛔⛔
+# Deprecated 2026-11-16 by Simon Polichinel von der Maase. Not to be used, for now and until
+# further notice from him.
+#
+# Reason: this tool produces or consumes TEACHER-FORCED measurements (the model is handed the
+# observed truth at every month instead of its own output). Teacher forcing has confounded and
+# ruined multiple experiments in this repository and produced false conclusions. Simon's
+# decision: "There will be no more teacher forcing."
+#
+# The teacher-forced comparison is removed from the ranking plan (04_roadmap.md). The ranking
+# experiment will be compared against a NEW control run, made after the body refactor and
+# WITHOUT teacher forcing. No number this tool has produced may be cited or compared.
+# The file is kept only so that nothing is deleted before Simon says so.
+
 """gate_alignment.py — ⛔ the gate that must pass before any dumped field may be read.
 
 A field from `score_on_the_grid.py` is indexed by **fed** month. Whether feeding month `t` yields

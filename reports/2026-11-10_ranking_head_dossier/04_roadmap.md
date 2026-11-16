@@ -9,6 +9,29 @@ answer happens first.
 
 ---
 
+## ⛔⛔ Decisions by Simon, 2026-11-16 — these override everything below
+
+1. **There will be no more teacher forcing.** Not as a comparison, not as a cheap readout, not
+   because it runs without a GPU. Simon: *"There will be no more teacher forcing."*
+2. **The teacher-forced comparison is removed from this plan.** The teacher-forced comparator
+   number is erased from every document, tool, test and note. No teacher-forced number is a bar
+   for the ranking arm.
+3. **A completely new control run is made once the body refactor (ADR-079) is done, before the
+   experiment starts, and not with teacher forcing.** What earlier results were does not matter:
+   the refactor changes the code under both arms.
+4. **The teacher-forced tools are deprecated, not deleted.** Each carries a header saying so. They
+   are not to be used, for now and until further notice.
+5. **Caution on reading a ranking model's rollout.** In an ordinary 36-month rollout only the first
+   forecast month sees real observations. From the second month on, a ranking model is fed its own
+   score in the place of a count. So for a ranking model the middle and last months may not be
+   read as ranking skill until the real count forecast is built. A worse result there is not
+   evidence against the ranking head.
+
+Why: teacher forcing has confounded and ruined multiple experiments here (`C-399`; RP-3 closed by
+falsification), and the only reason it kept being used was that it was cheap.
+
+---
+
 ## 1 The phases
 
 ### Phase 1 — the loss, and only the loss  ·  CPU, hours, nothing trained
@@ -137,6 +160,11 @@ for anything else the dispatcher routes.
 
 ### Phase 3 — ⭐⭐ the cheap readout that bears on the finish line  ·  CPU/GPU, one short train
 
+> ⛔ **2026-11-16 (Simon): everything in this phase that was measured teacher-forced is withdrawn.**
+> The score dump, the pinned control and the comparator were all produced with the model handed
+> the observed truth every month. Those tools are marked deprecated and are not to be used. What
+> remains of phase 3 is to be re-planned on ordinary forecasts.
+
 **The question:** does a patch-trained ordering score sort the **global** grid?
 
 `02 §4.3` names this as the one real cost of the patch-local list, and it is answerable long before
@@ -243,56 +271,11 @@ the other way.
    checkpoint may not be the delivered weights (`C-317` — `4acbf4d3…` is the *retrained control*),
    and the dump is **teacher-forced** while the delivery is autoregressive (`C-399`).
 
-#### ⛔⛔ Teacher forcing: the mode is right, the carry is forbidden
+#### ⛔ REMOVED 2026-11-16 — the teacher-forced comparison
 
-`vehicle.build_volume` writes the **observed** fatality series into the model's input channels for
-every month (`vehicle.py:398-404`), and the loop steps over that volume — so the model is handed the
-observed history at every step, never its own predictions. **That is `C-399`, Tier 1, verbatim:** the
-frozen cube every RP-3 number came from had exactly this property, measuring teacher-forced AUC
-**0.99777** against the delivered autoregressive **0.72340**, with no decay in horizon.
-
-⇒ **The defect `C-399` records is not the mode — it is the carry.** Teacher-forced at h1 is the same
-input regime the body is *trained* in, so it is the right setting for the one question phase 3 asks:
-it moves the patch→global axis alone and leaves the rollout axis fixed. ⛔ What may never happen is
-comparing a field from this tool with the **delivered** figures — the body's `+0.3127`, the gate's
-`+0.4418`. So `input_mode="teacher_forced"` is written **into every file**, and
-`rho_event_readout.py` refuses a field whose stored mode is not `delivered`. The refusal reads the
-label on disk, so it cannot be forgotten at a call site.
-
-⭐ **Which fixes the comparator.** A teacher-forced ranking score is compared against a
-**teacher-forced body `mu`** from the same dumper, same checkpoint lineage, one variable changed —
-the loss. Not against the delivered rows. ⇒ Phase 3 needs **two** dumps, and `--channel mu` on the
-control checkpoint is the one that can be taken today.
-
-#### ⭐⭐ The comparator is MEASURED and PINNED · 2026-11-10 · `+0.5189 ± 0.0473`
-
-`--channel mu` on the control checkpoint ran in **149 s** on CPU
-(`results/score_grid_CONTROL_MU_v20261012.npz`, 14.3 MB, deliberately uncommitted and re-runnable;
-`n_params 2`, determinism verified, `G-ALIGN` reproducing offset `-1` at anomaly `r +0.828477`,
-margin `+0.326949`). ⭐ That closes `S8`/#568 — §9c `N9` records the body's `mu` field as *"NOT ON
-DISK for any delivered run"*, and it is now on disk for a teacher-forced one.
-
-`tools/rho_event_teacher_forced.py` reads it. **Population, per `C-351`:** 7 folds, score months
-463–469, `sb`, h1, firing set = the **delivered** gate at `τ = 0.2` (identical for control and arm,
-and identical to the delivered table's definition), truth in raw counts, `ddof=1`.
-
-| index | `ρ_event` | SD | distinct share |
-|---|---|---|---|
-| **BODY `mu`, teacher-forced** | **+0.5189** | 0.0473 | **1.000000** |
-
-⛔⛔ **This number may NOT be set beside the delivered `+0.3127`, and the bar it sets is its own.**
-The same weights' delivered autoregressive `ρ_event` is `+0.3127 ± 0.0713`. The **`+0.2062`**
-difference is the `C-399` teacher-forcing carry and the `C-317` checkpoint identity **together**,
-and nothing on disk separates them. ⇒ A ranking arm in this table must beat **+0.5189**, not
-`+0.3127`. The pin is hardcoded with a `5e-5` tolerance, so the tool refuses to print an arm row
-unless the control reproduces; `tests/test_rho_event_teacher_forced.py` additionally asserts the
-pin is **not** the delivered anchor, because pasting `+0.3127` there would hand an arm a free
-`+0.2062`.
-
-⭐ **One hypothesis died here.** The distinct share is **1.000000** — on the firing cells the body's
-`mu` has **no ties at all**. So "the body ranks worse than the gate because it is less resolved"
-(§9c `N9`'s explanation for why the index wins) is **not** available in this regime. Resolution is
-not the body's ordering problem.
+Two sections stood here: one arguing that teacher forcing was the right mode for the phase 3
+comparison, and one pinning a teacher-forced comparator. Both are removed by Simon's decision of
+2026-11-16 (see the block at the top of this file). No teacher-forced number is a bar for anything.
 
 #### ⛔⛔ A sign error, caught by a population refusal and not by review · 2026-11-10
 
@@ -313,6 +296,11 @@ dossier and its code is correct; this dossier does not edit another's tool.
 
 #### ⭐⭐⭐ THE CONTROL IS ALREADY TRAINED · 2026-11-11 · only the ARM needs a GPU
 
+> ⛔ **SUPERSEDED 2026-11-16 (Simon).** The claim below that *"no control run has to be paid for"*
+> no longer holds. The body is being refactored (ADR-079), so a **completely new control run** is
+> made after the refactor and before the experiment, **without teacher forcing**. The checkpoints
+> listed below are not the control for the ranking experiment.
+
 A stored fact was **wrong** and it was costing this programme a training run. `project_exp02_four_arms_pinned`
 said EXP-02's arms were *"none built, none trained"*. They are built: **300-lesson calibration
 checkpoints on disk since 2026-11-03**, under
@@ -332,20 +320,9 @@ what a trained artifact actually was.
 ⇒ **`calm_lander` is the comparator**: `UpsampleConv2`, seed 42, `nb` + `mse`, 300 lessons, same
 pull. One field away from a ranking arm, and **no control run has to be paid for.**
 
-#### ⭐⭐ The comparator, re-measured on the matched control
+#### ⛔ REMOVED 2026-11-16 — the comparator re-measured on the matched control
 
-`--channel mu` on `calibration_model_20261103_021022.pt` (sha `4e0ab288…`, 174 s CPU), `G-ALIGN`
-passing independently at offset `-1` (anomaly `r +0.8275`, margin `+0.3332`):
-
-| control | `ρ_event` | SD | distinct |
-|---|---|---|---|
-| **`calm_lander` `mu`, teacher-forced** — the pin | **+0.5154** | 0.0397 | 1.000000 |
-| `violet_visitor` `mu`, teacher-forced — corroboration only | +0.5189 | 0.0473 | 1.000000 |
-
-⭐ **Two architectures, two campaigns three weeks apart, agreeing to 0.0035.** So ~0.515 is the
-teacher-forced body's ranking of event cells, not an artifact of one checkpoint. ⛔ The pin is
-`calm_lander`'s because that is the arm's own control. ⭐ And the pin **fired in production** when
-handed the other dump: `FAIL G-1 … REFUSED`, exit 1, before any number was printed.
+It was a teacher-forced measurement. Removed by Simon's decision of 2026-11-16.
 
 #### ⭐⭐ The arm exists: `views-models/models/eager_sorter`
 
@@ -394,6 +371,9 @@ real `_process_sequence`:
 
 `clip_grad_max_norm` is **1.0** and the clip is applied **once** to the summed gradient over
 `model.parameters()`, so the gate's share of each update falls from ~36% to ~8%.
+
+> ⛔ **2026-11-16:** the paragraph below describes the removed teacher-forced tool. It is kept as
+> history and decides nothing.
 
 ⭐ **Why this does not contaminate the headline.** `ρ_event` is measured on the firing set of the
 **DELIVERED** gate — identical for the control row and the arm, by construction in
