@@ -10,7 +10,7 @@ ADR-005 Green/Red taxonomy. See reports/2026-06-05_rollout_training_dossier/
 import pytest
 from pydantic import ValidationError
 
-from views_hydranet.utils.config_initializer import HydraNetConfig
+from views_hydranet.utils.config_initializer import LEGACY_OUTPUT_DISTRIBUTIONS, HydraNetConfig
 
 
 def test_rollout_horizon_field_exists_and_defaults_to_one():
@@ -51,7 +51,7 @@ def test_rollout_horizon_one_still_constructs(valid_config_dict):
 def test_pushforward_weight_without_a_family_head_is_rejected(valid_config_dict):
     """`_process_sequence` guards the pushforward term on `family is not None`.
 
-    A legacy / point / quantile head with `pushforward_weight > 0` would therefore train with NO
+    A legacy / point head with `pushforward_weight > 0` would therefore train with NO
     pushforward at all and report a clean run — the experiment's premise silently invalid, which
     is exactly the failure `reject_unwired_rollout_horizon` above exists to prevent.
     """
@@ -98,7 +98,7 @@ def test_pushforward_with_emit_family_core_off_still_constructs_on_zinb(valid_co
 # S2/#355 — ss_backprop_through_feedback, the guard a comment promised and
 # nobody wrote. Same shape as the pushforward guard directly above.
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("head", ["standard", "quantile"])
+@pytest.mark.parametrize("head", LEGACY_OUTPUT_DISTRIBUTIONS)
 def test_bptt_sa_without_a_family_head_is_rejected(valid_config_dict, head):
     """`_attach_feedback_grad_clip` is skipped on a legacy head, and said a validator stopped it.
 

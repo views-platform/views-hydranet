@@ -35,7 +35,6 @@ LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
     "hurdle_lognormal",
     "hurdle_shrinkage",
     "dense_nb",
-    "quantile",
 )
 
 # authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
@@ -110,9 +109,6 @@ class HydraNetConfig(BaseModel):
     # 2. Data Slicing & Scaling (The Physics)
     input_channels: int = Field(..., ge=1, description="Checksum for 'features'")
     output_channels: int = Field(..., ge=1, description="Channels per model head")
-    n_quantiles: int | None = Field(
-        default=None, ge=2, description="Quantile head: K monotone quantiles per reg target (K>=2)"
-    )
     regression_targets: list[str] = Field(
         ..., description="Intensity mission (must start with lr_)"
     )
@@ -212,11 +208,17 @@ class HydraNetConfig(BaseModel):
     # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
     # the field fails the schema instead of riding on extra="allow" (the W-22 trap).
     loss_reg_y_max: float | None = Field(default=None, ge=1.0)
+    # Ranking body (loss_reg='listwise_level'): the normalising transformation T of the listwise
+    # objective (Bai 2023 Def. 1). 'exp' is Zhu's softmax form, translation-invariant; 'softplus'
+    # shares a global minimum with the negative-binomial mean map (Bai 2023 Prop. 2).
+    # ⛔ The default must stay 'exp': it is byte-identical to the shipped objective, so no existing
+    # config changes behaviour. listwise_level_loss.TRANSFORMS is the authority on the set.
+    loss_reg_listwise_transform: str = Field(default="exp")
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
     # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
-    # name (nb, zinb, dense_nb, quantile, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
+    # name (nb, zinb, dense_nb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
     # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
@@ -321,7 +323,7 @@ class HydraNetConfig(BaseModel):
     total_lessons: int = Field(..., ge=1)
     n_posterior_samples: int = Field(..., ge=1)
     # K = per-cell head draws (aleatoric) for a sampleable distribution family (ADR-067 D×K).
-    # Legacy point/quantile heads keep K=1; K>1 requires an nb/zinb family (see model validator).
+    # Legacy point heads keep K=1; K>1 requires an nb/zinb family (see model validator).
     n_head_samples: int = Field(default=1, ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
@@ -799,6 +801,21 @@ class HydraNetConfig(BaseModel):
             raise ValueError(err_msg)
         return v
 
+    @field_validator("loss_reg_listwise_transform")
+    @classmethod
+    def validate_loss_reg_listwise_transform(cls, v: str) -> str:
+        # Imported inside the validator so the schema module keeps no import-time dependency on
+        # a loss module, and so the accepted set is declared in exactly one place.
+        from views_hydranet.utils.listwise_level_loss import TRANSFORMS
+
+        if v not in TRANSFORMS:
+            err_msg = (
+                f"loss_reg_listwise_transform='{v}' is not valid. Expected one of {TRANSFORMS}."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
     @field_validator("reg_activation")
     @classmethod
     def validate_reg_activation(cls, v: str | None) -> str | None:
@@ -1093,14 +1110,12 @@ class HydraNetConfig(BaseModel):
             # `validate_output_distribution` imports `family_names` locally.
             from views_hydranet.distributions.registry import family_n_params, family_names
 
-            # ⭐⭐ Mirror the head's OWN sizing rule, which is the authority:
-            # `HydraBNrecurrentUnet_06_LSTM4.py:152-155` — a family emits `n_params`, the quantile
-            # head emits `n_quantiles`, every other legacy head emits `output_channels`. Gating on
-            # the derived CHANNEL COUNT rather than on a hand-listed set of names is deliberate:
-            # the first version of this guard tested `resolve_family(...) is not None`, which let
-            # `quantile` (9 channels per target), and any legacy head with `output_channels != 1`,
-            # validate — the property was "one score per cell" and the condition was "not a
-            # registered family". A guard audit found it the same day it was written.
+            # Mirror the head's OWN sizing rule, which is the authority
+            # (`HydraBNrecurrentUnet_06_LSTM4.py`): a family emits `n_params` channels per
+            # target, every other head emits `output_channels`. Gating on the derived CHANNEL
+            # COUNT rather than on a hand-listed set of names is deliberate: the first version of
+            # this guard tested "is not a registered family" and let a multi-channel legacy head
+            # validate. (That head, the quantile head, was removed on 2026-11-16, ADR-079 §4.)
             if self.output_distribution in family_names():
                 reg_channels = family_n_params(self.output_distribution)
                 err_msg = (
@@ -1113,34 +1128,14 @@ class HydraNetConfig(BaseModel):
                     "output_distribution='standard'."
                 )
             else:
-                if self.output_distribution == "quantile":
-                    # ⚠️ `n_quantiles` is validated `>= 2` for a quantile head, but this
-                    # validator can run before that one, so `None` is reachable here. Reporting
-                    # it as "emits 0" and then advising `output_channels=1` names a number the
-                    # config never set and a remedy that does not apply — the M7 leak a guard
-                    # audit found on 2026-11-12. Say "unset", and advise the head.
-                    reg_channels = self.n_quantiles if self.n_quantiles is not None else 0
-                    emits = (
-                        f"n_quantiles={self.n_quantiles}"
-                        if self.n_quantiles is not None
-                        else "n_quantiles channels (unset here)"
-                    )
-                    source = f"the quantile head emits {emits}"
-                    remedy = (
-                        "Use a single-channel point head, e.g. output_distribution='standard'."
-                    )
-                else:
-                    reg_channels = self.output_channels
-                    source = f"a legacy head emits output_channels={reg_channels}"
-                    remedy = (
-                        "Use a point head with output_channels=1, e.g. "
-                        "output_distribution='standard'."
-                    )
+                reg_channels = self.output_channels
                 err_msg = (
                     f"loss_reg='listwise_level' needs ONE reg channel per target and "
-                    f"{source} per target (output_distribution="
-                    f"'{self.output_distribution}'). A listwise loss ranks a single score per "
-                    f"cell; with more than one channel there is no score to rank. {remedy}"
+                    f"a legacy head emits output_channels={reg_channels} per target "
+                    f"(output_distribution='{self.output_distribution}'). A listwise loss ranks "
+                    "a single score per cell; with more than one channel there is no score to "
+                    "rank. Use a point head with output_channels=1, e.g. "
+                    "output_distribution='standard'."
                 )
             if reg_channels != 1:
                 logger.error(err_msg)
@@ -1151,6 +1146,16 @@ class HydraNetConfig(BaseModel):
                 "does not read it — the only consumer is 'listwise_level'. An inert parameter "
                 "reads as an arm that changed a variable when it changed nothing (C-324). "
                 "Remove loss_reg_y_max, or set loss_reg='listwise_level'."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        # The same signature for the sibling field. 'exp' is the default, so only a value someone
+        # wrote on purpose is refused.
+        if self.loss_reg_listwise_transform != "exp" and self.loss_reg != "listwise_level":
+            err_msg = (
+                f"loss_reg_listwise_transform='{self.loss_reg_listwise_transform}' is set but "
+                f"loss_reg='{self.loss_reg}' does not read it — the only consumer is "
+                "'listwise_level' (C-324). Remove it, or set loss_reg='listwise_level'."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
@@ -1182,7 +1187,7 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def reject_pushforward_without_a_family(self) -> "HydraNetConfig":
         """The #289 pushforward term is only computed when the head resolves to a distribution
-        family — `_process_sequence` guards on `family is not None`. A legacy / point / quantile
+        family — `_process_sequence` guards on `family is not None`. A legacy / point
         head with `pushforward_weight > 0` would therefore train with NO pushforward at all and
         report a clean run, leaving the experiment's premise silently invalid. Mirrors
         `reject_unwired_rollout_horizon`, which exists for exactly this failure mode."""
@@ -1444,9 +1449,35 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def validate_ranking_loss_requires_log1p_targets(self) -> "HydraNetConfig":
+        # ADR-079 §5 condition 5 (#621). The ranking loss also recovers raw counts from the
+        # target via the log1p inverse (`to_raw_counts`, listwise_level_loss.py), to sort the
+        # cells into rating levels. The family check above asks "is this a count distribution?"
+        # and so passes the ranking loss without looking. With any other target transform the
+        # loss would recover wrong counts, assign wrong levels and train on the wrong ranking,
+        # with no error. Not merged with the family check: the two fire for different reasons
+        # and name different settings.
+        from views_hydranet.distributions import family_names
+
+        # Under a distribution family `loss_reg` is not what trains, so there is nothing to check.
+        if self.loss_reg == "listwise_level" and self.output_distribution not in family_names():
+            log1p_cols = set(self.transformations.get("log1p", []))
+            non_log1p = [t for t in self.regression_targets if t not in log1p_cols]
+            if non_log1p:
+                err_msg = (
+                    f"loss_reg='listwise_level' recovers raw counts from the target via the "
+                    f"log1p inverse to form its rating levels, but regression target(s) "
+                    f"{non_log1p} are not log1p-transformed. Use log1p for them, or another "
+                    f"loss_reg."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
     def validate_head_samples_family(self) -> "HydraNetConfig":
         # ADR-067 (D×K): per-cell head draws (K = n_head_samples > 1) are only meaningful for a
-        # SAMPLEABLE distribution family (nb/zinb). A legacy point/quantile head has no per-cell
+        # SAMPLEABLE distribution family (nb/zinb). A legacy point head has no per-cell
         # sampler, so K>1 there would be silently ignored — RAISE. Single authority for "is this
         # sampleable?" is the registry's `family_names()` (torch-free), not a hardcoded list.
         if self.n_head_samples > 1:
@@ -1727,6 +1758,23 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
+        # ADR-079 §5 condition 3 (#623). 'sample' feeds a random draw from the body back in during
+        # a multi-month forecast, so it needs a body that can draw samples: a registered
+        # distribution family. `HydraNetInference.__init__` already refuses this pair, but only
+        # when a forecast starts, after the model has been trained. Refuse it here, when the
+        # config is built. Same predicate as the forecast-time refusal, which stays.
+        if self.rollout_feedback == "sample":
+            from views_hydranet.distributions import family_names
+
+            if self.output_distribution not in family_names():
+                err_msg = (
+                    "rollout_feedback='sample' feeds back a random draw from the body, which "
+                    f"needs a distribution family; output_distribution="
+                    f"{self.output_distribution!r} cannot draw samples. Set rollout_feedback to "
+                    "'mean', or leave it unset (it then resolves to 'mean' for this body)."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         if self.ss_schedule is None:
             return self
         valid = ["linear", "inverse_sigmoid", "exponential"]

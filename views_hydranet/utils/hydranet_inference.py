@@ -35,13 +35,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Data-informed emit ceiling for the quantile head (log1p count). ~13 ≈ 442k counts, ~4× the sb max
-# (113k): keeps the 36-step autoregressive rollout FINITE (rollout only; not scored) and caps a
-# residual
-# top-quantile over-shoot. A well-trained T=0 0.99 quantile sits well below it, so the scored T=0
-# distribution is untouched; this is a rollout/robustness guard, not a scored quantity.
-QUANTILE_EMIT_CEIL = 13.0
-
 # The ConvLSTM packs its recurrent state into ONE tensor of 8 equal channel groups:
 # hs_1..hs_4 (short-term / hidden) then hl_1..hl_4 (long-term / cell) — see
 # HydraBNrecurrentUnet_06_LSTM4.forward's `torch.split(h, split_h, dim=1)`. Freezing a memory type
@@ -1072,14 +1065,6 @@ class HydraNetInference:
             # reg is the count-space NB mean mu (softplus emit), so E[y]=mu directly — no P(y>0)
             # factor, no zero-truncation normalizer. log1p so downstream expm1 recovers mu.
             return torch.log1p(reg.clamp(min=0.0))
-        if self.output_distribution == "quantile":
-            # reg is the K monotone log1p-space quantiles/target (already the emit space). Bound to
-            # [0, QUANTILE_EMIT_CEIL] — a DATA-informed ceiling (log1p count ~13 ≈ 442k, ~4× the sb
-            # max 113k) so (a) the 36-step rollout stays finite (C-113 bloom) and (b) an
-            # over-inflated cumulative-softplus fan can't peg predictions at 1e13. A well-trained
-            # head's 0.99 quantile (~log1p 12) sits below the ceiling, so the scored T=0 tail is
-            # untouched.
-            return reg.clamp(min=0.0, max=QUANTILE_EMIT_CEIL)
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
     def _sample_feedback(
@@ -1425,10 +1410,6 @@ class HydraNetInference:
                 # 3. AUTOREGRESSION: Pred[k] -> Pred[k+1]
                 # C-113: clamp ONLY the fed-back copy to the in-domain ceiling; the
                 # emitted prediction (appended below) is never capped.
-                # Quantile head emits K channels/target; feed back only the median quantile
-                # (1/target)
-                # so the AR input keeps the [3 dynamic ⧺ static] width. (Step-1 is unaffected — no
-                # feedback at the seed step; rollout quality is an M2 concern.)
                 if self.rollout_feedback == "teacher_forced":
                     # EXP-3 ORACLE: feed the REAL month-t input (zero exposure bias). The calib
                     # window is historical, so full_tensor holds real values; this is the
@@ -1438,10 +1419,6 @@ class HydraNetInference:
                 else:
                     # H-SAMPLE: feed back the previous step's chosen copy (mean default / sample).
                     fb = feedback_mag
-                    if self.output_distribution == "quantile":
-                        k = self.config["n_quantiles"]
-                        b, c, hh, ww = fb.shape
-                        fb = fb.view(b, c // k, k, hh, ww)[:, :, k // 2]  # median quantile/target
                     t0_autoreg = self._clamp_feedback(fb.detach())
                     # ADR-060 I3: re-attach the geometry-constant static channels to the feedback,
                     # matching the [dynamic ⧺ static] model-input order. The clamp bounds only the
@@ -1670,47 +1647,7 @@ class HydraNetInference:
         ) as pbar:
             # HARDENING: Explicitly wrap the whole loop in no_grad
             with torch.no_grad():
-                if self.output_distribution == "quantile":
-                    # Path A: the quantile head's OWN distribution replaces MC-dropout as the
-                    # sample
-                    # source. Run one pass (the head emits K monotone log1p quantiles/target), then
-                    # inverse-CDF resample K -> n_posterior_samples to fill the (T,H,W,n_reg,S)
-                    # cube —
-                    # byte-compatible with the MC-dropout carrier, so Wrap->Invert->CRPS is
-                    # untouched.
-                    from views_hydranet.utils.quantile_head import (
-                        hurdle_quantiles_to_samples,
-                        midpoint_levels,
-                    )
-
-                    pred_mag, pred_prob = self.predict(
-                        full_tensor,
-                        origin,
-                        0,
-                        feature_names=feature_names,
-                        pbar=pbar,
-                        stage_label=window_info,
-                        time_indices=time_indices,
-                    )
-                    k = self.config["n_quantiles"]
-                    t_n = pred_mag.shape[0]
-                    # [T, n_reg*K, H, W] -> [T, H, W, n_reg, K] (channels are target-major)
-                    q = pred_mag.reshape(t_n, n_reg, k, H, W).transpose(0, 3, 4, 1, 2)
-                    s_n = posterior_S  # quantile is legacy (K=1) => == n_posterior_samples
-                    # [T, H, W, n_cls] = P(y>0), gate order = reg
-                    prob = pred_prob.transpose(0, 2, 3, 1)
-                    # Hurdle compose: gate P(y>0) × positive-magnitude quantiles (mass 1-p at 0).
-                    # The
-                    # magnitude head is trained on positive cells only, so its quantiles fit a
-                    # smooth
-                    # positive distribution (no 99.7%-zero cliff) and the gate supplies occurrence.
-                    samples = hurdle_quantiles_to_samples(
-                        q, midpoint_levels(k), prob[..., :n_reg], s_n
-                    )
-                    posterior_magnitudes_zstack[:] = samples.astype(np.float32)
-                    posterior_probabilities_zstack[:] = np.repeat(prob[..., None], s_n, axis=-1)
-                    del pred_mag, pred_prob
-                elif self._family is not None:
+                if self._family is not None:
                     # Path B': D×K family posterior. Keep the D MC-dropout passes (model
                     # uncertainty); each pass returns per-cell activated params, from which we draw
                     # K samples (outcome uncertainty) via family.sample. A single seeded generator
