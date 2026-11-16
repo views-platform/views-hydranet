@@ -224,8 +224,13 @@ number into the same zero.
 **Rule 2. The loss always receives the body's outputs from before the activation.** A loss that
 needs the values after the activation applies the activation itself. The reason: the activation
 and the loss that depends on it are then written in one place, so the two cannot be combined
-wrongly. It also means the regression head returns its output once and not twice. The gate is already built this way
-(ADR-064, the record on the gate's activation).
+wrongly. The gate is already built this way (ADR-064, the record on the gate's activation).
+
+*Corrected 2026-11-16.* This rule first ended with the sentence "It also means the regression
+head returns its output once and not twice." That sentence was wrong and is removed. About
+twenty places in the code need the values after the activation: the forecast, the feedback during
+a multi-month forecast, the sampling and two penalty terms. So the model keeps reporting the
+activated values as well. The rule itself is unchanged.
 
 ### The five bodies in use today
 
@@ -392,10 +397,9 @@ This section lists what improves, what it costs, and what this document rules ou
 
 ## 5. Validation
 
-This section lists five conditions that must hold for the definition to be working. Conditions 1,
-2 and 4 have no automated test. Conditions 3 and 5 are partly checked today, as each says. Three
-conditions fail today for at least one body: condition 1 (the ranking body), condition 3 (ten
-configs) and condition 5 (the ranking body).
+This section lists five conditions that must hold for the definition to be working. Conditions 4 and 5 have automated tests since 2026-11-16. Conditions 1 and 2 have none. Condition 3
+is partly checked, as it says. Two conditions fail today for at least one body: condition 1 (the
+ranking body) and condition 3 (ten configs).
 
 1. Each body in use can be written as one row of the table of the five bodies in section 2. No
    cell is filled from a default in the code. A cell may say "not built yet" or "not decided" only
@@ -408,10 +412,10 @@ configs) and condition 5 (the ranking body).
    multi-month forecast, for a body that cannot draw samples. Today this case is caught later,
    when a forecast run starts, and not when the config is built.
 4. A test fails if the mean-squared-error loss is given the outputs from before the activation and
-   does not apply softplus.
+   does not apply softplus. (Exists since 2026-11-16.)
 5. A body whose loss converts the target back to counts refuses data that was not transformed with
-   log1p, because it would convert it back wrongly. This check exists today for the count
-   distributions (risk register entry C-198). It does not exist for the ranking body.
+   log1p, because it would convert it back wrongly. This check exists for the count distributions
+   (risk register entry C-198) and, since 2026-11-16, for the ranking body.
 
 What would reopen this decision: a body that someone wants to use and that cannot be written as a
 row of the table of the five bodies.
@@ -423,7 +427,24 @@ row of the table of the five bodies.
 This section records what is known about turning the definition into code. It contains no
 decisions. The items are independent of each other.
 
-- **How the code should be organised is not decided.** Two options exist.
+- **How the code is organised: Option B, decided by Simon on 2026-11-16, and built the same day**
+  (GitHub epic #616). One object per body. Reason: it is the definition written as code. A body
+  is chosen whole, and only Option B makes that true in the code.
+- **What was built.** One file, `views_hydranet/body/bodies.py`, holds an object for each of the
+  five bodies in use. During training the body receives the outputs from before the activation,
+  applies the activation once, and computes the loss. Training is unchanged: for all five bodies
+  the real training loop reaches bit-for-bit identical weights with and without the body objects
+  (measured on one CPU; not measured on a GPU). Two findings shaped it. First, the result of
+  softplus depends on how the numbers are laid out in memory, for the value and for the gradient,
+  so the body repeats the model's own sequence of operations exactly. Second, if the loss applied
+  the activation a second time, the gradient changed in its last digits in the one case where two
+  loss terms share a target, so the activation is applied once and everything reads that result.
+- **What was not built, on purpose.** The count distributions keep their existing class
+  (`DistributionFamily`); a distribution body wraps it, so nothing was renamed and ADR-067 is
+  untouched. The model's layers and its choice of activation are unchanged. The older path through
+  the training loop remains, for the unused bodies; it can only be removed by removing those
+  bodies. The softplus version of the ranking loss has no object, because no config uses it.
+- **The two options that were considered:**
   Option A: every loss receives the outputs from before the activation, and a loss that needs the
   activated values is given an argument that tells it to apply softplus.
   Option B: one object per body. The code already has such an object for the count distributions
@@ -432,11 +453,11 @@ decisions. The items are independent of each other.
   two more such objects. The drawback: that class is named for distributions and is governed by
   ADR-067, and those two bodies are not distributions, so the class would have to be renamed or
   its name would be wrong for them.
-- **The switch from section 1 must be split in two before it is removed.** Its name in the code is
-  `needs_latent`. Its second job, "must be trained on all cells", is still needed. Removing the
-  switch without keeping that job would let the ranking loss be trained on only some cells.
-- **A missing check.** The ranking loss converts the target back to counts, and nothing checks
-  that the data was transformed with log1p. This is condition 5 in section 5.
+- **The switch from section 1** (`needs_latent` in the code). For the five bodies in use its second
+  job, "must be trained on all cells", is now a fact stated by the body object. The switch itself
+  remains on the older path, for the unused bodies.
+- **The check that was missing is added** (condition 5 in section 5). A ranking-loss config whose
+  target is not transformed with log1p is now refused when the config is built.
 - **Ten configs ask for something their body cannot do, today.** The five mean-squared-error
   configs and the five ranking configs ask for random samples to be fed back during a multi-month
   forecast. Neither body can draw samples. These configs can be read and their models can be

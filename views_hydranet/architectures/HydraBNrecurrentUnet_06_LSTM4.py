@@ -29,19 +29,20 @@ class ModelOutput(NamedTuple):
     """
     Typed return value for HydraBNUNet06_LSTM4.forward().
 
-    Fields reg, cls, h_next are the primary outputs. reg_latent carries the
-    pre-ReLU regression activations needed by censored losses (TobitLoss).
-    Consumers that do not need latent values can ignore it — default is None.
+    Fields reg, cls, h_next are the primary outputs. ``reg`` holds the regression heads' outputs
+    AFTER the activation; ``reg_latent`` holds the same outputs from BEFORE it, in training mode
+    only. A body object reads ``reg_latent`` and applies the activation itself (ADR-079 rule 2);
+    so do the older latent losses (TobitLoss). Everything else reads ``reg``.
 
     NOTE: Adding reg_latent as a 4th field means tuple unpacking with 3
     variables (``r, c, h = model(x, h)``) no longer works. Use named access:
     ``output.reg, output.cls, output.h_next``.
     """
 
-    reg: torch.Tensor  # [B, n_reg, H, W] post-ReLU regression head outputs
+    reg: torch.Tensor  # [B, n_reg * width, H, W] activated regression head outputs
     cls: torch.Tensor  # [B, n_cls, H, W] classification head logits
     h_next: torch.Tensor  # [B, total_hidden_channels, H, W] LSTM hidden state
-    reg_latent: torch.Tensor | None = None  # [B, n_reg, H, W] pre-ReLU latent mu
+    reg_latent: torch.Tensor | None = None  # [B, n_reg * width, H, W] before the activation
 
 
 class HydraBNUNet06_LSTM4(nn.Module):

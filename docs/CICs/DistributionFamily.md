@@ -89,8 +89,11 @@ concrete hook — a family opts in by overriding it, opts out by inheriting the 
   the activated `params`.
 - `target` is in log1p (or the config-declared transform) space; the family owns the inverse.
 - `generator` is a seeded `torch.Generator` when determinism is required (it is, in inference).
-- Consumers pass **activated** params to `nll`/`sample`/`mean`/`prob_positive` — `activate` is called
-  exactly once at the emit boundary, not re-applied downstream.
+- Consumers pass **activated** params to `nll`/`sample`/`mean`/`prob_positive`. `activate` is
+  called in two places and nowhere else: by the model's head, which reports activated params
+  (`ModelOutput.reg`), and by the body object during training (`views_hydranet/body/bodies.py`,
+  ADR-079 rule 2), which activates the head's raw outputs once per step and hands the result to
+  `nll`. Each caller activates raw channels exactly once; neither re-activates activated params.
 
 ---
 
@@ -162,7 +165,7 @@ if fam is not None:
 
 - Instantiating `DistributionFamily()` directly, or a subclass that omits a member — abstract, raises.
 - Re-`activate`-ing already-activated params, or feeding raw (pre-activation) channels to
-  `nll`/`sample`/`mean` — the activation boundary is once, at emit.
+  `nll`/`sample`/`mean`. Raw channels go through `activate` first, once.
 - Calling `sample` without a `generator` on the inference path — reintroduces the non-determinism the
   S2 #121 gate forbids.
 - Reading `prob_positive` as `1 − gate` for a self-zeroed family — that is the hurdle decomposition,

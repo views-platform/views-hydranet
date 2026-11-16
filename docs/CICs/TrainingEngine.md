@@ -165,6 +165,13 @@ types (module docstring `training_engine.py:1`).
 - **Model:** consumes `model(t0_input, h)` returning `output.reg` / `output.cls` / `output.h_next`
   (`training_engine.py:346-347`) and `model.init_hTtime(...)` (`:632`). Treats the architecture as
   opaque.
+- **Bodies (ADR-079, epic #616):** `train()` builds a body object with `build_body(config,
+  criterion_reg)` and passes it to `_process_sequence(body=...)`. With a body, the body reads
+  `output.reg_latent` (the heads' outputs from before the activation), activates it once per step
+  (`body.read`), and supplies the regression loss; every other consumer in the step reads that
+  same activated result. The body states whether it must be trained on all cells. `body=None` —
+  an unused body, or a caller passing a bare criterion — runs the older path unchanged, where
+  `needs_latent` on the criterion decides both things.
 - **Losses:** consumes `choose_loss` (`:98`), per-target `FamilyLoss` dispatch
   (`:434-441`), the `MultiTaskLoss` balancer (`:516`), and `resolve_family` for the feedback /
   biopsy (`:688`, `:727`, `:743`).
