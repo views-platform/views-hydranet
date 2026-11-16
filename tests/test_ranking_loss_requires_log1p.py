@@ -30,8 +30,8 @@ def _ranking(valid_config_dict, **overrides):
     }
 
 
-def _move_out_of_log1p(valid_config_dict, to: str):
-    target = valid_config_dict["regression_targets"][0]
+def _move_out_of_log1p(valid_config_dict, to: str, which: int = 0):
+    target = valid_config_dict["regression_targets"][which]
     tf = copy.deepcopy(valid_config_dict["transformations"])
     tf["log1p"] = [c for c in tf.get("log1p", []) if c != target]
     tf.setdefault(to, []).append(target)
@@ -44,8 +44,11 @@ def test_the_ranking_loss_with_log1p_targets_is_accepted(valid_config_dict):
     assert cfg.loss_reg == "listwise_level"
 
 
-def test_the_ranking_loss_with_a_non_log1p_target_is_refused(valid_config_dict):
-    target, tf = _move_out_of_log1p(valid_config_dict, "identity")
+@pytest.mark.parametrize("which", [0, 1, 2])
+def test_the_ranking_loss_with_a_non_log1p_target_is_refused(valid_config_dict, which):
+    """Every target is checked, not only the first (guard audit, 2026-11-16)."""
+    assert len(valid_config_dict["regression_targets"]) == 3
+    target, tf = _move_out_of_log1p(valid_config_dict, "identity", which)
     with pytest.raises(ValidationError) as excinfo:
         HydraNetConfig(**_ranking(valid_config_dict, transformations=tf))
     message = str(excinfo.value)

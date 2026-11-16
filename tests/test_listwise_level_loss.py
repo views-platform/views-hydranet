@@ -1173,13 +1173,19 @@ def test_the_deep_tail_carries_a_finite_gradient_under_both_transformations():
     gradient. The implementation's linear branch is selected far above that, so the gradient stays
     finite; measured ``max|g| = 7.040`` under both transformations at ``s ≈ -60``, identical
     because the linear branch IS the exp branch."""
+    # -800 is below the underflow the docstring names; -60 alone never reaches it, and removing
+    # the linear branch left this test green (guard audit, 2026-11-16).
     for transform in TRANSFORMS:
-        crit = ListwiseLevelLoss(y_max=_Y_MAX, transform=transform)
-        tail = [s - 60.0 for s in _T_SCORES]
-        score = torch.tensor(tail, dtype=torch.float64, requires_grad=True)
-        crit(score, torch.log1p(torch.tensor(_T_COUNTS, dtype=torch.float64))).backward()
-        assert torch.isfinite(score.grad).all(), f"{transform} put a nan or inf in the gradient"
-        assert float(score.grad.abs().max()) > 0.0, f"{transform} produced a dead gradient"
+        for offset in (60.0, 800.0):
+            crit = ListwiseLevelLoss(y_max=_Y_MAX, transform=transform)
+            tail = [s - offset for s in _T_SCORES]
+            score = torch.tensor(tail, dtype=torch.float64, requires_grad=True)
+            loss = crit(score, torch.log1p(torch.tensor(_T_COUNTS, dtype=torch.float64)))
+            loss.backward()
+            where = f"{transform} at scores near -{offset:.0f}"
+            assert torch.isfinite(loss), f"{where}: the loss is not finite"
+            assert torch.isfinite(score.grad).all(), f"{where}: nan or inf in the gradient"
+            assert float(score.grad.abs().max()) > 0.0, f"{where}: a dead gradient"
 
 
 def test_an_unknown_transform_is_refused_at_the_loss_and_at_the_schema(valid_config_dict):

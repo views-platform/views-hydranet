@@ -259,6 +259,20 @@ def test_the_body_path_equals_the_older_path_in_one_process(case):
         )
 
 
+def test_the_ranking_body_is_trained_on_all_cells_even_under_active_supervision(monkeypatch):
+    """`requires_all_cells` must be read by the training step, not only declared.
+
+    A guard audit (2026-11-16) found that ignoring the flag in `_process_sequence` left every test
+    green. With the flag read, `body_supervision='active'` changes nothing for the ranking body.
+    """
+    monkeypatch.setitem(CASES, "ranking/active", ("ranking", {"body_supervision": "active"}))
+    active, all_cells = _run("ranking/active"), _run("ranking/all")
+    for key in all_cells:
+        assert active[key]["sha256"] == all_cells[key]["sha256"], (
+            f"{key}: the ranking body was trained on a subset of the cells"
+        )
+
+
 def test_the_golden_covers_all_five_live_bodies():
     golden = json.loads(GOLDEN.read_text())
     assert set(golden["cases"]) == set(CASES)

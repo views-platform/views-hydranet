@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from views_hydranet.utils.config_initializer import HydraNetConfig
+from views_hydranet.utils.config_initializer import LEGACY_OUTPUT_DISTRIBUTIONS, HydraNetConfig
 
 
 def _standard(valid_config_dict, **overrides):
@@ -35,6 +35,16 @@ def test_sampled_feedback_is_refused_for_a_body_that_cannot_sample(valid_config_
     message = str(excinfo.value)
     assert "rollout_feedback='sample'" in message
     assert "'mean'" in message, "the message must say what to set instead"
+
+
+@pytest.mark.parametrize("distribution", LEGACY_OUTPUT_DISTRIBUTIONS)
+def test_sampled_feedback_is_refused_for_every_body_that_is_not_a_family(
+    valid_config_dict, distribution
+):
+    """The refusal is "not a family", not "is `standard`" (guard audit, 2026-11-16)."""
+    cfg = {**valid_config_dict, "output_distribution": distribution, "rollout_feedback": "sample"}
+    with pytest.raises(ValidationError, match="rollout_feedback='sample'"):
+        HydraNetConfig(**cfg)
 
 
 @pytest.mark.parametrize("feedback", [None, "mean", "teacher_forced"])
