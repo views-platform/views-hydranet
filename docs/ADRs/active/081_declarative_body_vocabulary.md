@@ -1,6 +1,8 @@
-# ADR-079: One Field Names the Body
+# ADR-081: One Field Names the Body
 
-**Status:** Accepted
+**Status:** Accepted — ⚠️ **PARKED 2026-11-15.** Renumbered from ADR-079 on that date. ADR-079 (the
+definition of a body) was accepted on 2026-11-16. Nothing in this ADR is to be implemented until it
+has been re-read against that definition.
 **Date:** 2026-11-13 · accepted 2026-11-14
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** views-hydranet contributors; views-models roster owners
