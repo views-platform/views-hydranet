@@ -359,10 +359,9 @@ This section lists what improves, what it costs, and what this document rules ou
 - The four neighbouring settings can be checked against what the body states, where today the code
   compares text values.
 - Once the code follows the definition, a config cannot name one loss and be trained with another.
-- The ranking programme plans to compare two models, one trained with a count likelihood and one
-  with the ranking loss. With this definition the two differ in the body, and in those neighbouring settings that the
-  body forces to differ: the ranking body must be trained on all cells and cannot feed back
-  samples. Nothing else differs.
+- The ranking programme compares two models: one trained with mean squared error and one with the
+  ranking loss. Both output one number per cell. With this definition the two differ in the
+  body and in nothing else.
 
 ### Negative
 
