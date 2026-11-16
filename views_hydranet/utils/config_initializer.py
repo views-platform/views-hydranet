@@ -1363,6 +1363,32 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def validate_ranking_loss_requires_log1p_targets(self) -> "HydraNetConfig":
+        # ADR-079 §5 condition 5 (#621). The ranking loss also recovers raw counts from the
+        # target via the log1p inverse (`to_raw_counts`, listwise_level_loss.py), to sort the
+        # cells into rating levels. The family check above asks "is this a count distribution?"
+        # and so passes the ranking loss without looking. With any other target transform the
+        # loss would recover wrong counts, assign wrong levels and train on the wrong ranking,
+        # with no error. Not merged with the family check: the two fire for different reasons
+        # and name different settings.
+        from views_hydranet.distributions import family_names
+
+        # Under a distribution family `loss_reg` is not what trains, so there is nothing to check.
+        if self.loss_reg == "listwise_level" and self.output_distribution not in family_names():
+            log1p_cols = set(self.transformations.get("log1p", []))
+            non_log1p = [t for t in self.regression_targets if t not in log1p_cols]
+            if non_log1p:
+                err_msg = (
+                    f"loss_reg='listwise_level' recovers raw counts from the target via the "
+                    f"log1p inverse to form its rating levels, but regression target(s) "
+                    f"{non_log1p} are not log1p-transformed. Use log1p for them, or another "
+                    f"loss_reg."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
     def validate_head_samples_family(self) -> "HydraNetConfig":
         # ADR-067 (D×K): per-cell head draws (K = n_head_samples > 1) are only meaningful for a
         # SAMPLEABLE distribution family (nb/zinb). A legacy point head has no per-cell
