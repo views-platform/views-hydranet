@@ -397,9 +397,10 @@ This section lists what improves, what it costs, and what this document rules ou
 
 ## 5. Validation
 
-This section lists five conditions that must hold for the definition to be working. Conditions 4 and 5 have automated tests since 2026-11-16. Conditions 1 and 2 have none. Condition 3
-is partly checked, as it says. Two conditions fail today for at least one body: condition 1 (the
-ranking body) and condition 3 (ten configs).
+This section lists five conditions that must hold for the definition to be working. Conditions 3,
+4 and 5 have automated tests since 2026-11-16. Conditions 1 and 2 have none. One condition fails
+today in the code: condition 1, for the ranking body. Condition 3 now holds in the code, but ten
+configs in the models repository still ask for what it refuses; see section 6.
 
 1. Each body in use can be written as one row of the table of the five bodies in section 2. No
    cell is filled from a default in the code. A cell may say "not built yet" or "not decided" only
@@ -409,8 +410,8 @@ ranking body) and condition 3 (ten configs).
    width of the head.
 3. If one of the four neighbouring settings asks for something the body cannot do, building the
    config stops with an error. The case to cover first: feeding back random samples during a
-   multi-month forecast, for a body that cannot draw samples. Today this case is caught later,
-   when a forecast run starts, and not when the config is built.
+   multi-month forecast, for a body that cannot draw samples. Since 2026-11-16 this case is
+   refused when the config is built. Before that it was caught only when a forecast run started.
 4. A test fails if the mean-squared-error loss is given the outputs from before the activation and
    does not apply softplus. (Exists since 2026-11-16.)
 5. A body whose loss converts the target back to counts refuses data that was not transformed with
@@ -460,9 +461,11 @@ decisions. The items are independent of each other.
   target is not transformed with log1p is now refused when the config is built.
 - **Ten configs ask for something their body cannot do, today.** The five mean-squared-error
   configs and the five ranking configs ask for random samples to be fed back during a multi-month
-  forecast. Neither body can draw samples. These configs can be read and their models can be
-  trained. The error comes later: the code stops when a forecast run starts. A test of that error
-  exists and passes. None of the ten configs was run for this document.
+  forecast. Neither body can draw samples. With the released package these configs can be read
+  and their models trained, and the run then stops when a forecast starts. With the code as of
+  2026-11-16, not yet released, they are refused when the config is read. The fix belongs in the
+  models repository and was handed over there (views-models issue #737). None of the ten configs
+  was run for this document.
 - **The five ranking configs do not choose a version of the ranking loss.** They get the code's
   default, the exponential version. By this document the exponential and the softplus versions are two
   bodies, so the body of those five models is picked by a default.
