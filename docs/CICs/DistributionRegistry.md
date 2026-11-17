@@ -6,6 +6,8 @@
 **Related ADRs:** ADR-067 (distribution-family subsystem — per-cell NB/ZINB), ADR-008 (Error
 Propagation), ADR-009 (Boundary Contracts & Configuration Validation)
 
+> **Amended 2026-11-17 (issue #628, ADR-079 §4):** the `zinb` family and the bodies `hurdle_nb`, `hurdle_lognormal`, `hurdle_shrinkage` and `dense_nb` are deleted, with everything only they used (`sample_core`, `mean_core`, `parameter_penalty`, the `self_zeroed` marker, `emit_family_core`, the π penalty). Below, statements of current guarantees are corrected; mentions in history and measurements are left as they were. Kept under the git tag `archive/unused-bodies-2026-11-17`.
+
 ---
 
 ## 1. Purpose
@@ -48,10 +50,6 @@ decorator, chosen at the v1 `/expert-code-review` for fail-loud discovery and or
   listing available names on an unknown name.
 - `resolve_family(name, **kwargs) -> DistributionFamily | None` — the single dispatch seam: the family for a
   registered name, else `None`.
-- `SELF_ZEROED_FAMILIES: frozenset[str]` + `self_zeroed_family_names() -> frozenset[str]` — the
-  **torch-free mirror** of each family's `self_zeroed` class attribute (currently `{"zinb"}`), so config
-  validators (`validate_forecast_composition`) can check occurrence-ownership without importing torch.
-  Guarantee: this set MUST match the families whose `self_zeroed` is `True` — pinned by a parity test.
 - Guarantee: `family_names()` and the set of names `resolve_family` returns non-`None` for are always
   the same set (both are `DISTRIBUTION_REGISTRY` keys) — no second source to desync.
 

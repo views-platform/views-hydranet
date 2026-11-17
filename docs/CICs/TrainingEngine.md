@@ -277,7 +277,7 @@ config["ss_feedback"] = "sample"   # MUST match inference feedback for parity (C
   MUST be mirrored in `hydranet_inference` (`_sample_feedback` / `_emit_magnitude`) or the parity
   test breaks — this coupling is deliberate (C-246) and must be preserved, not refactored away.
 - **Expected to change:** the additive regularizers threaded through `_process_sequence` (qs99
-  decay-gate penalty, `pi_penalty` family ridge — C-200/C-205) are opt-in hooks that may grow; new
+  decay-gate penalty) are opt-in hooks that may grow; new
   ADR-070 sample-feedback compositions extend the `ss_feedback` / `forecast_composition` axes.
 - **Revisit this contract if:** the AR T-loop moves out of `_process_sequence`, the feedback object
   stops mirroring inference, or BN-recal stops being the default.

@@ -1,4 +1,6 @@
-"""NBCore — the shared negative-binomial count core (ADR-067). Reused by ``nb`` and ``zinb``.
+"""NBCore — the shared negative-binomial count core (ADR-067).
+
+Reused by ``nb``, ``truncated_nb`` and ``mixture_nb``.
 
 Parameterisation: mean ``mu``, dispersion ``theta`` (the NB ``total_count``), matching
 ``torch.distributions.NegativeBinomial(total_count=theta, probs=mu/(mu+theta))`` so ``E[Y] = mu``

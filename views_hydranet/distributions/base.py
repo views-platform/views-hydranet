@@ -2,7 +2,7 @@
 
 **Torch-free at runtime.** `from __future__ import annotations` turns the ``torch.Tensor``
 annotations into strings and the only ``torch`` import is under ``TYPE_CHECKING``. So the import
-chain ``config -> registry -> base`` never pulls torch; the torch-heavy families (nb/zinb) are
+chain ``config -> registry -> base`` never pulls torch; the torch-heavy families are
 imported lazily by the registry factories, only when a distribution is actually instantiated.
 
 Contract (ADR-067 §2/§3): distribution parameters live in their **natural space** via link

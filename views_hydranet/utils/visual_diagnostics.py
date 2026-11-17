@@ -864,8 +864,9 @@ class VisualDiagnostics:
         active_metrics = [m for m in metrics if m in dossier]
 
         # Determine Rows: N metrics + Magnitude + Bias (+ family parameter-health rows, C-213).
-        # Param-health rows appear ONLY when TrainingForensics recorded family params (nb/zinb):
-        # μ̄ + θ-CoV always, + π (mean/range) for zinb. Non-family dossiers lack the keys → same.
+        # Param-health rows appear ONLY when TrainingForensics recorded family params:
+        # μ̄ + θ-CoV always, + a "π" row for a family with 3+ parameters (mislabelled for
+        # mixture_nb, risk C-255). Non-family dossiers lack the keys → same.
         n_metrics = len(active_metrics)
         has_param_health = is_reg and "theta_cov" in dossier
         has_pi = has_param_health and "pi_bar" in dossier

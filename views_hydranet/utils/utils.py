@@ -177,10 +177,11 @@ def choose_loss(
     adding an entry to the appropriate registry — no modification of
     this function (OCP).
     """
-    # ADR-067 strangler-fig: if output_distribution names a registered distribution family (nb/
-    # zinb), the reg loss is the family NLL (FamilyLoss over family.nll) — loss_reg is irrelevant
-    # for a family. resolve_family returns None for every legacy value, so those keep their
-    # loss_reg path below (byte-identical). A single shared instance (theta/pi are head-emitted).
+    # ADR-067 strangler-fig: if output_distribution names a registered distribution family
+    # (nb, truncated_nb, mixture_nb), the reg loss is the family NLL (FamilyLoss over family.nll)
+    # — loss_reg is irrelevant for a family. resolve_family returns None for every legacy value,
+    # so those keep their loss_reg path below (byte-identical). A single shared instance (the
+    # parameters are head-emitted).
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
     from views_hydranet.utils.config_initializer import (

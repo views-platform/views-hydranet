@@ -209,14 +209,14 @@ class HydraNetConfig(BaseModel):
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
     # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
-    # name (nb, zinb, truncated_nb, mixture_nb) —
+    # name (nb, truncated_nb, mixture_nb) —
     # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
     # 'relu'; else 'softplus'/'relu'. A family ignores it and uses its own activation.
     reg_activation: str | None = Field(default=None)
     # ADR-069 (Epic #183): how gate + body compose into the emitted forecast. Default "self_zeroed"
-    # is inert for legacy heads and correct for zinb; it forces every nb config to declare a gate
+    # is inert for legacy heads; it forces every family config to declare a gate
     # composition explicitly (soft_gate / threshold_gate). Consumed at emit time (S4).
     forecast_composition: str = Field(default="self_zeroed")
     # ADR-069: threshold τ for forecast_composition="threshold_gate" (keep the full body where the
@@ -309,7 +309,7 @@ class HydraNetConfig(BaseModel):
     total_lessons: int = Field(..., ge=1)
     n_posterior_samples: int = Field(..., ge=1)
     # K = per-cell head draws (aleatoric) for a sampleable distribution family (ADR-067 D×K).
-    # Legacy point heads keep K=1; K>1 requires an nb/zinb family (see model validator).
+    # Legacy point heads keep K=1; K>1 requires a distribution family (see model validator).
     n_head_samples: int = Field(default=1, ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
@@ -515,7 +515,7 @@ class HydraNetConfig(BaseModel):
         if self.struct_penalty_weight > 0 and resolve_family(self.output_distribution) is None:
             err_msg = (
                 f"struct_penalty_weight={self.struct_penalty_weight} requires a distribution "
-                f"family output_distribution (nb/zinb/truncated_nb); got "
+                f"family output_distribution (nb/truncated_nb/mixture_nb); got "
                 f"{self.output_distribution!r}, which emits no mu channel"
             )
             logger.error(err_msg)
@@ -1379,7 +1379,7 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_family_requires_log1p_targets(self) -> "HydraNetConfig":
-        # C-198 (ADR-067): a count family (nb/zinb) recovers raw counts from the target via the
+        # C-198 (ADR-067): a count family recovers raw counts from the target via the
         # log1p inverse (expm1, `to_raw_counts`). Any other target transform (asinh/identity) would
         # de-transform to the wrong "counts" with no error, so require log1p for the family's
         # regression targets — fail loud at config load. (`family_names()` is torch-free.)
@@ -1428,7 +1428,7 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_head_samples_family(self) -> "HydraNetConfig":
         # ADR-067 (D×K): per-cell head draws (K = n_head_samples > 1) are only meaningful for a
-        # SAMPLEABLE distribution family (nb/zinb). A legacy point head has no per-cell
+        # SAMPLEABLE distribution family. A legacy point head has no per-cell
         # sampler, so K>1 there would be silently ignored — RAISE. Single authority for "is this
         # sampleable?" is the registry's `family_names()` (torch-free), not a hardcoded list.
         if self.n_head_samples > 1:
@@ -1439,7 +1439,8 @@ class HydraNetConfig(BaseModel):
                     f"n_head_samples={self.n_head_samples} (>1) requires a sampleable "
                     f"family (output_distribution in {sorted(family_names())}), but "
                     f"output_distribution='{self.output_distribution}' is a legacy head with no "
-                    f"per-cell sampler. Use n_head_samples=1 with this head, or select nb/zinb."
+                    "per-cell sampler. Use n_head_samples=1 with this head, or select a "
+                    "distribution family."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
@@ -1456,7 +1457,7 @@ class HydraNetConfig(BaseModel):
            trained family's parameters, so emitting from a family with a different layout would
            reinterpret them as something they were never trained to be. This is also what keeps
            ADR-073's surface narrow STRUCTURALLY — measured 2026-10-21, nb 2 / truncated_nb 2 /
-           zinb 3 / mixture_nb 5, so ``nb <-> truncated_nb`` is the only admissible pair today and
+           mixture_nb 5, so ``nb <-> truncated_nb`` is the only admissible pair today and
            it cannot widen by accident;
         3. ⛔ it must DIFFER from ``output_distribution``. An equal value reads as an intervention
            and is none — C-324's inert-knob signature, the same reason

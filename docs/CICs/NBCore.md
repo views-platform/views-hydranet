@@ -7,6 +7,8 @@
 Stability Guards), ADR-008 (Error Propagation), ADR-009 (Boundary Contracts & Configuration
 Validation), ADR-002 (Layering)
 
+> **Amended 2026-11-17 (issue #628, ADR-079 §4):** the `zinb` family and the bodies `hurdle_nb`, `hurdle_lognormal`, `hurdle_shrinkage` and `dense_nb` are deleted, with everything only they used (`sample_core`, `mean_core`, `parameter_penalty`, the `self_zeroed` marker, `emit_family_core`, the π penalty). Below, statements of current guarantees are corrected; mentions in history and measurements are left as they were. Kept under the git tag `archive/unused-bodies-2026-11-17`.
+
 ---
 
 ## 1. Purpose
@@ -17,7 +19,7 @@ Validation), ADR-002 (Layering)
 > weighted-mean reduction every family reuses.
 
 `NBCore` is a stateless module of static/pure functions (`nb_core.py:109-110`) that all four
-families — `nb`, `zinb`, `mixture_nb`, `truncated_nb` — and the two legacy losses **compose**
+families — `nb`, `mixture_nb`, `truncated_nb` — **compose**
 (`has-a`, not inherit): `NegativeBinomialFamily` (`negative_binomial.py:5`),
 `ZINBFamily` (`zero_inflated_negative_binomial.py:4`, `NBCore` + a structural π spike),
 `MixtureNBFamily` (`mixture_negative_binomial.py:4`, `NBCore` twice),

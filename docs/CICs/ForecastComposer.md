@@ -6,6 +6,8 @@
 **Related ADRs:** ADR-069 (forecast_composition axis), ADR-068 (arm naming), ADR-067 (distribution
 families), ADR-008 (Error Propagation), ADR-009 (Boundary Contracts & Configuration Validation)
 
+> **Amended 2026-11-17 (issue #628, ADR-079 §4):** the `zinb` family and the bodies `hurdle_nb`, `hurdle_lognormal`, `hurdle_shrinkage` and `dense_nb` are deleted, with everything only they used (`sample_core`, `mean_core`, `parameter_penalty`, the `self_zeroed` marker, `emit_family_core`, the π penalty). Below, statements of current guarantees are corrected; mentions in history and measurements are left as they were. Kept under the git tag `archive/unused-bodies-2026-11-17`.
+
 ---
 
 ## 1. Purpose
@@ -33,7 +35,7 @@ this module assumes a valid arm and fails loud only defensively.
   are exact there); `compose_mean` operates in **count** space and the caller (`_emit_magnitude`)
   wraps the result in `log1p`. It never `expm1`'s a free prediction (C-140).
 - Does **not** apply to legacy heads — those compose in their own `_emit_magnitude` branches; the
-  composer runs only on the family (nb/zinb) path.
+  composer runs only on the family path.
 
 ---
 

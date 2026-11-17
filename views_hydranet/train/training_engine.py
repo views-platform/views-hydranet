@@ -478,8 +478,8 @@ def _structure_penalty(
 
 def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     """Collapse a family head's per-target activated params ``[B, n_reg*n_params, H, W]``
-    (target-major) to per-target ``log1p(E[y])`` ``[B, n_reg, H, W]`` — the self-zeroed mean
-    ``(1-π)μ`` for zinb, ``μ`` for nb. Shared by the training biopsy and the forensic dossier so
+    (target-major) to per-target ``log1p(E[y])`` ``[B, n_reg, H, W]`` — the family's own
+    mean (``μ`` for nb). Shared by the training biopsy and the forensic dossier so
     both plot the honest per-target forecast (C-213), not a raw channel. Mirrors the
     ``hydranet_inference._emit_magnitude`` family branch.
     """
@@ -986,7 +986,7 @@ def _process_sequence(
                 if not isinstance(loss_fn_j, FamilyLoss):
                     err_msg = (
                         f"struct_penalty_weight={struct_penalty_weight} requires a distribution "
-                        f"family (nb/zinb/truncated_nb); target {idx.reg_names[j]} uses "
+                        f"family (nb/truncated_nb/mixture_nb); target {idx.reg_names[j]} uses "
                         f"{type(loss_fn_j).__name__}, which emits no mu channel"
                     )
                     logger.error(err_msg)

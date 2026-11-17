@@ -16,7 +16,7 @@ It COMPOSES the shared ``NBCore`` (has-a) and makes no zeros of its own: it is g
 like ``nb`` (``mean`` is E[Y|Y>0], the
 *conditional* magnitude, which ``compose_mean`` multiplies by the gate — NOT the full forecast).
 
-Contract note (deliberate deviation): unlike ``nb``/``zinb``/``mixture_nb`` whose ``nll`` is a mean
+Contract note (deliberate deviation): unlike ``nb``/``mixture_nb`` whose ``nll`` is a mean
 over ALL cells, this family's likelihood is defined ONLY on ``y>0``, so ``nll`` reduces over the
 positive cells (folding a ``y>0`` mask into the weight). Correctness therefore does NOT depend on
 the caller supplying ``body_supervision='active'`` — the mask is applied inside the family.

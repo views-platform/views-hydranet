@@ -87,7 +87,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             dropout_rate (float): Probability of dropout for regularization.
             output_distribution (str): regression-head output distribution/activation —
                 "standard" (ReLU, default, pre-#100 behavior) or a family/head name
-                (nb, zinb, truncated_nb, mixture_nb), which
+                (nb, truncated_nb, mixture_nb), which
                 selects the ADR-067 family activation / head param count.
         """
         super().__init__()
@@ -96,7 +96,8 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # sub-exponential. Default "standard" => ReLU => byte-identical to pre-#100.
         self.output_distribution = output_distribution
         # ADR-067 strangler-fig: if output_distribution names a registered distribution family
-        # (nb/zinb), the head sizes reg channels to family.n_params and the FAMILY owns activation.
+        # (nb, truncated_nb, mixture_nb), the head sizes reg channels to family.n_params and the
+        # FAMILY owns activation.
         # resolve_family returns None for every legacy value, so those fall through to the
         # untouched legacy path below (byte-identical). New families add zero new branches here.
         self._family = resolve_family(output_distribution)
@@ -122,7 +123,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         else:
             self._reg_activation = F.relu
 
-        # A family emits n_params reg channels per target (nb=2 [mu,theta], zinb=3 [+pi]);
+        # A family emits n_params reg channels per target (nb=2 [mu,theta], mixture_nb=5);
         # every legacy head emits output_channels (the AR-feedback
         # width, unchanged so the invariant input_channels == 3*output_channels + static holds).
         if self._family is not None:

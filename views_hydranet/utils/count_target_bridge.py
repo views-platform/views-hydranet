@@ -15,7 +15,7 @@ Design invariants (ZINB/hurdle-NB dossier ``02_design`` §3; risk C-140):
     cannot run inside the training loss on-device.
 
 Intentionally tiny and exhaustively tested; consumed by the legacy hurdle losses (#99) and the
-ADR-067 distribution families (nb/zinb/mixture_nb/truncated_nb, via ``to_raw_counts`` in ``nll``).
+ADR-067 distribution families (nb/mixture_nb/truncated_nb, via ``to_raw_counts`` in ``nll``).
 """
 
 from __future__ import annotations

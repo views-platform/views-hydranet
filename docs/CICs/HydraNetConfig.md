@@ -73,7 +73,6 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Retired Hurdle Knobs (Epic #158 / ADR-065):** Raises `ValueError` when a retired knob (`hurdle_threshold`, `hurdle_mask_mode`) is set — these migrated to the `body_supervision` axis; a config still setting them fails loud with a migration message (`reject_retired_hurdle_knobs`).
 - **Missing QS99 Tau (ADR-050):** Raises `ValueError` when `body_supervision='active'` and `qs99_weight > 0` but `qs99_tau` is not provided (`validate_qs99_requires_tau` — re-keyed off the retired `hurdle_threshold` onto `body_supervision`).
 - **Invalid QS99 Weight (ADR-050):** Raises `ValidationError` when `qs99_weight < 0` (negative weight inverts the penalty direction).
-- **Invalid Pi-Penalty Weight (ADR-067 / C-200):** Raises `ValidationError` when `pi_penalty_weight < 0` (a negative weight would invert the family π/μ-ridge). `None`/`0` disables the ridge (no-op).
 - **Invalid QS99 Tau (ADR-050):** Raises `ValidationError` when `qs99_tau` is not in `(0.0, 1.0)` (pinball loss quantile must be a valid probability).
 - **Degenerate Basu DPD Alpha (ADR-050):** Raises `ValueError` when `loss_reg='basu_dpd'` and `loss_reg_alpha <= 0` (α=0 degenerates to MLE, α<0 is undefined).
 - **Degenerate Basu DPD Sigma (ADR-050):** Raises `ValueError` when `loss_reg='basu_dpd'` and `loss_reg_sigma <= 0` (σ=0 causes division by zero).

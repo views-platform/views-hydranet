@@ -103,7 +103,7 @@ def train_model_artifact(
         # C-179: persist the RESOLVED reg-head activation (the function actually used) so a reload
         # uses the trained activation even if the default keyed off output_distribution changes
         # (ADR-063). softplus/relu share weight shapes => a mismatch loads silently, wrong.
-        # A distribution family (nb/zinb, ADR-067) installs its OWN activation
+        # A distribution family (ADR-067) installs its OWN activation
         # (a closure keyed off output_distribution) whose name is not a valid reg_activation string
         # on reload — persist None; output_distribution reconstructs it. Registry-driven
         # (resolve_family), so new families need no edit here.
