@@ -416,7 +416,7 @@ def _structure_penalty(
     the two are IDENTICAL (``mean()`` returns ``mu``), which is why this stayed invisible while the
     whole D3–D12 measurement programme ran on the nb vehicle (`4acbf4d3…`) — and why fixing it
     changes nothing for nb. Asking the family instead of indexing a channel is the same
-    family-agnostic hook pattern as ``family.parameter_penalty`` at the accumulation site.
+    family-agnostic pattern the families use everywhere else.
 
     ⛔ THE GATE IS DETACHED. The composed forecast is the only object comparable to observed counts
     — the body's mean alone is *conditional* (the magnitude GIVEN an event) while the target is
@@ -478,8 +478,8 @@ def _structure_penalty(
 
 def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     """Collapse a family head's per-target activated params ``[B, n_reg*n_params, H, W]``
-    (target-major) to per-target ``log1p(E[y])`` ``[B, n_reg, H, W]`` — the self-zeroed mean
-    ``(1-π)μ`` for zinb, ``μ`` for nb. Shared by the training biopsy and the forensic dossier so
+    (target-major) to per-target ``log1p(E[y])`` ``[B, n_reg, H, W]`` — the family's own
+    mean (``μ`` for nb). Shared by the training biopsy and the forensic dossier so
     both plot the honest per-target forecast (C-213), not a raw channel. Mirrors the
     ``hydranet_inference._emit_magnitude`` family branch.
     """
@@ -491,34 +491,17 @@ def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
 
 
-def _family_composed_mean_log1p(reg, family, gate, composition, threshold, *, emit_core=False):
+def _family_composed_mean_log1p(reg, family, gate, composition, threshold):
     """``log1p(compose_mean(E[Y|body], gate))`` — the DIFFERENTIABLE analogue of a composed draw.
 
     Used as the straight-through surrogate for BPTT-SA (#308). It must be the *composed* mean, not
     ``_family_target_log1p_mean``: that one ignores the gate entirely, so it is the analogue of an
     UNCOMPOSED draw and would push gradient for a quantity the forward pass never produced.
-
-    ``emit_core`` (ADR-068) selects ``family.mean_core``, the π-stripped BULK body, exactly as
-    ``hydranet_inference._emit_magnitude`` does under the ``emit_family_core`` config flag. It is a
-    CALLER's choice rather than a config read here, because the callers differ and the difference
-    is not cosmetic: under ``zinb + emit_family_core + soft_gate`` — the mandated ``ZINBcore``
-    shape, since config rule (2) requires a core-emitting zinb to declare a gate — deployment emits
-    ``log1p(gate × μ_core)`` while ``family.mean`` gives ``log1p(gate × (1−π)μ)``, the π-and-gate
-    double count rule (1) forbids.
-
-    ⚠️ Only the biopsy forecast row passes it. The two feedback callers — this helper's use as the
-    straight-through surrogate, and ``_family_feedback_log1p``'s 'mean' branch — still use
-    ``family.mean`` unconditionally and so do NOT mirror deployment under that flag. Noted and
-    deliberately not fixed with the release: both are training-exposure paths, so changing them
-    changes a forecast. The surrogate's sibling ``fed`` draw has the same gap (``family.sample``,
-    never ``sample_core``), which is C-234's shape inside the training engine rather than
-    inference.
     """
     npar = family.n_params
     n_reg = reg.shape[1] // npar
-    mean_fn = family.mean_core if emit_core else family.mean
     mus = torch.stack(
-        [mean_fn(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(n_reg)],
+        [family.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(n_reg)],
         dim=1,
     )
     if composition != "self_zeroed":
@@ -528,23 +511,15 @@ def _family_composed_mean_log1p(reg, family, gate, composition, threshold, *, em
     return torch.log1p(mus)
 
 
-def _biopsy_forecast_label(composition, emit_core):
-    """The biopsy forecast row's label, derived from what the row was actually BUILT with.
+def _biopsy_forecast_label(composition):
+    """The biopsy forecast row's label, derived from the composition the row was BUILT with.
 
-    It used to be keyed on ``family.self_zeroed``, which labelled a gate-composed field
-    "self-zeroed E[y]" for every ``ZINBcore`` arm: ``emit_family_core`` makes a zinb NOT
-    self-zeroed (``config_initializer``: ``is_self_zeroed_family = raw_self_zeroed and not
-    self.emit_family_core``) and rule (2) then REQUIRES it to declare a gate, so the family
-    attribute and the applied composition disagree exactly where the flag is on.
-
-    A pure function rather than four lines inline, because a label built inside ``train()``'s
-    biopsy loop cannot be asserted without a full training run — and an unassertable label is how
-    the wrong one survived.
+    A pure function rather than inline, because a label built inside ``train()``'s biopsy loop
+    cannot be asserted without a full training run.
     """
-    body = "E[y|core]" if emit_core else "E[y]"
     if composition == "self_zeroed":
-        return f"FORECAST (self_zeroed {body})"
-    return f"FORECAST log1p({composition}({body}, gate))"
+        return "FORECAST (self_zeroed E[y])"
+    return f"FORECAST log1p({composition}(E[y], gate))"
 
 
 def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, generator=None):
@@ -664,8 +639,6 @@ def _process_sequence(
     onset_lead: int = 0,
     cessation_lag: int = 0,
     event_threshold: float = 0.0,
-    pi_penalty_weight: float | None = None,
-    pi_penalty_prior_logit: float = 0.0,
     family=None,
     ss_feedback: str = "mean",
     forecast_composition: str = "self_zeroed",
@@ -732,7 +705,7 @@ def _process_sequence(
 
     # Opt-in gate-side decay penalty (2026-06-28 gate_resolution): suppress the GATE on cells
     # active in the window but zero now. Keyed only on the true targets (threshold 0), so — unlike
-    # body active_window mask (C-180) — it applies even under a latent body (production hurdle_nb).
+    # body active_window mask (C-180) — it applies even under a latent body.
     decay_active: torch.Tensor | None = None
     if decay_gate_weight > 0:
         decay_active = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], 0.0)
@@ -937,9 +910,6 @@ def _process_sequence(
         # Loss computation
         losses_list = []
         qs99_loss = torch.tensor(0.0, device=device)
-        # C-200: family parameter-prior ridge (e.g. ZINB π/μ-ridge), accumulated across targets and
-        # scaled by pi_penalty_weight at the reduction site (qs99/decay additive precedent).
-        pi_pen = torch.tensor(0.0, device=device)
         struct_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
             # Issue #44: per-target loss instance (or shared single instance)
@@ -1016,7 +986,7 @@ def _process_sequence(
                 if not isinstance(loss_fn_j, FamilyLoss):
                     err_msg = (
                         f"struct_penalty_weight={struct_penalty_weight} requires a distribution "
-                        f"family (nb/zinb/truncated_nb); target {idx.reg_names[j]} uses "
+                        f"family (nb/truncated_nb/mixture_nb); target {idx.reg_names[j]} uses "
                         f"{type(loss_fn_j).__name__}, which emits no mu channel"
                     )
                     logger.error(err_msg)
@@ -1035,14 +1005,6 @@ def _process_sequence(
                 # j ("gate order = reg").
                 struct_pen = struct_pen + tw * _structure_penalty(
                     loss_fn_j.family, pred_j, t1_pred_class[:, j, :, :], target_j
-                )
-
-            # C-200/C-205: family parameter-prior ridge (family-agnostic hook — nb returns a
-            # graph-safe 0, zinb the π/μ-ridge). Accumulated on the full-grid params; scaled by
-            # pi_penalty_weight at the reduction site. Byte-identical no-op when weight is None/0.
-            if pi_penalty_weight and isinstance(loss_fn_j, FamilyLoss):
-                pi_pen = pi_pen + tw * loss_fn_j.family.parameter_penalty(
-                    pred_j, prior_logit=pi_penalty_prior_logit, scale=1.0
                 )
 
         decay_pen = torch.tensor(0.0, device=device)
@@ -1180,8 +1142,6 @@ def _process_sequence(
             loss = loss + decay_gate_weight * decay_pen
         if struct_penalty_weight > 0:
             loss = loss + struct_penalty_weight * struct_pen
-        if pi_penalty_weight:
-            loss = loss + pi_penalty_weight * pi_pen
         total_loss += loss
 
         loss_reg = losses[: idx.n_reg].sum()
@@ -1384,9 +1344,6 @@ def train(
         onset_lead=config.get("onset_lead", 0),
         cessation_lag=config.get("cessation_lag", 0),
         event_threshold=event_threshold_from_config(config),
-        # C-200 (ADR-067): family parameter-prior ridge weight + prior logit (None ⇒ no-op).
-        pi_penalty_weight=config.get("pi_penalty_weight"),
-        pi_penalty_prior_logit=config.get("pi_penalty_prior_logit", 0.0),
         # EXP-4 (GTF): family + composition drive the scheduled-sampling feedback (only when ε>0).
         family=resolve_family(config.get("output_distribution", "standard")),
         ss_feedback=config.get("ss_feedback", "mean"),
@@ -1469,16 +1426,14 @@ def train(
                         # composition.
                         if _fam is not None:
                             _composition = config.get("forecast_composition", "self_zeroed")
-                            _emit_core = bool(config.get("emit_family_core", False))
                             _yh_fc = _family_composed_mean_log1p(
                                 t1_pred,
                                 _fam,
                                 torch.sigmoid(t1_pred_class),
                                 _composition,
                                 config.get("gate_threshold"),
-                                emit_core=_emit_core,
                             )
-                            _biopsy_fc_label = _biopsy_forecast_label(_composition, _emit_core)
+                            _biopsy_fc_label = _biopsy_forecast_label(_composition)
                         else:
                             # Legacy point heads are retired by the scope lock and
                             # `_emit_magnitude` composes NOTHING for them ("identity — reg is
@@ -2005,7 +1960,7 @@ def training_loop(
                     optimizer.step()
 
                 # ADR-055 / #99: log per-target dispersion once per lesson — sigma for
-                # tobit/lognormal, theta for hurdle-NB (TruncatedNBLoss) — whichever the loss
+                # tobit/lognormal — whichever the loss
                 # exposes. (getattr-guarded so a loss without one doesn't crash the logger.)
                 if isinstance(criterion_reg, dict):
                     import wandb
@@ -2015,8 +1970,6 @@ def training_loop(
                         for name, loss_fn in criterion_reg.items():
                             if hasattr(loss_fn, "sigma"):
                                 disp_log[f"sigma/{name}"] = loss_fn.sigma
-                            if hasattr(loss_fn, "theta"):
-                                disp_log[f"theta/{name}"] = loss_fn.theta
                         if disp_log:
                             wandb.log(disp_log)
 

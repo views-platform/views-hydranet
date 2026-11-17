@@ -29,13 +29,50 @@ BODY_SUPERVISION_VALUES: tuple[str, ...] = ("all", "active")
 # authority for the LEGACY output_distribution values (ADR-067). The valid set is this tuple
 # UNIONED with the registered distribution-family names (`family_names()`); the two must stay
 # disjoint (C-197) so a legacy config never silently routes to a new family.
-LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
-    "standard",
+LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = ("standard",)
+
+# Removed on 2026-11-17 (views-hydranet issue #628, ADR-079 §4) and kept under the git tag below.
+# Named here so a config or a saved model that still uses one is refused with the reason.
+REMOVED_BODIES_TAG = "archive/unused-bodies-2026-11-17"
+REMOVED_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
+    "zinb",
     "hurdle_nb",
     "hurdle_lognormal",
     "hurdle_shrinkage",
     "dense_nb",
 )
+#: Config settings that only the removed bodies read. Refused, not silently ignored (C-324).
+REMOVED_BODY_SETTINGS: tuple[str, ...] = (
+    "loss_reg_theta_init",
+    "learnable_theta",
+    "emit_family_core",
+    "pi_penalty_weight",
+    "pi_penalty_prior_logit",
+)
+
+
+def check_output_distribution(name: str) -> None:
+    """Raise ``ValueError`` unless ``name`` is a body this package has.
+
+    The one check, used by the config schema, by ``choose_model`` (every model build, including
+    the reload of a saved model from its sidecar) and by ``HydraNetInference`` (which also sees a
+    model unpickled without a sidecar). Torch-free.
+    """
+    from views_hydranet.distributions import family_names
+
+    known = [*LEGACY_OUTPUT_DISTRIBUTIONS, *sorted(family_names())]
+    if name in known:
+        return
+    err_msg = f"output_distribution={name!r} is not a body this package has. Known: {known}."
+    if name in REMOVED_OUTPUT_DISTRIBUTIONS:
+        err_msg += (
+            f" {name!r} was removed on 2026-11-17 and is kept under the git tag "
+            f"{REMOVED_BODIES_TAG} (views-hydranet issue #628). A model saved with it cannot be "
+            "loaded by this version."
+        )
+    logger.error(err_msg)
+    raise ValueError(err_msg)
+
 
 # authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
 # combine into the emitted forecast. self_zeroed = body carries its own zeros (no gate); soft_gate
@@ -200,9 +237,6 @@ class HydraNetConfig(BaseModel):
     target_weights: Dict[str, float] | None = Field(default=None)
     # Learnable Tobit sigma (ADR-055): optimizer adjusts sigma during training.
     learnable_sigma: bool = Field(default=False)
-    # Hurdle-NB body (D2, #99): NB dispersion θ init + whether θ is learned (loss_reg='hurdle_nb').
-    loss_reg_theta_init: float | None = Field(default=None, gt=0.0)
-    learnable_theta: bool = Field(default=True)
     # Ranking body (loss_reg='listwise_level'): the grid's truth MAXIMUM in raw counts, which
     # declares the dyadic level set 0..ceil(log2(1+y_max)) and the fixed 1/(|R|-1) normaliser.
     # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
@@ -218,14 +252,14 @@ class HydraNetConfig(BaseModel):
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
     # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
-    # name (nb, zinb, dense_nb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
+    # name (nb, truncated_nb, mixture_nb) —
     # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
-    # off output_distribution ('softplus' if hurdle_nb else 'relu'); else 'softplus'/'relu'.
+    # 'relu'; else 'softplus'/'relu'. A family ignores it and uses its own activation.
     reg_activation: str | None = Field(default=None)
     # ADR-069 (Epic #183): how gate + body compose into the emitted forecast. Default "self_zeroed"
-    # is inert for legacy heads and correct for zinb; it forces every nb config to declare a gate
+    # is inert for legacy heads; it forces every family config to declare a gate
     # composition explicitly (soft_gate / threshold_gate). Consumed at emit time (S4).
     forecast_composition: str = Field(default="self_zeroed")
     # ADR-069: threshold τ for forecast_composition="threshold_gate" (keep the full body where the
@@ -240,11 +274,6 @@ class HydraNetConfig(BaseModel):
     # family already reduces over all cells — so setting it elsewhere is REJECTED rather than
     # silently ignored (C-324). See reports/2026-10-15_loss_balance_prereg.md.
     body_nll_denominator: str = Field(default="positives")
-    # ADR-068 emit_family_core: emit the family's BULK body (π-stripped for zinb) instead of the
-    # self-zeroed forecast, so an EXTERNAL gate supplies the zeros — the {gated,th_gated}_ZINBcore
-    # arms. Emit-time only (read at eval, not baked in the artifact). Requires a self-zeroed family
-    # (zinb) + a gate composition (soft_gate/threshold_gate); no-op/meaningless on nb.
-    emit_family_core: bool = Field(default=False)
     # ADR-073: the family the model is EMITTED from, when it differs from the one it was TRAINED
     # on. None (default) = emit as trained, byte-identical to every existing config. The use it
     # exists for is `output_distribution='nb'` + `emit_distribution='truncated_nb'`: the gate then
@@ -323,7 +352,7 @@ class HydraNetConfig(BaseModel):
     total_lessons: int = Field(..., ge=1)
     n_posterior_samples: int = Field(..., ge=1)
     # K = per-cell head draws (aleatoric) for a sampleable distribution family (ADR-067 D×K).
-    # Legacy point heads keep K=1; K>1 requires an nb/zinb family (see model validator).
+    # Legacy point heads keep K=1; K>1 requires a distribution family (see model validator).
     n_head_samples: int = Field(default=1, ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
@@ -366,22 +395,6 @@ class HydraNetConfig(BaseModel):
             "(S = n_posterior_samples × n_head_samples). When set, generate_posterior_samples "
             "aborts (fail loud) before allocating if the cube exceeds it — a lower cap on top of "
             "the always-on auto RAM guard (assert_cube_fits). None disables the opt-in cap."
-        ),
-    )
-    pi_penalty_weight: float | None = Field(
-        default=None,
-        ge=0.0,
-        description=(
-            "ADR-067 (A-S9 / C-200): weight of the family parameter-prior ridge added to the reg "
-            "loss (e.g. the ZINB π/μ-ridge regularizing the deep-zero non-identified π). Calls "
-            "the family-agnostic parameter_penalty hook (nb = 0). None/0 disables (no-op)."
-        ),
-    )
-    pi_penalty_prior_logit: float = Field(
-        default=0.0,
-        description=(
-            "ADR-067 (A-S9 / C-200): the logit(pi) prior the pi_penalty ridge pulls toward (0 ⇒ "
-            "pi=0.5). Only consumed when pi_penalty_weight > 0 with a zinb output_distribution."
         ),
     )
     static_channels: list[str] = Field(
@@ -545,7 +558,7 @@ class HydraNetConfig(BaseModel):
         if self.struct_penalty_weight > 0 and resolve_family(self.output_distribution) is None:
             err_msg = (
                 f"struct_penalty_weight={self.struct_penalty_weight} requires a distribution "
-                f"family output_distribution (nb/zinb/truncated_nb); got "
+                f"family output_distribution (nb/truncated_nb/mixture_nb); got "
                 f"{self.output_distribution!r}, which emits no mu channel"
             )
             logger.error(err_msg)
@@ -748,17 +761,11 @@ class HydraNetConfig(BaseModel):
     @field_validator("output_distribution")
     @classmethod
     def validate_output_distribution(cls, v: str) -> str:
-        # ADR-067: the valid set is the LEGACY values unioned with the registered family names.
-        # `family_names()` is torch-free (A-S2), so config validation stays torch-free (CRP). The
-        # family/legacy disjointness invariant (C-197) is enforced in a model_validator, which
-        # always runs (a field_validator is skipped for the default value).
-        from views_hydranet.distributions import family_names
-
-        valid = list(LEGACY_OUTPUT_DISTRIBUTIONS) + sorted(family_names())
-        if v not in valid:
-            err_msg = f"output_distribution='{v}' is not valid. Expected one of: {valid}."
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        # ADR-067: the valid set is the LEGACY values unioned with the registered family names,
+        # checked by the one shared function. The family/legacy disjointness invariant (C-197) is
+        # enforced in a model_validator, which always runs (a field_validator is skipped for the
+        # default value).
+        check_output_distribution(v)
         return v
 
     @field_validator("forecast_composition")
@@ -1200,25 +1207,6 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        # The same core-awareness gap the SS block guards (ADR-068): `_family_feedback_log1p` is
-        # not `emit_family_core`-aware, so on a self-zeroed family the pushforward's auxiliary
-        # unroll trains on `gate x family.mean` / the self-zeroed sample while deployment emits
-        # and feeds the π-stripped core. That guard sits inside `if ss_epsilon_max > 0`, which a
-        # pushforward arm never sets — the exact nesting that hid S2's C-259 instance, one story
-        # later (#372 review). Guarded here for the pushforward independently.
-        if self.pushforward_weight > 0.0 and self.emit_family_core:
-            from views_hydranet.distributions.registry import self_zeroed_family_names
-
-            if self.output_distribution in self_zeroed_family_names():
-                err_msg = (
-                    f"pushforward_weight={self.pushforward_weight} with emit_family_core=True on "
-                    f"a self_zeroed family ({self.output_distribution!r}): the pushforward "
-                    "feedback is not core-aware, so training would feed the self-zeroed body "
-                    "while inference feeds the π-stripped core — a silent train/deploy exposure "
-                    "mismatch (C-234/C-239). Make _family_feedback_log1p core-aware first."
-                )
-                logger.error(err_msg)
-                raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -1385,6 +1373,16 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
+            removed = [k for k in REMOVED_BODY_SETTINGS if k in data]
+            if removed:
+                err_msg = (
+                    f"{removed} only configured bodies removed on 2026-11-17 (views-hydranet "
+                    f"issue #628; kept under the git tag {REMOVED_BODIES_TAG}). Nothing reads "
+                    "them now. "
+                    "Remove them from the config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return data
 
     @model_validator(mode="after")
@@ -1428,7 +1426,7 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_family_requires_log1p_targets(self) -> "HydraNetConfig":
-        # C-198 (ADR-067): a count family (nb/zinb) recovers raw counts from the target via the
+        # C-198 (ADR-067): a count family recovers raw counts from the target via the
         # log1p inverse (expm1, `to_raw_counts`). Any other target transform (asinh/identity) would
         # de-transform to the wrong "counts" with no error, so require log1p for the family's
         # regression targets — fail loud at config load. (`family_names()` is torch-free.)
@@ -1477,7 +1475,7 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_head_samples_family(self) -> "HydraNetConfig":
         # ADR-067 (D×K): per-cell head draws (K = n_head_samples > 1) are only meaningful for a
-        # SAMPLEABLE distribution family (nb/zinb). A legacy point head has no per-cell
+        # SAMPLEABLE distribution family. A legacy point head has no per-cell
         # sampler, so K>1 there would be silently ignored — RAISE. Single authority for "is this
         # sampleable?" is the registry's `family_names()` (torch-free), not a hardcoded list.
         if self.n_head_samples > 1:
@@ -1488,7 +1486,8 @@ class HydraNetConfig(BaseModel):
                     f"n_head_samples={self.n_head_samples} (>1) requires a sampleable "
                     f"family (output_distribution in {sorted(family_names())}), but "
                     f"output_distribution='{self.output_distribution}' is a legacy head with no "
-                    f"per-cell sampler. Use n_head_samples=1 with this head, or select nb/zinb."
+                    "per-cell sampler. Use n_head_samples=1 with this head, or select a "
+                    "distribution family."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
@@ -1505,7 +1504,7 @@ class HydraNetConfig(BaseModel):
            trained family's parameters, so emitting from a family with a different layout would
            reinterpret them as something they were never trained to be. This is also what keeps
            ADR-073's surface narrow STRUCTURALLY — measured 2026-10-21, nb 2 / truncated_nb 2 /
-           zinb 3 / mixture_nb 5, so ``nb <-> truncated_nb`` is the only admissible pair today and
+           mixture_nb 5, so ``nb <-> truncated_nb`` is the only admissible pair today and
            it cannot widen by accident;
         3. ⛔ it must DIFFER from ``output_distribution``. An equal value reads as an intervention
            and is none — C-324's inert-knob signature, the same reason
@@ -1559,11 +1558,8 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_forecast_composition(self) -> "HydraNetConfig":
         # ADR-069 (Epic #183): cross-field rules for the composition axis. Torch-free — reads only
-        # the registry's `family_names()` + `self_zeroed_family_names()` (a torch-free mirror of
-        # the family `self_zeroed` attribute; parity-guarded in test_registry), never
-        # instantiating a family (CRP).
+        # the registry's `family_names()`, never instantiating a family (CRP).
         from views_hydranet.distributions import family_names
-        from views_hydranet.distributions.registry import self_zeroed_family_names
 
         comp = self.forecast_composition
         # ⛔ ADR-073: these rules are about the EMITTED family, not the trained one. Composition is
@@ -1581,52 +1577,17 @@ class HydraNetConfig(BaseModel):
             else f"output_distribution='{emitted}'"
         )
         is_family = emitted in family_names()
-        raw_self_zeroed = emitted in self_zeroed_family_names()
-        # ADR-068 emit_family_core: strips the structural π at emit and gates the bare core
-        # externally, so a core-emitting zinb is NOT self-zeroed at emit — it's a gateable
-        # body (rules below then REQUIRE it to declare a gate). emit_family_core only applies to a
-        # self-zeroed family (the only one with a π core to strip) — and under ADR-073 that is the
-        # family being EMITTED, since the π being stripped is the emitted draw's.
-        if self.emit_family_core and not raw_self_zeroed:
+        # (1) No registered family makes its own zeros (the only one that did, zinb, was deleted
+        # on 2026-11-17, issue #628), so a family MUST declare a gate composition.
+        if is_family and comp == "self_zeroed":
             err_msg = (
-                f"emit_family_core=True requires a self-zeroed family with a structural-π core to "
-                f"strip; {emitted_desc} has no π core to strip. Remove emit_family_core."
+                f"{emitted_desc} is not self-zeroed, so "
+                f"forecast_composition='self_zeroed' has no zero mechanism (ADR-069, glossary "
+                f"§2 matrix). Declare a gate composition: {list(_GATE_COMPOSITIONS)}."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        is_self_zeroed_family = raw_self_zeroed and not self.emit_family_core
-
-        # (1) a self-zeroed family (zinb) must NOT be gated — π + a gate would double-count zeros.
-        if is_self_zeroed_family and comp in _GATE_COMPOSITIONS:
-            err_msg = (
-                f"forecast_composition='{comp}' gates a self-zeroed family ({emitted_desc}): "
-                f"π and a gate would double-count the zeros (ADR-069). Use "
-                f"forecast_composition='self_zeroed'."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        # (2) a family with no active self-zeroing — nb (never self-zeroed) OR a core-emitting zinb
-        # (emit_family_core stripped its π) — has no zero mechanism, so it MUST declare a gate.
-        if is_family and not is_self_zeroed_family and comp == "self_zeroed":
-            if self.emit_family_core:
-                # C-242: zinb IS self-zeroed; emit_family_core stripped π. Do NOT claim the family
-                # "is not self-zeroed" — that misdirects debugging.
-                err_msg = (
-                    f"emit_family_core=True strips the structural π from "
-                    f"{emitted_desc}, so the bare core needs an "
-                    f"EXTERNAL gate; forecast_composition='self_zeroed' has no zero mechanism "
-                    f"(ADR-068/069). Add a gate composition {list(_GATE_COMPOSITIONS)}, or drop "
-                    f"emit_family_core."
-                )
-            else:
-                err_msg = (
-                    f"{emitted_desc} is not self-zeroed, so "
-                    f"forecast_composition='self_zeroed' has no zero mechanism (ADR-069, glossary "
-                    f"§2 matrix). Declare a gate composition: {list(_GATE_COMPOSITIONS)}."
-                )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        # (3) composition applies ONLY to families; a gate on a legacy head is inert -> RAISE.
+        # (2) composition applies ONLY to families; a gate on a legacy head is inert -> RAISE.
         if not is_family and comp != "self_zeroed":
             err_msg = (
                 f"forecast_composition='{comp}' only applies to a distribution family "
@@ -1636,7 +1597,7 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        # (4) threshold_gate needs τ in the OPEN unit interval; τ is meaningless otherwise.
+        # (3) threshold_gate needs τ in the OPEN unit interval; τ is meaningless otherwise.
         if comp == "threshold_gate":
             if self.gate_threshold is None or not (0.0 < self.gate_threshold < 1.0):
                 err_msg = (
@@ -1858,25 +1819,6 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
-            # emit_family_core (ADR-068) re-interprets the family as its π-stripped BULK core at
-            # EMIT/inference time, but the TRAINING feedback (_family_feedback_log1p) always draws
-            # the plain family.sample — it is NOT core-aware. For a self_zeroed family (zinb),
-            # sample_core != sample, so SS would train on the self-zeroed draw while inference
-            # rolls out on the dense core: a silent train/deploy exposure mismatch (C-234/C-239
-            # axis the other guards above miss). Reject until _family_feedback_log1p is core-aware.
-            if self.emit_family_core:
-                from views_hydranet.distributions.registry import self_zeroed_family_names
-
-                if self.output_distribution in self_zeroed_family_names():
-                    err_msg = (
-                        "SS active with emit_family_core=True and a self_zeroed "
-                        f"family ({self.output_distribution!r}): feedback draws the "
-                        "self-zeroed sample but inference rolls out on the π-stripped core "
-                        "(sample_core != sample) — a silent train/deploy exposure mismatch "
-                        "(C-234/C-239). Make _family_feedback_log1p core-aware before enabling it."
-                    )
-                    logger.error(err_msg)
-                    raise ValueError(err_msg)
         return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---

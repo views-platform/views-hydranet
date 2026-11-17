@@ -6,11 +6,13 @@
 **Related ADRs:** ADR-067 (distribution-family subsystem — per-cell NB/ZINB), ADR-008 (Error
 Propagation), ADR-009 (Boundary Contracts & Configuration Validation), ADR-002 (Layering)
 
+> **Amended 2026-11-17 (issue #628, ADR-079 §4):** the `zinb` family and the bodies `hurdle_nb`, `hurdle_lognormal`, `hurdle_shrinkage` and `dense_nb` are deleted, with everything only they used (`sample_core`, `mean_core`, `parameter_penalty`, the `self_zeroed` marker, `emit_family_core`, the π penalty). Below, statements of current guarantees are corrected; mentions in history and measurements are left as they were. Kept under the git tag `archive/unused-bodies-2026-11-17`.
+
 ---
 
 ## 1. Purpose
 
-> The one abstraction every output-distribution family (`nb`, `zinb`, and successors) implements, so
+> The one abstraction every output-distribution family (`nb`, `truncated_nb`, `mixture_nb`, and successors) implements, so
 > consumers depend on a per-cell distribution — how the head emits it, activates it, scores it,
 > samples it, and summarises it — never on a concrete family (DIP).
 
@@ -39,10 +41,10 @@ contract that registry returns.
 
 ## 3. Responsibilities and Guarantees
 
-`DistributionFamily(ABC)` declares seven members every family must implement, plus two class attributes:
+`DistributionFamily(ABC)` declares seven members every family must implement, plus one class attribute:
 
 - `n_params: int` (property) — parameters the head emits per cell, per target (`nb` = 2 `[mu, theta]`;
-  `zinb` = 3 `[+pi]`; `mixture_nb` = 5 `[w, mu1, theta1, mu2, theta2]`; `truncated_nb` = 2 `[mu, theta]`,
+  `mixture_nb` = 5 `[w, mu1, theta1, mu2, theta2]`; `truncated_nb` = 2 `[mu, theta]`,
   the zero-truncated body — #258).
 - `activate(raw[..., n_params]) -> params[..., n_params]` — map raw head channels to constrained
   parameters via link functions (softplus/sigmoid), same shape.
@@ -53,32 +55,17 @@ contract that registry returns.
   deterministic under `generator` (preserves the S2 #121 determinism gate; C-3).
 - `mean(params) -> [...]` — per-cell `E[Y]` in count space, for AR feedback and point emit.
 - `prob_positive(params) -> [...]` — per-cell `P(Y>0)`, used to score gate metrics on the
-  `nb`/`zinb` families directly from the body (no separate gate is threaded into scoring; C-201).
-  (Distinct from the `self_zeroed` marker below — this bullet is about *scoring* occurrence from the
-  family, not about whether the *forecast* structurally self-zeroes.)
+  families directly from the body (no separate gate is threaded into scoring; C-201).
 - `initial_raw_bias(*, priors=None) -> [n_params]` — pre-activation head bias for informed init
-  (C-199): each family reads the priors it needs (`nb`: `theta`; `zinb`: `theta`, `pi`) with
+  (C-199): each family reads the priors it needs (`nb`: `theta`) with
   defaults, so the A-S6 head can seed emission channels **family-agnostically** away from a saturated
   dead-zone (C-203 — promoted here from an NB-only method to the ABC).
 - `needs_latent: bool = False` (class attr) — reuses the repo's existing latent-vs-point dispatch
   convention (`training_engine`, `config_initializer`).
-- `self_zeroed: bool = False` (class attr) — does the family produce its zeros STRUCTURALLY, so its
-  `mean` is already the full self-zeroed forecast and must NOT be multiplied by the classification
-  gate? `True` for `zinb` (structural π → forecast `(1−π)μ`); `False` for `nb` (gated_NB → forecast
-  `gate × body`) and legacy. Consumed by the training-forensic biopsy so the plotted forecast is
-  honest per mode (self-zeroed body vs `gate × body`).
-- `parameter_penalty(params, *, prior_logit=0.0, scale=0.0, weight=None) -> scalar` — a **concrete
-  (non-abstract) default-0 hook** (C-205) so a family-agnostic loss can add a parameter-prior ridge
-  without `isinstance`-branching to a concrete family. `nb` inherits the 0; `zinb` overrides it with
-  the C-200 π/μ-ridge (`pi_penalty`). Not part of the abstract seven — a family need not override it.
-- `sample_core(params, k, generator=None)` / `mean_core(params)` — **concrete** hooks (default =
-  `sample`/`mean`) that draw / mean the **π-stripped bulk body** for the `emit_family_core` core-emit
-  rollout (ADR-068). `ZINBFamily` overrides them to expose the NB core without its structural zero;
-  `nb`/`mixture_nb`/`truncated_nb` inherit the no-op. Not part of the abstract seven.
 
 Guarantee: the ABC cannot be instantiated (all seven members are `@abstractmethod`); a subclass
-missing any member fails loud at instantiation, never silently. `parameter_penalty` is the one
-concrete hook — a family opts in by overriding it, opts out by inheriting the default 0.
+missing any member fails loud at instantiation, never silently. No family produces its own zeros:
+every family is composed with the gate (ADR-069).
 
 ---
 
@@ -104,7 +91,7 @@ concrete hook — a family opts in by overriding it, opts out by inheriting the 
   `mean`/`prob_positive` return per-cell tensors with the parameter axis reduced.
 - No torch import at module load: `from __future__ import annotations` stringifies the `torch.Tensor`
   annotations and the only `torch` import is under `TYPE_CHECKING`, so `config → registry → base`
-  stays torch-free (CRP). Torch is pulled only when a concrete family (nb/zinb) is instantiated.
+  stays torch-free (CRP). Torch is pulled only when a concrete family is instantiated.
 
 ---
 
@@ -119,14 +106,11 @@ concrete hook — a family opts in by overriding it, opts out by inheriting the 
   determinism test at the family and core level; a non-deterministic sampler is a regression, not an
   edge case.
 - `prob_positive` on a self-zeroed family must be the true `P(Y>0)` (`1 − P(Y=0)`), **not** `1 − gate`
-  — conflating them mis-scores the gate metric on nb/zinb (C-201).
-- `activate` raises `ValueError` when the raw head channels' last dim `!= n_params` (nb/zinb) — a
+  — conflating them mis-scores the gate metric on a family (C-201).
+- `activate` raises `ValueError` when the raw head channels' last dim `!= n_params` — a
   head sized for the wrong family fails loud at activation, never silently mis-slices params.
 - `to_cube_samples` (the D×K sampler helper) raises `ValueError` when the params channel dim `!=
   n_reg * n_params` — a mis-shaped param cube fails loud before sampling, never draws from garbage.
-- `to_cube_samples` accepts `core=` (draw the π-stripped body via `sample_core`, ADR-068) and raises
-  `ValueError` on the invalid `core=True` + `composition='self_zeroed'` pairing (C-240: an ungated core
-  has no zero mechanism → would over-forecast a ~99.7%-zero field).
 - `to_cube_samples` draws each timestep from its OWN sub-generator, seeded from
   `generator.initial_seed()` + `(pass_index, timestep)` (ADR-070). A step's draw depends only on its
   own params, so under an autoregressive rollout the scored T=0 (h=1) cube is **byte-invariant to
@@ -142,7 +126,7 @@ concrete hook — a family opts in by overriding it, opts out by inheriting the 
   inference sampler, AR feedback — A-S6..A-S8) hold the ABC, never a concrete class.
 - Depends only on `torch` (at runtime, in subclasses) and the config transform table via its
   consumers. May not depend on the training loop, models, or framework/I-O layers (ADR-002).
-- Subclasses compose the shared `NBCore` (has-a, not is-a) for the count math (`nb`, `zinb`).
+- Subclasses compose the shared `NBCore` (has-a, not is-a) for the count math (`nb`, `truncated_nb`, `mixture_nb`).
 
 ---
 

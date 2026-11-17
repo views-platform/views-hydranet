@@ -1,6 +1,7 @@
 # ADR-067: A distribution-family subsystem + per-cell sampleable NB/ZINB heads
 
 **Status:** Active (promoted from Proposed 2026-08-14 — the subsystem is in production; ADRs 069/070 build on it)
+**Amended 2026-11-17 (issue #628, ADR-079 §4):** the `zinb` family is deleted; no config used it. It was the only self-zeroed family, so every family that remains (`nb`, `truncated_nb`, `mixture_nb`) must be composed with the gate. The subsystem decided here stands. What this ADR says about `zinb` below is history. Kept under the git tag `archive/unused-bodies-2026-11-17`.
 **Date:** 2026-07-20
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers

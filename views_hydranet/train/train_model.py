@@ -98,13 +98,12 @@ def train_model_artifact(
         # which seed produced which artifact). Provenance only; reload does not consume these.
         config_snapshot["torch_seed"] = config.get("torch_seed")
         config_snapshot["np_seed"] = config.get("np_seed")
-        # #101: persist the head flag (else hurdle_nb reloads as ReLU) + the learned per-target
-        # NB dispersion theta (needed for the exact hurdle-NB mean at inference).
+        # Persist which body the head was built for; reload builds the head from it.
         config_snapshot["output_distribution"] = config.get("output_distribution", "standard")
         # C-179: persist the RESOLVED reg-head activation (the function actually used) so a reload
         # uses the trained activation even if the default keyed off output_distribution changes
         # (ADR-063). softplus/relu share weight shapes => a mismatch loads silently, wrong.
-        # A distribution family (nb/zinb, ADR-067) installs its OWN activation
+        # A distribution family (ADR-067) installs its OWN activation
         # (a closure keyed off output_distribution) whose name is not a valid reg_activation string
         # on reload — persist None; output_distribution reconstructs it. Registry-driven
         # (resolve_family), so new families need no edit here.
@@ -141,14 +140,6 @@ def train_model_artifact(
         elif config.get("body_nll_denominator") is not None:
             # The truncated NB's likelihood is normalised differently per value of this setting.
             config_snapshot["body_nll_denominator"] = config.get("body_nll_denominator")
-        is_hurdle = config_snapshot["output_distribution"] == "hurdle_nb"
-        if is_hurdle and isinstance(criterion_reg, dict):
-            config_snapshot["hurdle_nb_theta"] = {
-                t: loss.theta for t, loss in criterion_reg.items()
-            }
-        # generic hurdle-lognormal: persist the fixed sigma (config) for the inference compose.
-        if config_snapshot["output_distribution"] == "hurdle_lognormal":
-            config_snapshot["hurdle_lognormal_sigma"] = config.get("loss_reg_sigma")
         artifact_path.with_suffix(".pt.config.json").write_text(
             json.dumps(config_snapshot, indent=2)
         )

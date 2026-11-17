@@ -33,14 +33,6 @@ def test_registered_under_truncated_nb():
     assert isinstance(resolve_family("truncated_nb"), TruncatedNBFamily)
 
 
-def test_not_self_zeroed_stays_out_of_the_gate_mirror():
-    """It is gated like nb (soft_gate owns occurrence) — must NOT be a self-zeroed family."""
-    from views_hydranet.distributions.registry import self_zeroed_family_names
-
-    assert _family().self_zeroed is False
-    assert "truncated_nb" not in self_zeroed_family_names()
-
-
 def test_shape_and_attrs():
     fam = _family()
     assert fam.n_params == 2

@@ -3,9 +3,11 @@
 **Status:** Active
 **Owner:** HydraNet maintainers
 **Last reviewed:** 2026-08-14
-**Related ADRs:** ADR-067 (distribution families / D×K posterior, A-S8), ADR-068 (arm naming +
-`emit_family_core` core), ADR-069 (forecast_composition axis), ADR-070 (per-`(pass,step)` seeding /
+**Related ADRs:** ADR-067 (distribution families / D×K posterior, A-S8), ADR-068 (arm naming),
+ADR-069 (forecast_composition axis), ADR-070 (per-`(pass,step)` seeding /
 T=0-neutrality)
+
+> **Amended 2026-11-17 (issue #628, ADR-079 §4):** the `zinb` family and the bodies `hurdle_nb`, `hurdle_lognormal`, `hurdle_shrinkage` and `dense_nb` are deleted, with everything only they used (`sample_core`, `mean_core`, `parameter_penalty`, the `self_zeroed` marker, `emit_family_core`, the π penalty). Below, statements of current guarantees are corrected; mentions in history and measurements are left as they were. Kept under the git tag `archive/unused-bodies-2026-11-17`.
 
 ---
 
@@ -27,7 +29,7 @@ caller-supplied seeded `torch.Generator` (S2 #121 gate, `sampling.py:7`).
 
 ## 2. Non-Goals (Explicit Exclusions)
 
-- Does **not** own family math. It calls `family.sample` / `family.sample_core` (`sampling.py:77`)
+- Does **not** own family math. It calls `family.sample`
   and never itself parameterises NBCore, activates a head, or knows a family's `n_params` beyond
   reading it (`sampling.py:59`).
 - Does **not** make the RAM-preflight decision. The oversize-cube guard is
@@ -68,11 +70,6 @@ caller-supplied seeded `torch.Generator` (S2 #121 gate, `sampling.py:7`).
   pre-ADR-069 path, no gate touched (`sampling.py:80-82`). `soft_gate` / `threshold_gate` mask the
   log1p draws via `compose_samples`, using the **same** per-step generator `gen_t` so the Bernoulli
   is deterministic (`sampling.py:104-105`).
-- **Core (π-stripped body) draw (ADR-068 `emit_family_core`).** `core=True` selects
-  `family.sample_core` instead of `family.sample` (`sampling.py:77`) — the bare NB body with π
-  dropped, for the externally-gated `{gated,th_gated}_ZINBcore` arms. For a family with no structural
-  zero (`nb`) `sample_core == sample`, so `core=True` is a no-op there (`base.py:80-87`,
-  `sampling.py:76`).
 
 ---
 
@@ -83,12 +80,12 @@ Signature (`sampling.py:23-34`):
 ```
 to_cube_samples(params_zstack, family, k, generator, n_reg,
                 gate=None, composition='self_zeroed', threshold=None,
-                pass_index=0, core=False) -> np.ndarray  # [T, H, W, n_reg, k] float32, log1p space
+                pass_index=0) -> np.ndarray  # [T, H, W, n_reg, k] float32, log1p space
 ```
 
 - `params_zstack`: **activated** params `[T, n_reg*n_params, H, W]` (torch or numpy), target-major;
   coerced to `float32` (`sampling.py:37`, `:58`).
-- `family`: the resolved `DistributionFamily` (owns `n_params`, `sample`, `sample_core`)
+- `family`: the resolved `DistributionFamily` (owns `n_params`, `sample`)
   (`sampling.py:38`, `:59`).
 - `k`: per-cell head draws (K) (`sampling.py:39`).
 - `generator`: seeded `torch.Generator` whose `initial_seed()` is the seed base; **may be `None`**,
@@ -101,11 +98,9 @@ to_cube_samples(params_zstack, family, k, generator, n_reg,
   `:105`).
 - `pass_index`: MC-dropout pass index (D axis), folded into the per-`(pass,step)` seed
   (`sampling.py:49-50`, `:99`).
-- `core`: draw the π-stripped body; assumes an external gate supplies zeros (`sampling.py:51-53`).
 
 **Assumed valid by construction** (guaranteed upstream by `HydraNetConfig`, re-checked only
-defensively here): the arm keyword, τ's range for `threshold_gate`, and the arm/core compatibility
-beyond the C-240 case (`sampling.py:67-69`).
+defensively here): the arm keyword and τ's range for `threshold_gate`.
 
 ---
 
@@ -129,11 +124,6 @@ All guards raise `ValueError` — fail loud, never silent fallback (ADR-003):
 - **Channel-dim mismatch** (`sampling.py:61-65`): `params` channel `c != n_reg * n_params` raises
   `"to_cube_samples: params channel dim ... != n_reg*n_params"`. Test
   `test_to_cube_samples_rejects_channel_dim_mismatch` (`test_sampler_dxk.py:236`).
-- **C-240 — ungated core** (`sampling.py:70-74`): `core=True` + `composition='self_zeroed'` raises,
-  because the π-stripped body has no zero mechanism of its own — an ungated NB core is dense
-  (~85%-nonzero) on a ~99.7%-zero field, so it would silently over-forecast. `HydraNetConfig` rejects
-  this upstream; this guards a direct/ad-hoc call. Test `test_to_cube_samples_core_self_zeroed_raises`
-  (`test_zinbcore_emit.py:107`).
 - **Gated arm without a gate** (`sampling.py:82-86`): `composition != 'self_zeroed'` with
   `gate=None` raises `"... needs a gate, got None"`. Test
   `test_to_cube_samples_gated_arm_requires_gate` (`test_sampler_dxk.py:245`).
@@ -145,20 +135,16 @@ guarded **upstream** by `HydraNetConfig`, not by this sampler — do not read a 
 
 ## 7. Boundaries and Interactions
 
-- **Calls:** `family.sample` / `family.sample_core` (`sampling.py:77`, `base.py:65-87`) and
+- **Calls:** `family.sample` and
   `compose_samples` (`sampling.py:17`, `:105`). It treats the family and the composer as opaque
   authorities over count-space draws and gate policy respectively.
 - **Called by:** `HydraNetInference.generate_posterior_samples` — once per MC-dropout pass `d`, with
-  `pass_index=d`, the pass's gate, and the config's `forecast_composition` / `gate_threshold` /
-  `emit_family_core` (`hydranet_inference.py:772-806`). That method (via
+  `pass_index=d`, the pass's gate, and the config's `forecast_composition` / `gate_threshold`. That method (via
   `inference_orchestrator.py:68`) owns the D loop, the RAM preflight (`assert_cube_fits`,
   `hydranet_inference.py:697`), and cube allocation.
 - **Sibling on the point path:** `_emit_magnitude` composes the **mean** (count space) via
   `compose_mean` (`hydranet_inference.py:253-268`); `to_cube_samples` composes **draws** (log1p
-  space) via `compose_samples`. The `emit_family_core` `core=` switch mirrors `_emit_magnitude`'s
-  `mean_core` switch (`hydranet_inference.py:253`) so the sampled cube and the AR feedback are
-  coherent (C-234; `test_sample_feedback_is_core_aware_under_emit_family_core`,
-  `test_zinbcore_emit.py:73`).
+  space) via `compose_samples`.
 - **Must not depend on:** disk/RAM guards, config objects, or the D-loop orchestration — those are
   the caller's.
 
@@ -176,22 +162,11 @@ assert cube.shape == (2, 4, 4, 3, 5)  # log1p space, non-negative
 ```
 (`test_to_cube_samples_shape_and_log1p_space`, `test_sampler_dxk.py:82`.)
 
-Externally-gated ZINB **core** (`gated_ZINBcore`), soft_gate:
-
-```python
-core = to_cube_samples(params, resolve_family("zinb"), k=8, generator=g, n_reg=1,
-                       gate=gate, composition="soft_gate", core=True)
-```
-The core (bulk body) carries more mass than the self-zeroed draw under the same gate
-(`test_to_cube_samples_core_uses_bulk_body`, `test_zinbcore_emit.py:50`).
 
 ---
 
 ## 9. Examples of Incorrect Usage
 
-- **Ungated core** — `to_cube_samples(..., composition="self_zeroed", core=True)`: raises (C-240).
-  The π-stripped body has no zeros; without an external gate it over-forecasts
-  (`test_zinbcore_emit.py:107`).
 - **Gated arm, no gate** — `to_cube_samples(..., composition="soft_gate", gate=None)`: raises. A
   gating arm needs the classifier `P(y>0)` (`test_sampler_dxk.py:245`).
 - **Streaming one generator across steps to save a `Generator` alloc.** Do not "optimise" away the
@@ -211,10 +186,6 @@ The core (bulk body) carries more mass than the self-zeroed draw under the same 
   `test_to_cube_samples_gated_arm_requires_gate` (`:245`), plus the end-to-end
   `test_generate_posterior_samples_dxk_fill` / `_family_deterministic` / `_legacy_width_unchanged`
   (`:205`, `:217`, `:225`).
-- `tests/test_zinbcore_emit.py` — the `core=` contract (ADR-068):
-  `test_to_cube_samples_core_uses_bulk_body` (core has more mass than self-zeroed, `:50`),
-  `test_to_cube_samples_core_self_zeroed_raises` (C-240 guard, `:107`),
-  `test_sample_feedback_is_core_aware_under_emit_family_core` (core/feedback coherence, `:73`).
 - Regression to protect: the T=0 byte-invariance to `rollout_feedback` (per-`(pass,step)` seeding)
   and single-step golden equivalence (`sampling.py:89-96`); green determinism; red fail-loud guards.
 
@@ -224,8 +195,8 @@ The core (bulk body) carries more mass than the self-zeroed draw under the same 
 
 - **Stable:** the `[T,H,W,n_reg,k]` log1p-space return; the per-`(pass,step)` seeding scheme and its
   seed arithmetic (changing the multipliers or fold order breaks LOCKED golden anchors and the
-  T=0-invariance); the three fail-loud guards.
-- **Expected to change:** new families (they arrive via `family.sample`/`sample_core`, no sampler
+  T=0-invariance); the two fail-loud guards.
+- **Expected to change:** new families (they arrive via `family.sample`, no sampler
   edit) and new composition arms (added in `ForecastComposer`, dispatched here unchanged).
 - **Would require revisiting this contract:** moving any config-cross-field validation into the
   sampler (currently the config boundary's job), adding a sampler-side guard for C-266, or making the

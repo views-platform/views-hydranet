@@ -1,6 +1,7 @@
 # ADR-069: `forecast_composition` — a first-class config axis for how gate + body compose into the emitted forecast
 
 **Status:** Active
+**Amended 2026-11-17 (issue #628):** `zinb`, the only self-zeroed family, is deleted, and with it the `emit_family_core` switch that this ADR already decided to retire. `self_zeroed` remains as the composition of a `standard` head. Kept under the git tag `archive/unused-bodies-2026-11-17`.
 **Date:** 2026-07-24 (accepted 2026-07-24)
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers

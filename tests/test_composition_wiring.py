@@ -1,8 +1,8 @@
 """S4 (#187, Epic #183) — emit-time composition wiring for the point / AR-feedback path.
 
 Confirms `_emit_magnitude` composes the family mean with the cls gate per `forecast_composition`
-(ADR-069): nb+soft_gate emits `log1p(gate×μ)`, nb+threshold_gate zeros below τ, while zinb
-(self-zeroed) and legacy heads are unchanged. The sample-cube side is covered by the sampler +
+(ADR-069): nb+soft_gate emits `log1p(gate×μ)`, nb+threshold_gate zeros below τ, while legacy
+heads are unchanged. The sample-cube side is covered by the sampler +
 composer suites; this pins the AR-feedback value the T>0 rollout will consume.
 """
 
@@ -22,7 +22,6 @@ class _MockModel(nn.Module):
     def __init__(self, output_distribution="standard"):
         super().__init__()
         self.output_distribution = output_distribution
-        self.hurdle_nb_theta = None
 
     def forward(self, x, h):  # pragma: no cover
         raise NotImplementedError
@@ -55,11 +54,14 @@ def test_nb_threshold_gate_keeps_above_tau_zeros_below():
     assert torch.allclose(zeroed, torch.zeros(1, 1, 1, 1), atol=ATOL)
 
 
-def test_zinb_self_zeroed_unchanged_by_wiring():
-    # zinb mean = (1-π)μ; [μ=2, θ=1, π=0.25] -> 1.5 -> log1p(1.5); gate ignored on the self path
-    reg = torch.tensor([2.0, 1.0, 0.25]).reshape(1, 3, 1, 1)
-    out = _inf("zinb", "self_zeroed")._emit_magnitude(reg, torch.tensor([[[[0.9]]]]))
-    assert torch.allclose(out, torch.tensor([[[[math.log1p(1.5)]]]]), atol=ATOL)
+def test_the_threshold_is_read_from_the_config_not_assumed():
+    """Every other emit test uses τ=0.5, so a hardcoded 0.5 would pass them (guard audit,
+    2026-11-17). At τ=0.3 a gate of 0.4 keeps the body; at 0.5 it would be zeroed."""
+    reg = torch.tensor([2.0, 1.0]).reshape(1, 2, 1, 1)  # μ=2
+    out = _inf("nb", "threshold_gate", threshold=0.3)._emit_magnitude(
+        reg, torch.tensor([[[[0.4]]]])
+    )
+    assert torch.allclose(out, torch.tensor([[[[math.log1p(2.0)]]]]), atol=ATOL)
 
 
 def test_legacy_standard_unchanged_by_wiring():

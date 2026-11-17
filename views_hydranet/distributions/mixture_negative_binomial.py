@@ -37,9 +37,7 @@ class MixtureNBFamily(DistributionFamily):
     """Per-cell 2-component NB mixture: params ``[..., 5]`` = ``(w, mu1, theta1, mu2, theta2)``."""
 
     needs_latent = False
-    #: NOT self-zeroed — no structural zero spike; composes with an EXTERNAL gate (soft_gate),
-    #: so it stays OUT of ``SELF_ZEROED_FAMILIES`` and is gated exactly like ``nb``.
-    self_zeroed = False
+    # No structural zero spike: it is composed with an EXTERNAL gate, exactly like ``nb``.
 
     @property
     def n_params(self) -> int:

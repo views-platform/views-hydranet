@@ -1,7 +1,7 @@
 """Output-distribution families (ADR-067).
 
 The stable, torch-free core: the ``DistributionFamily`` abstraction (``base``) and the explicit
-registry (``registry``). The concrete families (``nb``, ``zinb``, ``mixture_nb``, ``truncated_nb``)
+registry (``registry``). The concrete families (``nb``, ``mixture_nb``, ``truncated_nb``)
 and the shared ``NBCore`` are imported lazily, so importing this package for ``family_names`` stays
 torch-free.
 """

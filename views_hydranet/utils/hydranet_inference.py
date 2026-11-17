@@ -22,11 +22,6 @@ from views_hydranet.utils.feedback_field_transforms import (
     thin,
 )
 from views_hydranet.utils.gate_field_structure import gate_structure_stats
-from views_hydranet.utils.hurdle_nb import (
-    hurdle_lognormal_expected_log1p,
-    hurdle_nb_expected_log1p,
-    hurdle_point_expected_log1p,
-)
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
@@ -254,10 +249,13 @@ class HydraNetInference:
         # Bounds ONLY the autoregressive feedback copy, never an emitted prediction.
         # None (default) => no behavior change. See reports/preanalysis_feedback_clamp.md.
         self.feedback_clamp = self._parse_feedback_clamp(config.get("feedback_clamp_log1p"))
-        # #101: hurdle-NB inference compose. The model carries output_distribution (#100); the
-        # learned per-target theta is attached to the model at load time (sidecar -> fetcher).
+        # The model carries the body it was built for (#100). A model unpickled without a sidecar
+        # never passed `choose_model`, so the body is checked here as well (issue #628).
         self.output_distribution = getattr(model, "output_distribution", "standard")
-        # ADR-067 strangler-fig: a registered family (nb/zinb) owns emit (family.mean) + sampling
+        from views_hydranet.utils.config_initializer import check_output_distribution
+
+        check_output_distribution(self.output_distribution)
+        # ADR-067 strangler-fig: a registered family owns emit (family.mean) + sampling
         # (family.sample). resolve_family returns None for every legacy value, so those keep their
         # exact emit/sampler path below (byte-identical). Head emits activated params per cell.
         #
@@ -524,11 +522,6 @@ class HydraNetInference:
         # Set per rollout in `predict`; declared here so the attribute always exists.
         self._fb_correlated_gen: torch.Generator | None = None
 
-        self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
-        # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
-        self.lognormal_sigma = self._parse_lognormal_sigma(
-            getattr(model, "hurdle_lognormal_sigma", None)
-        )
         self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
         # Step 3: Move model to device and configure for inference.
@@ -830,66 +823,6 @@ class HydraNetInference:
                 rec.update(origin=origin, sample_idx=sample_idx, step=step, target_idx=c)
                 self.gate_structure_stats.append(rec)
 
-    def _parse_hurdle_theta(self, theta):
-        """Per-target NB dispersion theta for the hurdle-NB mean (#101). None unless hurdle_nb.
-
-        Accepts the learned theta dict {target: value} (persisted in the artifact sidecar,
-        attached to the model at load). Orders by regression_targets -> [1, C, 1, 1] tensor.
-        Fail-loud if hurdle_nb is active but theta is missing/incomplete.
-        """
-        if self.output_distribution != "hurdle_nb":
-            return None
-        targets = list(self.config.get("regression_targets", []))
-        if not theta or not targets:
-            err_msg = (
-                "output_distribution='hurdle_nb' requires per-target theta (from the artifact "
-                f"sidecar) and regression_targets; got theta={theta!r}, targets={targets!r}."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        try:
-            vals = [float(theta[t]) for t in targets]
-        except (KeyError, TypeError) as exc:
-            err_msg = f"hurdle_nb theta missing a target entry: {theta!r} vs {targets!r}."
-            logger.error(err_msg)
-            raise ValueError(err_msg) from exc
-        if any(v <= 0 for v in vals):
-            err_msg = f"hurdle_nb theta values must be > 0; got {vals}."
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
-
-    def _parse_lognormal_sigma(self, sigma):
-        """Fixed lognormal scale sigma for the hurdle-lognormal compose. None unless that body.
-
-        Accepts a scalar (shared across targets) or a {target: value} dict (persisted in the
-        artifact sidecar). Orders by regression_targets -> [1, C, 1, 1]. Fail-loud if missing.
-        """
-        if self.output_distribution != "hurdle_lognormal":
-            return None
-        targets = list(self.config.get("regression_targets", []))
-        if sigma is None or not targets:
-            err_msg = (
-                "output_distribution='hurdle_lognormal' requires a fixed sigma (from the artifact "
-                f"sidecar) and regression_targets; got sigma={sigma!r}, targets={targets!r}."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        if isinstance(sigma, dict):
-            try:
-                vals = [float(sigma[t]) for t in targets]
-            except (KeyError, TypeError):
-                err_msg = f"hurdle_lognormal sigma missing a target: {sigma!r}."
-                logger.error(err_msg)
-                raise ValueError(err_msg)
-        else:
-            vals = [float(sigma)] * len(targets)
-        if any(v <= 0 for v in vals):
-            err_msg = f"hurdle_lognormal sigma must be > 0; got {vals}."
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
-
     def _roll_anchor(self, anchor: torch.Tensor) -> torch.Tensor:
         """Spatially roll the clamp anchor — the EXP-3 dissociation arm.
 
@@ -928,9 +861,7 @@ class HydraNetInference:
         npar = fam.n_params
         params = torch.as_tensor(np.asarray(params_zstack), dtype=torch.float32)
         n_reg = params.shape[1] // npar
-        # ADR-068: mirror _emit_magnitude's core switch, or the dumped body is not the one
-        # actually emitted.
-        mean_fn = fam.mean_core if self.config.get("emit_family_core", False) else fam.mean
+        mean_fn = fam.mean
         mu = torch.stack(
             [
                 mean_fn(params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
@@ -1021,22 +952,19 @@ class HydraNetInference:
         """Map the raw regression-head output to the emitted/fed-back magnitude.
 
         Standard: identity (reg is already the log1p-space point prediction).
-        Hurdle-NB (#101): reg is the count-space NB mean mu; emit log1p(E[y]) where the EXACT
-        zero-truncated hurdle mean is E[y] = P(y>0) * mu / (1 - NB0(mu, theta))
-        (Cragg/Mullahy/Cameron&Trivedi). log1p so the downstream inverse_transform (expm1)
-        recovers E[y] in count space — we never expm1 a free prediction (C-140).
+        A distribution family: log1p of the family's mean, composed with the gate, so the
+        downstream inverse_transform (expm1) recovers E[y] in count space — we never expm1 a
+        free prediction (C-140).
         """
         # ADR-067 (A-S8): a registered family emits per-cell activated params [B, n_reg*n_params,
         # H, W]; E[y] = family.mean(params) per target, then log1p (emit space) so the downstream
-        # expm1 recovers counts — same contract as the hurdle branches. getattr keeps the A-S2
+        # expm1 recovers counts (C-140). getattr keeps the A-S2
         # parity stub (no _family) on the legacy path below, so those stay byte-identical.
         fam = getattr(self, "_family", None)
         if fam is not None:
             npar = fam.n_params
             n_reg = reg.shape[1] // npar
-            # ADR-068 emit_family_core: feed back the π-stripped core mean (the LARGE body actually
-            # emitted for {gated,th_gated}_ZINBcore), not the small (1-π)μ self-zeroed mean.
-            mean_fn = fam.mean_core if self.config.get("emit_family_core", False) else fam.mean
+            mean_fn = fam.mean
             means = torch.stack(
                 [
                     mean_fn(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
@@ -1045,7 +973,7 @@ class HydraNetInference:
                 dim=1,
             )  # [B, n_reg, H, W] count-space E[Y|body]
             # ADR-069 (#183): compose with the cls gate at emit time so the fed-back point forecast
-            # is the composed arm. self_zeroed => passthrough (byte-identical: zinb (1-π)μ, nb μ).
+            # is the composed arm. self_zeroed => passthrough.
             comp = self.config.get("forecast_composition", "self_zeroed")
             if comp != "self_zeroed":
                 means = compose_mean(
@@ -1053,18 +981,6 @@ class HydraNetInference:
                 )
             return torch.log1p(means)  # [B, n_reg, H, W]
 
-        # Single source of truth for each hurdle mean (shared with the explosion-check probe so it
-        # feeds back exactly this — C-142). All return log1p(count-space E[y]).
-        if self.output_distribution == "hurdle_nb":  # mu/(1-NB0) -> 1 as mu->0
-            return hurdle_nb_expected_log1p(reg, prob, self.hurdle_theta)
-        if self.output_distribution == "hurdle_lognormal":
-            return hurdle_lognormal_expected_log1p(reg, prob, self.lognormal_sigma)
-        if self.output_distribution == "hurdle_shrinkage":
-            return hurdle_point_expected_log1p(reg, prob)
-        if self.output_distribution == "dense_nb":  # C-168: dense (non-truncated, NO-gate) NB body
-            # reg is the count-space NB mean mu (softplus emit), so E[y]=mu directly — no P(y>0)
-            # factor, no zero-truncation normalizer. log1p so downstream expm1 recovers mu.
-            return torch.log1p(reg.clamp(min=0.0))
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
     def _sample_feedback(
@@ -1074,11 +990,9 @@ class HydraNetInference:
 
         Mirrors `_emit_magnitude`'s family branch but SAMPLES (k=1) not the mean, and applies
         the SAME `forecast_composition` as the mean path (so a mean/sample A/B isolates the one
-        variable — feedback content — not gated-vs-ungated): self_zeroed => the family's own draw
-        (zinb self-zeroes natively, nb is plain); soft_gate / threshold_gate compose the draw with
-        the cls gate `prob`. Under `emit_family_core` it draws the π-stripped CORE (`sample_core`),
-        mirroring `_emit_magnitude`'s `mean_core` switch, so the fed-back history matches the
-        emitted core (C-234). Drawn on CPU with the caller's seeded generator (S2 #121). Only the
+        variable — feedback content — not gated-vs-ungated): self_zeroed => the family's own draw;
+        soft_gate / threshold_gate compose the draw with the cls gate `prob`. Drawn on CPU with
+        the caller's seeded generator (S2 #121). Only the
         fed-back copy uses this; the scored cube is unchanged.
         """
         # ⛔ ADR-073, and this is a DECISION rather than a consequence of which line was edited.
@@ -1095,11 +1009,7 @@ class HydraNetInference:
         npar = fam.n_params
         n_reg = reg.shape[1] // npar
         reg_cpu = reg.detach().to("cpu")
-        # C-234 (S1): mirror _emit_magnitude — under emit_family_core the AR feedback must draw the
-        # π-stripped CORE (the large body actually emitted for {gated,th_gated}_ZINBcore), NOT the
-        # small self-zeroed draw. Feeding back the self-zeroed body while emitting the core makes
-        # the rollout incoherent (h≥2 on a history the model never emitted). nb: core==sample.
-        draw_fn = fam.sample_core if self.config.get("emit_family_core", False) else fam.sample
+        draw_fn = fam.sample
         draws = torch.stack(
             [
                 draw_fn(
@@ -1153,7 +1063,7 @@ class HydraNetInference:
         """Render the Stage-5 autoregressive forensic from the rollout accumulators.
 
         Called once per `predict()` (guarded by `sample_idx == 0 and self.viz.active`) **before**
-        the `return_params` early-return, so it fires for family (nb/zinb) runs too — C-214 (it was
+        the `return_params` early-return, so it fires for family runs too — C-214 (it was
         previously positioned after that return, i.e. dead for every family run). The accumulators
         already hold per-target `log1p(E[y])` (emit-mean) vs truth, so the plot is family-honest.
         """
@@ -1513,7 +1423,7 @@ class HydraNetInference:
                 pbar.update(1)
 
         # STAGE 5 DIAGNOSTIC: finalize the AR forensic HERE — before the return_params early-return
-        # below — so it renders for family (nb/zinb) runs too (C-214: the return skipped it).
+        # below — so it renders for family runs too (C-214: the return skipped it).
         if sample_idx == 0 and self.viz.active:
             self._finalize_ar_forensic(
                 truth_accumulator, pred_accumulator, stage_label, time_indices
@@ -1696,7 +1606,6 @@ class HydraNetInference:
                             composition=self.config.get("forecast_composition", "self_zeroed"),
                             threshold=self.config.get("gate_threshold"),
                             pass_index=d,  # ADR-070: per-(pass,step) seed → T=0-invariant cube
-                            core=self.config.get("emit_family_core", False),  # ADR-068 ZINBcore
                         )
                         # gate cube: the classifier P(y>0), repeated across the K cols
                         posterior_probabilities_zstack[:, :, :, :, cols] = np.repeat(

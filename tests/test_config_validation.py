@@ -35,11 +35,9 @@ class TestGreen:
         config = HydraNetConfig(**valid_config_dict)
         assert config.run_type == "validation"
 
-    @pytest.mark.parametrize(
-        "dist", ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb"]
-    )
+    @pytest.mark.parametrize("dist", ["standard"])
     def test_green_valid_output_distributions_accepted(self, valid_config_dict, dist):
-        """All supported output_distribution values pass the validator (incl. dense_nb, C-168)."""
+        """All supported output_distribution values pass the validator ."""
         cfg = _make_config(valid_config_dict, output_distribution=dist)
         assert HydraNetConfig(**cfg).output_distribution == dist
 
@@ -289,10 +287,4 @@ class TestRed:
         """reg_activation must be softplus/relu/None → 'gelu' raises."""
         cfg = _make_config(valid_config_dict, reg_activation="gelu")
         with pytest.raises(ValidationError, match="reg_activation='gelu' is not valid"):
-            HydraNetConfig(**cfg)
-
-    def test_red_negative_pi_penalty_weight_rejected(self, valid_config_dict):
-        """pi_penalty_weight has ge=0.0 constraint → -1.0 raises pydantic ValidationError."""
-        cfg = _make_config(valid_config_dict, pi_penalty_weight=-1.0)
-        with pytest.raises(ValidationError, match="pi_penalty_weight"):
             HydraNetConfig(**cfg)

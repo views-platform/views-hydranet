@@ -1,7 +1,7 @@
 """A-S6 (#173): architecture head wiring via resolve_family (ADR-067 strangler-fig).
 
 The regression head sizes reg channels to `family.n_params` and installs `family.activate` when
-`output_distribution` is a registered family (nb/zinb); legacy values fall through to the untouched
+`output_distribution` is a registered family; legacy values fall through to the untouched
 `.startswith("hurdle")` path (byte-identical). `output_channels`/`cls` (the AR
 feedback width) is unchanged.
 """
@@ -40,14 +40,14 @@ def _fwd(m, seed=11):
 # ── family head width: 3 targets × n_params reg channels; cls (feedback) stays 3 ──
 
 
-@pytest.mark.parametrize("fam,n_params", [("nb", 2), ("zinb", 3)])
+@pytest.mark.parametrize("fam,n_params", [("nb", 2), ("truncated_nb", 2), ("mixture_nb", 5)])
 def test_family_head_reg_width_is_targets_times_n_params(fam, n_params):
     out = _fwd(_build(fam))
     assert out.reg.shape[1] == 3 * n_params  # 3 targets × n_params
     assert out.cls.shape[1] == 3  # classification / AR-feedback width unchanged
 
 
-# ── family activation installed (softplus mu/theta > 0; zinb pi in (0,1)) ──
+# ── family activation installed (softplus mu/theta > 0) ──
 
 
 def test_nb_activation_is_family_activate():
@@ -64,13 +64,6 @@ def test_nb_activation_is_family_activate():
     assert (out.reg > 0).all()  # softplus everywhere for nb (mu, theta)
 
 
-def test_zinb_pi_channel_in_unit_interval():
-    m = _build("zinb")
-    out = _fwd(m)
-    pi = out.reg[:, 2::3]  # every 3rd channel (per target) is pi = sigmoid(...)
-    assert ((pi > 0) & (pi < 1)).all()
-
-
 # ── legacy heads byte-identical (family branch is skipped for None) ──
 
 
@@ -82,25 +75,13 @@ def test_standard_head_unchanged_relu_width_3():
     assert torch.allclose(out.reg, F.relu(out.reg_latent))
 
 
-def test_hurdle_nb_head_unchanged_softplus():
-    m = _build("hurdle_nb")
-    assert m._reg_activation is F.softplus
-    out = _fwd(m)
-    assert out.reg.shape[1] == 3
-
-
-def test_dense_nb_head_unchanged_relu():
-    m = _build("dense_nb")
-    assert m._reg_activation is F.relu  # dense_nb does NOT start with "hurdle"
-
-
 # ── informed init: the family's initial_raw_bias seeds the reg conv biases ──
 
 
 def test_family_reg_bias_is_initial_raw_bias():
     from views_hydranet.distributions import resolve_family
 
-    for fam_name in ("nb", "zinb"):
+    for fam_name in ("nb", "truncated_nb"):
         m = _build(fam_name)
         fam = resolve_family(fam_name)
         expected = fam.initial_raw_bias()
@@ -113,7 +94,7 @@ def test_family_reg_bias_is_initial_raw_bias():
 
 def test_family_head_is_differentiable():
     """Gradient must flow through family.activate to the reg conv weights, not just the bias."""
-    for fam_name in ("nb", "zinb"):
+    for fam_name in ("nb", "mixture_nb"):
         m = _build(fam_name)
         out = _fwd(m)
         out.reg.sum().backward()
@@ -134,12 +115,4 @@ def test_head_source_has_no_hardcoded_family_names():
 def test_legacy_values_resolve_to_none():
     from views_hydranet.distributions import resolve_family
 
-    legacy_values = (
-        "standard",
-        "hurdle_nb",
-        "hurdle_lognormal",
-        "hurdle_shrinkage",
-        "dense_nb",
-    )
-    for legacy in legacy_values:
-        assert resolve_family(legacy) is None
+    assert resolve_family("standard") is None

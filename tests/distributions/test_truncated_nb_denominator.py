@@ -152,14 +152,14 @@ def test_config_rejects_an_unknown_denominator(valid_config_dict, bad):
         )
 
 
-@pytest.mark.parametrize("dist", ["nb", "zinb"])
+@pytest.mark.parametrize("dist", ["nb", "mixture_nb"])
 def test_config_rejects_all_cells_where_it_would_be_inert(valid_config_dict, dist):
     """C-324: every other family already reduces over all cells, so the flag changes nothing."""
     with pytest.raises(ValueError, match="requires output_distribution='truncated_nb'"):
         _cfg(
             valid_config_dict,
             output_distribution=dist,
-            forecast_composition="self_zeroed" if dist == "zinb" else "soft_gate",
+            forecast_composition="soft_gate",
             body_nll_denominator="all_cells",
         )
 
@@ -168,7 +168,7 @@ def test_positives_is_accepted_on_every_family_because_it_is_the_default(valid_c
     """The default must never be the thing that fails validation."""
     for dist, comp in (
         ("nb", "soft_gate"),
-        ("zinb", "self_zeroed"),
+        ("mixture_nb", "soft_gate"),
         ("truncated_nb", "soft_gate"),
     ):
         cfg = _cfg(

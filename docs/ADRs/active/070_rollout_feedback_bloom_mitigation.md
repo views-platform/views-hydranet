@@ -1,6 +1,7 @@
 # ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
 
 **Status:** Active
+**Amended 2026-11-17 (issue #628):** the `zinb` family is deleted. The decision here stands for the families that remain; the `zinb` measurements below are history.
 **Date:** 2026-07-27 (accepted 2026-07-27)
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers

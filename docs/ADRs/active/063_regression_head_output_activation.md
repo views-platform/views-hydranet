@@ -5,6 +5,9 @@ Superseded: the ReLU default for `standard`, and `reg_activation` as an override
 softplus on every count channel of every body, with no config field. Still in force: softplus for
 the hurdle bodies, and the reasoning against ReLU (`C-178`). ADR-079 was accepted on 2026-11-16. The
 code has not changed yet, so the code still behaves as this ADR describes.
+**Amended 2026-11-17 (issue #628, ADR-079 §4):** the hurdle bodies are deleted, so "softplus for the
+hurdle bodies" has no subject left. What remains in force from this ADR is the reasoning against
+ReLU (`C-178`).
 **Date:** 2026-06-26
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers
