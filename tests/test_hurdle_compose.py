@@ -86,18 +86,6 @@ def test_dispatch_hurdle_shrinkage():
     assert torch.allclose(torch.expm1(out), torch.tensor([[[[ey]]]]), atol=1e-5)
 
 
-def test_dispatch_dense_nb_emits_mu():
-    # Dense (non-truncated, NO-gate) NB body: E[y] = mu, the raw count-space softplus output (reg).
-    # The gate prob is IGNORED (dense has no hurdle). emit = log1p(mu) so downstream expm1 -> mu.
-    inf = _inf("dense_nb")
-    mu = torch.tensor([[[[7.0]]]])
-    out = inf._emit_magnitude(mu, torch.tensor([[[[0.3]]]]))
-    assert torch.allclose(torch.expm1(out), mu, atol=1e-5)
-    # prob-invariance: dense mean does not depend on the gate
-    out2 = inf._emit_magnitude(mu, torch.tensor([[[[0.95]]]]))
-    assert torch.allclose(out, out2)
-
-
 def test_hurdle_lognormal_requires_sigma():
     with pytest.raises(ValueError, match="sigma"):
         _inf("hurdle_lognormal", sigma=None)

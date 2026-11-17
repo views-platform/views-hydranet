@@ -38,7 +38,7 @@ def test_family_output_distributions_accepted(valid_config_dict, fam):
 
 @pytest.mark.parametrize(
     "legacy",
-    ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb"],
+    ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage"],
 )
 def test_legacy_output_distributions_still_accepted(valid_config_dict, legacy):
     cfg = _cfg(valid_config_dict, output_distribution=legacy)

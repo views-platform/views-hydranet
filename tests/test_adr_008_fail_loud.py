@@ -38,7 +38,6 @@ BACKLOG = {
     "train/train_model.py": 1,
     "utils/body_supervision.py": 1,
     "utils/count_target_bridge.py": 2,
-    "utils/dense_nb_loss.py": 1,
     "utils/disk_guard.py": 3,
     "utils/grid_naming.py": 1,
     "utils/lognormal_nll_loss.py": 1,

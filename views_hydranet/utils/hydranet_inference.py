@@ -1061,10 +1061,6 @@ class HydraNetInference:
             return hurdle_lognormal_expected_log1p(reg, prob, self.lognormal_sigma)
         if self.output_distribution == "hurdle_shrinkage":
             return hurdle_point_expected_log1p(reg, prob)
-        if self.output_distribution == "dense_nb":  # C-168: dense (non-truncated, NO-gate) NB body
-            # reg is the count-space NB mean mu (softplus emit), so E[y]=mu directly — no P(y>0)
-            # factor, no zero-truncation normalizer. log1p so downstream expm1 recovers mu.
-            return torch.log1p(reg.clamp(min=0.0))
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
     def _sample_feedback(

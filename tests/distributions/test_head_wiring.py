@@ -89,11 +89,6 @@ def test_hurdle_nb_head_unchanged_softplus():
     assert out.reg.shape[1] == 3
 
 
-def test_dense_nb_head_unchanged_relu():
-    m = _build("dense_nb")
-    assert m._reg_activation is F.relu  # dense_nb does NOT start with "hurdle"
-
-
 # ── informed init: the family's initial_raw_bias seeds the reg conv biases ──
 
 
@@ -139,7 +134,6 @@ def test_legacy_values_resolve_to_none():
         "hurdle_nb",
         "hurdle_lognormal",
         "hurdle_shrinkage",
-        "dense_nb",
     )
     for legacy in legacy_values:
         assert resolve_family(legacy) is None

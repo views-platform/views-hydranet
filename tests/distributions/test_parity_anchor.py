@@ -42,7 +42,6 @@ _DISTRIBUTIONS = [
     "hurdle_nb",
     "hurdle_lognormal",
     "hurdle_shrinkage",
-    "dense_nb",
 ]
 
 

@@ -34,7 +34,6 @@ LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
     "hurdle_nb",
     "hurdle_lognormal",
     "hurdle_shrinkage",
-    "dense_nb",
 )
 
 # authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
@@ -218,7 +217,7 @@ class HydraNetConfig(BaseModel):
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
     # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
-    # name (nb, zinb, dense_nb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
+    # name (nb, zinb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
     # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed

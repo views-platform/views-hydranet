@@ -69,7 +69,6 @@ ORPHANS = [
     "hurdle_nb",
     "hurdle_lognormal",
     "hurdle_shrinkage",
-    "dense_nb",
 ]
 
 
@@ -168,7 +167,7 @@ def test_the_discard_is_not_a_tobit_special_case(valid_config_dict):
 # ───────────────────────────── the orphan losses keep their branches ─────────────────────────────
 
 
-@pytest.mark.parametrize("loss_reg", ["hurdle_nb", "dense_nb"])
+@pytest.mark.parametrize("loss_reg", ["hurdle_nb"])
 def test_the_per_target_nb_losses_build_one_instance_per_target(valid_config_dict, loss_reg):
     """One loss per regression target, so each learnable theta reaches the optimizer."""
     cfg = _cfg(
@@ -244,7 +243,7 @@ def test_head_width_is_the_emit_distributions_parameter_count(distribution, widt
     assert model.dec_conv4_head3_reg.out_channels == width
 
 
-@pytest.mark.parametrize("distribution", ["standard", "hurdle_nb", "dense_nb"])
+@pytest.mark.parametrize("distribution", ["standard", "hurdle_nb"])
 def test_an_explicit_softplus_wins_for_every_legacy_distribution(distribution):
     assert _head(distribution, reg_activation="softplus")._reg_activation is F.softplus
 
@@ -274,10 +273,9 @@ def test_standard_without_an_activation_trains_relu():
         ("hurdle_nb", "softplus"),
         ("hurdle_lognormal", "softplus"),
         ("hurdle_shrinkage", "softplus"),
-        ("dense_nb", "relu"),
     ],
 )
 def test_the_legacy_default_activation_keys_off_the_hurdle_prefix(distribution, expected_name):
-    """`startswith("hurdle")` is the rule, so `dense_nb` gets relu while the three hurdles get
-    softplus. A string prefix deciding an activation is exactly what ADR-081 removes."""
+    """`startswith("hurdle")` is the rule: the three hurdles get softplus. A string prefix
+    deciding an activation is exactly what ADR-081 removes."""
     assert _head(distribution)._reg_activation.__name__ == expected_name

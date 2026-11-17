@@ -30,7 +30,7 @@ def test_get_family_unknown_raises_fail_loud_with_available_list(registry):
 
 
 def test_resolve_family_returns_none_for_legacy_output_distribution_values(registry):
-    for legacy in ("standard", "hurdle_nb", "hurdle_shrinkage", "dense_nb"):
+    for legacy in ("standard", "hurdle_nb", "hurdle_shrinkage"):
         assert registry.resolve_family(legacy) is None
 
 

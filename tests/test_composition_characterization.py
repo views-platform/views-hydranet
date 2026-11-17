@@ -4,7 +4,7 @@ This pins today's behaviour of the two seams the forecast-composition refactor (
 touch — ``_emit_magnitude`` (the point / AR-feedback path) and ``to_cube_samples`` (the D×K sample
 cube) — so S4 can prove it changed only what it meant to. Goldens fall into two categories:
 
-* **PARITY-LOCKED** — legacy heads (standard/hurdle_nb/dense_nb) and the **self-zeroed** ``zinb``
+* **PARITY-LOCKED** — legacy heads (standard/hurdle_nb) and the **self-zeroed** ``zinb``
   path. S4's composer is a *passthrough* for these, so they MUST stay byte-identical. These tests
   are the parity anchor S4/S6 assert against.
 * **nb PASSTHROUGH** — the ungated ``nb`` emit and ``nb`` sample cube under the default
@@ -69,12 +69,6 @@ def test_emit_hurdle_nb_LOCKED():
         torch.tensor([[[[2.0]]]]), torch.tensor([[[[0.5]]]])
     )
     assert torch.allclose(out, torch.tensor([[[[math.log1p(1.5)]]]]), atol=ATOL)
-
-
-def test_emit_dense_nb_LOCKED():
-    # dense_nb: E[y]=mu directly (no gate, no truncation) -> log1p(2)
-    out = _inf("dense_nb")._emit_magnitude(torch.tensor([[[[2.0]]]]), torch.tensor([[[[0.5]]]]))
-    assert torch.allclose(out, torch.tensor([[[[math.log1p(2.0)]]]]), atol=ATOL)
 
 
 def test_emit_zinb_self_zeroed_LOCKED():

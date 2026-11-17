@@ -36,10 +36,10 @@ class TestGreen:
         assert config.run_type == "validation"
 
     @pytest.mark.parametrize(
-        "dist", ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb"]
+        "dist", ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage"]
     )
     def test_green_valid_output_distributions_accepted(self, valid_config_dict, dist):
-        """All supported output_distribution values pass the validator (incl. dense_nb, C-168)."""
+        """All supported output_distribution values pass the validator ."""
         cfg = _make_config(valid_config_dict, output_distribution=dist)
         assert HydraNetConfig(**cfg).output_distribution == dist
 

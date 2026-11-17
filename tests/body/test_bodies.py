@@ -203,7 +203,7 @@ def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
 
 
 @pytest.mark.parametrize(
-    "distribution", ["zinb", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb"]
+    "distribution", ["zinb", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage"]
 )
 def test_an_unused_distribution_gets_no_body(distribution):
     cfg = {**BASE, "loss_reg": "mse", "output_distribution": distribution}

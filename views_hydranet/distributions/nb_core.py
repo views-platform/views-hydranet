@@ -27,7 +27,7 @@ def _clamp(mu: torch.Tensor, theta: torch.Tensor) -> tuple[torch.Tensor, torch.T
 def inverse_softplus(y: float) -> float:
     """Return ``x`` such that ``softplus(x) == y`` (for ``y > 0``). Stable for large ``y``.
 
-    Uses ``y + log1p(-exp(-y))`` (the ``dense_nb_loss`` form) rather than ``log(expm1(y))``, which
+    Uses ``y + log1p(-exp(-y))`` (the numerically stable form) rather than ``log(expm1(y))``, which
     overflows to ``inf`` in float for ``y >~ 88`` — the shared inverse link for informed head init.
     """
     if y <= 0.0:

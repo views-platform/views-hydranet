@@ -42,7 +42,6 @@ CASES = {
     "hurdle_nb": (THETA, None),
     "hurdle_lognormal": (None, SIGMA),
     "hurdle_shrinkage": (None, None),
-    "dense_nb": (None, None),
 }
 
 
