@@ -12,8 +12,8 @@ Per-cell law (Cragg 1971 / Mullahy 1986 zero-truncated NB, same parameterisation
     E[Y | Y>0]   = mu / (1 - NB(0))                                  (the magnitude the head emits)
     P(Y>0)       = 1  (degenerate — the body NEVER draws 0; occurrence belongs to the gate)
 
-It COMPOSES the shared ``NBCore`` (has-a) and is **NOT self-zeroed** (``self_zeroed = False``): it
-stays OUT of ``SELF_ZEROED_FAMILIES`` and is gated exactly like ``nb`` (``mean`` is E[Y|Y>0], the
+It COMPOSES the shared ``NBCore`` (has-a) and makes no zeros of its own: it is gated exactly
+like ``nb`` (``mean`` is E[Y|Y>0], the
 *conditional* magnitude, which ``compose_mean`` multiplies by the gate — NOT the full forecast).
 
 Contract note (deliberate deviation): unlike ``nb``/``zinb``/``mixture_nb`` whose ``nll`` is a mean
@@ -62,8 +62,7 @@ class TruncatedNBFamily(DistributionFamily):
     """Per-cell zero-truncated NB body: params ``[..., 2]`` = ``(mu, theta)`` in natural space."""
 
     needs_latent = False
-    #: NOT self-zeroed — the body produces NO zeros; an EXTERNAL gate (soft_gate) owns occurrence.
-    self_zeroed = False
+    # The body produces NO zeros; an EXTERNAL gate (soft_gate) owns occurrence.
 
     @property
     def n_params(self) -> int:

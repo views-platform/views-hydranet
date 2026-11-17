@@ -55,13 +55,6 @@ def _run(output_distribution, **kwargs):
 # ── C-200: π-ridge additive penalty ──
 
 
-def test_pi_penalty_noop_for_nb_family():
-    # nb's parameter_penalty is 0, so a weight>0 must not change an nb loss
-    _, off = _run("nb", pi_penalty_weight=0.0)
-    _, on = _run("nb", pi_penalty_weight=5.0, pi_penalty_prior_logit=1.0)
-    assert torch.equal(on["total"], off["total"])
-
-
 # ── C-199: family masking via weight= equals boolean-index ──
 
 

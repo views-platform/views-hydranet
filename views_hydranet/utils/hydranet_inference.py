@@ -252,7 +252,7 @@ class HydraNetInference:
         # #101: hurdle-NB inference compose. The model carries output_distribution (#100); the
         # learned per-target theta is attached to the model at load time (sidecar -> fetcher).
         self.output_distribution = getattr(model, "output_distribution", "standard")
-        # ADR-067 strangler-fig: a registered family (nb/zinb) owns emit (family.mean) + sampling
+        # ADR-067 strangler-fig: a registered family owns emit (family.mean) + sampling
         # (family.sample). resolve_family returns None for every legacy value, so those keep their
         # exact emit/sampler path below (byte-identical). Head emits activated params per cell.
         #
@@ -858,9 +858,7 @@ class HydraNetInference:
         npar = fam.n_params
         params = torch.as_tensor(np.asarray(params_zstack), dtype=torch.float32)
         n_reg = params.shape[1] // npar
-        # ADR-068: mirror _emit_magnitude's core switch, or the dumped body is not the one
-        # actually emitted.
-        mean_fn = fam.mean_core if self.config.get("emit_family_core", False) else fam.mean
+        mean_fn = fam.mean
         mu = torch.stack(
             [
                 mean_fn(params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
@@ -963,9 +961,7 @@ class HydraNetInference:
         if fam is not None:
             npar = fam.n_params
             n_reg = reg.shape[1] // npar
-            # ADR-068 emit_family_core: feed back the π-stripped core mean (the LARGE body actually
-            # emitted for {gated,th_gated}_ZINBcore), not the small (1-π)μ self-zeroed mean.
-            mean_fn = fam.mean_core if self.config.get("emit_family_core", False) else fam.mean
+            mean_fn = fam.mean
             means = torch.stack(
                 [
                     mean_fn(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
@@ -974,7 +970,7 @@ class HydraNetInference:
                 dim=1,
             )  # [B, n_reg, H, W] count-space E[Y|body]
             # ADR-069 (#183): compose with the cls gate at emit time so the fed-back point forecast
-            # is the composed arm. self_zeroed => passthrough (byte-identical: zinb (1-π)μ, nb μ).
+            # is the composed arm. self_zeroed => passthrough.
             comp = self.config.get("forecast_composition", "self_zeroed")
             if comp != "self_zeroed":
                 means = compose_mean(
@@ -991,11 +987,9 @@ class HydraNetInference:
 
         Mirrors `_emit_magnitude`'s family branch but SAMPLES (k=1) not the mean, and applies
         the SAME `forecast_composition` as the mean path (so a mean/sample A/B isolates the one
-        variable — feedback content — not gated-vs-ungated): self_zeroed => the family's own draw
-        (zinb self-zeroes natively, nb is plain); soft_gate / threshold_gate compose the draw with
-        the cls gate `prob`. Under `emit_family_core` it draws the π-stripped CORE (`sample_core`),
-        mirroring `_emit_magnitude`'s `mean_core` switch, so the fed-back history matches the
-        emitted core (C-234). Drawn on CPU with the caller's seeded generator (S2 #121). Only the
+        variable — feedback content — not gated-vs-ungated): self_zeroed => the family's own draw;
+        soft_gate / threshold_gate compose the draw with the cls gate `prob`. Drawn on CPU with
+        the caller's seeded generator (S2 #121). Only the
         fed-back copy uses this; the scored cube is unchanged.
         """
         # ⛔ ADR-073, and this is a DECISION rather than a consequence of which line was edited.
@@ -1012,11 +1006,7 @@ class HydraNetInference:
         npar = fam.n_params
         n_reg = reg.shape[1] // npar
         reg_cpu = reg.detach().to("cpu")
-        # C-234 (S1): mirror _emit_magnitude — under emit_family_core the AR feedback must draw the
-        # π-stripped CORE (the large body actually emitted for {gated,th_gated}_ZINBcore), NOT the
-        # small self-zeroed draw. Feeding back the self-zeroed body while emitting the core makes
-        # the rollout incoherent (h≥2 on a history the model never emitted). nb: core==sample.
-        draw_fn = fam.sample_core if self.config.get("emit_family_core", False) else fam.sample
+        draw_fn = fam.sample
         draws = torch.stack(
             [
                 draw_fn(
@@ -1070,7 +1060,7 @@ class HydraNetInference:
         """Render the Stage-5 autoregressive forensic from the rollout accumulators.
 
         Called once per `predict()` (guarded by `sample_idx == 0 and self.viz.active`) **before**
-        the `return_params` early-return, so it fires for family (nb/zinb) runs too — C-214 (it was
+        the `return_params` early-return, so it fires for family runs too — C-214 (it was
         previously positioned after that return, i.e. dead for every family run). The accumulators
         already hold per-target `log1p(E[y])` (emit-mean) vs truth, so the plot is family-honest.
         """
@@ -1430,7 +1420,7 @@ class HydraNetInference:
                 pbar.update(1)
 
         # STAGE 5 DIAGNOSTIC: finalize the AR forensic HERE — before the return_params early-return
-        # below — so it renders for family (nb/zinb) runs too (C-214: the return skipped it).
+        # below — so it renders for family runs too (C-214: the return skipped it).
         if sample_idx == 0 and self.viz.active:
             self._finalize_ar_forensic(
                 truth_accumulator, pred_accumulator, stage_label, time_indices
@@ -1613,7 +1603,6 @@ class HydraNetInference:
                             composition=self.config.get("forecast_composition", "self_zeroed"),
                             threshold=self.config.get("gate_threshold"),
                             pass_index=d,  # ADR-070: per-(pass,step) seed → T=0-invariant cube
-                            core=self.config.get("emit_family_core", False),  # ADR-068 ZINBcore
                         )
                         # gate cube: the classifier P(y>0), repeated across the K cols
                         posterior_probabilities_zstack[:, :, :, :, cols] = np.repeat(

@@ -132,41 +132,19 @@ def test_composition_outcomes_are_unchanged_by_setting_emit_distribution(
     assert _accepts(cfg) == _accepts(baseline)
 
 
-def test_the_self_zeroed_rule_reads_the_EMITTED_family_not_the_trained_one(
-    valid_config_dict, monkeypatch
-):
-    """⭐ THE POINT OF THIS CHANGE, and it needs a monkeypatch to be testable at all.
-
-    `self_zeroed` is the property ADR-069's rules turn on, and no family pair the parameter-count
-    guard admits differs on it — so the re-point cannot be observed with the families that exist.
-    Rather than leave it unproven, declare `truncated_nb` self-zeroed for the duration of this
-    test and check which family the rule consults.
-
-    Gating a self-zeroed body is refused because π and a gate would double-count the zeros. If the
-    validator read `output_distribution` it would see plain `nb`, allow the gate, and let a
-    double-counted composition through.
-    """
-    import views_hydranet.distributions.registry as reg
-
-    monkeypatch.setattr(reg, "SELF_ZEROED_FAMILIES", frozenset({"truncated_nb"}))
-
-    # emitted = truncated_nb (self-zeroed under the patch) + a gate => must be REFUSED
-    gated = _cfg(valid_config_dict, emit_distribution="truncated_nb")
-    with pytest.raises(ValueError, match="double-count"):
-        HydraNetConfig(**gated)
-
-    # the same trained family with NO emit override is plain nb => the gate is fine
-    HydraNetConfig(**_cfg(valid_config_dict))
-
-
-def test_a_refusal_names_the_EMITTED_family_when_the_two_differ(valid_config_dict, monkeypatch):
+def test_a_refusal_names_the_EMITTED_family_when_the_two_differ(valid_config_dict):
     """A message blaming `output_distribution` for a rule applied to the emitted family sends the
-    reader to the wrong config line. C-242 is already in this validator for that reason."""
-    import views_hydranet.distributions.registry as reg
+    reader to the wrong config line. C-242 is already in this validator for that reason.
 
-    monkeypatch.setattr(reg, "SELF_ZEROED_FAMILIES", frozenset({"truncated_nb"}))
+    The rule used: a family with no gate composition has no zero mechanism."""
     with pytest.raises(ValueError) as exc:
-        HydraNetConfig(**_cfg(valid_config_dict, emit_distribution="truncated_nb"))
+        HydraNetConfig(
+            **_cfg(
+                valid_config_dict,
+                emit_distribution="truncated_nb",
+                forecast_composition="self_zeroed",
+            )
+        )
     msg = str(exc.value)
     assert "emit_distribution='truncated_nb'" in msg
     assert "output_distribution='truncated_nb'" not in msg

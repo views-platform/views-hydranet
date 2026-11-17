@@ -55,18 +55,6 @@ def test_nb_without_composition_raises(valid_config_dict):
 
 
 # ── ADR-068 emit_family_core: no family has a core to strip ───────────────────────────────────
-def test_emit_family_core_on_nb_raises(valid_config_dict):
-    # nb has no structural-π core to strip → emit_family_core is meaningless → RAISE.
-    cfg = _cfg(
-        valid_config_dict,
-        output_distribution="nb",
-        emit_family_core=True,
-        forecast_composition="soft_gate",
-    )
-    with pytest.raises(ValidationError, match="emit_family_core|self-zeroed|core"):
-        HydraNetConfig(**cfg)
-
-
 # ── threshold τ rules ─────────────────────────────────────────────────────────────────────────
 def test_threshold_gate_requires_gate_threshold(valid_config_dict):
     cfg = _cfg(valid_config_dict, output_distribution="nb", forecast_composition="threshold_gate")

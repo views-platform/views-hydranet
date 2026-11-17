@@ -288,9 +288,3 @@ class TestRed:
         cfg = _make_config(valid_config_dict, reg_activation="gelu")
         with pytest.raises(ValidationError, match="reg_activation='gelu' is not valid"):
             HydraNetConfig(**cfg)
-
-    def test_red_negative_pi_penalty_weight_rejected(self, valid_config_dict):
-        """pi_penalty_weight has ge=0.0 constraint → -1.0 raises pydantic ValidationError."""
-        cfg = _make_config(valid_config_dict, pi_penalty_weight=-1.0)
-        with pytest.raises(ValidationError, match="pi_penalty_weight"):
-            HydraNetConfig(**cfg)

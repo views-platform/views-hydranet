@@ -45,14 +45,6 @@ DISTRIBUTION_REGISTRY: dict[str, Callable[..., "DistributionFamily"]] = {
 }
 
 
-#: Torch-free MIRROR of ``DistributionFamily.self_zeroed`` — names of families that produce their
-#: own zeros structurally (no external gate). The class attribute is the AUTHORITY; this mirror
-#: exists only so ``config_initializer`` (which must stay torch-free — CRP) can enforce the ADR-069
-#: rules without importing a family. A parity test (``test_registry``) asserts this set equals
-#: ``{n for n in family_names() if get_family(n).self_zeroed}`` so they cannot drift.
-SELF_ZEROED_FAMILIES: frozenset[str] = frozenset()
-
-
 #: Torch-free MIRROR of ``DistributionFamily.n_params`` — parameters the head emits per cell, per
 #: target. The class attribute is the AUTHORITY; this mirror exists only so ``config_initializer``
 #: (which must stay torch-free — CRP) can enforce ADR-073's emit/train parameter-layout rule
@@ -73,11 +65,6 @@ FAMILY_N_PARAMS: dict[str, int] = {
 def family_names() -> frozenset[str]:
     """The set of registered family names — the single source of truth (torch-free)."""
     return frozenset(DISTRIBUTION_REGISTRY)
-
-
-def self_zeroed_family_names() -> frozenset[str]:
-    """Registered self-zeroed families (torch-free mirror of the ``self_zeroed`` attribute)."""
-    return SELF_ZEROED_FAMILIES
 
 
 def family_n_params(name: str) -> int:
