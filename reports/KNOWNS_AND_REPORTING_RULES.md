@@ -165,6 +165,9 @@ teacher-forced AUC **0.99777** against delivered **0.72340**, with no decay in h
 
 ### B5 · Vocabulary and families — locked
 
+* *(2026-11-17, issue #628: `zinb` and the legacy hurdle and dense bodies are deleted from the
+  package. The families that remain are `nb`, `truncated_nb` and `mixture_nb`. The two lines below
+  are kept as history.)*
 * Only ADR-067 **NB** and **ZINB**, all-cell. ⛔ Never the legacy `hurdle_nb`. Say **`gated_NB`**,
   never `masked_NB`. **[read]** — `reports/GLOSSARY.md` is the only source of terms.
 * ZINB is falsified and blooms in rollout; `gated_NB ≡ th_gated_NB` ships. **[read]**
