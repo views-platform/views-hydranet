@@ -437,6 +437,10 @@ what is refused outright.*
       same rule §2 states for adding any row. ⇒ The registry is the shelf of implemented losses;
       the vocabulary is the list currently on offer. **The two are not meant to match, and an entry
       with no row must not be read as dead code to delete.**
+      **Changed by Simon on 2026-11-17 for two of the ten:** `hurdle_nb` and `dense_nb` are deleted
+      together with the bodies they belong to (issue #628, ADR-079 §4; kept under the git tag
+      `archive/unused-bodies-2026-11-17`). `quantile` was deleted on 2026-11-16. The other seven are unchanged and are the
+      subject of issue #631.
 
 ### Explicitly refused
 
@@ -461,6 +465,8 @@ before and after, so that a disagreement is a bug in the migration and not a new
    type, with identical parameters, to the one its old combination of fields constructed.
 2. Every delivered artifact remains loadable, producing the same criterion and the same emission
    behaviour, via the rename table.
+   *(Narrowed 2026-11-17: an artifact saved with one of the five deleted bodies is refused with a
+   clear message, not loaded. ADR-079 §4.)*
    ⚠️ Including its **activation**: the sidecar's `reg_activation` must be read, not assumed. It
    is always recorded, so there is nothing to infer — see §4.
 3. `forecast_composition` and `gate_threshold` behaviour is unchanged for every existing config.

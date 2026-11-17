@@ -354,10 +354,11 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int) -> None:
     from views_hydranet.distributions import resolve_family
 
     fam = resolve_family(arm["output_distribution"])
-    if fam is None or fam.self_zeroed:
+    # (No family makes its own zeros since 2026-11-17, issue #628: the `self_zeroed` attribute
+    # this check also read is gone, so resolving to a family is the whole check.)
+    if fam is None:
         raise SystemExit(
-            f"{_TOOL}: {arm['output_distribution']!r} did not resolve to a non-self-zeroed "
-            "family; under soft_gate a self-zeroed body would double-count zeros again."
+            f"{_TOOL}: {arm['output_distribution']!r} did not resolve to a distribution family."
         )
     # the mu -> 0 background, where a plain nb draws 0 almost always
     _params = torch.stack([torch.full((5000,), 1e-4), torch.full((5000,), 0.5)], dim=-1)

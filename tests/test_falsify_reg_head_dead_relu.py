@@ -37,18 +37,6 @@ def _build(output_distribution, reg_activation=None):
     return choose_model(cfg, torch.device("cpu"))
 
 
-def test_hurdle_shrinkage_body_uses_nondying_activation():
-    """A ReLU body under hurdle masking can die (zero output + zero gradient, unrecoverable).
-    The hurdle point/shrinkage head should use a non-dying activation (softplus) so a rare
-    target cannot collapse to identically-zero. FAILS today (relu)."""
-    model = _build("hurdle_shrinkage")
-    name = getattr(model._reg_activation, "__name__", str(model._reg_activation))
-    assert name == "softplus", (
-        f"hurdle_shrinkage reg head uses '{name}' — a hard-zero ReLU that dies on rare "
-        f"targets under the active_window mask (ns/os emit identically 0). Use softplus."
-    )
-
-
 def test_relu_body_can_emit_identically_zero_with_zero_gradient():
     """Characterizes the dead-ReLU trap directly: a strongly-negative pre-activation yields
     out=0 AND grad=0, so the loss cannot recover it. Documents why no body loss helped ns/os."""

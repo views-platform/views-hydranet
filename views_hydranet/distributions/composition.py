@@ -11,8 +11,8 @@ sample cube and the point / AR-feedback path compose differently:
   composes the count-space mean: ``soft_gate`` → ``gate × mean`` (= ``E[Bernoulli(gate)·Y]``);
   ``threshold_gate`` → ``(gate >= τ) × mean``.
 
-``self_zeroed`` is a **passthrough** in both (the body already carries its zeros — zinb; or a
-legacy head composes elsewhere). A caller that does not opt in is byte-identical to pre-ADR-069.
+``self_zeroed`` is a **passthrough** in both (a legacy head composes elsewhere; until 2026-11-17
+zinb also carried its own zeros). A caller that does not opt in is byte-identical to pre-ADR-069.
 """
 
 from __future__ import annotations

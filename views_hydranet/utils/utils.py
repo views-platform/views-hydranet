@@ -9,7 +9,6 @@ import torch.nn as nn
 
 from views_hydranet.architectures.registry import get_architecture
 from views_hydranet.utils.count_mean_loss import CountMeanMSELoss
-from views_hydranet.utils.dense_nb_loss import DenseNBLoss
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
 from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
@@ -17,7 +16,6 @@ from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.pareto_loss import ParetoLoss
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.tobit_loss import TobitLoss
-from views_hydranet.utils.truncated_nb_loss import TruncatedNBLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 from views_hydranet.utils.weighted_bce_loss import WeightedBCEWithLogitsLoss
 
@@ -30,12 +28,19 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     # passed to EVERY architecture, so the registry stays a name lookup rather than a per-model
     # argument table. get_architecture raises on an unknown name, naming what is registered.
     model_cls = get_architecture(config["model"])
+    # Every model build passes here: training, and the reload of a saved model from its sidecar.
+    # A body the package does not know stops here; otherwise the head would fall back to one ReLU
+    # channel and a saved model would fail obscurely or forecast wrong numbers (issue #628).
+    from views_hydranet.utils.config_initializer import check_output_distribution
+
+    distribution = config.get("output_distribution", "standard")
+    check_output_distribution(distribution)
     return model_cls(
         config["input_channels"],
         config["total_hidden_channels"],
         config["output_channels"],
         config["dropout_rate"],
-        output_distribution=config.get("output_distribution", "standard"),
+        output_distribution=distribution,
         n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
         static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
         reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
@@ -60,7 +65,7 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "factory": lambda config, device: CountMeanMSELoss().to(device),
     },
     # Non-negative point bodies for the hurdle (trained on positive cells, log1p space; emit via
-    # the point compose, output_distribution='hurdle_shrinkage'). MAE -> conditional median
+    # the point compose). MAE -> conditional median
     # (robust, under-fires the heavy-tailed mean); Huber -> robust mean, delta in log1p units
     # (default 1.0; 'loss_reg_huber_delta' is an optional forward-compat hook, not a config field).
     "mae": {
@@ -105,16 +110,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
             sigma=config["loss_reg_sigma"],
         ).to(device),
     },
-    # Hurdle-NB body (D2, #99): zero-truncated NB on positive cells; learnable per-target θ.
-    # Per-target instances are built in choose_loss() so each θ reaches the optimizer.
-    "hurdle_nb": {
-        "cls": TruncatedNBLoss,
-        "params": ["loss_reg_theta_init"],
-        "factory": lambda config, device: TruncatedNBLoss(
-            theta_init=config["loss_reg_theta_init"],
-            learnable=config.get("learnable_theta", True),
-        ).to(device),
-    },
     # Ranking body (#578, 2026-11-10_ranking_head_dossier 04 phase 1): the FIRST listwise entry
     # here — its value depends on the relative order of the 1,024-cell patch-month, not on any
     # cell alone. Level-indexed (Zhu & Klabjan 2020 Eq. 2) on dyadic rating levels
@@ -130,16 +125,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
             # .get with the schema's own default, unlike y_max above: this field HAS a default, so
             # a pre-schema raw dict that omits it must get the shipped objective, not a KeyError.
             transform=config.get("loss_reg_listwise_transform", "exp"),
-        ).to(device),
-    },
-    # Dense NB body (C-168 sharpness experiment): plain NB NLL on ALL cells (zeros supervised).
-    # Per-target instances built in choose_loss() so each θ reaches the optimizer.
-    "dense_nb": {
-        "cls": DenseNBLoss,
-        "params": ["loss_reg_theta_init"],
-        "factory": lambda config, device: DenseNBLoss(
-            theta_init=config["loss_reg_theta_init"],
-            learnable=config.get("learnable_theta", True),
         ).to(device),
     },
 }
@@ -179,10 +164,11 @@ def choose_loss(
     adding an entry to the appropriate registry — no modification of
     this function (OCP).
     """
-    # ADR-067 strangler-fig: if output_distribution names a registered distribution family (nb/
-    # zinb), the reg loss is the family NLL (FamilyLoss over family.nll) — loss_reg is irrelevant
-    # for a family. resolve_family returns None for every legacy value, so those keep their
-    # loss_reg path below (byte-identical). A single shared instance (theta/pi are head-emitted).
+    # ADR-067 strangler-fig: if output_distribution names a registered distribution family
+    # (nb, truncated_nb, mixture_nb), the reg loss is the family NLL (FamilyLoss over family.nll)
+    # — loss_reg is irrelevant for a family. resolve_family returns None for every legacy value,
+    # so those keep their loss_reg path below (byte-identical). A single shared instance (the
+    # parameters are head-emitted).
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
     from views_hydranet.utils.config_initializer import (
@@ -209,17 +195,6 @@ def choose_loss(
     learnable = config.get("learnable_sigma", False)
     if _family is not None:
         criterion_reg = FamilyLoss(_family).to(device)
-    elif config["loss_reg"] in ("hurdle_nb", "dense_nb"):
-        # Per-target NB body: one loss instance per regression target, each with its own learnable
-        # θ (reaches the optimizer via the dict-of-losses path in training_engine). hurdle_nb =
-        # zero-truncated (TruncatedNBLoss); dense_nb = NB on all cells (DenseNBLoss, C-168 expt).
-        theta_init = config.get("loss_reg_theta_init") or 1.0
-        learnable_theta = config.get("learnable_theta", True)
-        body_cls = TruncatedNBLoss if config["loss_reg"] == "hurdle_nb" else DenseNBLoss
-        criterion_reg = {
-            target: body_cls(theta_init=theta_init, learnable=learnable_theta).to(device)
-            for target in config.get("regression_targets", [])
-        }
     elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
         criterion_reg = {
             target: TobitLoss(sigma=s, learnable=learnable).to(device)

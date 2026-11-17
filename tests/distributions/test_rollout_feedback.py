@@ -93,7 +93,7 @@ def test_rollout_feedback_auto_resolution():
     """ADR-070 / S4: None (auto) resolves to 'sample' for a family head, 'mean' for a legacy head;
     an explicit value overrides the auto-resolution."""
     assert _make_inf("nb").rollout_feedback == "sample"  # family unset -> sample (mitigation)
-    assert _make_inf("zinb").rollout_feedback == "sample"  # zinb family too
+    assert _make_inf("mixture_nb").rollout_feedback == "sample"  # every family
     assert _make_inf("standard").rollout_feedback == "mean"  # legacy unset -> mean (parity)
     assert _make_inf("nb", rollout_feedback="mean").rollout_feedback == "mean"  # explicit override
     assert _make_inf("standard", rollout_feedback="teacher_forced").rollout_feedback == (

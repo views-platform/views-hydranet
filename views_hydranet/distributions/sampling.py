@@ -30,7 +30,6 @@ def to_cube_samples(
     composition: str = "self_zeroed",
     threshold: "float | None" = None,
     pass_index: int = 0,
-    core: bool = False,
 ) -> np.ndarray:
     """Draw K per-cell samples/target from activated family params → log1p-space cube slice.
 
@@ -48,9 +47,6 @@ def to_cube_samples(
         threshold: τ ∈ (0,1) for ``threshold_gate``.
         pass_index: MC-dropout pass index (D axis). Combined with the run seed + step index to
             seed a per-``(pass, step)`` sub-generator (ADR-070 T=0-neutrality — see below).
-        core: draw the π-stripped BULK body (``family.sample_core``) instead of the self-zeroed
-            sample, for the externally-gated {gated,th_gated}_ZINBcore arms (ADR-068). Requires an
-            external gate — ``core=True`` + ``self_zeroed`` fails loud (C-240). ``nb``: no-op.
 
     Returns:
         ``np.ndarray`` ``[T, H, W, n_reg, k]`` float32, in **log1p space** (non-negative).
@@ -63,18 +59,7 @@ def to_cube_samples(
             f"to_cube_samples: params channel dim {c} != n_reg*n_params "
             f"({n_reg}*{npar}={n_reg * npar})."
         )
-    # C-240: the core (π-stripped body) has NO zero mechanism of its own — it MUST be externally
-    # gated. core=True + self_zeroed would draw the ungated NB core (zeros nowhere) → a dense
-    # ~85%-nonzero forecast on a ~99.7%-zero field. Fail loud rather than silently over-forecast
-    # (HydraNetConfig rejects this upstream; this guards a direct/ad-hoc to_cube_samples call).
-    if core and composition == "self_zeroed":
-        raise ValueError(
-            "to_cube_samples: core=True requires an external gate (composition='soft_gate' or "
-            "'threshold_gate'); core + 'self_zeroed' has no zero mechanism and over-forecasts."
-        )
-    # ADR-068 emit_family_core: draw the BULK body (π-stripped for zinb) instead of the self-zeroed
-    # sample, for the externally-gated {gated,th_gated}_ZINBcore arms. nb: sample_core == sample.
-    draw = family.sample_core if core else family.sample
+    draw = family.sample
     out = torch.zeros((t, h, w, n_reg, k), dtype=torch.float32)
     gate_t = None
     # ADR-069 (#183): compose the sample cube with the gate at emit time. self_zeroed =>

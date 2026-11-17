@@ -39,7 +39,7 @@ from views_hydranet.distributions import resolve_family  # noqa: E402
 _FLOOR_BOUND = 1.5  # O(1) — softplus cancels the 1/θ explosion in the near-floor regime
 
 
-@pytest.mark.parametrize("fam_name", ["nb", "zinb"])
+@pytest.mark.parametrize("fam_name", ["nb", "truncated_nb"])
 @pytest.mark.parametrize("raw_theta", [-10.0, -13.0, -16.0])  # theta near the _EPS floor
 @pytest.mark.parametrize("y", [0.0, 5.0, 500.0, 5000.0])
 def test_theta_floor_head_channel_gradient_is_bounded(fam_name, raw_theta, y):

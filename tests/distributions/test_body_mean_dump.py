@@ -128,7 +128,7 @@ def test_dump_without_a_family_fails_loud(tmp_path):
     from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
     from views_hydranet.utils.hydranet_inference import HydraNetInference
 
-    model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0, output_distribution="hurdle_nb").float()
+    model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0, output_distribution="standard").float()
     config = {
         "steps": [1],
         "time_steps": 1,
@@ -139,41 +139,9 @@ def test_dump_without_a_family_fails_loud(tmp_path):
         "n_posterior_samples": 1,
         "np_seed": 42,
         "torch_seed": 1,
-        "hurdle_theta": 1.0,
     }
     with pytest.raises(ValueError, match="needs a registered distribution family"):
         HydraNetInference(model, config, device="cpu", body_mean_dump_dir=str(tmp_path))
-
-
-def test_dump_honours_the_adr068_core_switch(tmp_path):
-    """Under ``emit_family_core`` the dumped body must be the CORE mean, not the self-zeroed one.
-
-    ADR-068's {gated,th_gated}_ZINBcore arms emit the pi-stripped bulk body. If the dump used
-    ``family.mean`` there, the decomposition would attribute the pi factor to magnitude, and the
-    silence-vs-fade verdict would be wrong for exactly the arms whose zero handling is the point.
-    """
-    inf = _make_inference(tmp_path, dist="zinb")
-    inf.config["emit_family_core"] = True
-    fam = resolve_family("zinb")
-    params = _activated_params(fam, 2, 4, 4, 3, seed=11)
-
-    inf._dump_body_mean(inf._body_mean_field(params), np.zeros((2, 4, 4, 3)), origin=1, n_passes=1)
-    mu = torch.as_tensor(np.load(tmp_path / "bodymean_origin1.npz")["mu"])
-
-    npar = fam.n_params
-    expected_core = torch.stack(
-        [
-            fam.mean_core(params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
-            for j in range(3)
-        ],
-        dim=1,
-    )
-    self_zeroed = torch.stack(
-        [fam.mean(params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(3)],
-        dim=1,
-    )
-    torch.testing.assert_close(mu, expected_core, rtol=1e-6, atol=1e-6)
-    assert not torch.allclose(expected_core, self_zeroed), "fixture cannot tell the two apart"
 
 
 def test_dump_writes_exactly_one_field_per_origin(tmp_path):

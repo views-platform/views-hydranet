@@ -44,7 +44,7 @@ def test_reg_activation_respected_on_reload():
         "dropout_rate": 0.0,
         "weight_init": "xavier_norm",
         "h_init": "abs_rand_exp-100",
-        "output_distribution": "hurdle_shrinkage",
+        "output_distribution": "standard",
         "reg_activation": "relu",
     }
     m = choose_model(sidecar, torch.device("cpu"))
@@ -62,8 +62,8 @@ def test_pos_mask_under_latent_loss_fails_loud(valid_config_dict):
     cfg = {
         **valid_config_dict,
         "body_supervision": "active",
-        "loss_reg": "hurdle_nb",
-        "loss_reg_theta_init": 1.0,
+        "loss_reg": "tobit",
+        "loss_reg_sigma": 1.0,
     }
     with _pytest.raises(ValueError, match="latent likelihood"):
         HydraNetConfig(**cfg)

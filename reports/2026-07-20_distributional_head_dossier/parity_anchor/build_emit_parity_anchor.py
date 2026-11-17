@@ -39,10 +39,6 @@ SIGMA = torch.tensor([0.3, 0.5, 0.7], dtype=torch.float32).view(1, _C, 1, 1)  # 
 # output_distribution -> extra sidecar params its branch reads (None where the branch ignores them)
 CASES = {
     "standard": (None, None),
-    "hurdle_nb": (THETA, None),
-    "hurdle_lognormal": (None, SIGMA),
-    "hurdle_shrinkage": (None, None),
-    "dense_nb": (None, None),
 }
 
 

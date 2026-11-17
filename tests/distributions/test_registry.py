@@ -30,8 +30,7 @@ def test_get_family_unknown_raises_fail_loud_with_available_list(registry):
 
 
 def test_resolve_family_returns_none_for_legacy_output_distribution_values(registry):
-    for legacy in ("standard", "hurdle_nb", "hurdle_shrinkage", "dense_nb"):
-        assert registry.resolve_family(legacy) is None
+    assert registry.resolve_family("standard") is None
 
 
 def test_registering_one_entry_flows_end_to_end_no_other_edits(registry):
@@ -63,16 +62,6 @@ def test_importing_the_registry_does_not_import_torch():
     assert result.returncode == 0, (
         f"registry import pulled torch:\n{result.stdout}\n{result.stderr}"
     )
-
-
-def test_self_zeroed_mirror_matches_class_attribute():
-    """ADR-069: SELF_ZEROED_FAMILIES (torch-free mirror, read by config) must equal the ground
-    truth from each family's `self_zeroed` class attribute — so the two cannot silently drift."""
-    from views_hydranet.distributions import family_names, get_family
-    from views_hydranet.distributions.registry import self_zeroed_family_names
-
-    truth = frozenset(n for n in family_names() if get_family(n).self_zeroed)
-    assert self_zeroed_family_names() == truth
 
 
 def test_n_params_mirror_matches_class_attribute():

@@ -30,14 +30,14 @@ def test_family_loss_forward_equals_family_nll():
     assert loss.n_params == 2
 
 
-def test_family_loss_zinb_n_params():
-    assert FamilyLoss(resolve_family("zinb")).n_params == 3
+def test_family_loss_mixture_nb_n_params():
+    assert FamilyLoss(resolve_family("mixture_nb")).n_params == 5
 
 
 # ── choose_loss routing (family branch; legacy untouched) ──
 
 
-@pytest.mark.parametrize("fam_name,npar", [("nb", 2), ("zinb", 3)])
+@pytest.mark.parametrize("fam_name,npar", [("nb", 2), ("mixture_nb", 5)])
 def test_choose_loss_routes_family(valid_config_dict, fam_name, npar):
     from views_hydranet.utils.utils import choose_loss
 
@@ -71,7 +71,7 @@ def test_family_slice_formula_and_shape_guard():
         fam.nll(reg[:, 0], target[:, 0])
 
 
-# ── nb/zinb train a step end-to-end (real model + _process_sequence) ──
+# ── nb/mixture_nb train a step end-to-end (real model + _process_sequence) ──
 
 
 def _family_step(output_distribution):
@@ -109,8 +109,8 @@ def test_nb_trains_a_step_finite_with_grads():
     assert g is not None and torch.isfinite(g).all() and g.abs().sum() > 0
 
 
-def test_zinb_trains_a_step_finite():
-    _, result = _family_step("zinb")
+def test_mixture_nb_trains_a_step_finite():
+    _, result = _family_step("mixture_nb")
     assert result["total"].isfinite()
 
 

@@ -4,7 +4,7 @@ This pins today's behaviour of the two seams the forecast-composition refactor (
 touch — ``_emit_magnitude`` (the point / AR-feedback path) and ``to_cube_samples`` (the D×K sample
 cube) — so S4 can prove it changed only what it meant to. Goldens fall into two categories:
 
-* **PARITY-LOCKED** — legacy heads (standard/hurdle_nb/dense_nb) and the **self-zeroed** ``zinb``
+* **PARITY-LOCKED** — the legacy head (standard)
   path. S4's composer is a *passthrough* for these, so they MUST stay byte-identical. These tests
   are the parity anchor S4/S6 assert against.
 * **nb PASSTHROUGH** — the ungated ``nb`` emit and ``nb`` sample cube under the default
@@ -25,22 +25,21 @@ from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.sampling import to_cube_samples
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 
-ATOL = 1e-5  # float32 emit vs float64 reference (matches test_hurdle_nb_inference.py convention)
+ATOL = 1e-5  # float32 emit vs float64 reference
 
 
-# ── fixtures: the minimal model + inference stand-in (mirrors test_hurdle_nb_inference._inf) ──
+# ── fixtures: the minimal model + inference stand-in ──
 class _MockModel(nn.Module):
-    def __init__(self, output_distribution="standard", hurdle_nb_theta=None):
+    def __init__(self, output_distribution="standard"):
         super().__init__()
         self.output_distribution = output_distribution
-        self.hurdle_nb_theta = hurdle_nb_theta
 
     def forward(self, x, h):  # pragma: no cover - not exercised
         raise NotImplementedError
 
 
-def _inf(output_distribution="standard", theta=None, targets=("lr_ged_sb",)):
-    model = _MockModel(output_distribution, theta)
+def _inf(output_distribution="standard", targets=("lr_ged_sb",)):
+    model = _MockModel(output_distribution)
     return HydraNetInference(model, {"regression_targets": list(targets)}, device="cpu")
 
 
@@ -63,55 +62,8 @@ def test_emit_standard_identity_LOCKED():
     assert torch.equal(out, reg)  # standard = identity (log1p-space point already)
 
 
-def test_emit_hurdle_nb_LOCKED():
-    # mu=2, p=0.5, theta=1 -> E[y]=1.5 -> log1p(1.5)
-    out = _inf("hurdle_nb", {"lr_ged_sb": 1.0})._emit_magnitude(
-        torch.tensor([[[[2.0]]]]), torch.tensor([[[[0.5]]]])
-    )
-    assert torch.allclose(out, torch.tensor([[[[math.log1p(1.5)]]]]), atol=ATOL)
-
-
-def test_emit_dense_nb_LOCKED():
-    # dense_nb: E[y]=mu directly (no gate, no truncation) -> log1p(2)
-    out = _inf("dense_nb")._emit_magnitude(torch.tensor([[[[2.0]]]]), torch.tensor([[[[0.5]]]]))
-    assert torch.allclose(out, torch.tensor([[[[math.log1p(2.0)]]]]), atol=ATOL)
-
-
-def test_emit_zinb_self_zeroed_LOCKED():
-    # zinb self-zeroed mean = (1-pi)*mu; params [mu=2, theta=1, pi=0.25] -> 1.5 -> log1p(1.5).
-    # The gate arg is IGNORED on the self-zeroed path (no external gate) — pass anything.
-    zinb_reg = torch.tensor([2.0, 1.0, 0.25]).reshape(1, 3, 1, 1)
-    out = _inf("zinb")._emit_magnitude(zinb_reg, torch.tensor([[[[0.9]]]]))
-    assert torch.allclose(out, torch.tensor([[[[math.log1p(1.5)]]]]), atol=ATOL)
-
-
-def test_cube_zinb_self_zeroed_LOCKED():
-    """The self-zeroed zinb sample cube — S4's passthrough composer must reproduce this exactly."""
-    fam = resolve_family("zinb")
-    params = _activated_params(fam, 1, 2, 2, 1, seed=0)
-    cube = to_cube_samples(params, fam, 3, torch.Generator().manual_seed(7), 1)  # [1,2,2,1,3]
-    golden = np.array(
-        [
-            1.3862943649,
-            0.0,
-            1.0986123085,
-            0.0,
-            0.0,
-            0.0,
-            0.6931471825,
-            0.0,
-            0.6931471825,
-            0.0,
-            0.0,
-            0.0,
-        ],
-        dtype=np.float32,
-    ).reshape(1, 2, 2, 1, 3)
-    np.testing.assert_allclose(cube, golden, atol=ATOL)
-
-
 def test_cube_generator_deterministic_LOCKED():
-    fam = resolve_family("zinb")
+    fam = resolve_family("nb")
     params = _activated_params(fam, 2, 3, 3, 3, seed=1)
     a = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(5), 3)
     b = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(5), 3)

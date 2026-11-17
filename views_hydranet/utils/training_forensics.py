@@ -133,7 +133,7 @@ class TrainingForensics:
     def _param_health_stat_names(n_params: int) -> List[str]:
         """Which param-health series a family with ``n_params`` channels has (θ=idx1, π=idx2)."""
         names = ["mu_bar", "theta_cov"]
-        if n_params >= 3:  # zinb: structural π present
+        if n_params >= 3:  # written for zinb's π; for mixture_nb index 2 is NOT π (risk C-255)
             names += ["pi_bar", "pi_min", "pi_max"]
         return names
 
@@ -148,7 +148,7 @@ class TrainingForensics:
 
         ``params``: activated ``[..., n_params]`` (μ=idx0, θ=idx1, π=idx2 — the locked
         ``activate()`` order). ``y``: the log1p-space truth for the same cells (drives the
-        active-cell θ mask). Only distribution families (nb/zinb) call this; point heads never do
+        active-cell θ mask). Only distribution families call this; point heads never do
         (so no param-health rows). Stat names are registered lazily on the first call (n_params).
         """
         if namespaced_key not in self.lesson_y:

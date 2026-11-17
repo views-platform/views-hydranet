@@ -91,7 +91,7 @@ def test_to_cube_samples_shape_and_log1p_space():
 
 
 def test_to_cube_samples_is_generator_deterministic():
-    fam = resolve_family("zinb")
+    fam = resolve_family("mixture_nb")
     params = _activated_params(fam, 2, 4, 4, 3)
     a = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(11), 3)
     b = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(11), 3)
@@ -162,12 +162,12 @@ def test_emit_magnitude_legacy_stub_unchanged():
 
 def test_predict_return_params_still_renders_ar_forensic():
     """C-214: the eval autoregressive forensic must render on the family `return_params=True` path.
-    It was DEAD for nb/zinb — `predict()`'s `return_params` early-return skipped the Stage-5
+    It was DEAD for the families — `predict()`'s `return_params` early-return skipped the Stage-5
     finalize, so family runs produced no eval rollout biopsy at all. The finalize now runs BEFORE
     the return, so the biopsy fires for both paths."""
     from unittest.mock import MagicMock
 
-    inf = _make_inference("zinb")
+    inf = _make_inference("mixture_nb")
     inf.viz = MagicMock()
     inf.viz.active = True
     full = torch.rand(1, 2, len(_FEATURES), 8, 8).abs()  # [B, seq_len>=2, C, H, W]
@@ -202,7 +202,7 @@ def test_predict_return_params_shape_and_tuple_preserved():
 # ── D×K sampler + determinism + legacy ───────────────────────────────────
 
 
-@pytest.mark.parametrize("fam_name", ["nb", "zinb", "truncated_nb"])
+@pytest.mark.parametrize("fam_name", ["nb", "mixture_nb", "truncated_nb"])
 def test_generate_posterior_samples_dxk_fill(fam_name):
     d, k = 2, 3
     inf = _make_inference(fam_name, n_posterior_samples=d, n_head_samples=k)
@@ -260,3 +260,28 @@ def test_to_cube_samples_gated_arm_requires_gate(composition):
             composition=composition,
             threshold=0.5,
         )
+
+
+def test_each_dropout_pass_gets_its_own_noise():
+    """`pass_index` is part of the per-(pass, step) seed. Without it every one of the D passes
+    would draw identical noise and still be deterministic (guard audit, 2026-11-17)."""
+    fam = resolve_family("nb")
+    params = _activated_params(fam, 2, 4, 4, 3)
+    first = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(11), 3, pass_index=0)
+    second = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(11), 3, pass_index=1)
+    assert not np.array_equal(first, second)
+
+
+def test_a_steps_draw_does_not_depend_on_another_steps_params():
+    """Each (pass, step) draws from its own stream (ADR-070). Changing only the middle step's
+    params must leave the steps before and after it byte-identical (guard audit, 2026-11-17).
+    Three steps, because a stream shared from the second step on is invisible with two."""
+    fam = resolve_family("nb")
+    params = _activated_params(fam, 3, 4, 4, 3)
+    changed = params.clone()
+    changed[1] = _activated_params(fam, 1, 4, 4, 3, seed=7)[0]
+    a = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(11), 3)
+    b = to_cube_samples(changed, fam, 4, torch.Generator().manual_seed(11), 3)
+    assert not np.array_equal(a[1], b[1]), "the change to step 1 must reach step 1"
+    np.testing.assert_array_equal(a[0], b[0])
+    np.testing.assert_array_equal(a[2], b[2])

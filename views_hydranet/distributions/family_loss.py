@@ -18,7 +18,7 @@ class FamilyLoss(nn.Module):
     """Wrap a ``DistributionFamily`` so the training loop calls ``family.nll(params, target)``.
 
     Carries no learnable parameters — a family's ``theta``/``pi`` are head-emitted per cell, not
-    loss-owned (contrast ``TruncatedNBLoss``, which owns a learnable scalar ``theta``).
+    loss-owned.
     """
 
     #: The family consumes the activated head output, not the pre-activation latent.

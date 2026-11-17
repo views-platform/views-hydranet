@@ -1,6 +1,6 @@
 """A-S5 (#172): config boundary for the distribution families (ADR-067).
 
-Validates that HydraNetConfig accepts `nb`/`zinb` as `output_distribution` (registry-driven,
+Validates that HydraNetConfig accepts the family names as `output_distribution` (registry-driven,
 unioned with the legacy values), the new `n_head_samples` (K) field + its cross-field rule, the
 C-197 family/legacy disjointness guard, and that `config_initializer` stays torch-free (CRP).
 """
@@ -28,18 +28,15 @@ def _cfg(valid_config_dict, **overrides):
 # ── output_distribution: families accepted, legacy preserved, unknown rejected ──
 
 
-@pytest.mark.parametrize("fam", ["nb", "zinb"])
+@pytest.mark.parametrize("fam", ["nb", "truncated_nb", "mixture_nb"])
 def test_family_output_distributions_accepted(valid_config_dict, fam):
-    # ADR-069/#183: nb must declare a gate composition; zinb keeps the default self_zeroed.
-    comp = "soft_gate" if fam == "nb" else "self_zeroed"
+    # ADR-069/#183: every family must declare a gate composition (none is self-zeroed).
+    comp = "soft_gate"
     cfg = _cfg(valid_config_dict, output_distribution=fam, forecast_composition=comp)
     assert HydraNetConfig(**cfg).output_distribution == fam
 
 
-@pytest.mark.parametrize(
-    "legacy",
-    ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb"],
-)
+@pytest.mark.parametrize("legacy", ["standard"])
 def test_legacy_output_distributions_still_accepted(valid_config_dict, legacy):
     cfg = _cfg(valid_config_dict, output_distribution=legacy)
     assert HydraNetConfig(**cfg).output_distribution == legacy
@@ -47,11 +44,11 @@ def test_legacy_output_distributions_still_accepted(valid_config_dict, legacy):
 
 def test_unknown_output_distribution_rejected_with_union_list(valid_config_dict):
     cfg = _cfg(valid_config_dict, output_distribution="not_a_family")
-    with pytest.raises(ValidationError, match="output_distribution.*not valid") as excinfo:
+    with pytest.raises(ValidationError, match="is not a body this package has") as excinfo:
         HydraNetConfig(**cfg)
     # the rejection message actually lists the family names (the union), not just the legacy set
     msg = str(excinfo.value)
-    assert "'nb'" in msg and "'zinb'" in msg
+    assert "'nb'" in msg and "'mixture_nb'" in msg
 
 
 def test_legacy_config_constructs_unchanged_with_default_k(valid_config_dict):
@@ -88,16 +85,16 @@ def test_n_head_samples_below_one_rejected(valid_config_dict, bad_k):
         HydraNetConfig(**cfg)
 
 
-@pytest.mark.parametrize("legacy", ["standard", "hurdle_nb"])
+@pytest.mark.parametrize("legacy", ["standard"])
 def test_k_gt_1_on_legacy_head_raises(valid_config_dict, legacy):
     cfg = _cfg(valid_config_dict, output_distribution=legacy, n_head_samples=3)
     with pytest.raises(ValidationError, match="n_head_samples"):
         HydraNetConfig(**cfg)
 
 
-@pytest.mark.parametrize("fam", ["nb", "zinb"])
+@pytest.mark.parametrize("fam", ["nb", "mixture_nb"])
 def test_k_gt_1_on_family_accepted(valid_config_dict, fam):
-    comp = "soft_gate" if fam == "nb" else "self_zeroed"  # ADR-069/#183: nb must declare a gate
+    comp = "soft_gate"  # ADR-069/#183: a family must declare a gate
     cfg = _cfg(
         valid_config_dict, output_distribution=fam, n_head_samples=3, forecast_composition=comp
     )

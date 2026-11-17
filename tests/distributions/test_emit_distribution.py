@@ -54,12 +54,12 @@ def test_the_only_admissible_pair_today_is_accepted(valid_config_dict):
 def test_a_family_with_a_different_parameter_count_is_refused(valid_config_dict):
     """⭐ THE STRUCTURAL GUARD, and it is what keeps ADR-073's surface narrow.
 
-    The head's channels were trained to mean the TRAINED family's parameters. `zinb` emits 3
-    (mu, theta, pi) against `nb`'s 2, so reading an `nb` head as `zinb` would reinterpret channels
+    The head's channels were trained to mean the TRAINED family's parameters. `mixture_nb` emits 5
+    against `nb`'s 2, so reading an `nb` head as `mixture_nb` would reinterpret channels
     as something they were never trained to be — silently, since the slice would still have a
     shape. Refused at config time, before any pod is paid for.
     """
-    cfg = _cfg(valid_config_dict, emit_distribution="zinb")
+    cfg = _cfg(valid_config_dict, emit_distribution="mixture_nb")
     with pytest.raises(ValueError, match="parameters per cell"):
         HydraNetConfig(**cfg)
 
@@ -132,41 +132,19 @@ def test_composition_outcomes_are_unchanged_by_setting_emit_distribution(
     assert _accepts(cfg) == _accepts(baseline)
 
 
-def test_the_self_zeroed_rule_reads_the_EMITTED_family_not_the_trained_one(
-    valid_config_dict, monkeypatch
-):
-    """⭐ THE POINT OF THIS CHANGE, and it needs a monkeypatch to be testable at all.
-
-    `self_zeroed` is the property ADR-069's rules turn on, and no family pair the parameter-count
-    guard admits differs on it — so the re-point cannot be observed with the families that exist.
-    Rather than leave it unproven, declare `truncated_nb` self-zeroed for the duration of this
-    test and check which family the rule consults.
-
-    Gating a self-zeroed body is refused because π and a gate would double-count the zeros. If the
-    validator read `output_distribution` it would see plain `nb`, allow the gate, and let a
-    double-counted composition through.
-    """
-    import views_hydranet.distributions.registry as reg
-
-    monkeypatch.setattr(reg, "SELF_ZEROED_FAMILIES", frozenset({"zinb", "truncated_nb"}))
-
-    # emitted = truncated_nb (self-zeroed under the patch) + a gate => must be REFUSED
-    gated = _cfg(valid_config_dict, emit_distribution="truncated_nb")
-    with pytest.raises(ValueError, match="double-count"):
-        HydraNetConfig(**gated)
-
-    # the same trained family with NO emit override is plain nb => the gate is fine
-    HydraNetConfig(**_cfg(valid_config_dict))
-
-
-def test_a_refusal_names_the_EMITTED_family_when_the_two_differ(valid_config_dict, monkeypatch):
+def test_a_refusal_names_the_EMITTED_family_when_the_two_differ(valid_config_dict):
     """A message blaming `output_distribution` for a rule applied to the emitted family sends the
-    reader to the wrong config line. C-242 is already in this validator for that reason."""
-    import views_hydranet.distributions.registry as reg
+    reader to the wrong config line. C-242 is already in this validator for that reason.
 
-    monkeypatch.setattr(reg, "SELF_ZEROED_FAMILIES", frozenset({"zinb", "truncated_nb"}))
+    The rule used: a family with no gate composition has no zero mechanism."""
     with pytest.raises(ValueError) as exc:
-        HydraNetConfig(**_cfg(valid_config_dict, emit_distribution="truncated_nb"))
+        HydraNetConfig(
+            **_cfg(
+                valid_config_dict,
+                emit_distribution="truncated_nb",
+                forecast_composition="self_zeroed",
+            )
+        )
     msg = str(exc.value)
     assert "emit_distribution='truncated_nb'" in msg
     assert "output_distribution='truncated_nb'" not in msg
@@ -229,7 +207,7 @@ def test_a_RAW_DICT_bypassing_pydantic_is_still_refused():
     same reason, after a review found exactly that hole.
     """
     with pytest.raises(ValueError, match="parameters per cell"):
-        _inference("nb", emit="zinb")
+        _inference("nb", emit="mixture_nb")
 
 
 def test_the_raw_dict_refusal_names_both_families_and_both_counts():

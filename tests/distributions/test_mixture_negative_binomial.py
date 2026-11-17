@@ -47,19 +47,9 @@ def test_shape_and_attrs():
     fam = _family()
     assert fam.n_params == 5
     assert fam.needs_latent is False
-    assert (
-        fam.self_zeroed is False
-    )  # gated (soft_gate), NOT self-zeroed — never re-arm the ZINB bloom
     raw = torch.randn(2, 3, 4, 5)
     params = fam.activate(raw)
     assert params.shape == raw.shape
-
-
-def test_mixture_nb_is_not_in_self_zeroed_families():
-    """External-gate family ⇒ stays OUT of the self-zeroed mirror (registry parity)."""
-    from views_hydranet.distributions.registry import self_zeroed_family_names
-
-    assert "mixture_nb" not in self_zeroed_family_names()
 
 
 def test_activate_channel_semantics_and_positivity():

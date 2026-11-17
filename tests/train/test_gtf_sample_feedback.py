@@ -59,11 +59,3 @@ def test_feedback_sample_composes_with_gate_soft():
     fb_soft = _family_feedback_log1p(reg, fam, "sample", gate, "soft_gate", None)
     assert fb_soft.shape == fb_self.shape
     assert not torch.equal(fb_soft, fb_self)  # the gate masked some cells to zero
-
-
-def test_feedback_zinb_self_zeroes_natively():
-    fam = resolve_family("zinb")
-    reg = _params(fam)
-    gate = torch.rand(2, 3, 6, 6)
-    fb = _family_feedback_log1p(reg, fam, "sample", gate, "self_zeroed", None)
-    assert fb.shape == (2, 3, 6, 6) and (fb >= 0).all()

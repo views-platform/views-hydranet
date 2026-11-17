@@ -53,7 +53,7 @@ def free_running_attractor(
     recurrent state fixed — the retired ``freeze_h='all'`` probe variant).
 
     ``emit_fn`` exists so the probe measures the SAME quantity inference feeds back when the
-    feedback is not the identity (C-142): the hurdle-NB head emits ``log1p(E[y])`` (not the
+    feedback is not the identity (C-142): a count-space head emits ``log1p(E[y])`` (not the
     count-space ``out.reg``), so feeding ``out.reg`` raw would compare count-space ``mu`` against
     the log-space :data:`DATA_LOG_MAX` bound — a category mismatch. ``emit_fn=None`` (default)
     is byte-identical to the pre-#106 standard path.
