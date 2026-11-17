@@ -28,11 +28,10 @@ from views_hydranet.utils.hydranet_inference import HydraNetInference  # noqa: E
 
 _FEATURES = ["lr_sb", "lr_ns", "lr_os", "by_sb", "by_ns", "by_os"]
 
-# (output_distribution, forecast_composition) — the 3 valid deployable arms (ADR-069).
+# (output_distribution, forecast_composition) — the deployable gated arms (ADR-069).
 _ARMS = [
     ("nb", "soft_gate"),  # gated_NB
     ("nb", "threshold_gate"),  # th_gated_NB
-    ("zinb", "self_zeroed"),  # ZINB
 ]
 
 
@@ -63,7 +62,7 @@ def _sparse_params(fam, comp, *, b=1, h=8, w=8, n_reg=3):
     are mostly 0. The gate is composition-aware so the sample-vs-mean sparsity gap is visible:
     soft_gate → low gate (Bernoulli drops most draws); threshold_gate → gate ABOVE τ (kept, so the
     gap comes from the integer draw of a small mu being mostly 0 vs the nonzero mean); self_zeroed
-    → gate unused (zinb self-zeroes via structural pi). Returns (reg, gate)."""
+    → gate unused. Returns (reg, gate)."""
     npar = fam.n_params
     g = torch.Generator().manual_seed(0)
     cols = []

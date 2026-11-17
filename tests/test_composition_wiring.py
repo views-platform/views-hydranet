@@ -54,13 +54,6 @@ def test_nb_threshold_gate_keeps_above_tau_zeros_below():
     assert torch.allclose(zeroed, torch.zeros(1, 1, 1, 1), atol=ATOL)
 
 
-def test_zinb_self_zeroed_unchanged_by_wiring():
-    # zinb mean = (1-π)μ; [μ=2, θ=1, π=0.25] -> 1.5 -> log1p(1.5); gate ignored on the self path
-    reg = torch.tensor([2.0, 1.0, 0.25]).reshape(1, 3, 1, 1)
-    out = _inf("zinb", "self_zeroed")._emit_magnitude(reg, torch.tensor([[[[0.9]]]]))
-    assert torch.allclose(out, torch.tensor([[[[math.log1p(1.5)]]]]), atol=ATOL)
-
-
 def test_legacy_standard_unchanged_by_wiring():
     # a legacy head never enters the family branch: identity, no composition
     reg = torch.tensor([[[[2.0]]]])

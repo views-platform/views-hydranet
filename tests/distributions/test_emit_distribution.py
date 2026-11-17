@@ -54,12 +54,12 @@ def test_the_only_admissible_pair_today_is_accepted(valid_config_dict):
 def test_a_family_with_a_different_parameter_count_is_refused(valid_config_dict):
     """⭐ THE STRUCTURAL GUARD, and it is what keeps ADR-073's surface narrow.
 
-    The head's channels were trained to mean the TRAINED family's parameters. `zinb` emits 3
-    (mu, theta, pi) against `nb`'s 2, so reading an `nb` head as `zinb` would reinterpret channels
+    The head's channels were trained to mean the TRAINED family's parameters. `mixture_nb` emits 5
+    against `nb`'s 2, so reading an `nb` head as `mixture_nb` would reinterpret channels
     as something they were never trained to be — silently, since the slice would still have a
     shape. Refused at config time, before any pod is paid for.
     """
-    cfg = _cfg(valid_config_dict, emit_distribution="zinb")
+    cfg = _cfg(valid_config_dict, emit_distribution="mixture_nb")
     with pytest.raises(ValueError, match="parameters per cell"):
         HydraNetConfig(**cfg)
 
@@ -148,7 +148,7 @@ def test_the_self_zeroed_rule_reads_the_EMITTED_family_not_the_trained_one(
     """
     import views_hydranet.distributions.registry as reg
 
-    monkeypatch.setattr(reg, "SELF_ZEROED_FAMILIES", frozenset({"zinb", "truncated_nb"}))
+    monkeypatch.setattr(reg, "SELF_ZEROED_FAMILIES", frozenset({"truncated_nb"}))
 
     # emitted = truncated_nb (self-zeroed under the patch) + a gate => must be REFUSED
     gated = _cfg(valid_config_dict, emit_distribution="truncated_nb")
@@ -164,7 +164,7 @@ def test_a_refusal_names_the_EMITTED_family_when_the_two_differ(valid_config_dic
     reader to the wrong config line. C-242 is already in this validator for that reason."""
     import views_hydranet.distributions.registry as reg
 
-    monkeypatch.setattr(reg, "SELF_ZEROED_FAMILIES", frozenset({"zinb", "truncated_nb"}))
+    monkeypatch.setattr(reg, "SELF_ZEROED_FAMILIES", frozenset({"truncated_nb"}))
     with pytest.raises(ValueError) as exc:
         HydraNetConfig(**_cfg(valid_config_dict, emit_distribution="truncated_nb"))
     msg = str(exc.value)
@@ -229,7 +229,7 @@ def test_a_RAW_DICT_bypassing_pydantic_is_still_refused():
     same reason, after a review found exactly that hole.
     """
     with pytest.raises(ValueError, match="parameters per cell"):
-        _inference("nb", emit="zinb")
+        _inference("nb", emit="mixture_nb")
 
 
 def test_the_raw_dict_refusal_names_both_families_and_both_counts():

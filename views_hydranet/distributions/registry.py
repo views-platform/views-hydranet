@@ -38,7 +38,6 @@ def _lazy(module: str, cls: str) -> Callable[..., "DistributionFamily"]:
 #: name -> lazy factory.
 DISTRIBUTION_REGISTRY: dict[str, Callable[..., "DistributionFamily"]] = {
     "nb": _lazy("negative_binomial", "NegativeBinomialFamily"),  # A-S3 (#170)
-    "zinb": _lazy("zero_inflated_negative_binomial", "ZINBFamily"),  # A-S4 (#171)
     "mixture_nb": _lazy("mixture_negative_binomial", "MixtureNBFamily"),  # Epic #230 S2 (#232)
     "truncated_nb": _lazy(
         "truncated_negative_binomial", "TruncatedNBFamily"
@@ -51,7 +50,7 @@ DISTRIBUTION_REGISTRY: dict[str, Callable[..., "DistributionFamily"]] = {
 #: exists only so ``config_initializer`` (which must stay torch-free — CRP) can enforce the ADR-069
 #: rules without importing a family. A parity test (``test_registry``) asserts this set equals
 #: ``{n for n in family_names() if get_family(n).self_zeroed}`` so they cannot drift.
-SELF_ZEROED_FAMILIES: frozenset[str] = frozenset({"zinb"})
+SELF_ZEROED_FAMILIES: frozenset[str] = frozenset()
 
 
 #: Torch-free MIRROR of ``DistributionFamily.n_params`` — parameters the head emits per cell, per
@@ -62,11 +61,10 @@ SELF_ZEROED_FAMILIES: frozenset[str] = frozenset({"zinb"})
 #:
 #: ⛔ This is what keeps ADR-073's surface narrow STRUCTURALLY rather than by convention: a model
 #: trained on one family can only be emitted from another laying its parameters out the same way.
-#: Measured 2026-10-21 — nb 2, truncated_nb 2, zinb 3, mixture_nb 5 — so the only admissible pair
+#: Measured 2026-10-21 — nb 2, truncated_nb 2, mixture_nb 5 — so the only admissible pair
 #: today is ``nb <-> truncated_nb``, and it cannot widen by accident.
 FAMILY_N_PARAMS: dict[str, int] = {
     "nb": 2,
-    "zinb": 3,
     "mixture_nb": 5,
     "truncated_nb": 2,
 }

@@ -43,9 +43,6 @@ from views_hydranet.distributions.negative_binomial import NegativeBinomialFamil
 from views_hydranet.distributions.truncated_negative_binomial import (  # noqa: E402
     TruncatedNBFamily,
 )
-from views_hydranet.distributions.zero_inflated_negative_binomial import (  # noqa: E402
-    ZINBFamily,
-)
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss  # noqa: E402
 from views_hydranet.utils.tobit_loss import TobitLoss  # noqa: E402
 from views_hydranet.utils.utils import choose_loss  # noqa: E402
@@ -60,12 +57,6 @@ LIVE = [
     ("mse", "nb", None, "nll_softplus_nb"),
     ("mse", "truncated_nb", None, "nll_softplus_truncated_nb"),
     ("mse", "mixture_nb", None, "nll_softplus_mixture_nb"),
-]
-
-# The five `output_distribution` values that keep their code but get no vocabulary row
-# (owner decision 2026-11-15). A sixth, `quantile`, was purged on 2026-11-16 (ADR-079 §4).
-ORPHANS = [
-    "zinb",
 ]
 
 
@@ -179,23 +170,6 @@ def test_the_dict_valued_tobit_builds_one_instance_per_target(valid_config_dict)
     assert all(type(c) is TobitLoss for c in reg.values())
 
 
-@pytest.mark.parametrize("distribution", ORPHANS)
-def test_an_orphan_distribution_still_resolves_its_criterion(valid_config_dict, distribution):
-    """`zinb` is the only orphan that names a family; the other four fall to the `loss_reg` path.
-
-    That asymmetry is the thing to remember when reading ADR-081: `output_distribution` is a
-    distribution name for four values and a head-shape name for five.
-    """
-    cfg = _cfg(valid_config_dict, loss_reg="mse", output_distribution=distribution)
-    reg = _reg(cfg)
-    if distribution == "zinb":
-        assert type(reg) is FamilyLoss
-        assert type(reg.family) is ZINBFamily
-        assert reg.n_params == 3
-    else:
-        assert type(reg) is nn.MSELoss
-
-
 # ──────────────────────────────── the head: width and activation ────────────────────────────────
 
 
@@ -213,7 +187,7 @@ def _head(output_distribution, reg_activation=None):
 
 @pytest.mark.parametrize(
     "distribution,width",
-    [("standard", 1), ("nb", 2), ("truncated_nb", 2), ("mixture_nb", 5), ("zinb", 3)],
+    [("standard", 1), ("nb", 2), ("truncated_nb", 2), ("mixture_nb", 5)],
 )
 def test_head_width_is_the_emit_distributions_parameter_count(distribution, width):
     """ADR-081 §2: the width is read off the distribution, never declared. Pinned per target."""
@@ -228,7 +202,7 @@ def test_an_explicit_softplus_wins_for_every_legacy_distribution(distribution):
     assert _head(distribution, reg_activation="softplus")._reg_activation is F.softplus
 
 
-@pytest.mark.parametrize("distribution", ["nb", "truncated_nb", "mixture_nb", "zinb"])
+@pytest.mark.parametrize("distribution", ["nb", "truncated_nb", "mixture_nb"])
 def test_a_family_owns_its_activation_and_ignores_the_field(distribution):
     """The field is not consulted at all when a family is named — the family supplies the map."""
     model = _head(distribution, reg_activation="relu")

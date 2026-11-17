@@ -1,6 +1,6 @@
 """A-S5 (#172): config boundary for the distribution families (ADR-067).
 
-Validates that HydraNetConfig accepts `nb`/`zinb` as `output_distribution` (registry-driven,
+Validates that HydraNetConfig accepts the family names as `output_distribution` (registry-driven,
 unioned with the legacy values), the new `n_head_samples` (K) field + its cross-field rule, the
 C-197 family/legacy disjointness guard, and that `config_initializer` stays torch-free (CRP).
 """
@@ -28,10 +28,10 @@ def _cfg(valid_config_dict, **overrides):
 # ── output_distribution: families accepted, legacy preserved, unknown rejected ──
 
 
-@pytest.mark.parametrize("fam", ["nb", "zinb"])
+@pytest.mark.parametrize("fam", ["nb", "truncated_nb", "mixture_nb"])
 def test_family_output_distributions_accepted(valid_config_dict, fam):
-    # ADR-069/#183: nb must declare a gate composition; zinb keeps the default self_zeroed.
-    comp = "soft_gate" if fam == "nb" else "self_zeroed"
+    # ADR-069/#183: every family must declare a gate composition (none is self-zeroed).
+    comp = "soft_gate"
     cfg = _cfg(valid_config_dict, output_distribution=fam, forecast_composition=comp)
     assert HydraNetConfig(**cfg).output_distribution == fam
 
@@ -48,7 +48,7 @@ def test_unknown_output_distribution_rejected_with_union_list(valid_config_dict)
         HydraNetConfig(**cfg)
     # the rejection message actually lists the family names (the union), not just the legacy set
     msg = str(excinfo.value)
-    assert "'nb'" in msg and "'zinb'" in msg
+    assert "'nb'" in msg and "'mixture_nb'" in msg
 
 
 def test_legacy_config_constructs_unchanged_with_default_k(valid_config_dict):
@@ -92,9 +92,9 @@ def test_k_gt_1_on_legacy_head_raises(valid_config_dict, legacy):
         HydraNetConfig(**cfg)
 
 
-@pytest.mark.parametrize("fam", ["nb", "zinb"])
+@pytest.mark.parametrize("fam", ["nb", "mixture_nb"])
 def test_k_gt_1_on_family_accepted(valid_config_dict, fam):
-    comp = "soft_gate" if fam == "nb" else "self_zeroed"  # ADR-069/#183: nb must declare a gate
+    comp = "soft_gate"  # ADR-069/#183: a family must declare a gate
     cfg = _cfg(
         valid_config_dict, output_distribution=fam, n_head_samples=3, forecast_composition=comp
     )

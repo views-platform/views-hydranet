@@ -455,28 +455,3 @@ def _run_biopsy(cfg):
     train(ctx, _tiny_handler(), tqdm(total=5, disable=True), stage_label="zinbcore_probe")
     assert viz.biopsy_training_performance.called, "the biopsy never reached the plotter"
     return viz.biopsy_training_performance.call_args
-
-
-def test_the_biopsy_row_a_zinbcore_arm_actually_gets_is_the_core():
-    """⛔ BINDS TO THE DATA, not to the label — a label assertion cannot see a wrong number.
-
-    The two runs differ in `emit_family_core` alone and the seeds are config-locked, so the
-    weights and therefore the predictions are identical and only the composition moves.
-    `mean_core` is μ and `mean` is (1−π)μ, so the core row must be strictly LARGER wherever π > 0.
-    If the call site stops reading the flag, the two rows come out byte-identical.
-    """
-    core = _run_biopsy(_zinbcore_config(True)).kwargs["y_hat_forecast"]
-    self_zeroed = _run_biopsy(_zinbcore_config(False)).kwargs["y_hat_forecast"]
-    assert core.shape == self_zeroed.shape
-    assert not np.array_equal(core, self_zeroed), (
-        "emit_family_core made no difference to the row the biopsy plots — the call site is not "
-        "reading the flag (C-324)"
-    )
-    assert (core >= self_zeroed).all(), "log1p(gate × μ_core) must dominate log1p(gate × (1−π)μ)"
-    assert (core > self_zeroed).any()
-
-
-def test_the_biopsy_label_a_zinbcore_arm_actually_gets_names_the_core_and_the_gate():
-    """The label half of the same wiring. `self_zeroed` in it would be the original defect."""
-    label = _run_biopsy(_zinbcore_config(True)).kwargs["forecast_label"]
-    assert label == "FORECAST log1p(soft_gate(E[y|core], gate))", label

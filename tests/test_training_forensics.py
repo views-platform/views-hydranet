@@ -292,18 +292,20 @@ def _params(rows: list) -> torch.Tensor:
 
 
 def test_family_reg_collapse_records_each_targets_own_ey():
-    """C-213 regression: the family collapse must return each target's OWN self-zeroed E[y]=(1-π)μ,
-    NOT a raw channel. A ZINB reg output is target-major [t0(μ,θ,π), t1(μ,θ,π)] — the old forensic
-    sliced channel j, so target-1 got target-0's θ. The helper must slice j*npar:(j+1)*npar."""
+    """C-213 regression: the family collapse must return each target's OWN E[y], NOT a raw
+    channel. A mixture reg output is target-major [t0(w,μ1,θ1,μ2,θ2), t1(...)] — the old forensic
+    sliced channel j, so target-1 got target-0's parameters. The helper must slice
+    j*npar:(j+1)*npar. (Until 2026-11-17 the vehicle was zinb, issue #628.)"""
     from views_hydranet.distributions import resolve_family
     from views_hydranet.train.training_engine import _family_target_log1p_mean
 
-    fam = resolve_family("zinb")
-    # [B=1, n_reg*3=6, H=1, W=1], target-major: t0=(μ10,θ.5,π.9), t1=(μ4,θ2,π.5)
-    reg = torch.tensor([10.0, 0.5, 0.9, 4.0, 2.0, 0.5]).view(1, 6, 1, 1)
-    out = _family_target_log1p_mean(reg, fam)  # [1, 2, 1, 1] of log1p((1-π)μ) per target
+    fam = resolve_family("mixture_nb")
+    # [B=1, n_reg*5=10, H=1, W=1], target-major: t0=(w.5,μ1 1.5,θ1,μ2 .5,θ1),
+    # t1=(w.25,μ1 2,θ1,μ2 2,θ1)
+    reg = torch.tensor([0.5, 1.5, 1.0, 0.5, 1.0, 0.25, 2.0, 1.0, 2.0, 1.0]).view(1, 10, 1, 1)
+    out = _family_target_log1p_mean(reg, fam)  # [1, 2, 1, 1] of log1p(wμ1+(1-w)μ2) per target
     assert out.shape == (1, 2, 1, 1)
-    # t0: (1-.9)*10 = 1.0 → log1p(1); t1: (1-.5)*4 = 2.0 → log1p(2). t1 must use its OWN μ,π.
+    # t0: .5*1.5 + .5*.5 = 1.0 → log1p(1); t1: .25*2 + .75*2 = 2.0 → log1p(2). Own params each.
     assert out[0, 0, 0, 0].item() == pytest.approx(torch.log1p(torch.tensor(1.0)).item(), abs=1e-5)
     assert out[0, 1, 0, 0].item() == pytest.approx(torch.log1p(torch.tensor(2.0)).item(), abs=1e-5)
 

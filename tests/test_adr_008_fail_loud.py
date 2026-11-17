@@ -33,7 +33,6 @@ BACKLOG = {
     "distributions/registry.py": 1,
     "distributions/sampling.py": 3,
     "distributions/truncated_negative_binomial.py": 1,
-    "distributions/zero_inflated_negative_binomial.py": 1,
     "infrastructure/reproducibility_gate.py": 7,
     "train/train_model.py": 1,
     "utils/body_supervision.py": 1,

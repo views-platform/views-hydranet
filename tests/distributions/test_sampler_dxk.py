@@ -91,7 +91,7 @@ def test_to_cube_samples_shape_and_log1p_space():
 
 
 def test_to_cube_samples_is_generator_deterministic():
-    fam = resolve_family("zinb")
+    fam = resolve_family("mixture_nb")
     params = _activated_params(fam, 2, 4, 4, 3)
     a = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(11), 3)
     b = to_cube_samples(params, fam, 4, torch.Generator().manual_seed(11), 3)
@@ -162,12 +162,12 @@ def test_emit_magnitude_legacy_stub_unchanged():
 
 def test_predict_return_params_still_renders_ar_forensic():
     """C-214: the eval autoregressive forensic must render on the family `return_params=True` path.
-    It was DEAD for nb/zinb — `predict()`'s `return_params` early-return skipped the Stage-5
+    It was DEAD for the families — `predict()`'s `return_params` early-return skipped the Stage-5
     finalize, so family runs produced no eval rollout biopsy at all. The finalize now runs BEFORE
     the return, so the biopsy fires for both paths."""
     from unittest.mock import MagicMock
 
-    inf = _make_inference("zinb")
+    inf = _make_inference("mixture_nb")
     inf.viz = MagicMock()
     inf.viz.active = True
     full = torch.rand(1, 2, len(_FEATURES), 8, 8).abs()  # [B, seq_len>=2, C, H, W]
@@ -202,7 +202,7 @@ def test_predict_return_params_shape_and_tuple_preserved():
 # ── D×K sampler + determinism + legacy ───────────────────────────────────
 
 
-@pytest.mark.parametrize("fam_name", ["nb", "zinb", "truncated_nb"])
+@pytest.mark.parametrize("fam_name", ["nb", "mixture_nb", "truncated_nb"])
 def test_generate_posterior_samples_dxk_fill(fam_name):
     d, k = 2, 3
     inf = _make_inference(fam_name, n_posterior_samples=d, n_head_samples=k)
