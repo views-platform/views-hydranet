@@ -82,13 +82,6 @@ def test_standard_head_unchanged_relu_width_3():
     assert torch.allclose(out.reg, F.relu(out.reg_latent))
 
 
-def test_hurdle_nb_head_unchanged_softplus():
-    m = _build("hurdle_nb")
-    assert m._reg_activation is F.softplus
-    out = _fwd(m)
-    assert out.reg.shape[1] == 3
-
-
 # ── informed init: the family's initial_raw_bias seeds the reg conv biases ──
 
 
@@ -129,11 +122,4 @@ def test_head_source_has_no_hardcoded_family_names():
 def test_legacy_values_resolve_to_none():
     from views_hydranet.distributions import resolve_family
 
-    legacy_values = (
-        "standard",
-        "hurdle_nb",
-        "hurdle_lognormal",
-        "hurdle_shrinkage",
-    )
-    for legacy in legacy_values:
-        assert resolve_family(legacy) is None
+    assert resolve_family("standard") is None

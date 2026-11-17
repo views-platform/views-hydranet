@@ -87,7 +87,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             dropout_rate (float): Probability of dropout for regularization.
             output_distribution (str): regression-head output distribution/activation —
                 "standard" (ReLU, default, pre-#100 behavior) or a family/head name
-                (nb, zinb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage), which
+                (nb, zinb, truncated_nb, mixture_nb), which
                 selects the ADR-067 family activation / head param count.
         """
         super().__init__()
@@ -100,12 +100,11 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # resolve_family returns None for every legacy value, so those fall through to the
         # untouched legacy path below (byte-identical). New families add zero new branches here.
         self._family = resolve_family(output_distribution)
-        # Default keys off output_distribution: ALL hurdle bodies => softplus, "standard" => relu.
-        # reg_activation overrides it (Exp B: decouple emit activation from the loss/likelihood).
-        # C-178: a ReLU output head dies on rare targets under the hurdle mask (pre-activation
+        # A family brings its own activation. For a "standard" head `reg_activation` chooses;
+        # left unset it is ReLU (byte-identical to pre-#100).
+        # C-178: a ReLU output head dies on rare targets under a cell mask (pre-activation
         # drifts 100% negative => ReLU==0 with zero gradient => unrecoverable). softplus is always
-        # positive with non-zero gradient, so IT cannot die. hurdle_nb already used softplus;
-        # extend to all hurdle bodies. "standard" keeps relu (byte-identical to pre-#100).
+        # positive with non-zero gradient, so IT cannot die. Every live config sets softplus.
         #
         # C-313: that last clause is about the ACTIVATION, not the path. For the family heads,
         # `nb_core._clamp` applies `clamp_min(1e-6)` downstream, and `clamp_min` passes exactly
@@ -121,9 +120,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         elif reg_activation == "relu":
             self._reg_activation = F.relu
         else:
-            self._reg_activation = (
-                F.softplus if output_distribution.startswith("hurdle") else F.relu
-            )
+            self._reg_activation = F.relu
 
         # A family emits n_params reg channels per target (nb=2 [mu,theta], zinb=3 [+pi]);
         # every legacy head emits output_channels (the AR-feedback

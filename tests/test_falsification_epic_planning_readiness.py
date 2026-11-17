@@ -64,7 +64,7 @@ def test_p3_epic_plan_declares_disk_budget():
 # --- P4 (was HARD): boundedness/explosion-check validated for count-space — CLOSED by #106 -------
 def test_p4_explosion_check_validated_for_count_space():
     """CLOSED by #106 (C-142). The explosion-check now composes `log1p(E[y])` like inference via
-    `free_running_attractor(emit_fn=...)` — it measures what the hurdle-NB rollout feeds back,
+    `free_running_attractor(emit_fn=...)` — it measures what a count-space head feeds back,
     not count-space `mu` against the log-space bound. The behavioural count-space validation
     (in-range count not mis-flagged; composed-E[y] runaway flagged) lives in
     `tests/test_rollout_stability_guard.py`; now a green regression guard on that closure."""
@@ -73,13 +73,13 @@ def test_p4_explosion_check_validated_for_count_space():
     from views_hydranet.utils.rollout_diagnostics import free_running_attractor
 
     assert "emit_fn" in inspect.signature(free_running_attractor).parameters, (
-        "the explosion-check probe must accept emit_fn to compose the hurdle-NB feedback (C-142)"
+        "the explosion-check probe must accept emit_fn to compose a count-space feedback (C-142)"
     )
     guard = (REPO / "tests" / "test_rollout_stability_guard.py").read_text()
-    assert "hurdle_inrange_count_not_falsely_flagged" in guard, (
+    assert "test_inrange_count_not_falsely_flagged" in guard, (
         "missing the count-space in-range validation case (C-142)"
     )
-    assert "hurdle_expansive_eymean_is_flagged" in guard, (
+    assert "test_expansive_count_mean_is_flagged" in guard, (
         "missing the count-space runaway validation case (C-142)"
     )
 

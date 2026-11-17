@@ -22,11 +22,6 @@ from views_hydranet.utils.feedback_field_transforms import (
     thin,
 )
 from views_hydranet.utils.gate_field_structure import gate_structure_stats
-from views_hydranet.utils.hurdle_nb import (
-    hurdle_lognormal_expected_log1p,
-    hurdle_nb_expected_log1p,
-    hurdle_point_expected_log1p,
-)
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
@@ -524,11 +519,6 @@ class HydraNetInference:
         # Set per rollout in `predict`; declared here so the attribute always exists.
         self._fb_correlated_gen: torch.Generator | None = None
 
-        self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
-        # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
-        self.lognormal_sigma = self._parse_lognormal_sigma(
-            getattr(model, "hurdle_lognormal_sigma", None)
-        )
         self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
         # Step 3: Move model to device and configure for inference.
@@ -830,66 +820,6 @@ class HydraNetInference:
                 rec.update(origin=origin, sample_idx=sample_idx, step=step, target_idx=c)
                 self.gate_structure_stats.append(rec)
 
-    def _parse_hurdle_theta(self, theta):
-        """Per-target NB dispersion theta for the hurdle-NB mean (#101). None unless hurdle_nb.
-
-        Accepts the learned theta dict {target: value} (persisted in the artifact sidecar,
-        attached to the model at load). Orders by regression_targets -> [1, C, 1, 1] tensor.
-        Fail-loud if hurdle_nb is active but theta is missing/incomplete.
-        """
-        if self.output_distribution != "hurdle_nb":
-            return None
-        targets = list(self.config.get("regression_targets", []))
-        if not theta or not targets:
-            err_msg = (
-                "output_distribution='hurdle_nb' requires per-target theta (from the artifact "
-                f"sidecar) and regression_targets; got theta={theta!r}, targets={targets!r}."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        try:
-            vals = [float(theta[t]) for t in targets]
-        except (KeyError, TypeError) as exc:
-            err_msg = f"hurdle_nb theta missing a target entry: {theta!r} vs {targets!r}."
-            logger.error(err_msg)
-            raise ValueError(err_msg) from exc
-        if any(v <= 0 for v in vals):
-            err_msg = f"hurdle_nb theta values must be > 0; got {vals}."
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
-
-    def _parse_lognormal_sigma(self, sigma):
-        """Fixed lognormal scale sigma for the hurdle-lognormal compose. None unless that body.
-
-        Accepts a scalar (shared across targets) or a {target: value} dict (persisted in the
-        artifact sidecar). Orders by regression_targets -> [1, C, 1, 1]. Fail-loud if missing.
-        """
-        if self.output_distribution != "hurdle_lognormal":
-            return None
-        targets = list(self.config.get("regression_targets", []))
-        if sigma is None or not targets:
-            err_msg = (
-                "output_distribution='hurdle_lognormal' requires a fixed sigma (from the artifact "
-                f"sidecar) and regression_targets; got sigma={sigma!r}, targets={targets!r}."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        if isinstance(sigma, dict):
-            try:
-                vals = [float(sigma[t]) for t in targets]
-            except (KeyError, TypeError):
-                err_msg = f"hurdle_lognormal sigma missing a target: {sigma!r}."
-                logger.error(err_msg)
-                raise ValueError(err_msg)
-        else:
-            vals = [float(sigma)] * len(targets)
-        if any(v <= 0 for v in vals):
-            err_msg = f"hurdle_lognormal sigma must be > 0; got {vals}."
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
-
     def _roll_anchor(self, anchor: torch.Tensor) -> torch.Tensor:
         """Spatially roll the clamp anchor — the EXP-3 dissociation arm.
 
@@ -1021,10 +951,9 @@ class HydraNetInference:
         """Map the raw regression-head output to the emitted/fed-back magnitude.
 
         Standard: identity (reg is already the log1p-space point prediction).
-        Hurdle-NB (#101): reg is the count-space NB mean mu; emit log1p(E[y]) where the EXACT
-        zero-truncated hurdle mean is E[y] = P(y>0) * mu / (1 - NB0(mu, theta))
-        (Cragg/Mullahy/Cameron&Trivedi). log1p so the downstream inverse_transform (expm1)
-        recovers E[y] in count space — we never expm1 a free prediction (C-140).
+        A distribution family: log1p of the family's mean, composed with the gate, so the
+        downstream inverse_transform (expm1) recovers E[y] in count space — we never expm1 a
+        free prediction (C-140).
         """
         # ADR-067 (A-S8): a registered family emits per-cell activated params [B, n_reg*n_params,
         # H, W]; E[y] = family.mean(params) per target, then log1p (emit space) so the downstream
@@ -1053,14 +982,6 @@ class HydraNetInference:
                 )
             return torch.log1p(means)  # [B, n_reg, H, W]
 
-        # Single source of truth for each hurdle mean (shared with the explosion-check probe so it
-        # feeds back exactly this — C-142). All return log1p(count-space E[y]).
-        if self.output_distribution == "hurdle_nb":  # mu/(1-NB0) -> 1 as mu->0
-            return hurdle_nb_expected_log1p(reg, prob, self.hurdle_theta)
-        if self.output_distribution == "hurdle_lognormal":
-            return hurdle_lognormal_expected_log1p(reg, prob, self.lognormal_sigma)
-        if self.output_distribution == "hurdle_shrinkage":
-            return hurdle_point_expected_log1p(reg, prob)
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
     def _sample_feedback(

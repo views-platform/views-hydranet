@@ -22,7 +22,6 @@ class _MockModel(nn.Module):
     def __init__(self, output_distribution="standard"):
         super().__init__()
         self.output_distribution = output_distribution
-        self.hurdle_nb_theta = None
 
     def forward(self, x, h):  # pragma: no cover
         raise NotImplementedError

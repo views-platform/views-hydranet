@@ -66,9 +66,6 @@ LIVE = [
 # (owner decision 2026-11-15). A sixth, `quantile`, was purged on 2026-11-16 (ADR-079 §4).
 ORPHANS = [
     "zinb",
-    "hurdle_nb",
-    "hurdle_lognormal",
-    "hurdle_shrinkage",
 ]
 
 
@@ -167,23 +164,6 @@ def test_the_discard_is_not_a_tobit_special_case(valid_config_dict):
 # ───────────────────────────── the orphan losses keep their branches ─────────────────────────────
 
 
-@pytest.mark.parametrize("loss_reg", ["hurdle_nb"])
-def test_the_per_target_nb_losses_build_one_instance_per_target(valid_config_dict, loss_reg):
-    """One loss per regression target, so each learnable theta reaches the optimizer."""
-    cfg = _cfg(
-        valid_config_dict,
-        loss_reg=loss_reg,
-        loss_reg_theta_init=1.0,
-        output_distribution="standard",
-    )
-    reg = _reg(cfg)
-    assert isinstance(reg, dict)
-    assert set(reg) == set(valid_config_dict["regression_targets"])
-    for criterion in reg.values():
-        # the learnable per-target theta, the reason these are per-target at all
-        assert criterion.raw_theta.requires_grad is True
-
-
 def test_the_dict_valued_tobit_builds_one_instance_per_target(valid_config_dict):
     sigmas = {t: 1.5 for t in valid_config_dict["regression_targets"]}
     reg = _reg(
@@ -243,7 +223,7 @@ def test_head_width_is_the_emit_distributions_parameter_count(distribution, widt
     assert model.dec_conv4_head3_reg.out_channels == width
 
 
-@pytest.mark.parametrize("distribution", ["standard", "hurdle_nb"])
+@pytest.mark.parametrize("distribution", ["standard"])
 def test_an_explicit_softplus_wins_for_every_legacy_distribution(distribution):
     assert _head(distribution, reg_activation="softplus")._reg_activation is F.softplus
 
@@ -265,17 +245,3 @@ def test_standard_without_an_activation_trains_relu():
     but a rename keyed on two fields would have renamed this one into something untrue.
     """
     assert _head("standard")._reg_activation is F.relu
-
-
-@pytest.mark.parametrize(
-    "distribution,expected_name",
-    [
-        ("hurdle_nb", "softplus"),
-        ("hurdle_lognormal", "softplus"),
-        ("hurdle_shrinkage", "softplus"),
-    ],
-)
-def test_the_legacy_default_activation_keys_off_the_hurdle_prefix(distribution, expected_name):
-    """`startswith("hurdle")` is the rule: the three hurdles get softplus. A string prefix
-    deciding an activation is exactly what ADR-081 removes."""
-    assert _head(distribution)._reg_activation.__name__ == expected_name

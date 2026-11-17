@@ -36,10 +36,7 @@ def test_family_output_distributions_accepted(valid_config_dict, fam):
     assert HydraNetConfig(**cfg).output_distribution == fam
 
 
-@pytest.mark.parametrize(
-    "legacy",
-    ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage"],
-)
+@pytest.mark.parametrize("legacy", ["standard"])
 def test_legacy_output_distributions_still_accepted(valid_config_dict, legacy):
     cfg = _cfg(valid_config_dict, output_distribution=legacy)
     assert HydraNetConfig(**cfg).output_distribution == legacy
@@ -88,7 +85,7 @@ def test_n_head_samples_below_one_rejected(valid_config_dict, bad_k):
         HydraNetConfig(**cfg)
 
 
-@pytest.mark.parametrize("legacy", ["standard", "hurdle_nb"])
+@pytest.mark.parametrize("legacy", ["standard"])
 def test_k_gt_1_on_legacy_head_raises(valid_config_dict, legacy):
     cfg = _cfg(valid_config_dict, output_distribution=legacy, n_head_samples=3)
     with pytest.raises(ValidationError, match="n_head_samples"):

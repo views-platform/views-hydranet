@@ -128,7 +128,7 @@ def test_dump_without_a_family_fails_loud(tmp_path):
     from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
     from views_hydranet.utils.hydranet_inference import HydraNetInference
 
-    model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0, output_distribution="hurdle_nb").float()
+    model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0, output_distribution="standard").float()
     config = {
         "steps": [1],
         "time_steps": 1,
@@ -139,7 +139,6 @@ def test_dump_without_a_family_fails_loud(tmp_path):
         "n_posterior_samples": 1,
         "np_seed": 42,
         "torch_seed": 1,
-        "hurdle_theta": 1.0,
     }
     with pytest.raises(ValueError, match="needs a registered distribution family"):
         HydraNetInference(model, config, device="cpu", body_mean_dump_dir=str(tmp_path))

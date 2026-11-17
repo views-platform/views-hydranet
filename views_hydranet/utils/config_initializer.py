@@ -29,12 +29,7 @@ BODY_SUPERVISION_VALUES: tuple[str, ...] = ("all", "active")
 # authority for the LEGACY output_distribution values (ADR-067). The valid set is this tuple
 # UNIONED with the registered distribution-family names (`family_names()`); the two must stay
 # disjoint (C-197) so a legacy config never silently routes to a new family.
-LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
-    "standard",
-    "hurdle_nb",
-    "hurdle_lognormal",
-    "hurdle_shrinkage",
-)
+LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = ("standard",)
 
 # authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
 # combine into the emitted forecast. self_zeroed = body carries its own zeros (no gate); soft_gate
@@ -199,9 +194,6 @@ class HydraNetConfig(BaseModel):
     target_weights: Dict[str, float] | None = Field(default=None)
     # Learnable Tobit sigma (ADR-055): optimizer adjusts sigma during training.
     learnable_sigma: bool = Field(default=False)
-    # Hurdle-NB body (D2, #99): NB dispersion θ init + whether θ is learned (loss_reg='hurdle_nb').
-    loss_reg_theta_init: float | None = Field(default=None, gt=0.0)
-    learnable_theta: bool = Field(default=True)
     # Ranking body (loss_reg='listwise_level'): the grid's truth MAXIMUM in raw counts, which
     # declares the dyadic level set 0..ceil(log2(1+y_max)) and the fixed 1/(|R|-1) normaliser.
     # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
@@ -217,11 +209,11 @@ class HydraNetConfig(BaseModel):
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
     # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
-    # name (nb, zinb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
+    # name (nb, zinb, truncated_nb, mixture_nb) —
     # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
-    # off output_distribution ('softplus' if hurdle_nb else 'relu'); else 'softplus'/'relu'.
+    # 'relu'; else 'softplus'/'relu'. A family ignores it and uses its own activation.
     reg_activation: str | None = Field(default=None)
     # ADR-069 (Epic #183): how gate + body compose into the emitted forecast. Default "self_zeroed"
     # is inert for legacy heads and correct for zinb; it forces every nb config to declare a gate

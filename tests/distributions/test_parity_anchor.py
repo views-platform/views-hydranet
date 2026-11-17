@@ -25,10 +25,6 @@ _GOLDEN = (
     / "emit_parity_golden.json"
 )
 
-# output_distribution -> which recorded sidecar params its branch reads
-_USES_THETA = {"hurdle_nb"}
-_USES_SIGMA = {"hurdle_lognormal"}
-
 
 def _load():
     data = json.loads(_GOLDEN.read_text())
@@ -39,9 +35,6 @@ def _load():
 
 _DISTRIBUTIONS = [
     "standard",
-    "hurdle_nb",
-    "hurdle_lognormal",
-    "hurdle_shrinkage",
 ]
 
 
@@ -54,11 +47,7 @@ def test_emit_magnitude_matches_parity_anchor_byte_for_byte(name):
     outputs, t = _load()
     assert name in outputs, f"golden fixture missing '{name}' — regenerate the anchor"
 
-    stub = SimpleNamespace(
-        output_distribution=name,
-        hurdle_theta=t["theta"] if name in _USES_THETA else None,
-        lognormal_sigma=t["sigma"] if name in _USES_SIGMA else None,
-    )
+    stub = SimpleNamespace(output_distribution=name)
     emitted = HydraNetInference._emit_magnitude(stub, t["reg"], t["prob"])
     expected = torch.tensor(outputs[name], dtype=torch.float32)
     assert torch.equal(emitted, expected), (

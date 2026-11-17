@@ -4,7 +4,7 @@ This pins today's behaviour of the two seams the forecast-composition refactor (
 touch — ``_emit_magnitude`` (the point / AR-feedback path) and ``to_cube_samples`` (the D×K sample
 cube) — so S4 can prove it changed only what it meant to. Goldens fall into two categories:
 
-* **PARITY-LOCKED** — legacy heads (standard/hurdle_nb) and the **self-zeroed** ``zinb``
+* **PARITY-LOCKED** — the legacy head (standard) and the **self-zeroed** ``zinb``
   path. S4's composer is a *passthrough* for these, so they MUST stay byte-identical. These tests
   are the parity anchor S4/S6 assert against.
 * **nb PASSTHROUGH** — the ungated ``nb`` emit and ``nb`` sample cube under the default
@@ -25,22 +25,21 @@ from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.sampling import to_cube_samples
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 
-ATOL = 1e-5  # float32 emit vs float64 reference (matches test_hurdle_nb_inference.py convention)
+ATOL = 1e-5  # float32 emit vs float64 reference
 
 
-# ── fixtures: the minimal model + inference stand-in (mirrors test_hurdle_nb_inference._inf) ──
+# ── fixtures: the minimal model + inference stand-in ──
 class _MockModel(nn.Module):
-    def __init__(self, output_distribution="standard", hurdle_nb_theta=None):
+    def __init__(self, output_distribution="standard"):
         super().__init__()
         self.output_distribution = output_distribution
-        self.hurdle_nb_theta = hurdle_nb_theta
 
     def forward(self, x, h):  # pragma: no cover - not exercised
         raise NotImplementedError
 
 
-def _inf(output_distribution="standard", theta=None, targets=("lr_ged_sb",)):
-    model = _MockModel(output_distribution, theta)
+def _inf(output_distribution="standard", targets=("lr_ged_sb",)):
+    model = _MockModel(output_distribution)
     return HydraNetInference(model, {"regression_targets": list(targets)}, device="cpu")
 
 
@@ -61,14 +60,6 @@ def test_emit_standard_identity_LOCKED():
     reg = torch.tensor([[[[2.0]]]])
     out = _inf("standard")._emit_magnitude(reg, torch.tensor([[[[0.5]]]]))
     assert torch.equal(out, reg)  # standard = identity (log1p-space point already)
-
-
-def test_emit_hurdle_nb_LOCKED():
-    # mu=2, p=0.5, theta=1 -> E[y]=1.5 -> log1p(1.5)
-    out = _inf("hurdle_nb", {"lr_ged_sb": 1.0})._emit_magnitude(
-        torch.tensor([[[[2.0]]]]), torch.tensor([[[[0.5]]]])
-    )
-    assert torch.allclose(out, torch.tensor([[[[math.log1p(1.5)]]]]), atol=ATOL)
 
 
 def test_emit_zinb_self_zeroed_LOCKED():

@@ -21,10 +21,6 @@ def _act(output_distribution, reg_activation):
     return m._reg_activation
 
 
-def test_default_hurdle_nb_is_softplus():
-    assert _act("hurdle_nb", None) is F.softplus  # parity: unchanged when flag unset
-
-
 def test_default_standard_is_relu():
     assert _act("standard", None) is F.relu  # parity
 
@@ -32,7 +28,3 @@ def test_default_standard_is_relu():
 def test_override_softplus_on_standard_head():
     # Exp B: shrinkage + standard inference + softplus emit head
     assert _act("standard", "softplus") is F.softplus
-
-
-def test_override_relu_on_hurdle_head():
-    assert _act("hurdle_nb", "relu") is F.relu

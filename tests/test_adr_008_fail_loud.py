@@ -46,7 +46,6 @@ BACKLOG = {
     "utils/rollout_diagnostics.py": 1,
     "utils/static_channels.py": 2,
     "utils/tobit_loss.py": 1,
-    "utils/truncated_nb_loss.py": 1,
     "utils/volume_handler.py": 5,
     "utils/volume_sampler.py": 1,
     "utils/weighted_bce_loss.py": 1,

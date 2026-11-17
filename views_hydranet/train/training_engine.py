@@ -732,7 +732,7 @@ def _process_sequence(
 
     # Opt-in gate-side decay penalty (2026-06-28 gate_resolution): suppress the GATE on cells
     # active in the window but zero now. Keyed only on the true targets (threshold 0), so — unlike
-    # body active_window mask (C-180) — it applies even under a latent body (production hurdle_nb).
+    # body active_window mask (C-180) — it applies even under a latent body.
     decay_active: torch.Tensor | None = None
     if decay_gate_weight > 0:
         decay_active = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], 0.0)
@@ -2005,7 +2005,7 @@ def training_loop(
                     optimizer.step()
 
                 # ADR-055 / #99: log per-target dispersion once per lesson — sigma for
-                # tobit/lognormal, theta for hurdle-NB (TruncatedNBLoss) — whichever the loss
+                # tobit/lognormal — whichever the loss
                 # exposes. (getattr-guarded so a loss without one doesn't crash the logger.)
                 if isinstance(criterion_reg, dict):
                     import wandb
@@ -2015,8 +2015,6 @@ def training_loop(
                         for name, loss_fn in criterion_reg.items():
                             if hasattr(loss_fn, "sigma"):
                                 disp_log[f"sigma/{name}"] = loss_fn.sigma
-                            if hasattr(loss_fn, "theta"):
-                                disp_log[f"theta/{name}"] = loss_fn.theta
                         if disp_log:
                             wandb.log(disp_log)
 

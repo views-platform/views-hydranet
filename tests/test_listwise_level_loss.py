@@ -652,7 +652,6 @@ _REQUIRED_PARAM_STUBS: dict[str, object] = {
     "loss_reg_c": 1.0,
     "loss_reg_sigma": 1.0,
     "loss_reg_pareto_alpha": 1.5,
-    "loss_reg_theta_init": 1.0,
     "loss_reg_tau": 0.5,
     "loss_reg_cap": 10.0,
     "loss_reg_y_max": _Y_MAX,
@@ -727,16 +726,8 @@ def test_the_point_branch_is_accepted_so_the_guard_does_not_simply_ban_the_loss(
     valid_config_dict,
 ):
     """⛔ The positive half of all three guards above. A refusal that refuses everything is not a
-    guard, it is a ban — and ``hurdle_nb``/``hurdle_lognormal``/``hurdle_shrinkage``
-    are legacy **single-channel** heads, so the loss genuinely runs on them and they must pass."""
+    guard, it is a ban: the `standard` single-channel head must pass."""
     assert HydraNetConfig(**_ranking_cfg(valid_config_dict)).loss_reg == "listwise_level"
-    for single_channel in ("hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage"):
-        cfg = _ranking_cfg(valid_config_dict)
-        cfg["output_distribution"] = single_channel
-        assert HydraNetConfig(**cfg).output_distribution == single_channel, (
-            f"{single_channel} emits output_channels=1, so a listwise loss has a single score to "
-            "rank and the guard must not refuse it"
-        )
 
 
 def test_a_family_output_distribution_is_refused_because_it_discards_the_loss(valid_config_dict):
@@ -1009,7 +1000,6 @@ def test_the_pre_existing_registry_entries_are_untouched():
         "lognormal_nll": "LogNormalFixedSigmaLoss",
         "pareto": "ParetoLoss",
         "tobit": "TobitLoss",
-        "hurdle_nb": "TruncatedNBLoss",
     }
     for key, cls_name in expected.items():
         assert key in LOSS_REG_REGISTRY, f"phase 1 removed the pre-existing entry {key!r}"

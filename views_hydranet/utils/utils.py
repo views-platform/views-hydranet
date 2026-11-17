@@ -16,7 +16,6 @@ from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.pareto_loss import ParetoLoss
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.tobit_loss import TobitLoss
-from views_hydranet.utils.truncated_nb_loss import TruncatedNBLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 from views_hydranet.utils.weighted_bce_loss import WeightedBCEWithLogitsLoss
 
@@ -79,7 +78,7 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "factory": lambda config, device: CountMeanMSELoss().to(device),
     },
     # Non-negative point bodies for the hurdle (trained on positive cells, log1p space; emit via
-    # the point compose, output_distribution='hurdle_shrinkage'). MAE -> conditional median
+    # the point compose). MAE -> conditional median
     # (robust, under-fires the heavy-tailed mean); Huber -> robust mean, delta in log1p units
     # (default 1.0; 'loss_reg_huber_delta' is an optional forward-compat hook, not a config field).
     "mae": {
@@ -122,16 +121,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "params": ["loss_reg_sigma"],
         "factory": lambda config, device: TobitLoss(
             sigma=config["loss_reg_sigma"],
-        ).to(device),
-    },
-    # Hurdle-NB body (D2, #99): zero-truncated NB on positive cells; learnable per-target θ.
-    # Per-target instances are built in choose_loss() so each θ reaches the optimizer.
-    "hurdle_nb": {
-        "cls": TruncatedNBLoss,
-        "params": ["loss_reg_theta_init"],
-        "factory": lambda config, device: TruncatedNBLoss(
-            theta_init=config["loss_reg_theta_init"],
-            learnable=config.get("learnable_theta", True),
         ).to(device),
     },
     # Ranking body (#578, 2026-11-10_ranking_head_dossier 04 phase 1): the FIRST listwise entry
@@ -218,15 +207,6 @@ def choose_loss(
     learnable = config.get("learnable_sigma", False)
     if _family is not None:
         criterion_reg = FamilyLoss(_family).to(device)
-    elif config["loss_reg"] == "hurdle_nb":
-        # Per-target NB body: one loss instance per regression target, each with its own learnable
-        # θ (reaches the optimizer via the dict-of-losses path in training_engine).
-        theta_init = config.get("loss_reg_theta_init") or 1.0
-        learnable_theta = config.get("learnable_theta", True)
-        criterion_reg = {
-            target: TruncatedNBLoss(theta_init=theta_init, learnable=learnable_theta).to(device)
-            for target in config.get("regression_targets", [])
-        }
     elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
         criterion_reg = {
             target: TobitLoss(sigma=s, learnable=learnable).to(device)
