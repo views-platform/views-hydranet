@@ -340,7 +340,8 @@ transform cannot be chosen by the body alone.
 
 - **ADR-063 (the activation of the regression head).** Two parts of it no longer apply: that the
   mean-squared-error body uses ReLU unless a config says otherwise, and that a config setting can
-  override the activation. Two parts still apply: that hurdle bodies use softplus, and its
+  override the activation. Two parts still apply (the first only until 2026-11-17, when the
+  hurdle bodies were deleted): that hurdle bodies use softplus, and its
   reasoning against ReLU. (A hurdle body is one that describes only the positive counts and relies
   on the gate for the zeros. The zero-truncated negative binomial is the one in use.)
 - **ADR-067 (the count distributions).** Not changed. A count distribution still defines its own
@@ -393,6 +394,14 @@ This section lists what improves, what it costs, and what this document rules ou
   binomial trained on all cells with its own loss). Their code and tests
   stay. A body gets a name when it is first tried, one body at a time. Models saved with them must
   still load.
+
+  **Reversed by Simon on 2026-11-17: these five bodies are deleted** (GitHub issue #628). In the
+  config they were `zinb`, `hurdle_nb`, `hurdle_lognormal`, `hurdle_shrinkage` and `dense_nb`.
+  Reason: no config uses them, and three other pieces of leftover code exist only to serve them.
+  Whether each was well implemented was not judged. They are kept under the git tag
+  `archive/unused-bodies-2026-11-17`, and issue #628 lists, for each one, its files, its tests and the command that brings it
+  back. A model saved with one of them no longer loads: it is refused with a message that names
+  the body and the tag. On the machine checked, 1 of 45 saved models was affected (a `zinb` one).
 
 ---
 
@@ -461,7 +470,8 @@ decisions. The items are independent of each other.
   its name would be wrong for them.
 - **The switch from section 1** (`needs_latent` in the code). For the five bodies in use its second
   job, "must be trained on all cells", is now a fact stated by the body object. The switch itself
-  remains on the older path, for the unused bodies.
+  remains on the older path, for the unused bodies (since 2026-11-17: for the unused losses;
+  the unused bodies are deleted).
 - **The check that was missing is added** (condition 5 in section 5). A ranking-loss config whose
   target is not transformed with log1p is now refused when the config is built.
 - **Ten configs ask for something their body cannot do, today.** The five mean-squared-error
