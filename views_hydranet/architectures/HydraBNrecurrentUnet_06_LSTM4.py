@@ -92,8 +92,8 @@ class HydraBNUNet06_LSTM4(nn.Module):
         """
         super().__init__()
 
-        # #100: hurdle-NB needs a count-space mean mu at the output; softplus keeps it
-        # sub-exponential. Default "standard" => ReLU => byte-identical to pre-#100.
+        # #100: which body the regression heads are built for. Default "standard" => byte-identical
+        # to pre-#100.
         self.output_distribution = output_distribution
         # ADR-067 strangler-fig: if output_distribution names a registered distribution family
         # (nb, truncated_nb, mixture_nb), the head sizes reg channels to family.n_params and the
@@ -118,10 +118,16 @@ class HydraBNUNet06_LSTM4(nn.Module):
             self._reg_activation = _family_activation(self._family)
         elif reg_activation == "softplus":
             self._reg_activation = F.softplus
-        elif reg_activation == "relu":
+        elif reg_activation in (None, "relu"):
             self._reg_activation = F.relu
         else:
-            self._reg_activation = F.relu
+            # The config schema refuses this; a model built directly must not get ReLU silently.
+            err_msg = (
+                f"reg_activation={reg_activation!r} is not valid; expected None, 'relu' or "
+                "'softplus'."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
         # A family emits n_params reg channels per target (nb=2 [mu,theta], mixture_nb=5);
         # every legacy head emits output_channels (the AR-feedback

@@ -2,8 +2,8 @@
 
 The HydraNet pipeline trains in log1p space: every loss receives log1p-transformed targets
 (``config_initializer.TRANSFORMS["log1p"]`` / ``FeatureScaler``). A count likelihood — the
-hurdle-NB head (issues #98/#99) — needs **raw-count** targets. This module is the single,
-contained bridge that recovers them.
+distribution families, and the ranking loss to form its levels — needs **raw-count** targets.
+This module is the single, contained bridge that recovers them.
 
 Design invariants (ZINB/hurdle-NB dossier ``02_design`` §3; risk C-140):
 
@@ -14,7 +14,7 @@ Design invariants (ZINB/hurdle-NB dossier ``02_design`` §3; risk C-140):
   * **GPU-native.** Uses ``torch.expm1``; ``FeatureScaler``'s inverse is numpy/pandas-only and
     cannot run inside the training loss on-device.
 
-Intentionally tiny and exhaustively tested; consumed by the legacy hurdle losses (#99) and the
+Intentionally tiny and exhaustively tested; consumed by the
 ADR-067 distribution families (nb/mixture_nb/truncated_nb, via ``to_raw_counts`` in ``nll``).
 """
 

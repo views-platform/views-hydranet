@@ -31,6 +31,49 @@ BODY_SUPERVISION_VALUES: tuple[str, ...] = ("all", "active")
 # disjoint (C-197) so a legacy config never silently routes to a new family.
 LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = ("standard",)
 
+# Removed on 2026-11-17 (views-hydranet issue #628, ADR-079 §4) and kept under the git tag below.
+# Named here so a config or a saved model that still uses one is refused with the reason.
+REMOVED_BODIES_TAG = "archive/unused-bodies-2026-11-17"
+REMOVED_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
+    "zinb",
+    "hurdle_nb",
+    "hurdle_lognormal",
+    "hurdle_shrinkage",
+    "dense_nb",
+)
+#: Config settings that only the removed bodies read. Refused, not silently ignored (C-324).
+REMOVED_BODY_SETTINGS: tuple[str, ...] = (
+    "loss_reg_theta_init",
+    "learnable_theta",
+    "emit_family_core",
+    "pi_penalty_weight",
+    "pi_penalty_prior_logit",
+)
+
+
+def check_output_distribution(name: str) -> None:
+    """Raise ``ValueError`` unless ``name`` is a body this package has.
+
+    The one check, used by the config schema, by ``choose_model`` (every model build, including
+    the reload of a saved model from its sidecar) and by ``HydraNetInference`` (which also sees a
+    model unpickled without a sidecar). Torch-free.
+    """
+    from views_hydranet.distributions import family_names
+
+    known = [*LEGACY_OUTPUT_DISTRIBUTIONS, *sorted(family_names())]
+    if name in known:
+        return
+    err_msg = f"output_distribution={name!r} is not a body this package has. Known: {known}."
+    if name in REMOVED_OUTPUT_DISTRIBUTIONS:
+        err_msg += (
+            f" {name!r} was removed on 2026-11-17 and is kept under the git tag "
+            f"{REMOVED_BODIES_TAG} (views-hydranet issue #628). A model saved with it cannot be "
+            "loaded by this version."
+        )
+    logger.error(err_msg)
+    raise ValueError(err_msg)
+
+
 # authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
 # combine into the emitted forecast. self_zeroed = body carries its own zeros (no gate); soft_gate
 # = per-draw Bernoulli(gate) × body; threshold_gate = full body where gate ≥ τ else 0 (τ =
@@ -718,17 +761,11 @@ class HydraNetConfig(BaseModel):
     @field_validator("output_distribution")
     @classmethod
     def validate_output_distribution(cls, v: str) -> str:
-        # ADR-067: the valid set is the LEGACY values unioned with the registered family names.
-        # `family_names()` is torch-free (A-S2), so config validation stays torch-free (CRP). The
-        # family/legacy disjointness invariant (C-197) is enforced in a model_validator, which
-        # always runs (a field_validator is skipped for the default value).
-        from views_hydranet.distributions import family_names
-
-        valid = list(LEGACY_OUTPUT_DISTRIBUTIONS) + sorted(family_names())
-        if v not in valid:
-            err_msg = f"output_distribution='{v}' is not valid. Expected one of: {valid}."
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        # ADR-067: the valid set is the LEGACY values unioned with the registered family names,
+        # checked by the one shared function. The family/legacy disjointness invariant (C-197) is
+        # enforced in a model_validator, which always runs (a field_validator is skipped for the
+        # default value).
+        check_output_distribution(v)
         return v
 
     @field_validator("forecast_composition")
@@ -1336,6 +1373,16 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
+            removed = [k for k in REMOVED_BODY_SETTINGS if k in data]
+            if removed:
+                err_msg = (
+                    f"{removed} only configured bodies removed on 2026-11-17 (views-hydranet "
+                    f"issue #628; kept under the git tag {REMOVED_BODIES_TAG}). Nothing reads "
+                    "them now. "
+                    "Remove them from the config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return data
 
     @model_validator(mode="after")
@@ -1540,7 +1587,7 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        # (3) composition applies ONLY to families; a gate on a legacy head is inert -> RAISE.
+        # (2) composition applies ONLY to families; a gate on a legacy head is inert -> RAISE.
         if not is_family and comp != "self_zeroed":
             err_msg = (
                 f"forecast_composition='{comp}' only applies to a distribution family "
@@ -1550,7 +1597,7 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        # (4) threshold_gate needs τ in the OPEN unit interval; τ is meaningless otherwise.
+        # (3) threshold_gate needs τ in the OPEN unit interval; τ is meaningless otherwise.
         if comp == "threshold_gate":
             if self.gate_threshold is None or not (0.0 < self.gate_threshold < 1.0):
                 err_msg = (

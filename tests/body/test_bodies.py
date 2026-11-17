@@ -202,12 +202,6 @@ def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
     assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
 
 
-@pytest.mark.parametrize("distribution", ["zinb"])
-def test_an_unused_distribution_gets_no_body(distribution):
-    cfg = {**BASE, "loss_reg": "mse", "output_distribution": distribution}
-    assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
-
-
 @pytest.mark.parametrize("loss_reg", ["mae", "huber", "count_mean", "shrinkage"])
 def test_another_loss_on_a_standard_head_gets_no_body(loss_reg):
     cfg = {**BASE, "loss_reg": loss_reg, "output_distribution": "standard"}

@@ -35,6 +35,14 @@ from views_hydranet.utils.utils import choose_model
 
 def load_model(artifact: Path, device):
     cfg = json.loads(artifact.with_suffix(".pt.config.json").read_text())
+    if cfg.get("output_distribution", "standard") != "standard":
+        # A family head emits activated parameters, not log1p(E[y]); feeding them back raw would
+        # compare the wrong quantity with DATA_LOG_MAX (C-142). The composed feedback this script
+        # once built was for the hurdle-NB head, deleted 2026-11-17 (issue #628).
+        raise SystemExit(
+            f"{artifact.name}: output_distribution={cfg.get('output_distribution')!r}; this "
+            "probe only supports a 'standard' head."
+        )
     model = choose_model(cfg, device)
     state = torch.load(artifact, map_location=device, weights_only=True)
     model.load_state_dict(state)

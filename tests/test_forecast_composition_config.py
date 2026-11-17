@@ -54,7 +54,6 @@ def test_nb_without_composition_raises(valid_config_dict):
         HydraNetConfig(**cfg)
 
 
-# ── ADR-068 emit_family_core: no family has a core to strip ───────────────────────────────────
 # ── threshold τ rules ─────────────────────────────────────────────────────────────────────────
 def test_threshold_gate_requires_gate_threshold(valid_config_dict):
     cfg = _cfg(valid_config_dict, output_distribution="nb", forecast_composition="threshold_gate")

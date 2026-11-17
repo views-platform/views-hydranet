@@ -44,7 +44,7 @@ def test_legacy_output_distributions_still_accepted(valid_config_dict, legacy):
 
 def test_unknown_output_distribution_rejected_with_union_list(valid_config_dict):
     cfg = _cfg(valid_config_dict, output_distribution="not_a_family")
-    with pytest.raises(ValidationError, match="output_distribution.*not valid") as excinfo:
+    with pytest.raises(ValidationError, match="is not a body this package has") as excinfo:
         HydraNetConfig(**cfg)
     # the rejection message actually lists the family names (the union), not just the legacy set
     msg = str(excinfo.value)

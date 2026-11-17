@@ -249,9 +249,12 @@ class HydraNetInference:
         # Bounds ONLY the autoregressive feedback copy, never an emitted prediction.
         # None (default) => no behavior change. See reports/preanalysis_feedback_clamp.md.
         self.feedback_clamp = self._parse_feedback_clamp(config.get("feedback_clamp_log1p"))
-        # #101: hurdle-NB inference compose. The model carries output_distribution (#100); the
-        # learned per-target theta is attached to the model at load time (sidecar -> fetcher).
+        # The model carries the body it was built for (#100). A model unpickled without a sidecar
+        # never passed `choose_model`, so the body is checked here as well (issue #628).
         self.output_distribution = getattr(model, "output_distribution", "standard")
+        from views_hydranet.utils.config_initializer import check_output_distribution
+
+        check_output_distribution(self.output_distribution)
         # ADR-067 strangler-fig: a registered family owns emit (family.mean) + sampling
         # (family.sample). resolve_family returns None for every legacy value, so those keep their
         # exact emit/sampler path below (byte-identical). Head emits activated params per cell.
@@ -955,7 +958,7 @@ class HydraNetInference:
         """
         # ADR-067 (A-S8): a registered family emits per-cell activated params [B, n_reg*n_params,
         # H, W]; E[y] = family.mean(params) per target, then log1p (emit space) so the downstream
-        # expm1 recovers counts — same contract as the hurdle branches. getattr keeps the A-S2
+        # expm1 recovers counts (C-140). getattr keeps the A-S2
         # parity stub (no _family) on the legacy path below, so those stay byte-identical.
         fam = getattr(self, "_family", None)
         if fam is not None:

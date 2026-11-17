@@ -29,25 +29,12 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     # argument table. get_architecture raises on an unknown name, naming what is registered.
     model_cls = get_architecture(config["model"])
     # Every model build passes here: training, and the reload of a saved model from its sidecar.
-    # A body the package does not know must stop here. Otherwise the head falls back to one ReLU
-    # channel: a saved model then fails with a size mismatch that does not name the cause, or
-    # loads and forecasts wrong numbers (issue #628).
-    from views_hydranet.distributions import family_names
-    from views_hydranet.utils.config_initializer import LEGACY_OUTPUT_DISTRIBUTIONS
+    # A body the package does not know stops here; otherwise the head would fall back to one ReLU
+    # channel and a saved model would fail obscurely or forecast wrong numbers (issue #628).
+    from views_hydranet.utils.config_initializer import check_output_distribution
 
     distribution = config.get("output_distribution", "standard")
-    known = [*LEGACY_OUTPUT_DISTRIBUTIONS, *sorted(family_names())]
-    if distribution not in known:
-        err_msg = (
-            f"output_distribution={distribution!r} is not a body this package has. "
-            f"Known: {known}. "
-            "Five unused bodies (zinb, hurdle_nb, hurdle_lognormal, hurdle_shrinkage, dense_nb) "
-            "were removed on 2026-11-17 and are kept under the git tag "
-            "archive/unused-bodies-2026-11-17 (views-hydranet issue #628). A model saved with one "
-            "of them cannot be loaded by this version."
-        )
-        logger.error(err_msg)
-        raise ValueError(err_msg)
+    check_output_distribution(distribution)
     return model_cls(
         config["input_channels"],
         config["total_hidden_channels"],

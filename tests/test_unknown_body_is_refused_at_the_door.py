@@ -15,7 +15,11 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from views_hydranet.distributions import family_names  # noqa: E402
-from views_hydranet.utils.config_initializer import LEGACY_OUTPUT_DISTRIBUTIONS  # noqa: E402
+from views_hydranet.utils.config_initializer import (  # noqa: E402
+    LEGACY_OUTPUT_DISTRIBUTIONS,
+    REMOVED_BODY_SETTINGS,
+    REMOVED_OUTPUT_DISTRIBUTIONS,
+)
 from views_hydranet.utils.utils import choose_model  # noqa: E402
 
 CPU = torch.device("cpu")
@@ -29,12 +33,60 @@ BASE = {
 
 
 @pytest.mark.parametrize("name", ["not_a_body", "quantile", "ZINB", ""])
-def test_an_unknown_body_is_refused_with_the_name_and_the_way_back(name):
+def test_an_unknown_body_is_refused_and_named(name):
+    with pytest.raises(ValueError) as excinfo:
+        choose_model({**BASE, "output_distribution": name}, CPU)
+    assert repr(name) in str(excinfo.value), "the message must name the value it refused"
+
+
+@pytest.mark.parametrize("name", REMOVED_OUTPUT_DISTRIBUTIONS)
+def test_a_removed_body_is_refused_with_the_way_back(name):
     with pytest.raises(ValueError) as excinfo:
         choose_model({**BASE, "output_distribution": name}, CPU)
     message = str(excinfo.value)
-    assert repr(name) in message, "the message must name the value it refused"
-    assert "archive/unused-bodies-2026-11-17" in message, "the message must say where they are"
+    assert repr(name) in message
+    assert "archive/unused-bodies-2026-11-17" in message, "the message must say where it is"
+
+
+@pytest.mark.parametrize("name", REMOVED_OUTPUT_DISTRIBUTIONS)
+def test_the_config_schema_refuses_a_removed_body_with_the_same_message(valid_config_dict, name):
+    from pydantic import ValidationError
+
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    with pytest.raises(ValidationError, match="archive/unused-bodies-2026-11-17"):
+        HydraNetConfig(**{**valid_config_dict, "output_distribution": name})
+
+
+@pytest.mark.parametrize("setting", REMOVED_BODY_SETTINGS)
+def test_a_setting_only_a_removed_body_read_is_refused(valid_config_dict, setting):
+    """Accepted and ignored would be the inert-setting trap (C-324): `extra="allow"`."""
+    from pydantic import ValidationError
+
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    with pytest.raises(ValidationError) as excinfo:
+        HydraNetConfig(**{**valid_config_dict, setting: 1.0})
+    assert setting in str(excinfo.value)
+
+
+def test_a_model_loaded_without_choose_model_is_refused_by_the_forecast_code():
+    """A model unpickled without a sidecar never passed `choose_model`."""
+    import torch.nn as nn
+
+    from views_hydranet.utils.hydranet_inference import HydraNetInference
+
+    class _Unpickled(nn.Module):
+        output_distribution = "hurdle_nb"
+
+    with pytest.raises(ValueError, match="archive/unused-bodies-2026-11-17"):
+        HydraNetInference(_Unpickled(), {"regression_targets": ["lr_ged_sb"]}, device="cpu")
+
+
+def test_an_unknown_activation_is_refused_by_the_head():
+    """The schema refuses it; a model built directly must not silently get ReLU."""
+    with pytest.raises(ValueError, match="reg_activation"):
+        choose_model({**BASE, "reg_activation": "softpuls"}, CPU)
 
 
 @pytest.mark.parametrize("name", [*LEGACY_OUTPUT_DISTRIBUTIONS, *sorted(family_names())])
