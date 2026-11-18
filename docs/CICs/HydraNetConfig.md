@@ -33,7 +33,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Full error collection:** `handle_typos_and_missing_guidance` (a `model_validator(mode="before")`) injects sentinels for registry/enum fields so Pydantic validates ALL fields and reports every error at once, rather than stopping at the first missing one. (There is no `evalution_mode` key-rename shim — value-level typos in `evaluation_mode` are rejected loud by its field validator.)
 - **Enum Validation:** Validates `run_type`, `evaluation_mode`, and `aggregate_method` against strict allowlists, with alias support for `aggregate_method` (e.g., `"mean"` → `"arithmetic_mean"`).
 - **Conditional Parameter Validation:** Guarantees that strategy-specific parameters are explicitly provided for the active choice in `sampling_strategy`, `loss_reg`, `loss_class`, `body_supervision` (QS99 params), and `target_weights` (regression target coverage). No silent defaults — missing parameters raise immediately.
-- **Per-Target Sigma Validation (issue #44):** `loss_reg_sigma` accepts `float` (shared across targets) or `Dict[str, float]` (per-target). Dict form is only valid for `loss_reg='tobit'`. Validates: all regression targets present, no extra keys, all values positive.
+- **Removed Losses and Settings (issue #631, 2026-11-18):** a `loss_reg` naming a deleted loss (`count_mean`, `mae`, `huber`, `shrinkage`, `lognormal_nll`, `pareto`, `tobit`) or a config setting a deleted setting (`loss_reg_a`, `loss_reg_c`, `loss_reg_pareto_alpha`, `loss_reg_sigma`, `learnable_sigma`, `loss_reg_huber_delta`) is refused with a message naming the git tag `archive/unused-losses-2026-11-18`, never ignored. The check is `check_loss_reg`, shared with `choose_loss`. (The per-target `tobit` sigma validation of issue #44 went with `tobit`.)
 - **Dict Compatibility Layer:** Provides `__getitem__`, `__contains__`, `get()`, and `keys()` for gradual migration from `config["key"]` access patterns.
 
 ---
@@ -60,7 +60,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Invalid Evaluation Mode:** Raises `ValueError` with the valid options listed — a bad `evaluation_mode` value is rejected loud, never silently corrected.
 - **Invalid Loss Function (Regression):** Raises `ValueError` when `loss_reg` is not in `LOSS_REG_REGISTRY`, listing valid options.
 - **Invalid Loss Function (Classification):** Raises `ValueError` when `loss_class` is not in `LOSS_CLASS_REGISTRY`, listing valid options.
-- **Missing Loss Reg Parameter:** Raises `ValueError` when the active regression loss's required parameter is not provided (e.g., `shrinkage` requires `loss_reg_a` and `loss_reg_c`, `basu_dpd` requires `loss_reg_alpha` and `loss_reg_sigma`, `tobit` requires `loss_reg_sigma`).
+- **Missing Loss Reg Parameter:** Raises `ValueError` when the active regression loss's required parameter is not provided (e.g., `listwise_level` requires `loss_reg_y_max`).
 - **Missing Loss Class Parameter:** Raises `ValueError` when the active classification loss's required parameter is not provided (e.g., `focal` requires `loss_class_alpha` and `loss_class_gamma`).
 - **Invalid Aggregate Method:** Raises `ValueError` when `aggregate_method` is not in `[arithmetic_mean, geometric_mean, median]`.
 - **Degenerate Slope Ratio:** Raises `ValueError` when `slope_ratio <= 0.0` (causes division-by-zero in curriculum).
@@ -74,13 +74,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Missing QS99 Tau (ADR-050):** Raises `ValueError` when `body_supervision='active'` and `qs99_weight > 0` but `qs99_tau` is not provided (`validate_qs99_requires_tau` — re-keyed off the retired `hurdle_threshold` onto `body_supervision`).
 - **Invalid QS99 Weight (ADR-050):** Raises `ValidationError` when `qs99_weight < 0` (negative weight inverts the penalty direction).
 - **Invalid QS99 Tau (ADR-050):** Raises `ValidationError` when `qs99_tau` is not in `(0.0, 1.0)` (pinball loss quantile must be a valid probability).
-- **Degenerate Basu DPD Alpha (ADR-050):** Raises `ValueError` when `loss_reg='basu_dpd'` and `loss_reg_alpha <= 0` (α=0 degenerates to MLE, α<0 is undefined).
-- **Degenerate Basu DPD Sigma (ADR-050):** Raises `ValueError` when `loss_reg='basu_dpd'` and `loss_reg_sigma <= 0` (σ=0 causes division by zero).
 - **Invalid Target Weights (ADR-050):** Raises `ValueError` when `target_weights` contains negative values or is missing a regression target.
-- **Per-Target Sigma for Non-Tobit (issue #44):** Raises `ValueError` when `loss_reg_sigma` is a dict but `loss_reg` is not `'tobit'`. Dict sigma is only meaningful for Tobit censored-normal loss.
-- **Per-Target Sigma Non-Positive (issue #44):** Raises `ValueError` when any value in the `loss_reg_sigma` dict is ≤ 0.
-- **Per-Target Sigma Missing Target (issue #44):** Raises `ValueError` when the `loss_reg_sigma` dict is missing an entry for a regression target.
-- **Per-Target Sigma Extra Key (issue #44):** Raises `ValueError` when the `loss_reg_sigma` dict contains a key not in `regression_targets` (catches typos).
 - **Invalid Scheduled Sampling Schedule (ADR-056):** Raises `ValueError` when `ss_schedule` is not in `['linear', 'inverse_sigmoid', 'exponential']`.
 - **Missing Scheduled Sampling Warmup (ADR-056):** Raises `ValueError` when `ss_schedule='linear'` and `ss_warmup_lessons` is not provided.
 - **Missing Scheduled Sampling K (ADR-056):** Raises `ValueError` when `ss_schedule` is `'inverse_sigmoid'` or `'exponential'` and `ss_k` is not provided.

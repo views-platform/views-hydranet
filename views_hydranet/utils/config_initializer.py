@@ -1660,8 +1660,8 @@ class HydraNetConfig(BaseModel):
         # (needs_latent=False), and a latent body models zeros/censoring/truncation itself.
         # Requesting body_supervision='active' there is meaningless, so RAISE (not ignore). Single
         # authority for "is this loss latent?" is the loss class's `needs_latent` flag in
-        # LOSS_REG_REGISTRY — NOT a hardcoded name list (which would wrongly forbid lognormal_nll,
-        # a positive-only *point* body that REQUIRES a positives window).
+        # LOSS_REG_REGISTRY — NOT a hardcoded name list. Today the only latent loss is
+        # listwise_level; mse is the point body a supervision window can apply to.
         if self.body_supervision == "active":
             from views_hydranet.utils.utils import LOSS_REG_REGISTRY
 
@@ -1671,8 +1671,8 @@ class HydraNetConfig(BaseModel):
                     f"body_supervision='active' supervises the POINT body, but loss_reg="
                     f"'{self.loss_reg}' is a latent likelihood (needs_latent=True) that models "
                     f"zeros/censoring internally — the window would be silently ignored. Use "
-                    f"body_supervision='all' with this loss, or a non-latent point body (mse/mae/"
-                    f"huber/shrinkage/lognormal_nll) with a supervision window."
+                    f"body_supervision='all' with this loss, or the non-latent point body (mse) "
+                    f"with a supervision window."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)

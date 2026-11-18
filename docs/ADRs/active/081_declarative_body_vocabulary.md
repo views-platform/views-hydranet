@@ -441,6 +441,11 @@ what is refused outright.*
       together with the bodies they belong to (issue #628, ADR-079 §4; kept under the git tag
       `archive/unused-bodies-2026-11-17`). `quantile` was deleted on 2026-11-16. The other seven are unchanged and are the
       subject of issue #631.
+      **Changed by Simon on 2026-11-18 for the other seven:** `count_mean`, `mae`, `huber`,
+      `shrinkage`, `lognormal_nll`, `pareto` and `tobit` are deleted (issue #631). Their last
+      version is under the git tag `archive/unused-losses-2026-11-18`, for comparison only: a loss
+      wanted again is rebuilt from scratch, not restored. The registry now holds only `mse` and
+      `listwise_level`, the two losses a live config names.
 
 ### Explicitly refused
 
