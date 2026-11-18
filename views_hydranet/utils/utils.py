@@ -172,6 +172,7 @@ def choose_loss(
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
     from views_hydranet.utils.config_initializer import (
+        check_loss_reg,
         validate_body_nll_denominator_pair,
     )
 
@@ -201,15 +202,10 @@ def choose_loss(
             for target, s in loss_reg_sigma.items()
         }
     else:
-        try:
-            criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
-        except KeyError:
-            err_msg = (
-                f"Unknown regression loss: '{config['loss_reg']}'. "
-                f"Available: {list(LOSS_REG_REGISTRY.keys())}"
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        # Membership is checked first, so a KeyError raised inside a factory (a missing parameter
+        # such as `loss_reg_y_max`) is not reported as an unknown loss.
+        check_loss_reg(config["loss_reg"])
+        criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
     _pw = config.get("loss_class_pos_weight")
     if config["loss_class"] == "weighted_bce" and isinstance(_pw, (list, tuple)):
         # per-target gate: one WeightedBCEWithLogitsLoss per classification target (sb/ns/os), each

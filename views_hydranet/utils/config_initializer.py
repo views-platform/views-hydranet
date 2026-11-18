@@ -74,6 +74,37 @@ def check_output_distribution(name: str) -> None:
     raise ValueError(err_msg)
 
 
+# Removed on 2026-11-18 (views-hydranet issue #631): regression losses no config used, and the
+# settings only they read. Each name is added here by the commit that deletes it. Kept under the
+# git tag below for comparison only: a loss wanted again is rebuilt from scratch, not restored.
+REMOVED_LOSSES_TAG = "archive/unused-losses-2026-11-18"
+REMOVED_REG_LOSSES: tuple[str, ...] = ()
+#: Config settings that only the removed losses read. Refused, not silently ignored (C-324).
+REMOVED_LOSS_SETTINGS: tuple[str, ...] = ()
+
+
+def check_loss_reg(name: str) -> None:
+    """Raise ``ValueError`` unless ``name`` is a regression loss this package has.
+
+    The one check, used by the config schema and by ``choose_loss`` (which also serves raw dicts
+    that never passed the schema).
+    """
+    from views_hydranet.utils.utils import LOSS_REG_REGISTRY
+
+    known = list(LOSS_REG_REGISTRY)
+    if name in known:
+        return
+    prefix = "'loss_reg' is required." if name.startswith("__MISSING_") else f"loss_reg={name!r}"
+    err_msg = f"{prefix} is not a regression loss this package has. Available: {known}."
+    if name in REMOVED_REG_LOSSES:
+        err_msg += (
+            f" {name!r} was removed on 2026-11-18 (views-hydranet issue #631). The last "
+            f"version is under the git tag {REMOVED_LOSSES_TAG}, for comparison only."
+        )
+    logger.error(err_msg)
+    raise ValueError(err_msg)
+
+
 # authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
 # combine into the emitted forecast. self_zeroed = body carries its own zeros (no gate); soft_gate
 # = per-draw Bernoulli(gate) × body; threshold_gate = full body where gate ≥ τ else 0 (τ =
@@ -847,13 +878,7 @@ class HydraNetConfig(BaseModel):
     @field_validator("loss_reg")
     @classmethod
     def validate_loss_reg(cls, v: str) -> str:
-        from views_hydranet.utils.utils import LOSS_REG_REGISTRY
-
-        if v not in LOSS_REG_REGISTRY:
-            prefix = "'loss_reg' is required." if v.startswith("__MISSING_") else f"loss_reg='{v}'"
-            err_msg = f"{prefix} Available: {list(LOSS_REG_REGISTRY.keys())}"
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        check_loss_reg(v)
         return v
 
     @field_validator("loss_class")
@@ -1380,6 +1405,15 @@ class HydraNetConfig(BaseModel):
                     f"issue #628; kept under the git tag {REMOVED_BODIES_TAG}). Nothing reads "
                     "them now. "
                     "Remove them from the config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+            removed = [k for k in REMOVED_LOSS_SETTINGS if k in data]
+            if removed:
+                err_msg = (
+                    f"{removed} only configured regression losses removed on 2026-11-18 "
+                    f"(views-hydranet issue #631; last version under the git tag "
+                    f"{REMOVED_LOSSES_TAG}). Nothing reads them now. Remove them from the config."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
