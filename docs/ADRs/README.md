@@ -63,8 +63,6 @@ Architectural decisions specific to the HydraNet system.
 - **[047](active/047_pandas_free_prediction_output.md)**: Pandas-Free Prediction Output Path
 - **[048](active/048_technical_risk_register.md)**: Technical Risk Register
 - **[049](active/049_sampling_strategy_registry.md)**: Sampling Strategy Registry for Anchor Selection
-- **[054](active/054_tobit_censored_regression_loss.md)**: ADR-054: Tobit Censored-Normal Likelihood as Regression Loss
-- **[055](active/055_learnable_per_target_tobit_sigma.md)**: ADR-055: Learnable Per-Target Tobit Sigma
 - **[056](active/056_scheduled_sampling.md)**: ADR-056: Scheduled Sampling for Autoregressive Training
 - **[059](active/059_predictive_uncertainty_representation.md)**: ADR-059: Predictive Uncertainty — MC-Dropout Now, Learned Posterior as the Target
 - **[060](active/060_static_exogenous_input_channels.md)**: ADR-060: Static & Architectural Input Channels
@@ -114,6 +112,8 @@ Architectural decisions specific to the HydraNet system.
 - **[033](archive/033_superseded_by_032.md)**: Naming Invariants and Semantic Intent
 - **[041](archive/041_superseded_by_008.md)**: Symmetric Vector Architecture (Task-Specific Targets)
 - **[050](archive/050_hurdle_loss_architecture.md)**: Hurdle-Decomposed Loss Architecture for Zero-Inflated Conflict Data
+- **[054](archive/054_tobit_censored_regression_loss.md)**: ADR-054: Tobit Censored-Normal Likelihood as Regression Loss
+- **[055](archive/055_learnable_per_target_tobit_sigma.md)**: ADR-055: Learnable Per-Target Tobit Sigma
 - **[066](archive/066_output_distribution_decomposition.md)**: ADR-066: Rename `output_distribution` to a readable `body` setting (and finally make ZINB nameable)
 - **[071](archive/071_violet_visitor_datafactory_provider.md)**: ADR-071: violet_visitor's data provider is views-datafactory (`africa_me_legacy`)
 - **[076](archive/076_MOVED_provider_migration_parity_bar.md)**: ADR-076: Moved — the provider-migration parity bar is pipeline-core's
