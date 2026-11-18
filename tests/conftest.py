@@ -155,8 +155,6 @@ def valid_config_dict():
         "n_posterior_samples": 10,
         "loss_reg": "mse",
         "loss_class": "bce",
-        "loss_reg_a": 258,
-        "loss_reg_c": 0.001,
         "loss_class_gamma": 1.5,
         "loss_class_alpha": 0.75,
         "weight_init": "xavier_norm",

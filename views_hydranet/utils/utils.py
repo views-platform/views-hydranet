@@ -10,10 +10,7 @@ import torch.nn as nn
 from views_hydranet.architectures.registry import get_architecture
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
-from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
-from views_hydranet.utils.pareto_loss import ParetoLoss
-from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.tobit_loss import TobitLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 from views_hydranet.utils.weighted_bce_loss import WeightedBCEWithLogitsLoss
@@ -53,29 +50,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "cls": nn.MSELoss,
         "params": [],
         "factory": lambda config, device: nn.MSELoss().to(device),
-    },
-    "shrinkage": {
-        "cls": ShrinkageLoss,
-        "params": ["loss_reg_a", "loss_reg_c"],
-        "factory": lambda config, device: ShrinkageLoss(
-            a=config["loss_reg_a"],
-            c=config["loss_reg_c"],
-            size_average=True,
-        ).to(device),
-    },
-    "lognormal_nll": {
-        "cls": LogNormalFixedSigmaLoss,
-        "params": ["loss_reg_sigma"],
-        "factory": lambda config, device: LogNormalFixedSigmaLoss(
-            sigma=config["loss_reg_sigma"],
-        ).to(device),
-    },
-    "pareto": {
-        "cls": ParetoLoss,
-        "params": ["loss_reg_pareto_alpha"],
-        "factory": lambda config, device: ParetoLoss(
-            alpha=config["loss_reg_pareto_alpha"],
-        ).to(device),
     },
     "tobit": {
         "cls": TobitLoss,

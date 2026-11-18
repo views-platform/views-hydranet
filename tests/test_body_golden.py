@@ -69,8 +69,6 @@ BASE = {
     "loss_class": "weighted_bce",  # what every live config uses (logits in)
     "loss_class_gamma": 1.5,
     "loss_class_alpha": 0.75,
-    "loss_reg_a": 258,
-    "loss_reg_c": 0.001,
     "reg_activation": "softplus",
 }
 

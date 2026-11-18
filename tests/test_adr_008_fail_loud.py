@@ -39,8 +39,6 @@ BACKLOG = {
     "utils/count_target_bridge.py": 2,
     "utils/disk_guard.py": 3,
     "utils/grid_naming.py": 1,
-    "utils/lognormal_nll_loss.py": 1,
-    "utils/pareto_loss.py": 1,
     "utils/prediction_frame_assembler.py": 2,
     "utils/rollout_diagnostics.py": 1,
     "utils/static_channels.py": 2,

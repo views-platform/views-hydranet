@@ -41,8 +41,6 @@ BASE = {
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "static_channels": [],
     "loss_class": "weighted_bce",
-    "loss_reg_a": 258,
-    "loss_reg_c": 0.001,
     "reg_activation": "softplus",
 }
 
@@ -199,12 +197,6 @@ def test_standard_mse_without_softplus_gets_no_body(activation):
 def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
     """A different body by ADR-079 §2; no config uses it, so it keeps the older path."""
     cfg = {**BASE, **LIVE["ranking"], "loss_reg_listwise_transform": "softplus"}
-    assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
-
-
-@pytest.mark.parametrize("loss_reg", ["shrinkage"])
-def test_another_loss_on_a_standard_head_gets_no_body(loss_reg):
-    cfg = {**BASE, "loss_reg": loss_reg, "output_distribution": "standard"}
     assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
 
 

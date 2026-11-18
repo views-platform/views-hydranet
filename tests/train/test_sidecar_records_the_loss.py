@@ -122,9 +122,6 @@ def test_two_truncated_nb_models_with_different_denominators_write_different_sid
 @pytest.mark.parametrize(
     "loss_reg,params",
     [
-        ("shrinkage", {"loss_reg_a": 2.0, "loss_reg_c": 0.5}),
-        ("lognormal_nll", {"loss_reg_sigma": 1.5}),
-        ("pareto", {"loss_reg_pareto_alpha": 1.5}),
         ("tobit", {"loss_reg_sigma": 1.5}),
     ],
 )

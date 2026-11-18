@@ -42,8 +42,6 @@ class TestGreenCurriculumIntegration:
             "warmup_steps": 100,
             "loss_reg": "mse",
             "loss_class": "bce",
-            "loss_reg_a": 16,
-            "loss_reg_c": 0.05,
             "loss_class_gamma": 1.5,
             "loss_class_alpha": 0.75,
             "freeze_h": "hl",

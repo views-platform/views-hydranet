@@ -49,7 +49,9 @@ class TestF5_CICFieldCountDrift:
         # #628 (2026-11-17): the hurdle bodies are deleted, -loss_reg_theta_init,
         # -learnable_theta -> 104; zinb's settings -emit_family_core, -pi_penalty_weight,
         # -pi_penalty_prior_logit -> 101
-        CIC_CLAIMED_COUNT = 101
+        # #631 (2026-11-18): shrinkage and pareto deleted, -loss_reg_a, -loss_reg_c,
+        # -loss_reg_pareto_alpha -> 98
+        CIC_CLAIMED_COUNT = 98
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "
@@ -115,13 +117,11 @@ class TestF5_CICFieldCountDrift:
         )
 
         # ⭐ A RATCHET, not a clean bill of health. A parameter counts as *described* when one of
-        # its mentions sits near the CIC's own entry idiom ("added …", "default …"). Measured
-        # 2026-11-12: 5 of the 7 required parameters are described; `loss_reg_a` and `loss_reg_c`
-        # (ShrinkageLoss) are bare mentions and are listed below rather than fixed, because
-        # writing entries for two parameters whose semantics I have not studied would be inventing
-        # documentation. ⛔ The list may only SHRINK: describe one and remove it from here. A new
-        # undescribed parameter fails instead of joining it.
-        known_bare_mentions = {"loss_reg_a", "loss_reg_c"}
+        # its mentions sits near the CIC's own entry idiom ("added …", "default …"). The list of
+        # parameters allowed to be bare mentions held `loss_reg_a` and `loss_reg_c` until
+        # 2026-11-18, when ShrinkageLoss was deleted (#631); it is now empty. ⛔ It may only
+        # SHRINK. A new undescribed parameter fails instead of joining it.
+        known_bare_mentions: set[str] = set()
         described = {
             p
             for p in required

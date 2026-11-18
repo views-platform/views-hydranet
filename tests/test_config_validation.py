@@ -45,10 +45,7 @@ class TestGreen:
         """mse/bce require no loss-specific params — absence is fine."""
         cfg = dict(valid_config_dict)
         for key in [
-            "loss_reg_a",
-            "loss_reg_c",
             "loss_reg_sigma",
-            "loss_reg_pareto_alpha",
             "loss_class_gamma",
             "loss_class_alpha",
         ]:
@@ -217,18 +214,6 @@ class TestRed:
         del cfg["loss_class_gamma"]
         del cfg["loss_class_alpha"]
         with pytest.raises(ValidationError, match="loss_class_"):
-            HydraNetConfig(**cfg)
-
-    def test_red_missing_lognormal_param_raises(self, valid_config_dict):
-        """lognormal_nll without loss_reg_sigma → ValidationError."""
-        cfg = _make_config(valid_config_dict, loss_reg="lognormal_nll")
-        with pytest.raises(ValidationError, match="loss_reg_sigma"):
-            HydraNetConfig(**cfg)
-
-    def test_red_missing_pareto_param_raises(self, valid_config_dict):
-        """pareto without loss_reg_pareto_alpha → ValidationError."""
-        cfg = _make_config(valid_config_dict, loss_reg="pareto")
-        with pytest.raises(ValidationError, match="loss_reg_pareto_alpha"):
             HydraNetConfig(**cfg)
 
     def test_red_input_channels_not_3x_output_channels(self, valid_config_dict):

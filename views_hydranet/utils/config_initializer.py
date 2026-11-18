@@ -78,9 +78,21 @@ def check_output_distribution(name: str) -> None:
 # settings only they read. Each name is added here by the commit that deletes it. Kept under the
 # git tag below for comparison only: a loss wanted again is rebuilt from scratch, not restored.
 REMOVED_LOSSES_TAG = "archive/unused-losses-2026-11-18"
-REMOVED_REG_LOSSES: tuple[str, ...] = ("count_mean", "mae", "huber")
+REMOVED_REG_LOSSES: tuple[str, ...] = (
+    "count_mean",
+    "mae",
+    "huber",
+    "shrinkage",
+    "lognormal_nll",
+    "pareto",
+)
 #: Config settings that only the removed losses read. Refused, not silently ignored (C-324).
-REMOVED_LOSS_SETTINGS: tuple[str, ...] = ("loss_reg_huber_delta",)
+REMOVED_LOSS_SETTINGS: tuple[str, ...] = (
+    "loss_reg_huber_delta",
+    "loss_reg_a",
+    "loss_reg_c",
+    "loss_reg_pareto_alpha",
+)
 
 
 def check_loss_reg(name: str) -> None:
@@ -228,17 +240,11 @@ class HydraNetConfig(BaseModel):
         ),
     )
 
-    # 6. Loss Functions (names: mse, shrinkage, lognormal_nll, tobit)
+    # 6. Loss Functions (names: see LOSS_REG_REGISTRY in utils.py)
     loss_reg: str = Field(...)
     loss_class: str = Field(...)
-    # ShrinkageLoss params (loss_reg='shrinkage')
-    loss_reg_a: float | None = Field(default=None)
-    loss_reg_c: float | None = Field(default=None)
-    # Shared: LogNormalFixedSigmaLoss / TobitLoss sigma
-    # Per-target Tobit (issue #44): dict[str, float] maps regression target → sigma.
+    # TobitLoss sigma. Per-target Tobit (issue #44): dict maps regression target → sigma.
     loss_reg_sigma: float | Dict[str, float] | None = Field(default=None)
-    # ParetoLoss params (loss_reg='pareto')
-    loss_reg_pareto_alpha: float | None = Field(default=None)
     # FocalLoss params (loss_class='focal')
     loss_class_gamma: float | None = Field(default=None)
     loss_class_alpha: float | None = Field(default=None)
