@@ -205,11 +205,10 @@ class TestRed:
         assert "loss_reg" in error_text
 
     def test_red_missing_loss_reg_param_raises(self, valid_config_dict):
-        """shrinkage without loss_reg_a/loss_reg_c → ValidationError naming the param."""
-        cfg = _make_config(valid_config_dict, loss_reg="shrinkage")
-        del cfg["loss_reg_a"]
-        del cfg["loss_reg_c"]
-        with pytest.raises(ValidationError, match="loss_reg_a"):
+        """listwise_level without loss_reg_y_max → ValidationError naming the param."""
+        cfg = _make_config(valid_config_dict, loss_reg="listwise_level")
+        cfg.pop("loss_reg_y_max", None)
+        with pytest.raises(ValidationError, match="loss_reg_y_max"):
             HydraNetConfig(**cfg)
 
     def test_red_missing_loss_class_param_raises(self, valid_config_dict):

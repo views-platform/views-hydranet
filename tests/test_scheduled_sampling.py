@@ -146,8 +146,7 @@ class TestGreenConfigAcceptance:
             "scheduler": "plateau",
             "warmup_steps": 5,
             "clip_grad_norm": True,
-            "loss_reg": "tobit",
-            "loss_reg_sigma": 1.0,
+            "loss_reg": "mse",
             "loss_class": "bce",
             "total_lessons": 10,
             "n_posterior_samples": 5,
@@ -293,8 +292,7 @@ class TestRedConfigValidation:
             "scheduler": "plateau",
             "warmup_steps": 5,
             "clip_grad_norm": True,
-            "loss_reg": "tobit",
-            "loss_reg_sigma": 1.0,
+            "loss_reg": "mse",
             "loss_class": "bce",
             "total_lessons": 10,
             "n_posterior_samples": 5,
@@ -372,8 +370,8 @@ class TestGreenProcessSequenceIntegration:
     def _run_sequence(self, ss_epsilon=0.0):
         from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
         from views_hydranet.utils.focal_loss import FocalLoss
+        from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
         from views_hydranet.utils.mtloss import MultiTaskLoss
-        from views_hydranet.utils.tobit_loss import TobitLoss
 
         model = self._make_tiny_model()
         device = torch.device("cpu")
@@ -391,7 +389,9 @@ class TestGreenProcessSequenceIntegration:
         train_tensor = torch.rand(B, T, C, H, W).to(device)
         h = model.init_hTtime(hidden_channels=model.base, H=H, W=W).to(device)
 
-        criterion_reg = TobitLoss(sigma=1.0).to(device)
+        # A latent loss (needs_latent=True), so the loss reads `reg_latent` as tobit did here
+        # before #631. Targets are log1p of counts below expm1(1) < 2, so y_max=10 covers them.
+        criterion_reg = ListwiseLevelLoss(y_max=10.0).to(device)
         criterion_class = FocalLoss(alpha=0.75, gamma=1.5).to(device)
         is_reg = torch.Tensor([True, True, True, False, False, False])
         mt = MultiTaskLoss(is_reg, reduction="sum")
@@ -426,8 +426,8 @@ class TestGreenProcessSequenceIntegration:
     def test_gradient_flows_with_sampling(self):
         from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
         from views_hydranet.utils.focal_loss import FocalLoss
+        from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
         from views_hydranet.utils.mtloss import MultiTaskLoss
-        from views_hydranet.utils.tobit_loss import TobitLoss
 
         model = self._make_tiny_model()
         device = torch.device("cpu")
@@ -444,7 +444,9 @@ class TestGreenProcessSequenceIntegration:
         train_tensor = torch.rand(B, T, C, H, W).to(device)
         h = model.init_hTtime(hidden_channels=model.base, H=H, W=W).to(device)
 
-        criterion_reg = TobitLoss(sigma=1.0).to(device)
+        # A latent loss (needs_latent=True), so the loss reads `reg_latent` as tobit did here
+        # before #631. Targets are log1p of counts below expm1(1) < 2, so y_max=10 covers them.
+        criterion_reg = ListwiseLevelLoss(y_max=10.0).to(device)
         criterion_class = FocalLoss(alpha=0.75, gamma=1.5).to(device)
         is_reg = torch.Tensor([True, True, True, False, False, False])
         mt = MultiTaskLoss(is_reg, reduction="sum")
@@ -502,8 +504,7 @@ class TestGreenBackwardCompat:
                 "scheduler": "plateau",
                 "warmup_steps": 5,
                 "clip_grad_norm": True,
-                "loss_reg": "tobit",
-                "loss_reg_sigma": 1.0,
+                "loss_reg": "mse",
                 "loss_class": "bce",
                 "total_lessons": 10,
                 "n_posterior_samples": 5,

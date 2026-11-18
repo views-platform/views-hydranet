@@ -62,8 +62,8 @@ def test_pos_mask_under_latent_loss_fails_loud(valid_config_dict):
     cfg = {
         **valid_config_dict,
         "body_supervision": "active",
-        "loss_reg": "tobit",
-        "loss_reg_sigma": 1.0,
+        "loss_reg": "listwise_level",
+        "loss_reg_y_max": 100.0,
     }
     with _pytest.raises(ValueError, match="latent likelihood"):
         HydraNetConfig(**cfg)

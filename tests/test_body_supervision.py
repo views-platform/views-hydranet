@@ -159,7 +159,7 @@ def test_active_with_latent_loss_raises(valid_config_dict):
             **{
                 **valid_config_dict,
                 "body_supervision": "active",
-                "loss_reg": "tobit",
-                "loss_reg_sigma": 1.0,
+                "loss_reg": "listwise_level",
+                "loss_reg_y_max": 100.0,
             }
         )

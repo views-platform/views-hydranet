@@ -8,14 +8,14 @@ the optimizer, so they stay at their zero init (equal weighting = the pre-C-111,
 years-stable regime). It must:
   - default to the C-111 behavior (log_vars trainable) -> zero regression;
   - when True, exclude ONLY the balancer log_vars from the optimizer;
-  - leave the ADR-055 Tobit sigma params trainable either way (isolate C-111).
+  - leave every other optimizer group in place (isolate C-111).
 """
 
 import copy
 
 import torch
 
-from tests.conftest import tobit_config_3target
+from tests.conftest import config_3target
 from tests.test_training_engine import TINY_CONFIG
 from views_hydranet.train.training_engine import make
 
@@ -64,15 +64,14 @@ class TestGreenBalancerFrozen:
 
     def test_freeze_removes_exactly_the_balancer_group(self):
         # Freezing must remove ONLY the balancer's param group — every other group
-        # (model weights, and any ADR-055 Tobit sigma group) stays intact. Uses the
-        # tobit config so a sigma group is present in the optimizer if applicable.
-        cfg_active = tobit_config_3target()
+        # (the model weights) stays intact.
+        cfg_active = config_3target()
         cfg_active["freeze_multitask_balancer"] = False
-        cfg_frozen = tobit_config_3target()
+        cfg_frozen = config_3target()
         cfg_frozen["freeze_multitask_balancer"] = True
         _, _, opt_active, _ = make(cfg_active, torch.device("cpu"))
         _, _, opt_frozen, _ = make(cfg_frozen, torch.device("cpu"))
         assert len(opt_frozen.param_groups) == len(opt_active.param_groups) - 1, (
             "freezing the balancer must drop exactly one optimizer param group "
-            "(the log_vars), leaving model + sigma groups untouched"
+            "(the log_vars), leaving the model group untouched"
         )
