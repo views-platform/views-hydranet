@@ -202,7 +202,7 @@ def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
     assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
 
 
-@pytest.mark.parametrize("loss_reg", ["mae", "huber", "count_mean", "shrinkage"])
+@pytest.mark.parametrize("loss_reg", ["shrinkage"])
 def test_another_loss_on_a_standard_head_gets_no_body(loss_reg):
     cfg = {**BASE, "loss_reg": loss_reg, "output_distribution": "standard"}
     assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None

@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 
 from views_hydranet.architectures.registry import get_architecture
-from views_hydranet.utils.count_mean_loss import CountMeanMSELoss
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
 from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
@@ -54,31 +53,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "cls": nn.MSELoss,
         "params": [],
         "factory": lambda config, device: nn.MSELoss().to(device),
-    },
-    # count_mean: MSE in COUNT space (expm1) — minimizer E[y|x], the count MEAN, vs mse's
-    # log-median
-    # under-fit of the heavy tail (port of views-lstm-lab EXP-07). Pair with
-    # output_distribution='standard' (E[y]=expm1(body)) and NO hurdle mask (unconditional mean).
-    "count_mean": {
-        "cls": CountMeanMSELoss,
-        "params": [],
-        "factory": lambda config, device: CountMeanMSELoss().to(device),
-    },
-    # Non-negative point bodies for the hurdle (trained on positive cells, log1p space; emit via
-    # the point compose). MAE -> conditional median
-    # (robust, under-fires the heavy-tailed mean); Huber -> robust mean, delta in log1p units
-    # (default 1.0; 'loss_reg_huber_delta' is an optional forward-compat hook, not a config field).
-    "mae": {
-        "cls": nn.L1Loss,
-        "params": [],
-        "factory": lambda config, device: nn.L1Loss().to(device),
-    },
-    "huber": {
-        "cls": nn.HuberLoss,
-        "params": [],
-        "factory": lambda config, device: nn.HuberLoss(
-            delta=config.get("loss_reg_huber_delta", 1.0)
-        ).to(device),
     },
     "shrinkage": {
         "cls": ShrinkageLoss,

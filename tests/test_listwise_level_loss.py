@@ -993,9 +993,6 @@ def test_the_pre_existing_registry_entries_are_untouched():
     """
     expected = {
         "mse": "MSELoss",
-        "count_mean": "CountMeanMSELoss",
-        "mae": "L1Loss",
-        "huber": "HuberLoss",
         "shrinkage": "ShrinkageLoss",
         "lognormal_nll": "LogNormalFixedSigmaLoss",
         "pareto": "ParetoLoss",

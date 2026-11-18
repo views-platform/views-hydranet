@@ -3,17 +3,11 @@
 /falsify verdict: FALSIFIED. The "dead" *science* is largely sound, but "100%" and "safe to delete"
 are over-claims. These guards go RED if the false claim is acted on (i.e. if the retained lever or
 the shipped contract is deleted), enforcing the corrected classification.
+
+F-1 (keep `count_mean` as a retained lever) was removed on 2026-11-18: the owner decided to delete
+`count_mean` with the other unused losses (issue #631). Its last version is under the git tag
+`archive/unused-losses-2026-11-18`.
 """
-
-
-def test_count_mean_is_a_retained_transfer_test_lever_not_safe_delete():
-    """F-1 (HARD): count_mean was classified 100% dead + safe to delete, but the recorded finding
-    (memory: project_count_mean_fails_oos) explicitly RETAINS it as a transfer-test lever
-    ("retained, lever available"). Deleting it contradicts a recorded keep-decision — it is
-    MAYBE-dead-as-a-body-loss, not deletable. Guard: it stays registered."""
-    from views_hydranet.utils.utils import LOSS_REG_REGISTRY
-
-    assert "count_mean" in LOSS_REG_REGISTRY
 
 
 def test_body_supervision_modes_are_a_shipped_pushed_contract():

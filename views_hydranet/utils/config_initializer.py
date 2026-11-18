@@ -78,9 +78,9 @@ def check_output_distribution(name: str) -> None:
 # settings only they read. Each name is added here by the commit that deletes it. Kept under the
 # git tag below for comparison only: a loss wanted again is rebuilt from scratch, not restored.
 REMOVED_LOSSES_TAG = "archive/unused-losses-2026-11-18"
-REMOVED_REG_LOSSES: tuple[str, ...] = ()
+REMOVED_REG_LOSSES: tuple[str, ...] = ("count_mean", "mae", "huber")
 #: Config settings that only the removed losses read. Refused, not silently ignored (C-324).
-REMOVED_LOSS_SETTINGS: tuple[str, ...] = ()
+REMOVED_LOSS_SETTINGS: tuple[str, ...] = ("loss_reg_huber_delta",)
 
 
 def check_loss_reg(name: str) -> None:

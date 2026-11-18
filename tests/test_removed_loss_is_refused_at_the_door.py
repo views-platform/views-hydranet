@@ -70,3 +70,17 @@ def test_a_missing_loss_parameter_is_not_reported_as_an_unknown_loss():
     name the missing parameter instead."""
     with pytest.raises(KeyError, match="loss_reg_y_max"):
         choose_loss(_raw("listwise_level"), CPU)
+
+
+@pytest.mark.parametrize("name", ci.REMOVED_REG_LOSSES)
+def test_each_deleted_loss_is_refused_with_where_it_is_kept(valid_config_dict, name):
+    with pytest.raises(ValidationError, match=TAG):
+        HydraNetConfig(**{**valid_config_dict, "loss_reg": name})
+    with pytest.raises(ValueError, match=TAG):
+        choose_loss(_raw(name), CPU)
+
+
+@pytest.mark.parametrize("key", ci.REMOVED_LOSS_SETTINGS)
+def test_each_deleted_setting_is_refused(valid_config_dict, key):
+    with pytest.raises(ValidationError, match=key):
+        HydraNetConfig(**{**valid_config_dict, key: 1.0})
