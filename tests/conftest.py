@@ -59,8 +59,7 @@ class TinyModel(nn.Module):
 def config_3target(**overrides):
     """Shared 3-target MSE config for tests needing HydraNetConfig validation.
 
-    Used by: test_balancer_freeze.py, test_degenerate_configs.py, and (via
-    `tobit_config_3target`) the tobit tests until they are deleted (#631).
+    Used by: test_balancer_freeze.py, test_degenerate_configs.py.
 
     Override any field: config_3target(freeze_multitask_balancer=True)
     """
@@ -120,15 +119,6 @@ def config_3target(**overrides):
     }
     base.update(overrides)
     return base
-
-
-def tobit_config_3target(**overrides):
-    """`config_3target` with `loss_reg='tobit'`, sigma 1.0. Only the tobit tests use it; it is
-    deleted with them (#631 S6).
-
-    Override any field: tobit_config_3target(loss_reg_sigma={"lr_sb": 1.0, ...})
-    """
-    return config_3target(**{"loss_reg": "tobit", "loss_reg_sigma": 1.0, **overrides})
 
 
 @pytest.fixture

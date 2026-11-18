@@ -50,8 +50,8 @@ class TestF5_CICFieldCountDrift:
         # -learnable_theta -> 104; zinb's settings -emit_family_core, -pi_penalty_weight,
         # -pi_penalty_prior_logit -> 101
         # #631 (2026-11-18): shrinkage and pareto deleted, -loss_reg_a, -loss_reg_c,
-        # -loss_reg_pareto_alpha -> 98
-        CIC_CLAIMED_COUNT = 98
+        # -loss_reg_pareto_alpha -> 98; tobit deleted, -loss_reg_sigma, -learnable_sigma -> 96
+        CIC_CLAIMED_COUNT = 96
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

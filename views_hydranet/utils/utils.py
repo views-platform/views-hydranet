@@ -11,7 +11,6 @@ from views_hydranet.architectures.registry import get_architecture
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
-from views_hydranet.utils.tobit_loss import TobitLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 from views_hydranet.utils.weighted_bce_loss import WeightedBCEWithLogitsLoss
 
@@ -50,13 +49,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "cls": nn.MSELoss,
         "params": [],
         "factory": lambda config, device: nn.MSELoss().to(device),
-    },
-    "tobit": {
-        "cls": TobitLoss,
-        "params": ["loss_reg_sigma"],
-        "factory": lambda config, device: TobitLoss(
-            sigma=config["loss_reg_sigma"],
-        ).to(device),
     },
     # Ranking body (#578, 2026-11-10_ranking_head_dossier 04 phase 1): the FIRST listwise entry
     # here — its value depends on the relative order of the 1,024-cell patch-month, not on any
@@ -104,7 +96,7 @@ LOSS_CLASS_REGISTRY: dict[str, Any] = {
 
 def choose_loss(
     config: dict[str, Any], device: torch.device
-) -> tuple[nn.Module | dict[str, nn.Module], nn.Module, "MultiTaskLoss"]:
+) -> tuple[nn.Module, nn.Module, "MultiTaskLoss"]:
     """Factory for loss function instances.
 
     Loss functions are selected by name via the LOSS_REG_REGISTRY and
@@ -140,15 +132,8 @@ def choose_loss(
         if _dist == "truncated_nb" and _den is not None
         else resolve_family(_dist)
     )
-    loss_reg_sigma = config.get("loss_reg_sigma")
-    learnable = config.get("learnable_sigma", False)
     if _family is not None:
         criterion_reg = FamilyLoss(_family).to(device)
-    elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
-        criterion_reg = {
-            target: TobitLoss(sigma=s, learnable=learnable).to(device)
-            for target, s in loss_reg_sigma.items()
-        }
     else:
         # Membership is checked first, so a KeyError raised inside a factory (a missing parameter
         # such as `loss_reg_y_max`) is not reported as an unknown loss.

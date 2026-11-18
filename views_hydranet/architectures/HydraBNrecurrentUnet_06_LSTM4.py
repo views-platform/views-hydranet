@@ -32,7 +32,7 @@ class ModelOutput(NamedTuple):
     Fields reg, cls, h_next are the primary outputs. ``reg`` holds the regression heads' outputs
     AFTER the activation; ``reg_latent`` holds the same outputs from BEFORE it, in training mode
     only. A body object reads ``reg_latent`` and applies the activation itself (ADR-079 rule 2);
-    so do the older latent losses (TobitLoss). Everything else reads ``reg``.
+    so does the ranking loss on the older training path. Everything else reads ``reg``.
 
     NOTE: Adding reg_latent as a 4th field means tuple unpacking with 3
     variables (``r, c, h = model(x, h)``) no longer works. Use named access:

@@ -45,7 +45,6 @@ class TestGreen:
         """mse/bce require no loss-specific params — absence is fine."""
         cfg = dict(valid_config_dict)
         for key in [
-            "loss_reg_sigma",
             "loss_class_gamma",
             "loss_class_alpha",
         ]:

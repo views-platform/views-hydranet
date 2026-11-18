@@ -85,6 +85,7 @@ REMOVED_REG_LOSSES: tuple[str, ...] = (
     "shrinkage",
     "lognormal_nll",
     "pareto",
+    "tobit",
 )
 #: Config settings that only the removed losses read. Refused, not silently ignored (C-324).
 REMOVED_LOSS_SETTINGS: tuple[str, ...] = (
@@ -92,6 +93,8 @@ REMOVED_LOSS_SETTINGS: tuple[str, ...] = (
     "loss_reg_a",
     "loss_reg_c",
     "loss_reg_pareto_alpha",
+    "loss_reg_sigma",
+    "learnable_sigma",
 )
 
 
@@ -243,8 +246,6 @@ class HydraNetConfig(BaseModel):
     # 6. Loss Functions (names: see LOSS_REG_REGISTRY in utils.py)
     loss_reg: str = Field(...)
     loss_class: str = Field(...)
-    # TobitLoss sigma. Per-target Tobit (issue #44): dict maps regression target → sigma.
-    loss_reg_sigma: float | Dict[str, float] | None = Field(default=None)
     # FocalLoss params (loss_class='focal')
     loss_class_gamma: float | None = Field(default=None)
     loss_class_alpha: float | None = Field(default=None)
@@ -272,8 +273,6 @@ class HydraNetConfig(BaseModel):
     qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
     # Per-target regression loss weights (C-87): None = uniform.
     target_weights: Dict[str, float] | None = Field(default=None)
-    # Learnable Tobit sigma (ADR-055): optimizer adjusts sigma during training.
-    learnable_sigma: bool = Field(default=False)
     # Ranking body (loss_reg='listwise_level'): the grid's truth MAXIMUM in raw counts, which
     # declares the dyadic level set 0..ceil(log2(1+y_max)) and the fixed 1/(|R|-1) normaliser.
     # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
@@ -1428,9 +1427,7 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_qs99_requires_tau(self) -> "HydraNetConfig":
         # The QS99 tail regularizer applies on the supervised positive cells, so it is gated by the
-        # supervision window (body_supervision == 'active'), not the retired hurdle_threshold. (The
-        # tobit zero-inflation contradiction is subsumed by validate_body_supervision_latent: tobit
-        # is a latent loss, so body_supervision='active' + tobit already fails loud.)
+        # supervision window (body_supervision == 'active'), not the retired hurdle_threshold.
         if (
             self.body_supervision == "active"
             and self.qs99_weight is not None
@@ -1702,43 +1699,6 @@ class HydraNetConfig(BaseModel):
         if extra:
             err_msg = (
                 f"target_weights contains keys not in regression_targets: "
-                f"{extra}. Remove them or check for typos."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        return self
-
-    @model_validator(mode="after")
-    def validate_per_target_sigma(self) -> "HydraNetConfig":
-        if not isinstance(self.loss_reg_sigma, dict):
-            return self
-        if self.loss_reg != "tobit":
-            err_msg = (
-                f"Per-target loss_reg_sigma (dict) is only supported for "
-                f"loss_reg='tobit', got loss_reg='{self.loss_reg}'."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        for v in self.loss_reg_sigma.values():
-            if v <= 0:
-                err_msg = (
-                    f"All per-target loss_reg_sigma values must be positive, "
-                    f"got {self.loss_reg_sigma}."
-                )
-                logger.error(err_msg)
-                raise ValueError(err_msg)
-        missing = [t for t in self.regression_targets if t not in self.loss_reg_sigma]
-        if missing:
-            err_msg = (
-                f"Per-target loss_reg_sigma is missing entries for regression "
-                f"targets: {missing}. All regression_targets must have a sigma."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        extra = [k for k in self.loss_reg_sigma if k not in self.regression_targets]
-        if extra:
-            err_msg = (
-                f"Per-target loss_reg_sigma contains keys not in regression_targets: "
                 f"{extra}. Remove them or check for typos."
             )
             logger.error(err_msg)

@@ -44,7 +44,6 @@ from views_hydranet.distributions.truncated_negative_binomial import (  # noqa: 
     TruncatedNBFamily,
 )
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss  # noqa: E402
-from views_hydranet.utils.tobit_loss import TobitLoss  # noqa: E402
 from views_hydranet.utils.utils import choose_loss  # noqa: E402
 
 CPU = torch.device("cpu")
@@ -131,43 +130,6 @@ def test_loss_reg_is_discarded_when_a_distribution_is_named(valid_config_dict):
     # The requested loss is nowhere in the result — not wrapped, not stored, not warned about.
     assert not isinstance(reg, ListwiseLevelLoss)
     assert not any(isinstance(m, ListwiseLevelLoss) for m in reg.modules())
-
-
-def test_the_discard_is_not_a_tobit_special_case(valid_config_dict):
-    """The same silence covers the dict-valued tobit branch at `utils.py:244`.
-
-    Were the discard one special case, a loss reached by a different branch might survive. It does
-    not: the family branch precedes all four of them.
-    """
-    reg = _reg(
-        _cfg(
-            valid_config_dict,
-            loss_reg="tobit",
-            loss_reg_sigma={t: 1.0 for t in valid_config_dict["regression_targets"]},
-            output_distribution="mixture_nb",
-        )
-    )
-    assert type(reg) is FamilyLoss
-    assert reg.n_params == 5
-    assert not isinstance(reg, dict)
-
-
-# ───────────────────────────── the orphan losses keep their branches ─────────────────────────────
-
-
-def test_the_dict_valued_tobit_builds_one_instance_per_target(valid_config_dict):
-    sigmas = {t: 1.5 for t in valid_config_dict["regression_targets"]}
-    reg = _reg(
-        _cfg(
-            valid_config_dict,
-            loss_reg="tobit",
-            loss_reg_sigma=sigmas,
-            output_distribution="standard",
-        )
-    )
-    assert isinstance(reg, dict)
-    assert set(reg) == set(sigmas)
-    assert all(type(c) is TobitLoss for c in reg.values())
 
 
 # ──────────────────────────────── the head: width and activation ────────────────────────────────
