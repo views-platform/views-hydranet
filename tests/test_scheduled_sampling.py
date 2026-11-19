@@ -146,8 +146,7 @@ class TestGreenConfigAcceptance:
             "scheduler": "plateau",
             "warmup_steps": 5,
             "clip_grad_norm": True,
-            "loss_reg": "tobit",
-            "loss_reg_sigma": 1.0,
+            "loss_reg": "mse",
             "loss_class": "bce",
             "total_lessons": 10,
             "n_posterior_samples": 5,
@@ -293,8 +292,7 @@ class TestRedConfigValidation:
             "scheduler": "plateau",
             "warmup_steps": 5,
             "clip_grad_norm": True,
-            "loss_reg": "tobit",
-            "loss_reg_sigma": 1.0,
+            "loss_reg": "mse",
             "loss_class": "bce",
             "total_lessons": 10,
             "n_posterior_samples": 5,
@@ -372,8 +370,8 @@ class TestGreenProcessSequenceIntegration:
     def _run_sequence(self, ss_epsilon=0.0):
         from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
         from views_hydranet.utils.focal_loss import FocalLoss
+        from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
         from views_hydranet.utils.mtloss import MultiTaskLoss
-        from views_hydranet.utils.tobit_loss import TobitLoss
 
         model = self._make_tiny_model()
         device = torch.device("cpu")
@@ -391,7 +389,9 @@ class TestGreenProcessSequenceIntegration:
         train_tensor = torch.rand(B, T, C, H, W).to(device)
         h = model.init_hTtime(hidden_channels=model.base, H=H, W=W).to(device)
 
-        criterion_reg = TobitLoss(sigma=1.0).to(device)
+        # A latent loss (needs_latent=True), so the loss reads `reg_latent` as tobit did here
+        # before #631. Targets are log1p of counts below expm1(1) < 2, so y_max=10 covers them.
+        criterion_reg = ListwiseLevelLoss(y_max=10.0).to(device)
         criterion_class = FocalLoss(alpha=0.75, gamma=1.5).to(device)
         is_reg = torch.Tensor([True, True, True, False, False, False])
         mt = MultiTaskLoss(is_reg, reduction="sum")
@@ -423,11 +423,61 @@ class TestGreenProcessSequenceIntegration:
         assert result["total"].isfinite()
         assert result["total"] > 0
 
-    def test_gradient_flows_with_sampling(self):
+    def _min_input_seen_by_the_loss(self, needs_latent):
+        """Run one sequence with a spy loss and return the smallest value it was handed."""
+        import torch.nn as nn
+
         from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
         from views_hydranet.utils.focal_loss import FocalLoss
         from views_hydranet.utils.mtloss import MultiTaskLoss
-        from views_hydranet.utils.tobit_loss import TobitLoss
+
+        class Spy(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.needs_latent = needs_latent
+                self.seen = []
+
+            def forward(self, input, target):
+                self.seen.append(float(input.min()))
+                return ((input - target) ** 2).mean()
+
+        torch.manual_seed(42)
+        model = self._make_tiny_model()
+        spy = Spy()
+        config = {
+            "regression_targets": ["lr_sb", "lr_ns", "lr_os"],
+            "classification_targets": ["by_sb", "by_ns", "by_os"],
+            "features": ["lr_sb", "lr_ns", "lr_os"],
+        }
+        idx = _SequenceIndices(["lr_sb", "lr_ns", "lr_os", "by_sb", "by_ns", "by_os"], config)
+        train_tensor = torch.rand(1, 4, 6, 8, 8)
+        h = model.init_hTtime(hidden_channels=model.base, H=8, W=8)
+        _process_sequence(
+            train_tensor,
+            model,
+            h,
+            spy,
+            FocalLoss(alpha=0.75, gamma=1.5),
+            MultiTaskLoss(torch.Tensor([True, True, True, False, False, False]), reduction="sum"),
+            idx,
+            torch.device("cpu"),
+            ss_epsilon=0.5,
+        )
+        assert spy.seen, "the regression loss was never called"
+        return min(spy.seen)
+
+    def test_a_latent_loss_is_handed_the_output_from_before_the_activation(self):
+        """Guard audit of PR #645: the tests above pass whether or not the latent path is taken.
+        This one cannot. With no `reg_activation` the head applies ReLU, so only the output from
+        BEFORE it (`reg_latent`) can be negative."""
+        assert self._min_input_seen_by_the_loss(needs_latent=True) < 0
+        assert self._min_input_seen_by_the_loss(needs_latent=False) >= 0
+
+    def test_gradient_flows_with_sampling(self):
+        from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
+        from views_hydranet.utils.focal_loss import FocalLoss
+        from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
+        from views_hydranet.utils.mtloss import MultiTaskLoss
 
         model = self._make_tiny_model()
         device = torch.device("cpu")
@@ -444,7 +494,9 @@ class TestGreenProcessSequenceIntegration:
         train_tensor = torch.rand(B, T, C, H, W).to(device)
         h = model.init_hTtime(hidden_channels=model.base, H=H, W=W).to(device)
 
-        criterion_reg = TobitLoss(sigma=1.0).to(device)
+        # A latent loss (needs_latent=True), so the loss reads `reg_latent` as tobit did here
+        # before #631. Targets are log1p of counts below expm1(1) < 2, so y_max=10 covers them.
+        criterion_reg = ListwiseLevelLoss(y_max=10.0).to(device)
         criterion_class = FocalLoss(alpha=0.75, gamma=1.5).to(device)
         is_reg = torch.Tensor([True, True, True, False, False, False])
         mt = MultiTaskLoss(is_reg, reduction="sum")
@@ -502,8 +554,7 @@ class TestGreenBackwardCompat:
                 "scheduler": "plateau",
                 "warmup_steps": 5,
                 "clip_grad_norm": True,
-                "loss_reg": "tobit",
-                "loss_reg_sigma": 1.0,
+                "loss_reg": "mse",
                 "loss_class": "bce",
                 "total_lessons": 10,
                 "n_posterior_samples": 5,

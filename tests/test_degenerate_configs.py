@@ -314,8 +314,8 @@ class TestRedDegenerateConfigsRejected:
 
 def _pydantic_config(**overrides):
     """Minimal valid kwargs for HydraNetConfig with overrides."""
-    from tests.conftest import tobit_config_3target
+    from tests.conftest import config_3target
 
-    base = tobit_config_3target(loss_reg="mse", loss_reg_sigma=None)
+    base = config_3target()
     base.update(overrides)
     return base

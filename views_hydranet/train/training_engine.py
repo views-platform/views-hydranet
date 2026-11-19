@@ -101,18 +101,6 @@ def make(config: dict, device: torch.device):
     criterion = choose_loss(config, device)
     optimizer, scheduler = choose_scheduler(config, model)
 
-    # ADR-055: add learnable sigma parameters to the optimizer.
-    # weight_decay=0.0: like the MultiTaskLoss log_vars below, the learnable
-    # per-target log_sigma values are uncertainty estimates, not model weights —
-    # weight decay would pull them back toward their initialization (same drag
-    # that froze the balancer in C-111).
-    criterion_reg = criterion[0]
-    if isinstance(criterion_reg, dict):
-        for loss_instance in criterion_reg.values():
-            sigma_params = list(loss_instance.parameters())
-            if sigma_params:
-                optimizer.add_param_group({"params": sigma_params, "weight_decay": 0.0})
-
     # C-111: add the MultiTaskLoss balancer's log_vars to the optimizer so the
     # Kendall et al. (2018) homoscedastic uncertainty weighting can actually
     # learn. Without this, log_vars accumulate gradients but are never stepped,
@@ -621,7 +609,7 @@ def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
     h: torch.Tensor,
-    criterion_reg: nn.Module | dict[str, nn.Module],
+    criterion_reg: nn.Module,
     criterion_class: nn.Module,
     multitaskloss_instance: nn.Module,
     idx: "_SequenceIndices",
@@ -679,11 +667,8 @@ def _process_sequence(
     step_cls: list[float] = []
     step_total: list[float] = []
 
-    # Censored losses (TobitLoss) need pre-ReLU latent mu — resolve once
-    if isinstance(criterion_reg, dict):
-        use_latent = any(getattr(v, "needs_latent", False) for v in criterion_reg.values())
-    else:
-        use_latent = getattr(criterion_reg, "needs_latent", False) is True
+    # A latent loss (the ranking loss) reads the pre-activation output — resolve once
+    use_latent = getattr(criterion_reg, "needs_latent", False) is True
 
     # Point-body supervision window (ADR-065 + amend. 2026-07-28): resolve the validated
     # body_supervision config to a concrete cell-timestep set ONCE, here — no `if mode ==` ladder
@@ -867,18 +852,7 @@ def _process_sequence(
             # (target-major). Collapse to per-target log1p(E[y]) so the forensic plots each
             # target's OWN self-zeroed forecast (not a raw channel of target-0), and record the
             # activated params for the param-health frame. Point/legacy heads keep the raw path.
-            _fl = next(
-                (
-                    lf
-                    for lf in (
-                        criterion_reg.values()
-                        if isinstance(criterion_reg, dict)
-                        else [criterion_reg]
-                    )
-                    if isinstance(lf, FamilyLoss)
-                ),
-                None,
-            )
+            _fl = criterion_reg if isinstance(criterion_reg, FamilyLoss) else None
             _yh_ey = _family_target_log1p_mean(t1_pred, _fl.family) if _fl is not None else None
             for j, target_name in enumerate(idx.reg_names):
                 if _fl is not None:
@@ -912,19 +886,12 @@ def _process_sequence(
         qs99_loss = torch.tensor(0.0, device=device)
         struct_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
-            # Issue #44: per-target loss instance (or shared single instance)
-            loss_fn_j = (
-                criterion_reg[idx.reg_names[j]]
-                if isinstance(criterion_reg, dict)
-                else criterion_reg
-            )
-
             # ADR-067 (C-207): a distribution family emits n_params channels per target; slice this
             # target's n_params and move them to the last dim ([B,H,W,n_params]) for family.nll.
             # Every other head keeps one channel per target. Registry-first via FamilyLoss, so
             # legacy dispatch is untouched.
-            if isinstance(loss_fn_j, FamilyLoss):
-                npar = loss_fn_j.n_params
+            if isinstance(criterion_reg, FamilyLoss):
+                npar = criterion_reg.n_params
                 pred_j = t1_pred_for_loss[:, j * npar : (j + 1) * npar, :, :].permute(0, 2, 3, 1)
             else:
                 pred_j = t1_pred_for_loss[:, j, :, :]
@@ -942,15 +909,15 @@ def _process_sequence(
                 mask = body_mask_full[:, i, j]
                 if body_step is not None:
                     losses_list.append(tw * body_step.loss(target_j, j, mask=mask))
-                elif isinstance(loss_fn_j, FamilyLoss):
+                elif isinstance(criterion_reg, FamilyLoss):
                     # C-199: pass the mask as a broadcast weight into family.nll instead of
                     # boolean-indexing pred_j[mask] — numerically identical for a 0/1 mask, but a
                     # graph-connected 0 on an all-zero-active batch (not a detached tensor(0.0)).
                     losses_list.append(
-                        tw * loss_fn_j(pred_j, target_j, weight=mask.to(pred_j.dtype))
+                        tw * criterion_reg(pred_j, target_j, weight=mask.to(pred_j.dtype))
                     )
                 elif mask.any():
-                    losses_list.append(tw * loss_fn_j(pred_j[mask], target_j[mask]))
+                    losses_list.append(tw * criterion_reg(pred_j[mask], target_j[mask]))
                 else:
                     losses_list.append(torch.tensor(0.0, device=device))
 
@@ -962,7 +929,7 @@ def _process_sequence(
                     and qs99_weight > 0
                     and qs99_tau is not None
                     and mask.any()
-                    and not isinstance(loss_fn_j, FamilyLoss)
+                    and not isinstance(criterion_reg, FamilyLoss)
                 )
                 if qs99_active:
                     error = target_j[mask] - pred_j[mask]
@@ -975,7 +942,7 @@ def _process_sequence(
             elif body_step is not None:
                 losses_list.append(tw * body_step.loss(target_j, j))
             else:
-                losses_list.append(tw * loss_fn_j(pred_j, target_j))
+                losses_list.append(tw * criterion_reg(pred_j, target_j))
 
             # The structure penalty (2026-10-21 prereg). Accumulated on the full grid, scaled by
             # struct_penalty_weight at the reduction site, byte-identical no-op at 0. Needs a
@@ -983,11 +950,11 @@ def _process_sequence(
             # has no such channel, so this FAILS LOUD rather than penalising whatever is there —
             # the C-324 failure (an arm that trains on something inert and reports a clean null).
             if struct_penalty_weight > 0:
-                if not isinstance(loss_fn_j, FamilyLoss):
+                if not isinstance(criterion_reg, FamilyLoss):
                     err_msg = (
                         f"struct_penalty_weight={struct_penalty_weight} requires a distribution "
                         f"family (nb/truncated_nb/mixture_nb); target {idx.reg_names[j]} uses "
-                        f"{type(loss_fn_j).__name__}, which emits no mu channel"
+                        f"{type(criterion_reg).__name__}, which emits no mu channel"
                     )
                     logger.error(err_msg)
                     raise ValueError(err_msg)
@@ -1004,7 +971,7 @@ def _process_sequence(
                 # (see `_structure_penalty`). The gate for reg target j is classification channel
                 # j ("gate order = reg").
                 struct_pen = struct_pen + tw * _structure_penalty(
-                    loss_fn_j.family, pred_j, t1_pred_class[:, j, :, :], target_j
+                    criterion_reg.family, pred_j, t1_pred_class[:, j, :, :], target_j
                 )
 
         decay_pen = torch.tensor(0.0, device=device)
@@ -1099,13 +1066,10 @@ def _process_sequence(
             pf_terms = []
             pf_step = None
             for j, name in enumerate(idx.reg_names):
-                loss_fn_j = (
-                    criterion_reg[name] if isinstance(criterion_reg, dict) else criterion_reg
-                )
                 # `family is not None` guarantees FamilyLoss, which always exposes n_params.
                 # Indexed rather than getattr-with-default: a default of 1 would silently
                 # mis-slice a multi-channel head instead of failing.
-                npar = loss_fn_j.n_params
+                npar = criterion_reg.n_params
                 # C-87 parity with the main reg loop: the same per-target weight, or the auxiliary
                 # term silently re-weights the targets relative to the primary objective.
                 tw_pf = 1.0 if target_weights is None else target_weights[name]
@@ -1123,7 +1087,7 @@ def _process_sequence(
                 else:
                     pf_terms.append(
                         tw_pf
-                        * loss_fn_j(
+                        * criterion_reg(
                             pf_out.reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
                             y2_reg[:, j],
                         )
@@ -1196,7 +1160,7 @@ class TrainingContext:
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler._LRScheduler | None,
-        criterion_reg: nn.Module | dict[str, nn.Module],
+        criterion_reg: nn.Module,
         criterion_class: nn.Module,
         multitaskloss_instance: nn.Module,
         config: dict,
@@ -1958,20 +1922,6 @@ def training_loop(
                 # Optimize (Update Weights) — skipped in BN-recal (weights frozen, BN only)
                 if not _bn_recal:
                     optimizer.step()
-
-                # ADR-055 / #99: log per-target dispersion once per lesson — sigma for
-                # tobit/lognormal — whichever the loss
-                # exposes. (getattr-guarded so a loss without one doesn't crash the logger.)
-                if isinstance(criterion_reg, dict):
-                    import wandb
-
-                    if wandb.run is not None:
-                        disp_log = {}
-                        for name, loss_fn in criterion_reg.items():
-                            if hasattr(loss_fn, "sigma"):
-                                disp_log[f"sigma/{name}"] = loss_fn.sigma
-                        if disp_log:
-                            wandb.log(disp_log)
 
                 # Issue #48: log multi-task loss weights once per lesson
                 import wandb

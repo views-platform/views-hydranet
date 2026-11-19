@@ -1,7 +1,7 @@
 """
 Tests for Cluster E: Loss/training science (C-45, C-47, C-48).
 
-C-47: ParetoLoss in registry
+C-47: ParetoLoss in registry (deleted 2026-11-18, issue #631)
 C-45: Hurdle masking in _process_sequence
 C-48: QS99 tail regularizer (distribution-free pinball)
 """
@@ -10,70 +10,6 @@ import torch
 import torch.nn as nn
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
-
-
-# ---------------------------------------------------------------------------
-# C-47: ParetoLoss
-# ---------------------------------------------------------------------------
-def test_pareto_loss_importable():
-    from views_hydranet.utils.pareto_loss import ParetoLoss  # noqa: F401
-
-
-def test_pareto_loss_is_nn_module():
-    from views_hydranet.utils.pareto_loss import ParetoLoss
-
-    assert isinstance(ParetoLoss(alpha=1.0), torch.nn.Module)
-
-
-def test_pareto_loss_forward_returns_scalar():
-    from views_hydranet.utils.pareto_loss import ParetoLoss
-
-    loss_fn = ParetoLoss(alpha=1.0)
-    pred = torch.randn(1, 4, 4, requires_grad=True)
-    target = torch.randn(1, 4, 4)
-    result = loss_fn(pred, target)
-    assert result.ndim == 0
-    assert result.requires_grad
-    assert result >= 0, f"Pareto loss should be non-negative, got {result.item()}"
-
-
-def test_pareto_loss_registered_in_choose_loss():
-    from views_hydranet.utils.pareto_loss import ParetoLoss
-    from views_hydranet.utils.utils import choose_loss
-
-    config = {
-        "loss_reg": "pareto",
-        "loss_reg_pareto_alpha": 1.0,
-        "loss_class": "bce",
-        "regression_targets": ["lr_ged_sb"],
-        "classification_targets": [],
-    }
-    criterion_reg, _, _ = choose_loss(config, torch.device("cpu"))
-    assert isinstance(criterion_reg, ParetoLoss)
-
-
-def test_pareto_loss_gradient_between_l1_and_mse():
-    """
-    Pareto gradient should be smaller than MSE but larger than zero
-    for large errors — it's sublinear, not quadratic.
-    """
-    from views_hydranet.utils.pareto_loss import ParetoLoss
-
-    pred = torch.zeros(1, 4, 4, requires_grad=True)
-    target = torch.zeros(1, 4, 4)
-    target[0, 0, 0] = 100.0
-
-    ParetoLoss(alpha=1.0)(pred, target).backward()
-    grad_pareto = pred.grad[0, 0, 0].abs().item()
-    pred.grad = None
-
-    torch.nn.MSELoss()(pred, target).backward()
-    grad_mse = pred.grad[0, 0, 0].abs().item()
-
-    assert grad_pareto < grad_mse, (
-        f"Pareto gradient ({grad_pareto}) should be < MSE ({grad_mse}) for outliers"
-    )
-    assert grad_pareto > 0, "Pareto gradient should be > 0"
 
 
 # ---------------------------------------------------------------------------

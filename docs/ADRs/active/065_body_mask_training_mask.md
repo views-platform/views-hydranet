@@ -1,6 +1,7 @@
 # ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
 
 **Status:** Active (promoted from Proposed 2026-08-14 — the body_supervision resolver is shipped; see `docs/CICs/BodySupervisionResolver.md`)
+**Amended 2026-11-18 (issue #631):** the `lognormal_nll`, `tobit`, `mae`, `huber`, `shrinkage`, `pareto` and `count_mean` losses are deleted; no config used them. Where this ADR names them below, it is history. The one latent loss that remains is `listwise_level`, and the rule that a latent loss refuses a supervision window still holds for it. The distribution families are not latent in this sense (`needs_latent=False`); a supervision window is accepted for them.
 **Date:** 2026-07-18
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers

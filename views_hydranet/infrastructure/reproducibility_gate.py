@@ -97,6 +97,7 @@ class ReproducibilityGate:
         Raises ValueError with a clear message listing missing parameters.
         Must be called before lock_entropy() and training_loop().
         """
+        from views_hydranet.utils.config_initializer import check_loss_reg
         from views_hydranet.utils.utils import LOSS_CLASS_REGISTRY, LOSS_REG_REGISTRY
 
         # 1. Core genome audit
@@ -115,12 +116,10 @@ class ReproducibilityGate:
 
         # 2. Loss regression genome
         loss_reg = config["loss_reg"]
-        if loss_reg not in LOSS_REG_REGISTRY:
-            raise ValueError(
-                f"REPRODUCIBILITY CONTRACT VIOLATED: "
-                f"Unknown regression loss '{loss_reg}'. "
-                f"Registered: {list(LOSS_REG_REGISTRY.keys())}"
-            )
+        try:
+            check_loss_reg(loss_reg)
+        except ValueError as exc:
+            raise ValueError(f"REPRODUCIBILITY CONTRACT VIOLATED: {exc}") from exc
 
         loss_reg_params = LOSS_REG_REGISTRY[loss_reg]["params"]
         missing_reg = [k for k in loss_reg_params if k not in config]

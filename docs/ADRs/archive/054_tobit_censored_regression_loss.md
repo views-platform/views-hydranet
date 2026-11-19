@@ -1,6 +1,7 @@
 # ADR-054: Tobit Censored-Normal Likelihood as Regression Loss
 
-**Status:** Accepted
+**Status:** Retired — the loss is deleted (2026-11-18, #631)
+**Retired 2026-11-18 (issue #631, epic #627):** the `tobit` loss is deleted. No model config used it. The last version of the code is under the git tag `archive/unused-losses-2026-11-18` (commit `d312e65`). ⚠️ That code is kept **for comparison only**. If a censored likelihood is wanted again, build it from scratch with a new ADR, not by restoring this code. Everything below is history.
 **Date:** 2026-05-29
 **Deciders:** Simon / Claude
 **Informed:** MD&D Team

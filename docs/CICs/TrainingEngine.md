@@ -85,8 +85,9 @@ types (module docstring `training_engine.py:1`).
 
 - **`make(config, device)`** (`training_engine.py:80`): builds `(model, criterion, optimizer,
   scheduler)`. Assumes `config` carries seeds for production/determinism runs (`np_seed` /
-  `torch_seed`); seedless callers (unit tests) are guarded (`:85`). Wires ADR-055 learnable sigmas
-  and the C-111 MultiTaskLoss balancer into the optimizer with `weight_decay=0.0` (`:106-134`).
+  `torch_seed`); seedless callers (unit tests) are guarded (`:85`). Wires the C-111 MultiTaskLoss
+  balancer into the optimizer with `weight_decay=0.0`. (The ADR-055 learnable `tobit` sigmas went
+  with `tobit`, 2026-11-18, issue #631.)
 - **`TrainingContext`** (`training_engine.py:544`): bundles the "wired once" components
   (`model`, `optimizer`, `scheduler`, `criterion_reg`, `criterion_class`,
   `multitaskloss_instance`, `config`, `device`, `viz`, `forensics`). Reduces `train()` from 13

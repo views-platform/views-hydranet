@@ -154,12 +154,12 @@ def test_active_with_latent_loss_raises(valid_config_dict):
     """C-193 retained: a positives window on a latent-likelihood body is a no-op -> raise."""
     from views_hydranet.utils.config_initializer import HydraNetConfig
 
-    with pytest.raises(ValueError, match="latent likelihood"):
+    with pytest.raises(ValueError, match="latent loss"):
         HydraNetConfig(
             **{
                 **valid_config_dict,
                 "body_supervision": "active",
-                "loss_reg": "tobit",
-                "loss_reg_sigma": 1.0,
+                "loss_reg": "listwise_level",
+                "loss_reg_y_max": 100.0,
             }
         )
