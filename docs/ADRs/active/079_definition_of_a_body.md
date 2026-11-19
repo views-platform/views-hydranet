@@ -383,8 +383,9 @@ This section lists what improves, what it costs, and what this document rules ou
   affected: a count distribution already applies its own activation, and the ranking loss already
   reads the outputs from before the activation.
 - The code does not follow this definition yet. Until it does, the code behaves as ADR-063 and the
-  three config settings describe. (Rule 1: issue #632, steps #646 to #651, brings the code into
-  line; until that is merged, a `standard` head without `reg_activation` still applies ReLU.)
+  three config settings describe. (Rule 1 is followed in the code since issue #632, 2026-11-20:
+  a `standard` head always applies softplus, `reg_activation` accepts only softplus, and a saved
+  model trained with ReLU is refused on reload.)
 - No model has been trained with the two building rules in place.
 
 ### Explicitly refused

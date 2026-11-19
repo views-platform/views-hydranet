@@ -172,7 +172,11 @@ types (module docstring `training_engine.py:1`).
   (`body.read`), and supplies the regression loss; every other consumer in the step reads that
   same activated result. The body states whether it must be trained on all cells. `body=None` —
   an unused body, or a caller passing a bare criterion — runs the older path unchanged, where
-  `needs_latent` on the criterion decides both things.
+  `needs_latent` on the criterion decides both things. Since issue #632 (2026-11-20) every
+  `standard` config with `mse` or the exponential ranking loss gets a body, whatever
+  `reg_activation` says, since only softplus is accepted. The older path now serves only the
+  softplus version of the ranking loss and callers passing a bare criterion. With a body, a model
+  that returns no `reg_latent` in training mode is refused at the first step (`RuntimeError`).
 - **Losses:** consumes `choose_loss` (`:98`), per-target `FamilyLoss` dispatch
   (`:434-441`), the `MultiTaskLoss` balancer (`:516`), and `resolve_family` for the feedback /
   biopsy (`:688`, `:727`, `:743`).

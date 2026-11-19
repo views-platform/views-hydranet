@@ -314,7 +314,7 @@ class HydraNetConfig(BaseModel):
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
-    # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
+    # Regression-head output distribution/activation (#100). "standard" (softplus) or a family/head
     # name (nb, truncated_nb, mixture_nb) —
     # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")

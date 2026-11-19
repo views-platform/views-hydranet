@@ -24,7 +24,7 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     # argument table. get_architecture raises on an unknown name, naming what is registered.
     model_cls = get_architecture(config["model"])
     # Every model build passes here: training, and the reload of a saved model from its sidecar.
-    # A body the package does not know stops here; otherwise the head would fall back to one ReLU
+    # A body the package does not know stops here; otherwise the head would fall back to one
     # channel and a saved model would fail obscurely or forecast wrong numbers (issue #628).
     from views_hydranet.utils.config_initializer import check_output_distribution
 
