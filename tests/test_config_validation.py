@@ -266,8 +266,24 @@ class TestRed:
         with pytest.raises(ValidationError, match="ss_feedback must be 'mean' or 'sample'"):
             HydraNetConfig(**cfg)
 
-    def test_red_invalid_reg_activation_rejected(self, valid_config_dict):
-        """reg_activation must be softplus/relu/None → 'gelu' raises."""
-        cfg = _make_config(valid_config_dict, reg_activation="gelu")
-        with pytest.raises(ValidationError, match="reg_activation='gelu' is not valid"):
+    @pytest.mark.parametrize("value", ["relu", "gelu", "leaky_relu", "Softplus", ""])
+    def test_red_unimplemented_reg_activation_rejected(self, valid_config_dict, value):
+        """#632: only softplus is implemented; relu (accepted until 2026-11-20) is refused too."""
+        cfg = _make_config(valid_config_dict, reg_activation=value)
+        with pytest.raises(ValidationError) as excinfo:
             HydraNetConfig(**cfg)
+        assert (
+            f"reg_activation={value!r} is not implemented. Only ['softplus'] is implemented at "
+            "present (ADR-079 Rule 1, views-hydranet issue #632)."
+        ) in str(excinfo.value)
+
+    @pytest.mark.parametrize("given", ["softplus", None, "missing"])
+    def test_green_reg_activation_is_softplus_when_stated_null_or_left_out(
+        self, valid_config_dict, given
+    ):
+        """#632: left out or null, the setting is softplus (it meant ReLU until 2026-11-20)."""
+        cfg = _make_config(valid_config_dict)
+        cfg.pop("reg_activation", None)
+        if given != "missing":
+            cfg["reg_activation"] = given
+        assert HydraNetConfig(**cfg).reg_activation == "softplus"
