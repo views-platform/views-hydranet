@@ -1,13 +1,7 @@
 # ADR-063: Regression-head output activation — softplus for hurdle bodies, ReLU for standard
 
-**Status:** Accepted — ⚠️ **partly superseded by ADR-079 (the definition of a body), decided 2026-11-15.**
-Superseded: the ReLU default for `standard`, and `reg_activation` as an override. ADR-079 fixes
-softplus on every count channel of every body, with no config field. Still in force: softplus for
-the hurdle bodies, and the reasoning against ReLU (`C-178`). ADR-079 was accepted on 2026-11-16. The
-code has not changed yet, so the code still behaves as this ADR describes.
-**Amended 2026-11-17 (issue #628, ADR-079 §4):** the hurdle bodies are deleted, so "softplus for the
-hurdle bodies" has no subject left. What remains in force from this ADR is the reasoning against
-ReLU (`C-178`).
+**Status:** Superseded by ADR-079 Rule 1 (2026-11-20, issue #632)
+**Superseded 2026-11-20 (issue #632, epic #627):** every part of this record that decided something is replaced. The ReLU default for `standard` and `reg_activation` as a free override were superseded by ADR-079 (the definition of a body, accepted 2026-11-16); softplus for the hurdle bodies lost its subject when those bodies were deleted (2026-11-17, #628). ADR-079 Rule 1 now governs the regression head's activation: softplus, with `reg_activation` accepting only the activations that are implemented (today only softplus). What this record still contributes is its reasoning against ReLU (`C-178`, section 1), which ADR-079 cites. Everything below is history.
 **Date:** 2026-06-26
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers

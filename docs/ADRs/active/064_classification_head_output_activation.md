@@ -16,7 +16,7 @@
 - **Assumptions:** that the head should emit a probability. It should not — emitting a probability forces an
   unstable downstream `log`.
 - **Urgency:** documenting the existing (correct) decision so it is not "tidied" into a head-side sigmoid by a
-  future contributor, and to pair with ADR-063 (the regression-head activation) as the complete output-link
+  future contributor, and to pair with ADR-079 Rule 1 (the regression-head activation; ADR-063 before it, now archived) as the complete output-link
   contract for the multi-head model.
 
 ---
@@ -29,7 +29,7 @@
 - **In-Scope:** the output of the 3 classification heads (`out_class{1,2,3} = H{1,2,3}_class`, no activation);
   the contract that **every consumer of the classification output must apply `sigmoid` before interpreting it
   as a probability.**
-- **Out-of-Scope:** the regression-head activation (ADR-063); the choice of *which* classification loss
+- **Out-of-Scope:** the regression-head activation (ADR-079 Rule 1; formerly ADR-063); the choice of *which* classification loss
   (`weighted_bce` vs `focal` — a separate, loss-level decision); the gate's `pos_weight` / `onset_bias_init`
   calibration knobs.
 
@@ -54,7 +54,7 @@
 ### ✅ Positive
 - [x] Numerically stable training (no `log(0)`/NaN), the standard and recommended PyTorch pattern.
 - [x] Logit-space output is the correct place for `onset_bias_init` base-rate priors.
-- [x] One coherent output-link contract across the model when read with ADR-063.
+- [x] One coherent output-link contract across the model when read with ADR-079 Rule 1.
 
 ### ⚠️ Negative
 - [x] **Footgun:** the head output is a **logit, not a probability**. Any consumer (forensics, inference π,
@@ -82,4 +82,4 @@
   (`F.binary_cross_entropy_with_logits`). Inference link: `views_hydranet/utils/hydranet_inference.py`
   (`prob = sigmoid(cls)`; hurdle compose uses `π` for `E[y] = π · body`). Bias prior: `onset_bias_init` (C-44).
 - **References:** C-44 (logit bias init), C-147 (gate calibration, resolved), the gate-loss finding
-  (`weighted_bce` pw=2 locked). Related: ADR-063 (regression-head activation).
+  (`weighted_bce` pw=2 locked). Related: ADR-079 Rule 1 (regression-head activation), which supersedes ADR-063.
