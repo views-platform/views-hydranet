@@ -5,8 +5,7 @@
 **Last reviewed:** 2026-08-14
 **Related ADRs:** ADR-067 (distribution-family subsystem), ADR-063/064 (regression/classification
 head output activation), ADR-060/061 (static exogenous / coordinate input channels), ADR-057
-(variational dropout for AR stability), ADR-056 (scheduled sampling), ADR-054/055 (Tobit censored
-loss / learnable per-target sigma), ADR-030 (dynamic slicing handshake)
+(variational dropout for AR stability), ADR-056 (scheduled sampling), ADR-030 (dynamic slicing handshake)
 
 ---
 
@@ -38,9 +37,9 @@ steps are chained.
 - Does **not** own the loss. The train-only `reg_latent` field holds the regression heads' outputs
   from before the activation. A body object (ADR-079, `views_hydranet/body/bodies.py`) reads it
   and applies the activation itself, and the training step refuses a body whose activation
-  differs from this class's own. It also lets a censored loss (TobitLoss,
-  ADR-054/055) read the pre-ReLU mu (lines 42, 681, 366 in `training_engine.py`); the class emits
-  it, it does not consume it.
+  differs from this class's own. The ranking loss on the older training path reads it too
+  (`needs_latent`). The class emits it, it does not consume it. (Until 2026-11-18 the `tobit`
+  loss of ADR-054/055 read it as well; deleted, issue #631.)
 - Does **not** validate config semantics. `choose_model` (`utils/utils.py:30`) reads the config dict
   and passes primitives in; this class validates no config value itself.
 - Does **not** persist, log, or perform I/O. Pure `nn.Module` compute.
@@ -200,8 +199,7 @@ for _ in range(n_posterior):
   `tests/test_onset_bias_init.py` (informed init).
 - **Green (static top-skip / coords):** `tests/test_static_top_skip.py`,
   `tests/test_coordinate_channels.py`, `tests/test_channel_role_census.py`.
-- **Green (latent / censored path):** `tests/test_learnable_sigma.py`, `tests/test_per_target_sigma.py`,
-  `tests/test_tobit_loss.py`, `tests/test_falsification_per_target_sigma.py`.
+- **Green (the pre-activation output, `reg_latent`):** `tests/test_model_output_reg_latent.py`.
 - **Beige (integration through the rollout):** `tests/test_training_engine.py`,
   `tests/test_pipeline_integration.py`, `tests/test_scheduled_sampling.py`,
   `tests/test_bn_recalibrate.py` (BN-recal for the C-184 recurrent-BN seed-bimodality),

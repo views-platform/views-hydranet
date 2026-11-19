@@ -56,13 +56,12 @@ class TinyModel(nn.Module):
         return torch.zeros(1, hidden_channels, H, W)
 
 
-def tobit_config_3target(**overrides):
-    """Shared 3-target Tobit config for tests needing HydraNetConfig validation.
+def config_3target(**overrides):
+    """Shared 3-target MSE config for tests needing HydraNetConfig validation.
 
-    Used by: test_tobit_loss.py, test_per_target_sigma.py, test_learnable_sigma.py,
-    test_scheduled_sampling.py, test_falsification_per_target_sigma.py.
+    Used by: test_balancer_freeze.py, test_degenerate_configs.py.
 
-    Override any field: tobit_config_3target(loss_reg_sigma={"lr_sb": 1.0, ...})
+    Override any field: config_3target(freeze_multitask_balancer=True)
     """
     base = {
         "run_type": "calibration",
@@ -88,8 +87,7 @@ def tobit_config_3target(**overrides):
         "scheduler": "plateau",
         "warmup_steps": 5,
         "clip_grad_norm": True,
-        "loss_reg": "tobit",
-        "loss_reg_sigma": 1.0,
+        "loss_reg": "mse",
         "loss_class": "bce",
         "total_lessons": 10,
         "n_posterior_samples": 5,
@@ -147,8 +145,6 @@ def valid_config_dict():
         "n_posterior_samples": 10,
         "loss_reg": "mse",
         "loss_class": "bce",
-        "loss_reg_a": 258,
-        "loss_reg_c": 0.001,
         "loss_class_gamma": 1.5,
         "loss_class_alpha": 0.75,
         "weight_init": "xavier_norm",

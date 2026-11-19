@@ -10,7 +10,7 @@
 
 > ## ⚠️ SUPERSEDED — archived 2026-06-08
 > The hurdle + **Basu DPD** loss proposed here was **NOT adopted.** It was superseded by
-> **[ADR-054 (Tobit censored-normal likelihood)](../active/054_tobit_censored_regression_loss.md)**,
+> **[ADR-054 (Tobit censored-normal likelihood)](054_tobit_censored_regression_loss.md)**,
 > which records this explicitly ("ADR-050 superseded for the hurdle approach").
 >
 > **The verdict on Basu DPD (and MSE / shrinkage):** a positive-regime location-scale loss cannot fix

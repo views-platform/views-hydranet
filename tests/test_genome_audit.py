@@ -89,7 +89,7 @@ def test_missing_core_param_raises():
 # RED TEST 4: Missing loss-specific param raises
 # ---------------------------------------------------------------------------
 def test_missing_loss_specific_param_raises():
-    """Config with loss_reg='shrinkage' but missing loss_reg_a must raise."""
+    """Config with loss_reg='listwise_level' but missing loss_reg_y_max must raise."""
     from views_hydranet.infrastructure.reproducibility_gate import (
         ReproducibilityGate,
     )
@@ -109,13 +109,12 @@ def test_missing_loss_specific_param_raises():
         "output_channels": 1,
         "total_hidden_channels": 8,
         "dropout_rate": 0.1,
-        "loss_reg": "shrinkage",
-        # loss_reg_a deliberately missing
-        "loss_reg_c": 0.001,
+        "loss_reg": "listwise_level",
+        # loss_reg_y_max deliberately missing
         "loss_class": "bce",
     }
 
-    with pytest.raises(ValueError, match="loss_reg_a"):
+    with pytest.raises(ValueError, match="loss_reg_y_max"):
         ReproducibilityGate.audit_manifest(config)
 
 

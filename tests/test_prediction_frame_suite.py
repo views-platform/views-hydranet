@@ -84,8 +84,6 @@ PF_BASE_CFG = {
     "clip_grad_norm": True,
     "loss_reg": "mse",
     "loss_class": "bce",
-    "loss_reg_a": 1,
-    "loss_reg_c": 1,
     "loss_class_gamma": 1,
     "loss_class_alpha": 1,
     "total_lessons": 1,

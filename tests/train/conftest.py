@@ -123,8 +123,6 @@ def loop_config(**overrides):
         "scheduler": "none",
         "loss_reg": "mse",
         "loss_class": "focal",
-        "loss_reg_a": 1.0,
-        "loss_reg_c": 1.0,
         "loss_class_alpha": 0.25,
         "loss_class_gamma": 2.0,
         "transformations": {"identity": ["lr_f1", "lr_f2", "lr_f3"]},

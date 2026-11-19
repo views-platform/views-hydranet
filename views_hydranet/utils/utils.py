@@ -8,14 +8,9 @@ import torch
 import torch.nn as nn
 
 from views_hydranet.architectures.registry import get_architecture
-from views_hydranet.utils.count_mean_loss import CountMeanMSELoss
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss
-from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
-from views_hydranet.utils.pareto_loss import ParetoLoss
-from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
-from views_hydranet.utils.tobit_loss import TobitLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 from views_hydranet.utils.weighted_bce_loss import WeightedBCEWithLogitsLoss
 
@@ -54,61 +49,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "cls": nn.MSELoss,
         "params": [],
         "factory": lambda config, device: nn.MSELoss().to(device),
-    },
-    # count_mean: MSE in COUNT space (expm1) — minimizer E[y|x], the count MEAN, vs mse's
-    # log-median
-    # under-fit of the heavy tail (port of views-lstm-lab EXP-07). Pair with
-    # output_distribution='standard' (E[y]=expm1(body)) and NO hurdle mask (unconditional mean).
-    "count_mean": {
-        "cls": CountMeanMSELoss,
-        "params": [],
-        "factory": lambda config, device: CountMeanMSELoss().to(device),
-    },
-    # Non-negative point bodies for the hurdle (trained on positive cells, log1p space; emit via
-    # the point compose). MAE -> conditional median
-    # (robust, under-fires the heavy-tailed mean); Huber -> robust mean, delta in log1p units
-    # (default 1.0; 'loss_reg_huber_delta' is an optional forward-compat hook, not a config field).
-    "mae": {
-        "cls": nn.L1Loss,
-        "params": [],
-        "factory": lambda config, device: nn.L1Loss().to(device),
-    },
-    "huber": {
-        "cls": nn.HuberLoss,
-        "params": [],
-        "factory": lambda config, device: nn.HuberLoss(
-            delta=config.get("loss_reg_huber_delta", 1.0)
-        ).to(device),
-    },
-    "shrinkage": {
-        "cls": ShrinkageLoss,
-        "params": ["loss_reg_a", "loss_reg_c"],
-        "factory": lambda config, device: ShrinkageLoss(
-            a=config["loss_reg_a"],
-            c=config["loss_reg_c"],
-            size_average=True,
-        ).to(device),
-    },
-    "lognormal_nll": {
-        "cls": LogNormalFixedSigmaLoss,
-        "params": ["loss_reg_sigma"],
-        "factory": lambda config, device: LogNormalFixedSigmaLoss(
-            sigma=config["loss_reg_sigma"],
-        ).to(device),
-    },
-    "pareto": {
-        "cls": ParetoLoss,
-        "params": ["loss_reg_pareto_alpha"],
-        "factory": lambda config, device: ParetoLoss(
-            alpha=config["loss_reg_pareto_alpha"],
-        ).to(device),
-    },
-    "tobit": {
-        "cls": TobitLoss,
-        "params": ["loss_reg_sigma"],
-        "factory": lambda config, device: TobitLoss(
-            sigma=config["loss_reg_sigma"],
-        ).to(device),
     },
     # Ranking body (#578, 2026-11-10_ranking_head_dossier 04 phase 1): the FIRST listwise entry
     # here — its value depends on the relative order of the 1,024-cell patch-month, not on any
@@ -156,7 +96,7 @@ LOSS_CLASS_REGISTRY: dict[str, Any] = {
 
 def choose_loss(
     config: dict[str, Any], device: torch.device
-) -> tuple[nn.Module | dict[str, nn.Module], nn.Module, "MultiTaskLoss"]:
+) -> tuple[nn.Module, nn.Module, "MultiTaskLoss"]:
     """Factory for loss function instances.
 
     Loss functions are selected by name via the LOSS_REG_REGISTRY and
@@ -172,6 +112,7 @@ def choose_loss(
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
     from views_hydranet.utils.config_initializer import (
+        check_loss_reg,
         validate_body_nll_denominator_pair,
     )
 
@@ -191,31 +132,22 @@ def choose_loss(
         if _dist == "truncated_nb" and _den is not None
         else resolve_family(_dist)
     )
-    loss_reg_sigma = config.get("loss_reg_sigma")
-    learnable = config.get("learnable_sigma", False)
     if _family is not None:
+        # The family's likelihood trains and `loss_reg` is not read. A raw dict that still names a
+        # loss is checked all the same, so a removed one is refused here too.
+        if config.get("loss_reg") is not None:
+            check_loss_reg(config["loss_reg"])
         criterion_reg = FamilyLoss(_family).to(device)
-    elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
-        criterion_reg = {
-            target: TobitLoss(sigma=s, learnable=learnable).to(device)
-            for target, s in loss_reg_sigma.items()
-        }
     else:
-        try:
-            criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
-        except KeyError:
-            err_msg = (
-                f"Unknown regression loss: '{config['loss_reg']}'. "
-                f"Available: {list(LOSS_REG_REGISTRY.keys())}"
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        # Membership is checked first, so a KeyError raised inside a factory (a missing parameter
+        # such as `loss_reg_y_max`) is not reported as an unknown loss.
+        check_loss_reg(config.get("loss_reg"))
+        criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
     _pw = config.get("loss_class_pos_weight")
     if config["loss_class"] == "weighted_bce" and isinstance(_pw, (list, tuple)):
         # per-target gate: one WeightedBCEWithLogitsLoss per classification target (sb/ns/os), each
         # with
-        # its own pos_weight. Applied per-target in the training loop (mirrors the per-target reg
-        # dict).
+        # its own pos_weight. Applied per-target in the training loop.
         criterion_class = [WeightedBCEWithLogitsLoss(pos_weight=float(p)).to(device) for p in _pw]
     else:
         try:
