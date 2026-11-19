@@ -275,10 +275,9 @@ class ListwiseLevelLoss(nn.Module):
         # one level, which an all-zero patch-month hits constantly on a 99.6%-zero grid — this IS
         # the return value, and a detached zero makes `.backward()` raise for any caller that
         # backwards the regression term alone (a reg-only probe, a measurement driver). Today it
-        # survives only because `torch.stack(losses_list)` at
-        # `training_engine.py:1117` also carries the gate term. The empty-list branch above was
-        # written `input.sum() * 0.0` for exactly this reason (`C-199`); this is the same case and
-        # the far more common one.
+        # survives only because `torch.stack(losses_list)` in `training_engine._process_sequence`
+        # also carries the gate term. The empty-list branch above was written `input.sum() * 0.0`
+        # for exactly this reason (`C-199`); this is the same case and the far more common one.
         total = score.sum() * 0.0
         # Steps 1 .. |R|-1: the levels DESCENDING, with the lowest level dropped. Zeros therefore
         # never appear as a c_t numerator — and their gain weight 2^0 - 1 is 0 besides.

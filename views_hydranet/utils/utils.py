@@ -133,6 +133,10 @@ def choose_loss(
         else resolve_family(_dist)
     )
     if _family is not None:
+        # The family's likelihood trains and `loss_reg` is not read. A raw dict that still names a
+        # loss is checked all the same, so a removed one is refused here too.
+        if config.get("loss_reg") is not None:
+            check_loss_reg(config["loss_reg"])
         criterion_reg = FamilyLoss(_family).to(device)
     else:
         # Membership is checked first, so a KeyError raised inside a factory (a missing parameter

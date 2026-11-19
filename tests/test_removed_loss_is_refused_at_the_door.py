@@ -152,3 +152,10 @@ def test_the_genome_audit_points_a_removed_loss_to_the_archive():
     }
     with pytest.raises(ValueError, match="REPRODUCIBILITY CONTRACT VIOLATED.*" + TAG):
         ReproducibilityGate.audit_manifest(config)
+
+
+def test_choose_loss_refuses_a_removed_loss_beside_a_family():
+    """Diff review of PR #645: the family branch returned before the loss name was checked, so a
+    raw dict naming `nb` and `tobit` was accepted silently."""
+    with pytest.raises(ValueError, match=TAG):
+        choose_loss({**_raw("tobit"), "output_distribution": "nb"}, CPU)

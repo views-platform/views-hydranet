@@ -104,6 +104,7 @@ def check_loss_reg(name: object) -> None:
     The one check, used by the config schema, by ``choose_loss`` (which also serves raw dicts
     that never passed the schema) and by ``ReproducibilityGate.audit_manifest``. A missing or
     non-string ``name`` (``None``, or the schema's ``__MISSING_`` sentinel) is "required".
+    Removed SETTINGS are refused by the schema only; a raw dict carrying one is not checked.
     """
     from views_hydranet.utils.utils import LOSS_REG_REGISTRY
 
@@ -1388,7 +1389,7 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def reject_retired_hurdle_knobs(cls, data):
+    def reject_retired_or_removed_settings(cls, data):
         # ADR-065 (S5) + amend. 2026-07-28: hurdle_threshold/hurdle_mask_mode AND the body_mask
         # keyword are RETIRED — body_supervision (+ onset_lead/cessation_lag) is the sole front
         # door. A config still setting them would otherwise be SILENTLY ignored (worse than
@@ -1660,8 +1661,7 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_body_supervision_latent(self) -> "HydraNetConfig":
         # C-193 (ADR-008/065): a supervision window on the POINT body is a silent no-op under a
-        # latent likelihood loss — the training loop only masks `if not use_latent`
-        # (needs_latent=False), and a latent body models zeros/censoring/truncation itself.
+        # latent loss — the training loop only masks `if not use_latent` (needs_latent=False).
         # Requesting body_supervision='active' there is meaningless, so RAISE (not ignore). Single
         # authority for "is this loss latent?" is the loss class's `needs_latent` flag in
         # LOSS_REG_REGISTRY — NOT a hardcoded name list. Today the only latent loss is
@@ -1673,8 +1673,9 @@ class HydraNetConfig(BaseModel):
             if loss_cls is not None and getattr(loss_cls, "needs_latent", False):
                 err_msg = (
                     f"body_supervision='active' supervises the POINT body, but loss_reg="
-                    f"'{self.loss_reg}' is a latent likelihood (needs_latent=True) that models "
-                    f"zeros/censoring internally — the window would be silently ignored. Use "
+                    f"'{self.loss_reg}' is a latent loss (needs_latent=True) that reads the "
+                    f"output from before the activation on every cell — the window would be "
+                    f"silently ignored. Use "
                     f"body_supervision='all' with this loss, or the non-latent point body (mse) "
                     f"with a supervision window."
                 )

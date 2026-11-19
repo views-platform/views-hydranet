@@ -124,7 +124,7 @@ all_keys = config_obj.keys()
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Valid configuration construction and dict access in `tests/test_config_typed.py`. Hurdle+Basu DPD integration paths in `tests/test_hurdle_basu_integration.py`. Tobit config acceptance and tobit+hurdle rejection in `tests/test_tobit_loss.py`.
+- **🟩 Green Team:** Valid configuration construction and dict access in `tests/test_config_typed.py`. Hurdle+Basu DPD integration paths in `tests/test_hurdle_basu_integration.py`. Refusal of the removed losses and settings in `tests/test_removed_loss_is_refused_at_the_door.py` (the tobit tests were deleted with `tobit`, issue #631).
 - **🟫 Beige Team:** Checksum violations, lifecycle law, stochastic mode warning in `tests/test_config_validation.py`. Config path guards (hurdle disabled, qs99_weight=0) in `tests/test_hurdle_basu_integration.py`.
 - **🟥 Red Team:** Invalid run_type, evaluation_mode, hidden channels divisibility, missing fields in `tests/test_config_validation.py`. QS99 range validation, Basu degenerate params in `tests/test_falsification_hurdle_params.py`. Hurdle parameter enforcement, target_weights validation in `tests/test_hurdle_basu_integration.py`. CIC field count drift in `tests/test_falsification_loss_param_validation.py`.
 
