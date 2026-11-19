@@ -886,14 +886,12 @@ def _process_sequence(
         qs99_loss = torch.tensor(0.0, device=device)
         struct_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
-            loss_fn_j = criterion_reg
-
             # ADR-067 (C-207): a distribution family emits n_params channels per target; slice this
             # target's n_params and move them to the last dim ([B,H,W,n_params]) for family.nll.
             # Every other head keeps one channel per target. Registry-first via FamilyLoss, so
             # legacy dispatch is untouched.
-            if isinstance(loss_fn_j, FamilyLoss):
-                npar = loss_fn_j.n_params
+            if isinstance(criterion_reg, FamilyLoss):
+                npar = criterion_reg.n_params
                 pred_j = t1_pred_for_loss[:, j * npar : (j + 1) * npar, :, :].permute(0, 2, 3, 1)
             else:
                 pred_j = t1_pred_for_loss[:, j, :, :]
@@ -911,15 +909,15 @@ def _process_sequence(
                 mask = body_mask_full[:, i, j]
                 if body_step is not None:
                     losses_list.append(tw * body_step.loss(target_j, j, mask=mask))
-                elif isinstance(loss_fn_j, FamilyLoss):
+                elif isinstance(criterion_reg, FamilyLoss):
                     # C-199: pass the mask as a broadcast weight into family.nll instead of
                     # boolean-indexing pred_j[mask] — numerically identical for a 0/1 mask, but a
                     # graph-connected 0 on an all-zero-active batch (not a detached tensor(0.0)).
                     losses_list.append(
-                        tw * loss_fn_j(pred_j, target_j, weight=mask.to(pred_j.dtype))
+                        tw * criterion_reg(pred_j, target_j, weight=mask.to(pred_j.dtype))
                     )
                 elif mask.any():
-                    losses_list.append(tw * loss_fn_j(pred_j[mask], target_j[mask]))
+                    losses_list.append(tw * criterion_reg(pred_j[mask], target_j[mask]))
                 else:
                     losses_list.append(torch.tensor(0.0, device=device))
 
@@ -931,7 +929,7 @@ def _process_sequence(
                     and qs99_weight > 0
                     and qs99_tau is not None
                     and mask.any()
-                    and not isinstance(loss_fn_j, FamilyLoss)
+                    and not isinstance(criterion_reg, FamilyLoss)
                 )
                 if qs99_active:
                     error = target_j[mask] - pred_j[mask]
@@ -944,7 +942,7 @@ def _process_sequence(
             elif body_step is not None:
                 losses_list.append(tw * body_step.loss(target_j, j))
             else:
-                losses_list.append(tw * loss_fn_j(pred_j, target_j))
+                losses_list.append(tw * criterion_reg(pred_j, target_j))
 
             # The structure penalty (2026-10-21 prereg). Accumulated on the full grid, scaled by
             # struct_penalty_weight at the reduction site, byte-identical no-op at 0. Needs a
@@ -952,11 +950,11 @@ def _process_sequence(
             # has no such channel, so this FAILS LOUD rather than penalising whatever is there —
             # the C-324 failure (an arm that trains on something inert and reports a clean null).
             if struct_penalty_weight > 0:
-                if not isinstance(loss_fn_j, FamilyLoss):
+                if not isinstance(criterion_reg, FamilyLoss):
                     err_msg = (
                         f"struct_penalty_weight={struct_penalty_weight} requires a distribution "
                         f"family (nb/truncated_nb/mixture_nb); target {idx.reg_names[j]} uses "
-                        f"{type(loss_fn_j).__name__}, which emits no mu channel"
+                        f"{type(criterion_reg).__name__}, which emits no mu channel"
                     )
                     logger.error(err_msg)
                     raise ValueError(err_msg)
@@ -973,7 +971,7 @@ def _process_sequence(
                 # (see `_structure_penalty`). The gate for reg target j is classification channel
                 # j ("gate order = reg").
                 struct_pen = struct_pen + tw * _structure_penalty(
-                    loss_fn_j.family, pred_j, t1_pred_class[:, j, :, :], target_j
+                    criterion_reg.family, pred_j, t1_pred_class[:, j, :, :], target_j
                 )
 
         decay_pen = torch.tensor(0.0, device=device)
@@ -1068,11 +1066,10 @@ def _process_sequence(
             pf_terms = []
             pf_step = None
             for j, name in enumerate(idx.reg_names):
-                loss_fn_j = criterion_reg
                 # `family is not None` guarantees FamilyLoss, which always exposes n_params.
                 # Indexed rather than getattr-with-default: a default of 1 would silently
                 # mis-slice a multi-channel head instead of failing.
-                npar = loss_fn_j.n_params
+                npar = criterion_reg.n_params
                 # C-87 parity with the main reg loop: the same per-target weight, or the auxiliary
                 # term silently re-weights the targets relative to the primary objective.
                 tw_pf = 1.0 if target_weights is None else target_weights[name]
@@ -1090,7 +1087,7 @@ def _process_sequence(
                 else:
                     pf_terms.append(
                         tw_pf
-                        * loss_fn_j(
+                        * criterion_reg(
                             pf_out.reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
                             y2_reg[:, j],
                         )

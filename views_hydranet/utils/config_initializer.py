@@ -98,19 +98,23 @@ REMOVED_LOSS_SETTINGS: tuple[str, ...] = (
 )
 
 
-def check_loss_reg(name: str) -> None:
+def check_loss_reg(name: object) -> None:
     """Raise ``ValueError`` unless ``name`` is a regression loss this package has.
 
-    The one check, used by the config schema and by ``choose_loss`` (which also serves raw dicts
-    that never passed the schema).
+    The one check, used by the config schema, by ``choose_loss`` (which also serves raw dicts
+    that never passed the schema) and by ``ReproducibilityGate.audit_manifest``. A missing or
+    non-string ``name`` (``None``, or the schema's ``__MISSING_`` sentinel) is "required".
     """
     from views_hydranet.utils.utils import LOSS_REG_REGISTRY
 
     known = list(LOSS_REG_REGISTRY)
     if name in known:
         return
-    prefix = "'loss_reg' is required." if name.startswith("__MISSING_") else f"loss_reg={name!r}"
-    err_msg = f"{prefix} is not a regression loss this package has. Available: {known}."
+    if not isinstance(name, str) or name.startswith("__MISSING_"):
+        err_msg = f"'loss_reg' is required. Available: {known}."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+    err_msg = f"loss_reg={name!r} is not a regression loss this package has. Available: {known}."
     if name in REMOVED_REG_LOSSES:
         err_msg += (
             f" {name!r} was removed on 2026-11-18 (views-hydranet issue #631). The last "

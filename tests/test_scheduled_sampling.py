@@ -423,6 +423,56 @@ class TestGreenProcessSequenceIntegration:
         assert result["total"].isfinite()
         assert result["total"] > 0
 
+    def _min_input_seen_by_the_loss(self, needs_latent):
+        """Run one sequence with a spy loss and return the smallest value it was handed."""
+        import torch.nn as nn
+
+        from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
+        from views_hydranet.utils.focal_loss import FocalLoss
+        from views_hydranet.utils.mtloss import MultiTaskLoss
+
+        class Spy(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.needs_latent = needs_latent
+                self.seen = []
+
+            def forward(self, input, target):
+                self.seen.append(float(input.min()))
+                return ((input - target) ** 2).mean()
+
+        torch.manual_seed(42)
+        model = self._make_tiny_model()
+        spy = Spy()
+        config = {
+            "regression_targets": ["lr_sb", "lr_ns", "lr_os"],
+            "classification_targets": ["by_sb", "by_ns", "by_os"],
+            "features": ["lr_sb", "lr_ns", "lr_os"],
+        }
+        idx = _SequenceIndices(["lr_sb", "lr_ns", "lr_os", "by_sb", "by_ns", "by_os"], config)
+        train_tensor = torch.rand(1, 4, 6, 8, 8)
+        h = model.init_hTtime(hidden_channels=model.base, H=8, W=8)
+        _process_sequence(
+            train_tensor,
+            model,
+            h,
+            spy,
+            FocalLoss(alpha=0.75, gamma=1.5),
+            MultiTaskLoss(torch.Tensor([True, True, True, False, False, False]), reduction="sum"),
+            idx,
+            torch.device("cpu"),
+            ss_epsilon=0.5,
+        )
+        assert spy.seen, "the regression loss was never called"
+        return min(spy.seen)
+
+    def test_a_latent_loss_is_handed_the_output_from_before_the_activation(self):
+        """Guard audit of PR #645: the tests above pass whether or not the latent path is taken.
+        This one cannot. With no `reg_activation` the head applies ReLU, so only the output from
+        BEFORE it (`reg_latent`) can be negative."""
+        assert self._min_input_seen_by_the_loss(needs_latent=True) < 0
+        assert self._min_input_seen_by_the_loss(needs_latent=False) >= 0
+
     def test_gradient_flows_with_sampling(self):
         from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
         from views_hydranet.utils.focal_loss import FocalLoss

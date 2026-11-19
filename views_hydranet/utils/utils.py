@@ -137,14 +137,13 @@ def choose_loss(
     else:
         # Membership is checked first, so a KeyError raised inside a factory (a missing parameter
         # such as `loss_reg_y_max`) is not reported as an unknown loss.
-        check_loss_reg(config["loss_reg"])
+        check_loss_reg(config.get("loss_reg"))
         criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
     _pw = config.get("loss_class_pos_weight")
     if config["loss_class"] == "weighted_bce" and isinstance(_pw, (list, tuple)):
         # per-target gate: one WeightedBCEWithLogitsLoss per classification target (sb/ns/os), each
         # with
-        # its own pos_weight. Applied per-target in the training loop (mirrors the per-target reg
-        # dict).
+        # its own pos_weight. Applied per-target in the training loop.
         criterion_class = [WeightedBCEWithLogitsLoss(pos_weight=float(p)).to(device) for p in _pw]
     else:
         try:

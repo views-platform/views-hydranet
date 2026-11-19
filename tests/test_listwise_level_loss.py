@@ -648,8 +648,6 @@ def test_every_registered_family_is_refused_not_just_nb(valid_config_dict, famil
 #: ⛔ Asserted COMPLETE below, so adding a loss with a new required parameter fails here rather
 #: than silently skipping the case — which is how an enumerative guard rots.
 _REQUIRED_PARAM_STUBS: dict[str, object] = {
-    "loss_reg_tau": 0.5,
-    "loss_reg_cap": 10.0,
     "loss_reg_y_max": _Y_MAX,
 }
 

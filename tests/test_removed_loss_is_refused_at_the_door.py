@@ -84,3 +84,71 @@ def test_each_deleted_loss_is_refused_with_where_it_is_kept(valid_config_dict, n
 def test_each_deleted_setting_is_refused(valid_config_dict, key):
     with pytest.raises(ValidationError, match=key):
         HydraNetConfig(**{**valid_config_dict, key: 1.0})
+
+
+def test_the_removed_lists_are_exactly_the_seven_losses_and_six_settings():
+    """The parametrized tests above take their cases from these two tuples, so a name dropped from
+    a tuple would drop its own test case and the suite would stay green (guard audit of PR #645).
+    A dropped setting is then silently accepted under `extra="allow"`. Pinned as literals here."""
+    assert set(ci.REMOVED_REG_LOSSES) == {
+        "count_mean",
+        "mae",
+        "huber",
+        "shrinkage",
+        "lognormal_nll",
+        "pareto",
+        "tobit",
+    }
+    assert set(ci.REMOVED_LOSS_SETTINGS) == {
+        "loss_reg_a",
+        "loss_reg_c",
+        "loss_reg_pareto_alpha",
+        "loss_reg_sigma",
+        "learnable_sigma",
+        "loss_reg_huber_delta",
+    }
+
+
+def test_a_missing_loss_is_reported_as_required(valid_config_dict):
+    cfg = dict(valid_config_dict)
+    del cfg["loss_reg"]
+    with pytest.raises(ValidationError) as excinfo:
+        HydraNetConfig(**cfg)
+    message = str(excinfo.value)
+    assert "'loss_reg' is required. Available:" in message
+    assert "is not a regression loss" not in message
+
+
+@pytest.mark.parametrize(
+    "raw", [{"output_distribution": "standard", "loss_class": "bce"}, _raw(None)]
+)
+def test_choose_loss_reports_a_missing_or_none_loss_as_required(raw):
+    """A raw dict without `loss_reg`, or with `None`, gets the ValueError, not a KeyError or an
+    AttributeError (code review of PR #645)."""
+    with pytest.raises(ValueError, match="'loss_reg' is required"):
+        choose_loss(raw, CPU)
+
+
+def test_the_genome_audit_points_a_removed_loss_to_the_archive():
+    from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
+
+    config = {
+        "np_seed": 42,
+        "torch_seed": 42,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0,
+        "total_lessons": 10,
+        "windows_per_lesson": 3,
+        "window_dim": 8,
+        "steps": [1, 2, 3],
+        "time_steps": 3,
+        "clip_grad_norm": True,
+        "input_channels": 3,
+        "output_channels": 1,
+        "total_hidden_channels": 8,
+        "dropout_rate": 0.1,
+        "loss_reg": "tobit",
+        "loss_class": "bce",
+    }
+    with pytest.raises(ValueError, match="REPRODUCIBILITY CONTRACT VIOLATED.*" + TAG):
+        ReproducibilityGate.audit_manifest(config)
