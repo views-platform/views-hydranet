@@ -185,9 +185,6 @@ def test_the_distribution_body_wraps_the_losss_own_family_instance():
     assert build_body(cfg, criterion).family is criterion.family
 
 
-# ─────────────────────────────── everything else gets no body ───────────────────────────────
-
-
 @pytest.mark.parametrize("activation", [None, "missing"])
 def test_standard_mse_without_the_setting_gets_the_mse_body(activation):
     """#632: a `standard` head always applies softplus, so the body no longer asks the setting.
@@ -198,6 +195,9 @@ def test_standard_mse_without_the_setting_gets_the_mse_body(activation):
     if activation == "missing":
         del cfg["reg_activation"]
     assert isinstance(build_body(cfg, choose_loss(cfg, CPU)[0]), MeanSquaredErrorBody)
+
+
+# ─────────────────────────────── everything else gets no body ───────────────────────────────
 
 
 def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
