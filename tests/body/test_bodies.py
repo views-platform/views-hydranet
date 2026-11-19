@@ -188,10 +188,16 @@ def test_the_distribution_body_wraps_the_losss_own_family_instance():
 # ─────────────────────────────── everything else gets no body ───────────────────────────────
 
 
-@pytest.mark.parametrize("activation", [None, "relu"])
-def test_standard_mse_without_softplus_gets_no_body(activation):
+@pytest.mark.parametrize("activation", [None, "missing"])
+def test_standard_mse_without_the_setting_gets_the_mse_body(activation):
+    """#632: a `standard` head always applies softplus, so the body no longer asks the setting.
+
+    Before #632 these configs trained a ReLU head and got no body.
+    """
     cfg = {**BASE, **LIVE["mse"], "reg_activation": activation}
-    assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
+    if activation == "missing":
+        del cfg["reg_activation"]
+    assert isinstance(build_body(cfg, choose_loss(cfg, CPU)[0]), MeanSquaredErrorBody)
 
 
 def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
@@ -231,11 +237,13 @@ def test_a_body_on_a_model_built_for_another_activation_is_refused_at_the_first_
     from views_hydranet.distributions import resolve_family
     from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
 
-    relu_cfg = {**BASE, **LIVE["mse"], "reg_activation": None}
-    torch.manual_seed(3)
-    model = choose_model(relu_cfg, CPU).float()
-    model.train()
+    # A ReLU model cannot be built any more (#632); one pickled before then carries `F.relu`,
+    # and that is reproduced here directly.
     softplus_cfg = {**BASE, **LIVE["mse"]}
+    torch.manual_seed(3)
+    model = choose_model(softplus_cfg, CPU).float()
+    model._reg_activation = torch.nn.functional.relu
+    model.train()
     criterion_reg, criterion_class, _ = choose_loss(softplus_cfg, CPU)
     x = torch.rand(1, 3, 6, 8, 8)
     h = model.init_hTtime(model.base, 8, 8).float()

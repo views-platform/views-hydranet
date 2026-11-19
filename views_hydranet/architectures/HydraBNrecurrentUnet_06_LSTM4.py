@@ -73,7 +73,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         output_distribution="standard",
         n_static_channels=0,
         static_top_skip=True,
-        reg_activation=None,
+        reg_activation="softplus",
         state_channels=None,
     ):
         """
@@ -85,10 +85,13 @@ class HydraBNUNet06_LSTM4(nn.Module):
                                          Must be divisible by 8.
             output_channels (int): Number of channels per head (usually 1).
             dropout_rate (float): Probability of dropout for regularization.
-            output_distribution (str): regression-head output distribution/activation —
-                "standard" (ReLU, default, pre-#100 behavior) or a family/head name
-                (nb, truncated_nb, mixture_nb), which
-                selects the ADR-067 family activation / head param count.
+            output_distribution (str): the body the regression heads are built for:
+                "standard" (one channel per target, default) or a distribution family
+                (nb, truncated_nb, mixture_nb), which selects the ADR-067 family activation
+                and head parameter count.
+            reg_activation (str | None): the activation of a "standard" head. Only "softplus"
+                is implemented (ADR-079 Rule 1, issue #632); None means not stated and gives
+                softplus. Any other value is refused.
         """
         super().__init__()
 
@@ -101,11 +104,12 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # resolve_family returns None for every legacy value, so those fall through to the
         # untouched legacy path below (byte-identical). New families add zero new branches here.
         self._family = resolve_family(output_distribution)
-        # A family brings its own activation. For a "standard" head `reg_activation` chooses;
-        # left unset it is ReLU (byte-identical to pre-#100).
-        # C-178: a ReLU output head dies on rare targets under a cell mask (pre-activation
-        # drifts 100% negative => ReLU==0 with zero gradient => unrecoverable). softplus is always
-        # positive with non-zero gradient, so IT cannot die. Every live config sets softplus.
+        # ADR-079 Rule 1 (issue #632): a "standard" head applies softplus. `reg_activation` names
+        # it and accepts only the implemented activations, today softplus alone; None (not stated,
+        # as in a distribution body's sidecar) gives softplus. A family brings its own activation,
+        # within the same rule. ReLU was removed. C-178: a ReLU output head dies on rare targets
+        # under a cell mask (pre-activation drifts 100% negative => ReLU==0 with zero gradient =>
+        # unrecoverable); softplus is always positive with non-zero gradient, so IT cannot die.
         #
         # C-313: that last clause is about the ACTIVATION, not the path. For the family heads,
         # `nb_core._clamp` applies `clamp_min(1e-6)` downstream, and `clamp_min` passes exactly
@@ -114,20 +118,14 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # gradient there points away from the edge), pinned by
         # tests/distributions/test_gradient_dead_zones.py. Do not read this comment as a guarantee
         # that the emitted mu/theta cannot reach a zero-gradient state.
+        from views_hydranet.utils.config_initializer import check_reg_activation
+
+        # The config schema refuses the same values; a model built directly is checked here.
+        check_reg_activation("softplus" if reg_activation is None else reg_activation)
         if self._family is not None:
             self._reg_activation = _family_activation(self._family)
-        elif reg_activation == "softplus":
-            self._reg_activation = F.softplus
-        elif reg_activation in (None, "relu"):
-            self._reg_activation = F.relu
         else:
-            # The config schema refuses this; a model built directly must not get ReLU silently.
-            err_msg = (
-                f"reg_activation={reg_activation!r} is not valid; expected None, 'relu' or "
-                "'softplus'."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+            self._reg_activation = F.softplus
 
         # A family emits n_params reg channels per target (nb=2 [mu,theta], mixture_nb=5);
         # every legacy head emits output_channels (the AR-feedback

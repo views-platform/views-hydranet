@@ -283,9 +283,9 @@ def build_body(config: dict, criterion_reg) -> Body | None:
         if isinstance(criterion_reg, FamilyLoss):
             return DistributionBody(distribution, criterion_reg.family)
         return None
-    # The two one-output bodies exist only with softplus. Without it the head applies ReLU, and
-    # that is not one of the five bodies.
-    if distribution != "standard" or config.get("reg_activation") != "softplus":
+    # A "standard" head always applies softplus (ADR-079 Rule 1, issue #632); the model refuses
+    # any other activation, so the setting need not be read here.
+    if distribution != "standard":
         return None
     loss_name = config.get("loss_reg")
     if loss_name == "mse" and type(criterion_reg) is nn.MSELoss:

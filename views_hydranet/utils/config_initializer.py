@@ -74,6 +74,28 @@ def check_output_distribution(name: str) -> None:
     raise ValueError(err_msg)
 
 
+#: The activations a `standard` regression head can apply (ADR-079 Rule 1, amended 2026-11-20,
+#: issue #632). The setting `reg_activation` stays so that a second activation can be added here
+#: later; today softplus is the only one. ReLU was removed: its heads died on rare targets (C-178).
+IMPLEMENTED_REG_ACTIVATIONS: tuple[str, ...] = ("softplus",)
+
+
+def check_reg_activation(name: object) -> None:
+    """Raise ``ValueError`` unless ``name`` is an implemented regression-head activation.
+
+    The one check, used by the config schema and by the model (every model build, including the
+    reload of a saved model). Torch-free.
+    """
+    if name in IMPLEMENTED_REG_ACTIVATIONS:
+        return
+    err_msg = (
+        f"reg_activation={name!r} is not implemented. Only {list(IMPLEMENTED_REG_ACTIVATIONS)} "
+        "is implemented at present (ADR-079 Rule 1, views-hydranet issue #632)."
+    )
+    logger.error(err_msg)
+    raise ValueError(err_msg)
+
+
 # Removed on 2026-11-18 (views-hydranet issue #631): regression losses no config used, and the
 # settings only they read. Each name is added here by the commit that deletes it. Kept under the
 # git tag below for comparison only: a loss wanted again is rebuilt from scratch, not restored.

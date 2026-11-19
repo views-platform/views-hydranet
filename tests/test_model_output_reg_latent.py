@@ -60,8 +60,8 @@ class TestGreenModelOutputRegLatent:
         assert (output.reg >= 0).all(), "Post-ReLU should be non-negative"
         assert (output.reg_latent < 0).any(), "Pre-ReLU latent should contain negative values"
 
-    def test_relu_relationship(self):
-        """reg should equal relu(reg_latent)."""
+    def test_softplus_relationship(self):
+        """reg should equal softplus(reg_latent) (#632; it was relu before)."""
         from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import (
             HydraBNUNet06_LSTM4,
         )
@@ -72,9 +72,9 @@ class TestGreenModelOutputRegLatent:
         h = model.init_hTtime(32, 16, 16).float()
         output = model(x, h)
 
-        expected = torch.relu(output.reg_latent)
+        expected = torch.nn.functional.softplus(output.reg_latent)
         assert torch.allclose(output.reg, expected, atol=1e-6), (
-            "reg should equal F.relu(reg_latent)"
+            "reg should equal F.softplus(reg_latent)"
         )
 
     def test_reg_latent_none_in_eval_mode(self):
