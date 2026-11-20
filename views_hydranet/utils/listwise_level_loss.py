@@ -50,10 +50,12 @@ loss will actually see** (``C-351``: population + transform + estimator):
 ⇒ Reading the S11 figures as the general case understates ``level_max`` by 8 and the top gain by
 256×. Both are real measurements of different populations.
 
-``needs_latent = True``: the score lives on the whole real line and must reach the loss
-PRE-activation, because the objective is scale-free. This also makes
-``validate_body_supervision_latent`` (``C-193``) refuse ``body_supervision='active'`` for it, which
-is correct — the zero block must be present.
+The score lives on the whole real line and must reach the loss PRE-activation, because the
+objective is scale-free. The ranking body (``RankingBody`` in ``views_hydranet.body.bodies``)
+hands it the raw output, and states that it trains on every cell (``requires_all_cells``), so
+``validate_body_supervision_latent`` (``C-193``) refuses ``body_supervision='active'`` for it,
+which is correct — the zero block must be present. (Until 2026-11-20, issue #630, a
+``needs_latent`` flag on this class stated both facts.)
 
 **The normalising transformation ``T``.** ``Bai2023_RegressionCompatibleListwise`` (CIKM '23)
 Definition 1 generalises the softmax above to any non-decreasing ``T : R -> R+``. This loss
@@ -184,8 +186,6 @@ class ListwiseLevelLoss(nn.Module):
         softmax form, which is translation-invariant. The softplus version was removed on
         2026-11-20 (issue #629). See the module docstring.
     """
-
-    needs_latent = True
 
     def __init__(self, y_max: float, transform: str = "exp") -> None:
         super().__init__()

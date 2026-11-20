@@ -536,10 +536,17 @@ def test_the_registry_entry_exists_and_declares_its_parameter():
 
 
 def test_the_score_reaches_the_loss_pre_activation():
-    """``needs_latent = True``: a scale-free score lives on the whole real line. A ReLU-activated
-    body would clamp half of it to a tie block at 0 -- the exact defect ``02 §5`` measures as
-    ``tie@0``."""
-    assert ListwiseLevelLoss.needs_latent is True
+    """A scale-free score lives on the whole real line. An activated body would clamp or bend it
+    -- the defect ``02 §5`` measures as ``tie@0``. The ranking body hands the loss the raw score
+    (until #630 a ``needs_latent`` flag on the loss said so)."""
+    from views_hydranet.body.bodies import RankingBody
+
+    criterion = ListwiseLevelLoss(y_max=_Y_MAX)
+    torch.manual_seed(3)
+    raw = torch.randn(2, 1, 8, 8)
+    target = torch.log1p(torch.randint(0, 50, (2, 1, 8, 8)).float())  # log1p space
+    step = RankingBody(criterion).read(raw)
+    assert torch.equal(step.loss(target[:, 0], 0), criterion(raw[:, 0], target[:, 0]))
 
 
 def test_an_empty_list_returns_a_graph_connected_zero():
@@ -784,15 +791,16 @@ def test_the_level_set_parameter_is_refused_when_nothing_reads_it(valid_config_d
 
 
 def test_a_supervision_window_on_the_ranking_body_is_refused(valid_config_dict):
-    """``C-193``, inherited rather than rebuilt: ``needs_latent = True`` makes
-    ``validate_body_supervision_latent`` reject ``body_supervision='active'``. That is the right
+    """``C-193``, inherited rather than rebuilt: the ranking body trains on every cell
+    (``requires_all_cells``), so ``validate_body_supervision_latent`` rejects
+    ``body_supervision='active'``. That is the right
     answer here for a different reason than the one it was written for — the zero block IS the
     list's lower levels, and masking it away leaves a list with one level and a loss of 0."""
     cfg = dict(valid_config_dict)
     cfg["loss_reg"] = "listwise_level"
     cfg["loss_reg_y_max"] = _Y_MAX
     cfg["body_supervision"] = "active"
-    with pytest.raises(ValidationError, match="needs_latent"):
+    with pytest.raises(ValidationError, match="requires_all_cells"):
         HydraNetConfig(**cfg)
 
 
@@ -821,7 +829,7 @@ class _ScoreModel(torch.nn.Module):
 
     ⭐ ``reg`` is deliberately ``softplus(latent)`` — the ``output_distribution='standard'``
     activation since #632 (it was ReLU before) — so ``reg`` and ``reg_latent`` DIFFER at every
-    cell. That difference is what makes the ``needs_latent`` assertion below able to fail.
+    cell. That difference is what makes the raw-score assertion below able to fail.
     """
 
     def __init__(self, n_reg: int, n_cls: int) -> None:
@@ -899,7 +907,8 @@ def test_the_dispatcher_needs_no_fourth_branch_the_score_rides_the_point_path():
 
 def test_the_score_reaches_the_criterion_before_the_activation_on_the_real_path():
     """⛔ The ranking body must hand the criterion `reg_latent` (until #629 the loss's
-    `needs_latent` routed it). The stub's `reg` is `softplus(latent)`, so if the ACTIVATED field
+    `needs_latent` flag routed it; the flag was removed in #630). The stub's `reg` is
+    `softplus(latent)`, so if the ACTIVATED field
     were handed over the criterion would never see a negative score — and a ReLU-clamped score is
     the `tie@0` defect of `02 §5`, which is the whole reason B is being tried."""
     _, crit, _ = _run_sequence()

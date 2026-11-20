@@ -273,6 +273,24 @@ class DistributionBody(Body):
         return self.family.nll(params, target, weight=mask.to(params.dtype))
 
 
+def body_class_for(distribution: str, loss_name: str | None) -> type[Body] | None:
+    """The body class a config names, or None if it names none of the five in use.
+
+    The one place that maps config values to a body. `build_body` uses it, and so does the config
+    check that refuses a supervision window on a body that trains on all cells (#630).
+    """
+    if distribution in _LIVE_DISTRIBUTIONS:
+        return DistributionBody
+    # A "standard" head always applies softplus (ADR-079 Rule 1, issue #632); the model refuses
+    # any other activation, so the setting need not be read here.
+    if distribution == "standard":
+        if loss_name == "mse":
+            return MeanSquaredErrorBody
+        if loss_name == "listwise_level":
+            return RankingBody
+    return None
+
+
 def build_body(config: dict, criterion_reg) -> Body:
     """The body for this config. Raises ``ValueError`` if it is not one of the five in use.
 
@@ -281,20 +299,17 @@ def build_body(config: dict, criterion_reg) -> Body:
     """
     distribution = config.get("output_distribution", "standard")
     loss_name = config.get("loss_reg")
-    if distribution in _LIVE_DISTRIBUTIONS:
-        if isinstance(criterion_reg, FamilyLoss):
-            return DistributionBody(distribution, criterion_reg.family)
-    # A "standard" head always applies softplus (ADR-079 Rule 1, issue #632); the model refuses
-    # any other activation, so the setting need not be read here.
-    elif distribution == "standard":
-        if loss_name == "mse" and type(criterion_reg) is nn.MSELoss:
-            return MeanSquaredErrorBody(criterion_reg)
-        if (
-            loss_name == "listwise_level"
-            and isinstance(criterion_reg, ListwiseLevelLoss)
-            and criterion_reg.transform == "exp"
-        ):
-            return RankingBody(criterion_reg)
+    body_class = body_class_for(distribution, loss_name)
+    if body_class is DistributionBody and isinstance(criterion_reg, FamilyLoss):
+        return DistributionBody(distribution, criterion_reg.family)
+    if body_class is MeanSquaredErrorBody and type(criterion_reg) is nn.MSELoss:
+        return MeanSquaredErrorBody(criterion_reg)
+    if (
+        body_class is RankingBody
+        and isinstance(criterion_reg, ListwiseLevelLoss)
+        and criterion_reg.transform == "exp"
+    ):
+        return RankingBody(criterion_reg)
     err_msg = (
         f"No body for output_distribution={distribution!r}, loss_reg={loss_name!r} with the "
         f"loss {type(criterion_reg).__name__}. The bodies are mean squared error and ranking on "
