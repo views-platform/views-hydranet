@@ -1670,25 +1670,22 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_body_supervision_latent(self) -> "HydraNetConfig":
-        # C-193 (ADR-008/065): a supervision window on the POINT body is a silent no-op under a
-        # latent loss — the training step never masks a body that requires all cells (the ranking
-        # body, `RankingBody.requires_all_cells`).
-        # Requesting body_supervision='active' there is meaningless, so RAISE (not ignore). Single
-        # authority for "is this loss latent?" is the loss class's `needs_latent` flag in
-        # LOSS_REG_REGISTRY — NOT a hardcoded name list. Today the only latent loss is
-        # listwise_level; mse is the point body a supervision window can apply to.
+        # C-193 (ADR-008/065): a supervision window on a body that trains on every cell (the
+        # ranking body) is a silent no-op — the training step never masks such a body. Requesting
+        # body_supervision='active' there is meaningless, so RAISE (not ignore). The body states
+        # the fact (`requires_all_cells`); this check asks it, not a list of loss names (#630).
+        # A config naming no body in use is refused by other checks.
         if self.body_supervision == "active":
-            from views_hydranet.utils.utils import LOSS_REG_REGISTRY
+            from views_hydranet.body.bodies import body_class_for
 
-            loss_cls = LOSS_REG_REGISTRY.get(self.loss_reg, {}).get("cls")
-            if loss_cls is not None and getattr(loss_cls, "needs_latent", False):
+            body_class = body_class_for(self.output_distribution, self.loss_reg)
+            if body_class is not None and body_class.requires_all_cells:
                 err_msg = (
-                    f"body_supervision='active' supervises the POINT body, but loss_reg="
-                    f"'{self.loss_reg}' is a latent loss (needs_latent=True) that reads the "
-                    f"output from before the activation on every cell — the window would be "
-                    f"silently ignored. Use "
-                    f"body_supervision='all' with this loss, or the non-latent point body (mse) "
-                    f"with a supervision window."
+                    f"body_supervision='active' supervises the point body, but loss_reg="
+                    f"'{self.loss_reg}' gives the {body_class.__name__}, which trains on every "
+                    f"cell (requires_all_cells) — the window would be silently ignored. Use "
+                    f"body_supervision='all' with this loss, or the mean squared error body "
+                    f"(loss_reg='mse') with a supervision window."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
