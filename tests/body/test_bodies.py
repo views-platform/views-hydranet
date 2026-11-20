@@ -233,10 +233,12 @@ def test_a_body_refuses_a_model_that_returns_no_output_from_before_the_activatio
 # ─────────────────────────────── everything else gets no body ───────────────────────────────
 
 
-def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
-    """A different body by ADR-079 §2; no config uses it, so it keeps the older path."""
+def test_the_softplus_version_of_the_ranking_loss_is_refused_before_a_body_is_built():
+    """A different body by ADR-079 §2, removed on 2026-11-20 (#629): it used to get no body and
+    train on the older path; now the loss factory refuses it."""
     cfg = {**BASE, **LIVE["ranking"], "loss_reg_listwise_transform": "softplus"}
-    assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
+    with pytest.raises(ValueError, match="archive/listwise-softplus-2026-11-20"):
+        choose_loss(cfg, CPU)
 
 
 # ──────────────────────────────────── the edges ────────────────────────────────────
