@@ -171,6 +171,12 @@ Anything not in this list is refused when the config is built. The case to watch
 config with no activation set: it trains with relu, it has no name in the vocabulary, and so it
 stops with an error instead of being renamed into something untrue.
 
+*Out of date since 2026-11-20 (issue #632, ADR-079 Rule 1 as amended):* a `standard` config with
+no activation set now trains softplus, and `reg_activation` accepts only softplus, beside a
+distribution too (a distribution beside `'relu'` is refused, not ignored). This paragraph, the one
+before it and the relu rows below describe the code before that. Re-read them before this ADR is
+picked up again.
+
 *Both checked 2026-11-14. The relu default and the distribution override are in
 `HydraBNrecurrentUnet_06_LSTM4.py`, lines 119 to 127. All ten live `standard` configs set
 `reg_activation: 'softplus'`: `calm`, `keen`, `mellow`, `nimble` and `quiet`, each as a `_counter`

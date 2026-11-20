@@ -58,11 +58,13 @@ def _save_with_sidecar(tmp_path, sidecar: dict) -> None:
 # --- the sidecar route -----------------------------------------------------------------------
 
 
-def test_a_sidecar_that_says_relu_is_refused(tmp_path):
+@pytest.mark.parametrize("recorded", ["relu", "Softplus", "softsign", "softplus ", ""])
+def test_a_sidecar_that_does_not_record_exactly_softplus_is_refused(tmp_path, recorded):
+    """Training writes the function's `__name__`, so only the exact string means softplus."""
     _save_with_sidecar(
-        tmp_path, {**ARCH, "output_distribution": "standard", "reg_activation": "relu"}
+        tmp_path, {**ARCH, "output_distribution": "standard", "reg_activation": recorded}
     )
-    with pytest.raises(ValueError, match=r"reg_activation='relu'.*Only softplus is implemented"):
+    with pytest.raises(ValueError, match=r"Only softplus is implemented"):
         _fetcher(tmp_path).fetch_model_artifact()
 
 
@@ -145,6 +147,16 @@ def test_a_pickled_relu_model_is_refused(tmp_path):
         _fetcher(tmp_path).fetch_model_artifact()
 
 
+def test_a_pickled_model_with_a_removed_body_keeps_its_own_message(tmp_path):
+    """On this route nothing else checks the body: the #628 refusal must come from here."""
+    model = _Unrecorded()
+    model.output_distribution = "hurdle_nb"
+    model._reg_activation = F.softplus
+    _pickle(tmp_path, model)
+    with pytest.raises(ValueError, match="archive/unused-bodies-2026-11-17"):
+        _fetcher(tmp_path).fetch_model_artifact()
+
+
 def test_a_pickled_model_without_a_head_activation_is_refused(tmp_path):
     """No `_reg_activation` attribute: it cannot be shown to be softplus, so it is refused."""
     _pickle(tmp_path, _Unrecorded())
@@ -155,4 +167,28 @@ def test_a_pickled_model_without_a_head_activation_is_refused(tmp_path):
 def test_a_pickled_softplus_model_loads(tmp_path):
     _pickle(tmp_path, choose_model({**ARCH, "reg_activation": "softplus"}, CPU))
     model, _ = _fetcher(tmp_path).fetch_model_artifact()
+    assert model._reg_activation is F.softplus
+
+
+# --- a script that loads weights itself ---------------------------------------------------------
+
+
+def test_the_io_gain_diagnostic_refuses_a_standard_sidecar_without_an_activation(tmp_path):
+    """`scripts/diagnose_io_gain.py` bypasses the fetcher; found by the code review of #632."""
+    import importlib.util
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[1] / "scripts" / "diagnose_io_gain.py"
+    spec = importlib.util.spec_from_file_location("diagnose_io_gain", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    _save_with_sidecar(tmp_path, {**ARCH, "output_distribution": "standard"})
+    with pytest.raises(ValueError, match=r"no activation.*ReLU was the default"):
+        module.load_model(tmp_path / NAME, CPU)
+
+    _save_with_sidecar(
+        tmp_path, {**ARCH, "output_distribution": "standard", "reg_activation": "softplus"}
+    )
+    model, _ = module.load_model(tmp_path / NAME, CPU)
     assert model._reg_activation is F.softplus

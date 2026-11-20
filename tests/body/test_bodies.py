@@ -197,6 +197,39 @@ def test_standard_mse_without_the_setting_gets_the_mse_body(activation):
     assert isinstance(build_body(cfg, choose_loss(cfg, CPU)[0]), MeanSquaredErrorBody)
 
 
+def test_a_body_refuses_a_model_that_returns_no_output_from_before_the_activation():
+    """The body route reads `reg_latent`; a model in eval mode returns None there.
+
+    Found untested by the guard audit of #632, which sent every standard mse config to a body.
+    """
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
+
+    cfg = {**BASE, **LIVE["mse"]}
+    torch.manual_seed(3)
+    model = choose_model(cfg, CPU).float()
+    model.eval()
+    criterion_reg, criterion_class, _ = choose_loss(cfg, CPU)
+
+    class _Sum(nn.Module):
+        def forward(self, losses):
+            return losses.sum()
+
+    with pytest.raises(RuntimeError, match="reg_latent` is None here"):
+        _process_sequence(
+            torch.rand(1, 3, 6, 8, 8),
+            model,
+            model.init_hTtime(model.base, 8, 8).float(),
+            criterion_reg=criterion_reg,
+            criterion_class=criterion_class,
+            multitaskloss_instance=_Sum(),
+            idx=_SequenceIndices(REG + BASE["classification_targets"], cfg),
+            device=CPU,
+            family=resolve_family("standard"),
+            body=build_body(cfg, criterion_reg),
+        )
+
+
 # ─────────────────────────────── everything else gets no body ───────────────────────────────
 
 
