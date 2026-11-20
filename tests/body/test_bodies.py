@@ -357,3 +357,11 @@ def test_only_the_ranking_body_trains_on_every_cell():
     assert RankingBody.requires_all_cells is True
     assert MeanSquaredErrorBody.requires_all_cells is False
     assert DistributionBody.requires_all_cells is False
+
+
+def test_build_body_refuses_an_old_body_setting_beside_body():
+    """#633 guard audit: `build_body` reads the body through `body_name`, so a raw dict that
+    still carries one of the three old settings is refused here too, not silently ignored."""
+    cfg = {**BASE, **LIVE["mse"], "loss_reg": "listwise_level"}
+    with pytest.raises(ValueError, match="loss_reg"):
+        build_body(cfg, nn.MSELoss())

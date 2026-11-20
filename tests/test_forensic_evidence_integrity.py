@@ -471,3 +471,26 @@ def test_the_biopsy_label_names_the_gate():
     """The label half of the same wiring. `self_zeroed` in it would be the original defect."""
     label = _run_biopsy(_family_config("soft_gate")).kwargs["forecast_label"]
     assert label == "FORECAST log1p(soft_gate(E[y], gate))", label
+
+
+def test_a_distribution_body_reaches_the_training_step_with_its_family(monkeypatch):
+    """#633 guard audit: the training step reads the body's distribution from `body`.
+
+    `_process_sequence` gets the family for the scheduled-sampling feedback. A config states only
+    `body` since #633, so a site that read the old `output_distribution` key with a default would
+    hand an NB body `family=None` and still train, with no error.
+    """
+    import views_hydranet.train.training_engine as engine
+    from views_hydranet.distributions.negative_binomial import NegativeBinomialFamily
+
+    seen = []
+    real = engine._process_sequence
+
+    def _record(*args, **kwargs):
+        seen.append(kwargs.get("family"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(engine, "_process_sequence", _record)
+    _run_biopsy(_family_config("soft_gate"))
+    assert seen, "the training step was never reached"
+    assert all(isinstance(f, NegativeBinomialFamily) for f in seen), seen
