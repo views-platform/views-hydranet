@@ -230,7 +230,25 @@ def test_a_body_refuses_a_model_that_returns_no_output_from_before_the_activatio
         )
 
 
-# ─────────────────────────────── everything else gets no body ───────────────────────────────
+# ───────────────────────────── everything else is refused (#629) ─────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "overrides,criterion",
+    [
+        ({"output_distribution": "nb", "loss_reg": "mse"}, nn.MSELoss()),
+        ({"output_distribution": "standard", "loss_reg": "mse"}, nn.L1Loss()),
+        ({"output_distribution": "standard", "loss_reg": "listwise_level"}, nn.MSELoss()),
+        ({"output_distribution": "standard", "loss_reg": "mse"}, None),
+        ({"output_distribution": "zinb", "loss_reg": "mse"}, nn.MSELoss()),
+    ],
+    ids=["family_with_mse", "mse_with_l1", "ranking_with_mse", "no_criterion", "removed_body"],
+)
+def test_a_loss_built_for_another_config_gets_an_error_not_a_missing_body(overrides, criterion):
+    """`build_body` returned ``None`` here until #629, and training then took the older path."""
+    cfg = {**BASE, **overrides}
+    with pytest.raises(ValueError, match="No body for output_distribution="):
+        build_body(cfg, criterion)
 
 
 def test_the_softplus_version_of_the_ranking_loss_is_refused_before_a_body_is_built():

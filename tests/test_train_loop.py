@@ -38,6 +38,8 @@ IDENTITY_COLS = ["c_id", "row", "col"]
 @pytest.fixture
 def toy_config():
     return {
+        # The loss the context below builds; `train()` builds its body from it (#629).
+        "loss_reg": "mse",
         "features": INPUT_FEATURES,
         "regression_targets": REG_TARGETS,
         "classification_targets": CLS_TARGETS,
