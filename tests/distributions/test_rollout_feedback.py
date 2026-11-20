@@ -2,9 +2,10 @@
 
 `rollout_feedback` governs the autoregressive feedback copy. Default `None` = AUTO (ADR-070 / S4):
 resolves to `'sample'` for a registered family head (the C-113 bloom mitigation) and `'mean'` for a
-legacy head (byte-identical). `'sample'` feeds a seeded family draw; `'mean'` the emit-mean E[y];
-`'teacher_forced'` the real month-t input. Only the fed-back copy changes; the scored cube is
-unchanged. Fail-loud on a bad value or `'sample'` without a registered family.
+legacy head (byte-identical). `'sample'` feeds a seeded family draw; `'mean'` the emit-mean E[y]
+(`'teacher_forced'`, the real month-t input, was removed on 2026-11-20, #634). Only the fed-back
+copy changes; the scored cube is unchanged. Fail-loud on a bad value or `'sample'` without a
+registered family.
 """
 
 from __future__ import annotations
@@ -96,9 +97,7 @@ def test_rollout_feedback_auto_resolution():
     assert _make_inf("mixture_nb").rollout_feedback == "sample"  # every family
     assert _make_inf("standard").rollout_feedback == "mean"  # legacy unset -> mean (parity)
     assert _make_inf("nb", rollout_feedback="mean").rollout_feedback == "mean"  # explicit override
-    assert _make_inf("standard", rollout_feedback="teacher_forced").rollout_feedback == (
-        "teacher_forced"
-    )  # explicit override on legacy (oracle needs no family)
+    assert _make_inf("standard", rollout_feedback="mean").rollout_feedback == "mean"
 
 
 # ── 'sample' changes the trajectory, and is deterministic ────────────────
@@ -177,18 +176,15 @@ def test_rollout_feedback_sample_is_deterministic():
     assert np.array_equal(a, b)  # seeded generator (torch_seed + pass idx) → reproducible
 
 
-# ── EXP-3 oracle: teacher_forced feeds real input, differs from mean/sample ───
+# ── teacher forcing is removed (#634) ────────────────────────────────────
 
 
-def test_rollout_feedback_teacher_forced_differs_and_deterministic():
-    h = _mock_handler()
-    mag_mean, _ = _make_inf("nb", rollout_feedback="mean").generate_posterior_samples(h, origin=1)
-    tf1 = _make_inf("nb", rollout_feedback="teacher_forced")
-    tf2 = _make_inf("nb", rollout_feedback="teacher_forced")
-    o1, _ = tf1.generate_posterior_samples(h, origin=1)
-    o2, _ = tf2.generate_posterior_samples(h, origin=1)
-    assert not np.array_equal(mag_mean, o1)  # real-input feedback changes the trajectory
-    assert np.array_equal(o1, o2)  # deterministic (no extra randomness)
+@pytest.mark.parametrize("distribution", ["nb", "standard"])
+def test_the_removed_teacher_forcing_is_refused_at_forecast_time(distribution):
+    """Removed on 2026-11-20 (#634). A raw config dict that skips the schema must still be
+    refused, with the archive tag named."""
+    with pytest.raises(ValueError, match="archive/teacher-forced-2026-11-20"):
+        _make_inf(distribution, rollout_feedback="teacher_forced")
 
 
 def test_rollout_feedback_sample_composes_with_gate_soft():
