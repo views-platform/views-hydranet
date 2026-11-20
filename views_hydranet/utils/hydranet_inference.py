@@ -273,18 +273,14 @@ class HydraNetInference:
         # None (default) = AUTO: resolve to 'sample' for a registered family head (the mitigation;
         # T=0-neutral so the scored T=0 product is byte-unchanged), 'mean' for a legacy head (raw
         # pred — byte-identical to history). Explicit values override: 'sample' (composition-aware
-        # family draw), 'mean' (emit-mean E[y]), 'teacher_forced' (EXP-3 oracle, real input).
+        # family draw), 'mean' (emit-mean E[y]). ('teacher_forced' was removed 2026-11-20, #634.)
+        from views_hydranet.utils.config_initializer import check_rollout_feedback
+
         rf = config.get("rollout_feedback")
+        check_rollout_feedback(rf)
         if rf is None:
             rf = "sample" if self._family is not None else "mean"
         self.rollout_feedback = rf
-        if self.rollout_feedback not in ("mean", "sample", "teacher_forced"):
-            err_msg = (
-                "rollout_feedback must be None (auto), 'mean', 'sample', or 'teacher_forced'; "
-                f"got {self.rollout_feedback!r}."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
         if self.rollout_feedback == "sample" and self._family is None:
             err_msg = (
                 "rollout_feedback='sample' needs a registered distribution family "
@@ -448,27 +444,6 @@ class HydraNetInference:
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
-            # The E4 splice arms read the MODEL's field out of `t0_autoreg`, which is assembled
-            # after both rollout_feedback branches. Under 'teacher_forced' that tensor holds the
-            # REAL field, so "real occurrence x model magnitude" would splice real with real and
-            # report an E4 decomposition in which the model never appeared. Nothing downstream can
-            # detect it: the arm runs, scores, and looks like a result.
-            if (
-                self._feedback_arm[0]
-                in (
-                    "occurrence_real_magnitude_model",
-                    "occurrence_model_magnitude_real",
-                )
-                and self.rollout_feedback == "teacher_forced"
-            ):
-                err_msg = (
-                    f"feedback_transform={feedback_transform!r} splices the model's field with "
-                    "the real one, but rollout_feedback='teacher_forced' already feeds the real "
-                    "— the arm would splice real with real and report an E4 result that never "
-                    "involved the model. Use rollout_feedback='sample' or 'mean'."
-                )
-                logger.error(err_msg)
-                raise ValueError(err_msg)
         # Every arm self-reports the field it actually fed, per (sample, step). This is not
         # instrumentation for one experiment — it is how we check on REAL data that a transform did
         # what its fixture tests say it does. A `thin` arm whose active fraction did not fall is a
@@ -622,12 +597,12 @@ class HydraNetInference:
         return torch.minimum(t0_autoreg, ceiling)
 
     def _real_dynamic(self, full_tensor, model_in_indices, n_dyn: int, step: int):
-        """The REAL dynamic channels at ``step``, log1p space — the same expression the
-        ``teacher_forced`` branch feeds, sliced to the dynamic prefix.
+        """The REAL dynamic channels at ``step``, log1p space: month ``step`` of the input,
+        sliced to the dynamic prefix (the same slice ``use_real`` feeds in full).
 
-        Reusing that expression rather than re-deriving a month offset is deliberate: an
-        off-by-one here would compare the wrong month and every arm built on it would be
-        confidently wrong while looking healthy.
+        An off-by-one here would compare the wrong month and every arm built on it would be
+        confidently wrong while looking healthy; `tests/test_feedback_transform_seam.py` (F1)
+        checks the month against the input volume.
         """
         n_months = full_tensor.shape[1]
         if not 0 <= step < n_months:
@@ -666,10 +641,10 @@ class HydraNetInference:
                 "hold_last_real": origin,
             }[name]
             if name == "use_real":
-                # The FULL slice, exactly what the teacher_forced branch feeds — including its
-                # statics from month `t`. The feedback branch attaches statics from month `origin`
-                # instead, so reusing those would make F1's byte-identity depend on the statics
-                # being time-invariant, which nothing here asserts.
+                # The FULL slice of month `t` — including its statics from month `t`. The
+                # feedback branch attaches statics from month `origin` instead, so reusing those
+                # would make F1's byte-identity depend on the statics being time-invariant, which
+                # nothing here asserts.
                 return full_tensor[:, src, model_in_indices, :, :]
             real = self._real_dynamic(full_tensor, model_in_indices, n_dyn, src)
             return torch.cat([real, t0_autoreg[:, n_dyn:]], dim=1)
@@ -1320,26 +1295,19 @@ class HydraNetInference:
                 # 3. AUTOREGRESSION: Pred[k] -> Pred[k+1]
                 # C-113: clamp ONLY the fed-back copy to the in-domain ceiling; the
                 # emitted prediction (appended below) is never capped.
-                if self.rollout_feedback == "teacher_forced":
-                    # EXP-3 ORACLE: feed the REAL month-t input (zero exposure bias). The calib
-                    # window is historical, so full_tensor holds real values; this is the
-                    # one-step-conditioned ceiling. No feedback/clamp/static re-attach — the real
-                    # input already carries [dynamic ⧺ static] in model_in_indices order.
-                    t0_autoreg = full_tensor[:, t, model_in_indices, :, :]
-                else:
-                    # H-SAMPLE: feed back the previous step's chosen copy (mean default / sample).
-                    fb = feedback_mag
-                    t0_autoreg = self._clamp_feedback(fb.detach())
-                    # ADR-060 I3: re-attach the geometry-constant static channels to the feedback,
-                    # matching the [dynamic ⧺ static] model-input order. The clamp bounds only the
-                    # 3 dynamic prediction channels; statics are never clamped. Empty => unchanged.
-                    if static_indices:
-                        t0_autoreg = torch.cat(
-                            [t0_autoreg, full_tensor[:, origin, static_indices, :, :]], dim=1
-                        )
-                # Diagnostic feedback transform (#258/#262). Applied AFTER both branches so it
-                # composes with any rollout_feedback, and it replaces only the dynamic prefix —
-                # statics stay exactly as attached above.
+                # H-SAMPLE: feed back the previous step's chosen copy (mean default / sample).
+                fb = feedback_mag
+                t0_autoreg = self._clamp_feedback(fb.detach())
+                # ADR-060 I3: re-attach the geometry-constant static channels to the feedback,
+                # matching the [dynamic ⧺ static] model-input order. The clamp bounds only the
+                # 3 dynamic prediction channels; statics are never clamped. Empty => unchanged.
+                if static_indices:
+                    t0_autoreg = torch.cat(
+                        [t0_autoreg, full_tensor[:, origin, static_indices, :, :]], dim=1
+                    )
+                # Diagnostic feedback transform (#258/#262). Applied AFTER the feedback is built,
+                # so it composes with any rollout_feedback, and it replaces only the dynamic prefix
+                # — statics stay exactly as attached above.
                 if self._feedback_arm:
                     t0_autoreg = self._apply_feedback_transform(
                         t0_autoreg, full_tensor, model_in_indices, len(static_indices), t, origin

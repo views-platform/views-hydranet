@@ -1,6 +1,7 @@
 # ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
 
 **Status:** Active
+**Amended 2026-11-20 (issue #634):** `teacher_forced` is removed. The owner decided there will be no more teacher forcing. The config schema and the forecast code refuse it, and name the git tag `archive/teacher-forced-2026-11-20` that holds the last code (for comparison only; rebuild from scratch, never restore). The accepted values are `None` (auto), `mean` and `sample`. Where this ADR names `teacher_forced` below, it is history.
 **Amended 2026-11-17 (issue #628):** the `zinb` family is deleted. The decision here stands for the families that remain; the `zinb` measurements below are history.
 **Date:** 2026-07-27 (accepted 2026-07-27)
 **Deciders:** Simon Polichinel von der Maase
@@ -13,7 +14,7 @@ The 36-step autoregressive rollout **blooms** (C-113): the model feeds its own *
 
 - `mean` — the emit-mean `E[y]` (historical behavior; the bloom driver).
 - `sample` — a single seeded, composition-aware **family draw** per cell (sparse, in-distribution) — the mitigation.
-- `teacher_forced` — the realized `truth[o+t]` (oracle; diagnostic only, not deployable).
+- `teacher_forced` — the realized `truth[o+t]` (oracle; diagnostic only, not deployable). *Removed 2026-11-20 (#634).*
 
 Feeding back a **sample** keeps every step sparse and in-distribution, which **bounds the rollout** (EXP-2: ~20× on zinb; held across models). **Decision:** `rollout_feedback` defaults to **`sample` for registered family heads** (`nb`/`zinb`), `mean`/raw for legacy heads. This is safe because **the fix is T=0-neutral by construction** (below), so the scored T=0 product is byte-unchanged.
 
@@ -23,13 +24,13 @@ C-113 is the costliest recurring failure (open since June). Prior attempts: `fre
 
 ## 2. Decision
 
-Adopt **`rollout_feedback ∈ {mean, sample, teacher_forced}`** as an inference config axis (already scaffolded; this ADR governs it and sets the production default).
+Adopt **`rollout_feedback ∈ {mean, sample, teacher_forced}`** (*since 2026-11-20, #634: `{mean, sample}`*) as an inference config axis (already scaffolded; this ADR governs it and sets the production default).
 
 - **`sample`** draws one per-cell family sample (`family.sample`, k=1) each AR step, **composed exactly like the emit** (`forecast_composition`): `self_zeroed` (zinb native), `soft_gate`/`threshold_gate` mask the draw by the cls gate. Only the fed-back copy changes; the emitted/scored D×K cube is untouched.
 - **Default:** resolves to **`sample`** when a **registered family** (`resolve_family` ≠ None) is active and the field is unset; **`mean`/raw** for legacy heads (byte-identical). Overridable for experiments.
 - **Determinism:** the draw uses a `torch.Generator` seeded from `torch_seed` (+ MC-dropout pass index) — S2 #121 gate.
 - **Fail-loud:** `sample` with a legacy `output_distribution` (no family) raises (a sample needs a family).
-- **`teacher_forced`** feeds the real month-t input (oracle) — diagnostic only; never a production default.
+- **`teacher_forced`** feeds the real month-t input (oracle) — diagnostic only; never a production default. *Removed 2026-11-20 (#634).*
 
 **Valid family × composition arms** (per ADR-069): **gated_NB** (`nb`+`soft_gate`), **th_gated_NB** (`nb`+`threshold_gate`, **τ=0.5** — the validated ADR-068 value; τ=baserate is a documented no-op), **ZINB** (`zinb`+`self_zeroed`).
 
