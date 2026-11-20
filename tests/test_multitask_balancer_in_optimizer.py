@@ -23,7 +23,7 @@ class TestGreenMultiTaskBalancerInOptimizer:
         "scheduler": "plateau",
         "warmup_steps": 5,
         "window_dim": 4,
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "loss_class": "bce",
         "onset_bias_init": None,
         "regression_targets": ["lr_sb", "lr_ns", "lr_os"],

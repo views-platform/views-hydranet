@@ -52,7 +52,7 @@ TINY_CONFIG = {
     "learning_rate": 1e-3,
     "weight_decay": 0.0,
     "scheduler": "none",
-    "loss_reg": "mse",
+    "body": "mse_softplus_point",
     "loss_class": "bce",
     "clip_grad_norm": True,
     "random_flips": False,

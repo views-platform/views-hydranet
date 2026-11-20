@@ -43,5 +43,7 @@ def test_explicit_standard_equals_default():
     assert _build("standard")._reg_activation is _build(None)._reg_activation is F.softplus
 
 
-def test_config_field_default_is_standard():
-    assert HydraNetConfig.model_fields["output_distribution"].default == "standard"
+def test_the_config_has_no_default_body():
+    """#633 (ADR-081): a config must state its body; there is no default to fall back to."""
+    assert "output_distribution" not in HydraNetConfig.model_fields
+    assert HydraNetConfig.model_fields["body"].is_required()

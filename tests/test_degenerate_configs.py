@@ -44,7 +44,7 @@ def _base_config(**overrides):
     """Minimal valid config with overrides."""
     config = {
         # The loss `_make_ctx` builds; `train()` builds its body from it (#629).
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "features": ["lr_sb", "by_sb"],
         "regression_targets": ["lr_sb"],
         "classification_targets": ["by_sb"],

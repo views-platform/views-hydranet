@@ -16,7 +16,7 @@ Propagation), ADR-009 (Boundary Contracts & Configuration Validation), ADR-002 (
 > consumers depend on a per-cell distribution — how the head emits it, activates it, scores it,
 > samples it, and summarises it — never on a concrete family (DIP).
 
-It is the seam ADR-067 introduces to replace the unregistered `output_distribution` string branched
+It is the seam ADR-067 introduces to replace the unregistered distribution string branched
 at ~11 switch-sites. A family is reached only through the registry (`resolve_family`); the ABC is the
 contract that registry returns.
 
@@ -27,8 +27,8 @@ contract that registry returns.
 - Does **not** register itself or know the registry — name→family mapping lives in
   `DistributionRegistry` (see its CIC). The ABC is torch-agnostic behaviour, not discovery.
 - Does **not** own the config vocabulary or validation — the valid-name set is derived from the
-  registry keys (`family_names()`); the `output_distribution` boundary is validated in
-  `config_initializer` (A-S5), not here.
+  registry keys (`family_names()`); the config names a body with `body` (ADR-081, #633), validated
+  in `config_initializer`, not here.
 - Does **not** own the count↔log1p transform table. A family recovers raw counts from the target via
   the config's declared inverse (`config_initializer.TRANSFORMS[method]`), never a hardcoded
   `expm1` (C-198), and emits parameters in **natural space** — it never `expm1`'s a prediction (the
@@ -136,7 +136,7 @@ every family is composed with the gate (ADR-069).
 ```python
 from views_hydranet.distributions import resolve_family
 
-fam = resolve_family(config["output_distribution"])   # a family, or None for a legacy value
+fam = resolve_family(body_name(config).distribution)   # a family, or None for a point body
 if fam is not None:
     params = fam.activate(head_raw)                    # [..., n_params], activated once
     loss = fam.nll(params, target, weight=cell_weight)

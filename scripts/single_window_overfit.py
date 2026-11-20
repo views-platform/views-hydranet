@@ -33,10 +33,9 @@ ARCH = {
     "total_hidden_channels": 32,
     "output_channels": 1,
     "dropout_rate": 0.0,  # capacity test: dropout OFF (max capacity, deterministic)
-    "output_distribution": "standard",
-    # softplus emit (not relu): avoids dead-ReLU collapse in this tiny single-forward setup; it can
-    # still concentrate mass on a few cells, which is what the capacity question asks.
-    "reg_activation": "softplus",
+    # A softplus point head (the only kind since #632): it can still concentrate mass on a few
+    # cells, which is what the capacity question asks.
+    "body": "mse_softplus_point",
     "static_channels": [],
 }
 

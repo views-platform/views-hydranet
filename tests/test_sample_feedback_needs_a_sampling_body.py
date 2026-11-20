@@ -13,38 +13,31 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from views_hydranet.utils.config_initializer import LEGACY_OUTPUT_DISTRIBUTIONS, HydraNetConfig
+from views_hydranet.utils.config_initializer import HydraNetConfig
 
 
 def _standard(valid_config_dict, **overrides):
-    return {**valid_config_dict, "output_distribution": "standard", **overrides}
+    return {**valid_config_dict, "body": "mse_softplus_point", **overrides}
 
 
 @pytest.mark.parametrize(
     "body",
     [
-        {"loss_reg": "mse", "reg_activation": "softplus"},
-        {"loss_reg": "listwise_level", "loss_reg_y_max": 262143.0, "reg_activation": "softplus"},
+        {"body": "mse_softplus_point"},
+        {"body": "listwise_softplus_point", "loss_reg_y_max": 262143.0},
     ],
     ids=["mean squared error", "ranking"],
 )
 def test_sampled_feedback_is_refused_for_a_body_that_cannot_sample(valid_config_dict, body):
-    """The feedback setting of the ten live `*_counter` and `*_sorter` configs before their fix."""
+    """The feedback setting of the ten live `*_counter` and `*_sorter` configs before their fix.
+
+    Since #633 every point body is one of these two values, so this covers every body that is not
+    a distribution (the guard audit of 2026-11-16 asked for "not a family", not "is standard")."""
     with pytest.raises(ValidationError) as excinfo:
         HydraNetConfig(**_standard(valid_config_dict, rollout_feedback="sample", **body))
     message = str(excinfo.value)
     assert "rollout_feedback='sample'" in message
     assert "'mean'" in message, "the message must say what to set instead"
-
-
-@pytest.mark.parametrize("distribution", LEGACY_OUTPUT_DISTRIBUTIONS)
-def test_sampled_feedback_is_refused_for_every_body_that_is_not_a_family(
-    valid_config_dict, distribution
-):
-    """The refusal is "not a family", not "is `standard`" (guard audit, 2026-11-16)."""
-    cfg = {**valid_config_dict, "output_distribution": distribution, "rollout_feedback": "sample"}
-    with pytest.raises(ValidationError, match="rollout_feedback='sample'"):
-        HydraNetConfig(**cfg)
 
 
 @pytest.mark.parametrize("feedback", [None, "mean"])
@@ -60,7 +53,7 @@ def test_sampled_feedback_is_still_accepted_for_a_distribution_body(
     cfg = HydraNetConfig(
         **{
             **valid_config_dict,
-            "output_distribution": distribution,
+            "body": f"nll_softplus_{distribution}",
             "forecast_composition": "soft_gate",
             "rollout_feedback": "sample",
         }

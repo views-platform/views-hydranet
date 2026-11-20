@@ -27,7 +27,7 @@ def _cfg(valid_config_dict, **over):
     unrelated rule decide every outcome in this file instead of the one under test.
     """
     cfg = dict(valid_config_dict)
-    cfg.update(output_distribution="nb", forecast_composition="soft_gate")
+    cfg.update(body="nll_softplus_nb", forecast_composition="soft_gate")
     cfg.update(over)
     return cfg
 
@@ -116,7 +116,7 @@ def test_composition_outcomes_are_unchanged_by_setting_emit_distribution(
     live bug fix — and this test pins that it changed nothing meanwhile.
     """
     cfg = dict(valid_config_dict)
-    cfg.update(output_distribution="nb", forecast_composition=comp)
+    cfg.update(body="nll_softplus_nb", forecast_composition=comp)
     if emit is not None:
         cfg["emit_distribution"] = emit
 
@@ -133,7 +133,7 @@ def test_composition_outcomes_are_unchanged_by_setting_emit_distribution(
 
 
 def test_a_refusal_names_the_EMITTED_family_when_the_two_differ(valid_config_dict):
-    """A message blaming `output_distribution` for a rule applied to the emitted family sends the
+    """A message blaming `body` for a rule applied to the emitted family sends the
     reader to the wrong config line. C-242 is already in this validator for that reason.
 
     The rule used: a family with no gate composition has no zero mechanism."""
@@ -147,7 +147,7 @@ def test_a_refusal_names_the_EMITTED_family_when_the_two_differ(valid_config_dic
         )
     msg = str(exc.value)
     assert "emit_distribution='truncated_nb'" in msg
-    assert "output_distribution='truncated_nb'" not in msg
+    assert "body='nll_softplus_nb'" not in msg
 
 
 # -------------------------------------------- the seam, for callers that skip the schema

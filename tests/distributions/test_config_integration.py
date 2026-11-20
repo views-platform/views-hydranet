@@ -1,8 +1,8 @@
 """A-S5 (#172): config boundary for the distribution families (ADR-067).
 
-Validates that HydraNetConfig accepts the family names as `output_distribution` (registry-driven,
-unioned with the legacy values), the new `n_head_samples` (K) field + its cross-field rule, the
-C-197 family/legacy disjointness guard, and that `config_initializer` stays torch-free (CRP).
+Validates that HydraNetConfig accepts the family bodies (`body`, ADR-081 since #633), the new
+`n_head_samples` (K) field + its cross-field rule, the C-197 family/legacy disjointness guard,
+and that `config_initializer` stays torch-free (CRP).
 """
 
 from __future__ import annotations
@@ -32,40 +32,37 @@ def _cfg(valid_config_dict, **overrides):
 def test_family_output_distributions_accepted(valid_config_dict, fam):
     # ADR-069/#183: every family must declare a gate composition (none is self-zeroed).
     comp = "soft_gate"
-    cfg = _cfg(valid_config_dict, output_distribution=fam, forecast_composition=comp)
-    assert HydraNetConfig(**cfg).output_distribution == fam
+    cfg = _cfg(valid_config_dict, body=f"nll_softplus_{fam}", forecast_composition=comp)
+    assert HydraNetConfig(**cfg).body_distribution == fam
 
 
-@pytest.mark.parametrize("legacy", ["standard"])
-def test_legacy_output_distributions_still_accepted(valid_config_dict, legacy):
-    cfg = _cfg(valid_config_dict, output_distribution=legacy)
-    assert HydraNetConfig(**cfg).output_distribution == legacy
+def test_the_point_body_is_still_accepted(valid_config_dict):
+    cfg = _cfg(valid_config_dict, body="mse_softplus_point")
+    assert HydraNetConfig(**cfg).body_distribution == "standard"
 
 
-def test_unknown_output_distribution_rejected_with_union_list(valid_config_dict):
-    cfg = _cfg(valid_config_dict, output_distribution="not_a_family")
-    with pytest.raises(ValidationError, match="is not a body this package has") as excinfo:
+def test_an_unknown_body_is_rejected_with_every_declared_value(valid_config_dict):
+    cfg = _cfg(valid_config_dict, body="nll_softplus_not_a_family")
+    with pytest.raises(ValidationError, match="is not a declared body") as excinfo:
         HydraNetConfig(**cfg)
-    # the rejection message actually lists the family names (the union), not just the legacy set
     msg = str(excinfo.value)
-    assert "'nb'" in msg and "'mixture_nb'" in msg
+    assert "'nll_softplus_nb'" in msg and "'nll_softplus_mixture_nb'" in msg
 
 
 def test_legacy_config_constructs_unchanged_with_default_k(valid_config_dict):
-    """AC #3 (byte-identical): a legacy config (no output_distribution, no K) validates unchanged;
-    the new n_head_samples defaults to 1 without disturbing any existing field."""
-    assert "output_distribution" not in valid_config_dict
+    """AC #3 (byte-identical): a point-body config with no K validates unchanged; n_head_samples
+    defaults to 1 without disturbing any existing field."""
     assert "n_head_samples" not in valid_config_dict
     cfg = HydraNetConfig(**valid_config_dict)
-    assert cfg.output_distribution == "standard"  # legacy default preserved
+    assert cfg.body_distribution == "standard"
     assert cfg.n_head_samples == 1  # new field defaults, no behaviour change
-    assert cfg.loss_reg == valid_config_dict["loss_reg"]  # unrelated fields untouched
+    assert cfg.body == valid_config_dict["body"]  # unrelated fields untouched
     assert cfg.n_posterior_samples == valid_config_dict["n_posterior_samples"]
 
 
 def test_default_legacy_head_with_k_gt_1_raises(valid_config_dict):
-    """K>1 must raise even for the default (legacy) output_distribution."""
-    cfg = _cfg(valid_config_dict, n_head_samples=3)  # output_distribution defaults to "standard"
+    """K>1 must raise on the fixture's point body."""
+    cfg = _cfg(valid_config_dict, n_head_samples=3)  # the fixture's body is a point body
     with pytest.raises(ValidationError, match="n_head_samples"):
         HydraNetConfig(**cfg)
 
@@ -85,9 +82,8 @@ def test_n_head_samples_below_one_rejected(valid_config_dict, bad_k):
         HydraNetConfig(**cfg)
 
 
-@pytest.mark.parametrize("legacy", ["standard"])
-def test_k_gt_1_on_legacy_head_raises(valid_config_dict, legacy):
-    cfg = _cfg(valid_config_dict, output_distribution=legacy, n_head_samples=3)
+def test_k_gt_1_on_a_point_body_raises(valid_config_dict):
+    cfg = _cfg(valid_config_dict, body="mse_softplus_point", n_head_samples=3)
     with pytest.raises(ValidationError, match="n_head_samples"):
         HydraNetConfig(**cfg)
 
@@ -96,7 +92,7 @@ def test_k_gt_1_on_legacy_head_raises(valid_config_dict, legacy):
 def test_k_gt_1_on_family_accepted(valid_config_dict, fam):
     comp = "soft_gate"  # ADR-069/#183: a family must declare a gate
     cfg = _cfg(
-        valid_config_dict, output_distribution=fam, n_head_samples=3, forecast_composition=comp
+        valid_config_dict, body=f"nll_softplus_{fam}", n_head_samples=3, forecast_composition=comp
     )
     assert HydraNetConfig(**cfg).n_head_samples == 3
 
@@ -105,7 +101,7 @@ def test_family_k1_is_unaffected_by_the_cross_field_rule(valid_config_dict):
     # K=1 on a family (or a legacy head) never trips the K>1 rule
     cfg = _cfg(
         valid_config_dict,
-        output_distribution="nb",
+        body="nll_softplus_nb",
         n_head_samples=1,
         forecast_composition="soft_gate",
     )  # ADR-069/#183: nb must declare a gate

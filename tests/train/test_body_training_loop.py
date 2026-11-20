@@ -44,14 +44,14 @@ from views_hydranet.utils.volume_handler import VolumeHandler  # noqa: E402
 GOLDEN_LOOP = Path(__file__).parents[1] / "golden" / "body_loop_golden.json"
 
 LIVE = {
-    "mse": ({"output_distribution": "standard", "loss_reg": "mse"}, MeanSquaredErrorBody),
+    "mse": ({"body": "mse_softplus_point"}, MeanSquaredErrorBody),
     "ranking": (
-        {"output_distribution": "standard", "loss_reg": "listwise_level", "loss_reg_y_max": 1e4},
+        {"body": "listwise_softplus_point", "loss_reg_y_max": 1e4},
         RankingBody,
     ),
-    "nb": ({"output_distribution": "nb", "loss_reg": "mse"}, DistributionBody),
-    "truncated_nb": ({"output_distribution": "truncated_nb", "loss_reg": "mse"}, DistributionBody),
-    "mixture_nb": ({"output_distribution": "mixture_nb", "loss_reg": "mse"}, DistributionBody),
+    "nb": ({"body": "nll_softplus_nb"}, DistributionBody),
+    "truncated_nb": ({"body": "nll_softplus_truncated_nb"}, DistributionBody),
+    "mixture_nb": ({"body": "nll_softplus_mixture_nb"}, DistributionBody),
 }
 
 
@@ -79,9 +79,7 @@ def _train(name, monkeypatch):
     overrides, _ = LIVE[name]
     # weight_decay=0: with decay the head moves even when no loss trains it, and the last
     # assertion of the test would pass for that reason (code review, 2026-11-16).
-    cfg = loop_config(
-        reg_activation="softplus", loss_class="weighted_bce", weight_decay=0.0, **overrides
-    )
+    cfg = loop_config(loss_class="weighted_bce", weight_decay=0.0, **overrides)
     seen: list = []
     real = engine.build_body
 

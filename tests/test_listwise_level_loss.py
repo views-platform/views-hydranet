@@ -18,7 +18,7 @@ import pytest
 import torch
 from pydantic import ValidationError
 
-from views_hydranet.distributions import family_names
+from views_hydranet.body.vocabulary import BODY_NAMES
 from views_hydranet.utils.config_initializer import HydraNetConfig
 from views_hydranet.utils.listwise_level_loss import (
     TRANSFORMS,
@@ -610,7 +610,7 @@ def test_the_ranking_body_cannot_start_without_declaring_its_level_set(valid_con
     """⛔ ``C-423``: the level set is the objective's scale. A default here would be a silent
     per-run objective, so ``validate_loss_reg_params`` must refuse the omission."""
     cfg = dict(valid_config_dict)
-    cfg["loss_reg"] = "listwise_level"
+    cfg["body"] = "listwise_softplus_point"
     cfg["body_supervision"] = "all"
     cfg.pop("loss_reg_y_max", None)
     with pytest.raises(ValidationError, match="loss_reg_y_max"):
@@ -622,32 +622,13 @@ def test_the_ranking_body_cannot_start_without_declaring_its_level_set(valid_con
 def _ranking_cfg(valid_config_dict: dict) -> dict:
     """-> a config dict shaped like the real ranking arm, as a base for the pairing guards."""
     cfg = dict(valid_config_dict)
-    cfg["loss_reg"] = "listwise_level"
+    cfg["body"] = "listwise_softplus_point"
     cfg["loss_reg_y_max"] = _Y_MAX
     cfg["body_supervision"] = "all"
-    cfg["output_distribution"] = "standard"
     cfg["forecast_composition"] = "self_zeroed"
     cfg["n_head_samples"] = 1
     cfg.pop("gate_threshold", None)
     return cfg
-
-
-@pytest.mark.parametrize("family", sorted(family_names()))
-def test_every_registered_family_is_refused_not_just_nb(valid_config_dict, family):
-    """⛔⛔ Parametrized over ``family_names()`` because the first version of this guard tested
-    ``nb`` alone, and a guard audit (2026-11-12) showed that narrowing the *production* condition
-    to ``== "nb"`` left ``zinb``, ``mixture_nb`` and ``truncated_nb`` slipping through with the
-    suite green. 1 of 4 is the ``M5`` enumerative-coverage hole this repository keeps paying for.
-
-    A registered family is a **silent discard**: ``choose_loss`` resolves the family first and
-    never consults ``loss_reg``, so the arm trains the family NLL under a config that reads as a
-    ranking arm (``C-324``).
-    """
-    cfg = _ranking_cfg(valid_config_dict)
-    cfg["output_distribution"] = family
-    cfg["forecast_composition"] = "soft_gate"
-    with pytest.raises(ValidationError, match="SILENT DISCARD"):
-        HydraNetConfig(**cfg)
 
 
 #: A valid value for every parameter any registered loss requires, so a parametrized case reaches
@@ -670,21 +651,28 @@ def test_the_parameter_stub_table_covers_every_required_parameter_in_the_registr
     )
 
 
-@pytest.mark.parametrize("other_loss", sorted(set(LOSS_REG_REGISTRY) - {"listwise_level"}))
-def test_the_level_set_parameter_is_refused_beside_every_other_loss(valid_config_dict, other_loss):
-    """⛔ The same ``M5`` hole on the other guard: it tested ``mse`` alone, and narrowing the
-    production condition to ``== "mse"`` let **ten** other ``loss_reg`` values slip.
+@pytest.mark.parametrize("other_body", sorted(set(BODY_NAMES) - {"listwise_softplus_point"}))
+def test_the_level_set_parameter_is_refused_beside_every_other_body(valid_config_dict, other_body):
+    """⛔ The same ``M5`` hole on this guard: it tested ``mse`` alone, and narrowing the
+    production condition to ``== "mse"`` let the other losses slip. Since #633 (ADR-081) the
+    cases are every other ``body`` value, distributions included (until #633 a ranking loss beside
+    a distribution was refused by a separate guard; a ``body`` value cannot express that pair).
 
-    ``loss_reg_y_max`` is read by exactly one loss. Beside any other it is inert, and an inert
+    ``loss_reg_y_max`` is read by exactly one body. Beside any other it is inert, and an inert
     parameter reads as an arm that changed a variable when it changed nothing (``C-324``).
 
-    ⚠️ Each case supplies the other loss's OWN required parameters, or `validate_loss_reg_params`
-    would refuse first and the case would pass without ever reaching the guard under test.
+    ⚠️ Each case supplies its body's OWN required parameters, or `validate_loss_reg_params` would
+    refuse first and the case would pass without ever reaching the guard under test.
     """
     cfg = dict(valid_config_dict)
-    cfg["loss_reg"] = other_loss
-    for param in LOSS_REG_REGISTRY[other_loss]["params"]:
-        cfg[param] = _REQUIRED_PARAM_STUBS[param]
+    cfg["body"] = other_body
+    loss_name = BODY_NAMES[other_body].loss_name
+    if loss_name is None:
+        cfg["forecast_composition"] = "soft_gate"
+        cfg.pop("gate_threshold", None)
+    else:
+        for param in LOSS_REG_REGISTRY[loss_name]["params"]:
+            cfg[param] = _REQUIRED_PARAM_STUBS[param]
     cfg["loss_reg_y_max"] = _Y_MAX
     with pytest.raises(ValidationError, match="does not read it"):
         HydraNetConfig(**cfg)
@@ -719,7 +707,7 @@ def test_a_multi_channel_point_head_is_refused_because_there_is_no_single_score(
     base = _two_channel_cfg(valid_config_dict)
     assert HydraNetConfig(**base).output_channels == 2, "the fixture must be valid on its own"
     cfg = {**_ranking_cfg(base)}
-    with pytest.raises(ValidationError, match="ONE reg channel"):
+    with pytest.raises(ValidationError, match="ONE regression channel"):
         HydraNetConfig(**cfg)
 
 
@@ -728,38 +716,7 @@ def test_the_point_branch_is_accepted_so_the_guard_does_not_simply_ban_the_loss(
 ):
     """⛔ The positive half of all three guards above. A refusal that refuses everything is not a
     guard, it is a ban: the `standard` single-channel head must pass."""
-    assert HydraNetConfig(**_ranking_cfg(valid_config_dict)).loss_reg == "listwise_level"
-
-
-def test_a_family_output_distribution_is_refused_because_it_discards_the_loss(valid_config_dict):
-    """⛔⛔ The worst configuration available to this programme, and it used to validate.
-
-    Found by ``/code-review`` on 2026-11-12. ``choose_loss`` resolves the distribution family
-    FIRST — its own comment says *"loss_reg is irrelevant for a family"* — so
-    ``loss_reg='listwise_level'`` with ``output_distribution='nb'`` constructed fine and
-    ``choose_loss`` returned ``FamilyLoss``, the NB NLL. ⇒ The arm would train the magnitude body
-    it exists to replace, log a config that reads as a ranking arm, and come home as a clean
-    null. That is the ``C-324`` inert-knob signature.
-
-    ⭐ And the positive half: a legacy point head must still be accepted, or the guard has simply
-    banned the loss.
-    """
-    cfg = dict(valid_config_dict)
-    cfg["loss_reg"] = "listwise_level"
-    cfg["loss_reg_y_max"] = _Y_MAX
-    cfg["body_supervision"] = "all"
-    cfg["output_distribution"] = "nb"
-    cfg["forecast_composition"] = "soft_gate"
-    cfg.pop("gate_threshold", None)
-    with pytest.raises(ValidationError, match="SILENT DISCARD"):
-        HydraNetConfig(**cfg)
-
-    cfg["output_distribution"] = "standard"
-    cfg["forecast_composition"] = "self_zeroed"
-    cfg["n_head_samples"] = 1
-    assert HydraNetConfig(**cfg).loss_reg == "listwise_level", (
-        "the guard refused a legacy point head too, which bans the loss rather than guarding it"
-    )
+    assert HydraNetConfig(**_ranking_cfg(valid_config_dict)).body == "listwise_softplus_point"
 
 
 def test_the_level_set_parameter_is_refused_when_nothing_reads_it(valid_config_dict):
@@ -772,7 +729,7 @@ def test_the_level_set_parameter_is_refused_when_nothing_reads_it(valid_config_d
     ``reject_inert_clamp``, ``reject_ignored_body_nll_denominator``) rejects exactly this pairing.
     """
     cfg = dict(valid_config_dict)
-    cfg["loss_reg"] = "mse"
+    cfg["body"] = "mse_softplus_point"
     cfg["loss_reg_y_max"] = _Y_MAX
     with pytest.raises(ValidationError, match="does not read it"):
         HydraNetConfig(**cfg)
@@ -797,7 +754,7 @@ def test_a_supervision_window_on_the_ranking_body_is_refused(valid_config_dict):
     answer here for a different reason than the one it was written for — the zero block IS the
     list's lower levels, and masking it away leaves a list with one level and a loss of 0."""
     cfg = dict(valid_config_dict)
-    cfg["loss_reg"] = "listwise_level"
+    cfg["body"] = "listwise_softplus_point"
     cfg["loss_reg_y_max"] = _Y_MAX
     cfg["body_supervision"] = "active"
     with pytest.raises(ValidationError, match="requires_all_cells"):

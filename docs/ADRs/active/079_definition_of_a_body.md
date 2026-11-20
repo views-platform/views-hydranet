@@ -9,8 +9,8 @@ reopening the decision. The working notes behind this ADR are kept in
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** views-hydranet contributors; views-models roster owners
 
-**Related:** ADR-080 (the definition of a gate) · ADR-081 (one config field names the body — not to be
-implemented until this ADR is done) · ADR-063 (regression-head activation, archived; superseded by Rule 1) · ADR-067 (distribution families) ·
+**Related:** ADR-080 (the definition of a gate) · ADR-081 (one config field names the body —
+implemented 2026-11-20, issue #633) · ADR-063 (regression-head activation, archived; superseded by Rule 1) · ADR-067 (distribution families) ·
 ADR-069 (`forecast_composition`) · ADR-070 (`rollout_feedback`) · ADR-073 (`emit_distribution`)
 
 ---
@@ -75,6 +75,9 @@ disagree, and when they disagree nothing reports it.
 Choosing a body is one decision. The code stores it as four separate pieces, in three different
 files: how many channels the head has, which activation it uses, which loss trains it, and how a
 forecast is computed from it. No single place holds all four.
+
+*Changed 2026-11-20 (issue #633, ADR-081): one setting, `body`, now names the body, and the three
+settings described below are refused. This section describes the code before that.*
 
 Three config settings are meant to keep the pieces consistent. They are called `loss_reg` (the
 loss), `output_distribution` (the count distribution, if any) and `reg_activation` (the

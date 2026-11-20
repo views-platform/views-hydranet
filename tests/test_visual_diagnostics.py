@@ -48,7 +48,7 @@ ACTIVE_CFG = {
     "col_offset": 0,
     "regression_metrics": ["mse"],
     "classification_metrics": ["ap"],
-    "loss_reg": "mse",
+    "body": "mse_softplus_point",
     "loss_class": "bce",
     # ADR 046 Compliance
     "features": ["lr_feat"],

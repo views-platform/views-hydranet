@@ -190,7 +190,7 @@ def test_config_rejects_the_penalty_on_a_non_family_body(valid_config_dict):
     # ships `self_zeroed`, which is itself illegal on a non-self-zeroed family (ADR-069), and
     # leaving it would let that unrelated rule decide the outcome instead of this one.
     cfg.update(
-        output_distribution="standard",
+        body="mse_softplus_point",
         forecast_composition="soft_gate",
         struct_penalty_weight=0.5,
     )
@@ -203,9 +203,7 @@ def test_config_accepts_the_penalty_on_a_family_body(valid_config_dict):
     from views_hydranet.utils.config_initializer import HydraNetConfig
 
     cfg = dict(valid_config_dict)
-    cfg.update(
-        output_distribution="nb", forecast_composition="soft_gate", struct_penalty_weight=0.5
-    )
+    cfg.update(body="nll_softplus_nb", forecast_composition="soft_gate", struct_penalty_weight=0.5)
     assert HydraNetConfig(**cfg).struct_penalty_weight == 0.5
 
 

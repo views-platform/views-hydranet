@@ -10,7 +10,7 @@ ADR-005 Green/Red taxonomy. See reports/2026-06-05_rollout_training_dossier/
 import pytest
 from pydantic import ValidationError
 
-from views_hydranet.utils.config_initializer import LEGACY_OUTPUT_DISTRIBUTIONS, HydraNetConfig
+from views_hydranet.utils.config_initializer import HydraNetConfig
 
 
 def test_rollout_horizon_field_exists_and_defaults_to_one():
@@ -56,7 +56,7 @@ def test_pushforward_weight_without_a_family_head_is_rejected(valid_config_dict)
     is exactly the failure `reject_unwired_rollout_horizon` above exists to prevent.
     """
     cfg = dict(valid_config_dict)
-    cfg["output_distribution"] = "standard"
+    cfg["body"] = "mse_softplus_point"
     cfg["pushforward_weight"] = 0.3
     with pytest.raises(ValidationError, match="pushforward"):
         HydraNetConfig(**cfg)
@@ -65,7 +65,7 @@ def test_pushforward_weight_without_a_family_head_is_rejected(valid_config_dict)
 def test_pushforward_weight_with_a_family_head_constructs(valid_config_dict):
     """Green: the combination the flag is FOR must construct cleanly."""
     cfg = dict(valid_config_dict)
-    cfg["output_distribution"] = "nb"
+    cfg["body"] = "nll_softplus_nb"
     cfg["forecast_composition"] = "soft_gate"  # ADR-069: nb is not self-zeroed, so declare a gate
     cfg["pushforward_weight"] = 0.3
     assert HydraNetConfig(**cfg).pushforward_weight == 0.3
@@ -75,7 +75,7 @@ def test_pushforward_weight_with_a_family_head_constructs(valid_config_dict):
 # S2/#355 — ss_backprop_through_feedback, the guard a comment promised and
 # nobody wrote. Same shape as the pushforward guard directly above.
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("head", LEGACY_OUTPUT_DISTRIBUTIONS)
+@pytest.mark.parametrize("head", ["mse_softplus_point", "listwise_softplus_point"])
 def test_bptt_sa_without_a_family_head_is_rejected(valid_config_dict, head):
     """`_attach_feedback_grad_clip` is skipped on a legacy head, and said a validator stopped it.
 
@@ -85,7 +85,9 @@ def test_bptt_sa_without_a_family_head_is_rejected(valid_config_dict, head):
     the regime GRAD-TRAJ measured blowing to 9.4e9 and overflowing float32 at lesson 48.
     """
     cfg = dict(valid_config_dict)
-    cfg["output_distribution"] = head
+    cfg["body"] = head
+    if head == "listwise_softplus_point":
+        cfg["loss_reg_y_max"] = 262143.0
     cfg["ss_schedule"] = "linear"
     cfg["ss_warmup_lessons"] = 10
     cfg["ss_epsilon_max"] = 1.0
@@ -97,7 +99,7 @@ def test_bptt_sa_without_a_family_head_is_rejected(valid_config_dict, head):
 def test_bptt_sa_with_a_family_head_constructs(valid_config_dict):
     """Anti-vacuity: the combination the flag is FOR must still construct."""
     cfg = dict(valid_config_dict)
-    cfg["output_distribution"] = "nb"
+    cfg["body"] = "nll_softplus_nb"
     # ADR-069: nb has no zero mechanism, so it must declare a gate composition. And C-259 then
     # requires ss_feedback='sample' — a gated composition with the ungated mean is rejected.
     cfg["forecast_composition"] = "soft_gate"
@@ -112,7 +114,7 @@ def test_bptt_sa_with_a_family_head_constructs(valid_config_dict):
 def test_bptt_sa_false_is_allowed_on_any_head(valid_config_dict):
     """The default must never be the thing that rejects a legacy config."""
     cfg = dict(valid_config_dict)
-    cfg["output_distribution"] = "standard"
+    cfg["body"] = "mse_softplus_point"
     cfg["ss_backprop_through_feedback"] = False
     assert HydraNetConfig(**cfg).ss_backprop_through_feedback is False
 
@@ -120,6 +122,6 @@ def test_bptt_sa_false_is_allowed_on_any_head(valid_config_dict):
 def test_pushforward_weight_zero_is_allowed_on_any_head(valid_config_dict):
     """The default must never be the thing that rejects a legacy config."""
     cfg = dict(valid_config_dict)
-    cfg["output_distribution"] = "standard"
+    cfg["body"] = "mse_softplus_point"
     cfg["pushforward_weight"] = 0.0
     assert HydraNetConfig(**cfg).pushforward_weight == 0.0

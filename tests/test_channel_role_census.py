@@ -80,6 +80,7 @@ def test_census_bug3_sidecar_roundtrips_coord_model():
         "output_channels": 1,
         "dropout_rate": 0.0,
         "static_channels": ["row_coord", "col_coord"],
+        "body": "mse_softplus_point",
     }
     rebuilt = choose_model(sidecar, _DEVICE)
     # DESIRED: a coord-trained model reloads. (Was: size mismatch 66 vs 64.)
@@ -106,7 +107,7 @@ _BIOPSY_CONFIG = {
     "learning_rate": 1e-3,
     "weight_decay": 0.0,
     "scheduler": "none",
-    "loss_reg": "mse",
+    "body": "mse_softplus_point",
     "loss_class": "bce",
     "clip_grad_norm": True,
     "random_flips": False,

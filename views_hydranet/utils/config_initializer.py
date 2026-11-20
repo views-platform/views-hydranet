@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from views_hydranet.body.vocabulary import BODY_NAMES, check_body, refuse_old_body_settings
 from views_hydranet.distributions import resolve_family
 
 logger = logging.getLogger(__name__)
@@ -126,18 +127,9 @@ def check_rollout_feedback(value: object) -> None:
 
 
 # Removed on 2026-11-18 (views-hydranet issue #631): regression losses no config used, and the
-# settings only they read. Each name is added here by the commit that deletes it. Kept under the
-# git tag below for comparison only: a loss wanted again is rebuilt from scratch, not restored.
+# settings only they read. Kept under the git tag below for comparison only: a loss wanted again
+# is rebuilt from scratch, not restored. Since #633 a loss is named only through `body`.
 REMOVED_LOSSES_TAG = "archive/unused-losses-2026-11-18"
-REMOVED_REG_LOSSES: tuple[str, ...] = (
-    "count_mean",
-    "mae",
-    "huber",
-    "shrinkage",
-    "lognormal_nll",
-    "pareto",
-    "tobit",
-)
 #: Config settings that only the removed losses read. Refused, not silently ignored (C-324).
 REMOVED_LOSS_SETTINGS: tuple[str, ...] = (
     "loss_reg_huber_delta",
@@ -149,33 +141,6 @@ REMOVED_LOSS_SETTINGS: tuple[str, ...] = (
 )
 
 
-def check_loss_reg(name: object) -> None:
-    """Raise ``ValueError`` unless ``name`` is a regression loss this package has.
-
-    The one check, used by the config schema, by ``choose_loss`` (which also serves raw dicts
-    that never passed the schema) and by ``ReproducibilityGate.audit_manifest``. A missing or
-    non-string ``name`` (``None``, or the schema's ``__MISSING_`` sentinel) is "required".
-    Removed SETTINGS are refused by the schema only; a raw dict carrying one is not checked.
-    """
-    from views_hydranet.utils.utils import LOSS_REG_REGISTRY
-
-    known = list(LOSS_REG_REGISTRY)
-    if name in known:
-        return
-    if not isinstance(name, str) or name.startswith("__MISSING_"):
-        err_msg = f"'loss_reg' is required. Available: {known}."
-        logger.error(err_msg)
-        raise ValueError(err_msg)
-    err_msg = f"loss_reg={name!r} is not a regression loss this package has. Available: {known}."
-    if name in REMOVED_REG_LOSSES:
-        err_msg += (
-            f" {name!r} was removed on 2026-11-18 (views-hydranet issue #631). The last "
-            f"version is under the git tag {REMOVED_LOSSES_TAG}, for comparison only."
-        )
-    logger.error(err_msg)
-    raise ValueError(err_msg)
-
-
 # authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
 # combine into the emitted forecast. self_zeroed = body carries its own zeros (no gate); soft_gate
 # = per-draw Bernoulli(gate) × body; threshold_gate = full body where gate ≥ τ else 0 (τ =
@@ -185,7 +150,7 @@ _GATE_COMPOSITIONS: tuple[str, ...] = ("soft_gate", "threshold_gate")  # use an 
 
 
 def validate_body_nll_denominator_pair(
-    denominator: "str | None", output_distribution: str, body_supervision: str
+    denominator: "str | None", distribution: str, body_supervision: str
 ) -> None:
     """The ONE statement of when ``body_nll_denominator`` is meaningful. Raises if it is not.
 
@@ -203,7 +168,7 @@ def validate_body_nll_denominator_pair(
 
     ``"all_cells"`` requires:
 
-    * ``output_distribution == "truncated_nb"`` — every other family already reduces over all
+    * the body's ``distribution == "truncated_nb"`` — every other family already reduces over all
       cells, so the flag would change nothing (**C-324**); and
     * ``body_supervision == "all"`` — under ``"active"`` the supervision mask IS a positive mask
       (``resolve_body_supervision(0, 0, thr)`` returns exactly ``window > event_threshold``), so
@@ -213,10 +178,11 @@ def validate_body_nll_denominator_pair(
     """
     if denominator is None or denominator == "positives":
         return
-    if output_distribution != "truncated_nb":
+    if distribution != "truncated_nb":
         err_msg = (
-            f"body_nll_denominator={denominator!r} requires output_distribution='truncated_nb' "
-            f"(got {output_distribution!r}). Every other family already reduces over all cells, "
+            f"body_nll_denominator={denominator!r} requires body='nll_softplus_truncated_nb' "
+            f"(got a body with distribution {distribution!r}). Every other family already "
+            "reduces over all cells, "
             f"so the flag would be inert — see C-324."
         )
         logger.error(err_msg)
@@ -299,8 +265,12 @@ class HydraNetConfig(BaseModel):
         ),
     )
 
-    # 6. Loss Functions (names: see LOSS_REG_REGISTRY in utils.py)
-    loss_reg: str = Field(...)
+    # 6. Loss Functions
+    # The regression body (ADR-081, issue #633): one value from `views_hydranet.body.vocabulary`
+    # (`BODY_NAMES`), spelled `<loss>_<activation>_<emit>`. It replaced `loss_reg`,
+    # `output_distribution` and `reg_activation`; a config writing any of those is refused.
+    # `body_distribution` and `body_loss` below are what the value fixes, not settings.
+    body: str = Field(...)
     loss_class: str = Field(...)
     # FocalLoss params (loss_class='focal')
     loss_class_gamma: float | None = Field(default=None)
@@ -329,29 +299,20 @@ class HydraNetConfig(BaseModel):
     qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
     # Per-target regression loss weights (C-87): None = uniform.
     target_weights: Dict[str, float] | None = Field(default=None)
-    # Ranking body (loss_reg='listwise_level'): the grid's truth MAXIMUM in raw counts, which
+    # Ranking body (body='listwise_softplus_point'): the grid's truth MAXIMUM in raw counts, which
     # declares the dyadic level set 0..ceil(log2(1+y_max)) and the fixed 1/(|R|-1) normaliser.
     # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
     # the field fails the schema instead of riding on extra="allow" (the W-22 trap).
     loss_reg_y_max: float | None = Field(default=None, ge=1.0)
-    # Ranking body (loss_reg='listwise_level'): the normalising transformation T of the listwise
-    # objective (Bai 2023 Def. 1). Only 'exp', Zhu's softmax form, is implemented; the softplus
-    # version was removed on 2026-11-20 (issue #629) and is refused with the tag that keeps it.
-    # The setting stays so a second version can be added as a new body (ADR-079 §2).
+    # Ranking body (body='listwise_softplus_point'): the normalising transformation T of the
+    # listwise objective (Bai 2023 Def. 1). Only 'exp', Zhu's softmax form, is implemented; the
+    # softplus version was removed on 2026-11-20 (issue #629) and is refused with the tag that
+    # keeps it. The setting stays so a second version can be added as a new body (ADR-079 §2).
     # listwise_level_loss.TRANSFORMS is the authority on the set.
     loss_reg_listwise_transform: str = Field(default="exp")
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
-    # Regression-head output distribution/activation (#100). "standard" (softplus) or a family/head
-    # name (nb, truncated_nb, mixture_nb) —
-    # validate_output_distribution is the authority on the accepted set.
-    output_distribution: str = Field(default="standard")
-    # The activation of a `standard` regression head (ADR-079 Rule 1, amended 2026-11-20, #632).
-    # Only the values in IMPLEMENTED_REG_ACTIVATIONS are accepted, today "softplus" alone; an
-    # explicit None (not stated) becomes "softplus". A family keeps its own activation, and the
-    # setting beside it must still be softplus. Until 2026-11-20 the default was ReLU.
-    reg_activation: str | None = Field(default="softplus")
     # ADR-069 (Epic #183): how gate + body compose into the emitted forecast. Default "self_zeroed"
     # is inert for legacy heads; it forces every family config to declare a gate
     # composition explicitly (soft_gate / threshold_gate). Consumed at emit time (S4).
@@ -370,7 +331,7 @@ class HydraNetConfig(BaseModel):
     body_nll_denominator: str = Field(default="positives")
     # ADR-073: the family the model is EMITTED from, when it differs from the one it was TRAINED
     # on. None (default) = emit as trained, byte-identical to every existing config. The use it
-    # exists for is `output_distribution='nb'` + `emit_distribution='truncated_nb'`: the gate then
+    # exists for is `body='nll_softplus_nb'` + `emit_distribution='truncated_nb'`: the gate then
     # owns occurrence and the body owns only magnitude, which measured -5.94% composed CRPS and an
     # emitted positive fraction of 0.0037 against an observed 0.0034, with NOTHING retrained
     # (reports/2026-10-21_emit_time_split_prereg.md).
@@ -586,10 +547,23 @@ class HydraNetConfig(BaseModel):
     # Metadata
     model_time_stamp: Optional[str] = None
 
+    @property
+    def body_distribution(self) -> str:
+        """What the body emits: 'standard' (one number per cell) or a distribution family."""
+        return BODY_NAMES[self.body].distribution
+
+    @property
+    def body_loss(self) -> str | None:
+        """The regression loss that trains a point body; None for a distribution (ADR-081)."""
+        return BODY_NAMES[self.body].loss_name
+
     @model_validator(mode="before")
     @classmethod
     def handle_typos_and_missing_guidance(cls, data: Any) -> Any:
         if isinstance(data, dict):
+            # ADR-081 (#633): `body` replaced three settings; a config still writing one is
+            # refused here, naming the value to write, before anything else is checked.
+            refuse_old_body_settings(data)
             # For fields with registry/enum semantics, inject a sentinel so that
             # Pydantic continues validating ALL fields (collecting every error)
             # rather than stopping at the first missing one. The sentinel then
@@ -597,7 +571,7 @@ class HydraNetConfig(BaseModel):
             _SENTINEL_FIELDS = {
                 "sampling_strategy": "__MISSING_sampling_strategy__",
                 "run_type": "__MISSING_run_type__",
-                "loss_reg": "__MISSING_loss_reg__",
+                "body": "__MISSING_body__",
                 "loss_class": "__MISSING_loss_class__",
                 "evaluation_mode": "__MISSING_evaluation_mode__",
                 "aggregate_method": "__MISSING_aggregate_method__",
@@ -649,11 +623,11 @@ class HydraNetConfig(BaseModel):
         pod has been paid for — C-324's lesson, where an inert setting produced a clean-looking
         null.
         """
-        if self.struct_penalty_weight > 0 and resolve_family(self.output_distribution) is None:
+        if self.struct_penalty_weight > 0 and resolve_family(self.body_distribution) is None:
             err_msg = (
                 f"struct_penalty_weight={self.struct_penalty_weight} requires a distribution "
-                f"family output_distribution (nb/truncated_nb/mixture_nb); got "
-                f"{self.output_distribution!r}, which emits no mu channel"
+                f"body (nll_softplus_nb, nll_softplus_truncated_nb, nll_softplus_mixture_nb); "
+                f"got body={self.body!r}, which emits no mu channel"
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
@@ -670,7 +644,7 @@ class HydraNetConfig(BaseModel):
         now recorded enough times to gate on. Fail loud instead.
         """
         validate_body_nll_denominator_pair(
-            self.body_nll_denominator, self.output_distribution, self.body_supervision
+            self.body_nll_denominator, self.body_distribution, self.body_supervision
         )
         return self
 
@@ -852,14 +826,10 @@ class HydraNetConfig(BaseModel):
             raise ValueError(err_msg)
         return v
 
-    @field_validator("output_distribution")
+    @field_validator("body")
     @classmethod
-    def validate_output_distribution(cls, v: str) -> str:
-        # ADR-067: the valid set is the LEGACY values unioned with the registered family names,
-        # checked by the one shared function. The family/legacy disjointness invariant (C-197) is
-        # enforced in a model_validator, which always runs (a field_validator is skipped for the
-        # default value).
-        check_output_distribution(v)
+    def validate_body(cls, v: str) -> str:
+        check_body(v)
         return v
 
     @field_validator("forecast_composition")
@@ -912,13 +882,6 @@ class HydraNetConfig(BaseModel):
         check_transform(v)
         return v
 
-    @field_validator("reg_activation")
-    @classmethod
-    def validate_reg_activation(cls, v: str | None) -> str:
-        v = "softplus" if v is None else v
-        check_reg_activation(v)
-        return v
-
     @field_validator("total_hidden_channels")
     @classmethod
     def validate_hidden_channels_divisibility(cls, v: int) -> int:
@@ -929,12 +892,6 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        return v
-
-    @field_validator("loss_reg")
-    @classmethod
-    def validate_loss_reg(cls, v: str) -> str:
-        check_loss_reg(v)
         return v
 
     @field_validator("loss_class")
@@ -1062,13 +1019,13 @@ class HydraNetConfig(BaseModel):
     def validate_loss_reg_params(self) -> "HydraNetConfig":
         from views_hydranet.utils.utils import LOSS_REG_REGISTRY
 
-        entry = LOSS_REG_REGISTRY.get(self.loss_reg)
+        entry = LOSS_REG_REGISTRY.get(self.body_loss)
         if entry is None:
             return self
         for param in entry["params"]:
             if getattr(self, param) is None:
                 err_msg = (
-                    f"loss_reg='{self.loss_reg}' requires '{param}' "
+                    f"body='{self.body}' requires '{param}' "
                     f"but it was not provided. Add '{param}' to your config."
                 )
                 logger.error(err_msg)
@@ -1150,96 +1107,49 @@ class HydraNetConfig(BaseModel):
         Mirrors `reject_pushforward_without_a_family`, which
         `reject_feedback_clip_without_the_wire`'s own docstring already names as the pattern.
         """
-        if self.ss_backprop_through_feedback and resolve_family(self.output_distribution) is None:
+        if self.ss_backprop_through_feedback and resolve_family(self.body_distribution) is None:
             err_msg = (
-                f"ss_backprop_through_feedback=True but output_distribution="
-                f"'{self.output_distribution}' does not resolve to a distribution family. On a "
+                f"ss_backprop_through_feedback=True but body='{self.body}' has no "
+                "distribution family. On a "
                 "legacy head the fed tensor IS the regression loss's input, so the "
                 "straight-through estimator does not apply, ss_feedback_grad_clip is skipped, and "
                 "fed_grad_max logs a constant 0.0 that reads as a healthy gradient. Use a family "
-                "head (e.g. 'nb'), or set ss_backprop_through_feedback=False (#308)."
+                "body (e.g. 'nll_softplus_nb'), or set ss_backprop_through_feedback=False (#308)."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
-    def reject_discarded_or_inert_listwise_level(self) -> "HydraNetConfig":
-        """⛔⛔ A config that reads as a ranking arm must not train the magnitude body.
+    def reject_inert_listwise_level_settings(self) -> "HydraNetConfig":
+        """The ranking body needs one score per cell, and its parameter is read by it alone.
 
-        Two halves of one silent discard, both found by `/code-review` on 2026-11-12 and both
-        reproduced by execution before this guard was written:
+        **1. One channel.** A listwise loss ranks one score per cell; a point head emits
+        `output_channels` per target, so with more than one there is no score to rank.
 
-        **1. The loss is discarded.** `choose_loss` resolves the family FIRST — its own comment
-        says *"loss_reg is irrelevant for a family"* — so `loss_reg='listwise_level'` with
-        `output_distribution='nb'` validates, logs a config that reads as a ranking arm, and
-        returns `FamilyLoss` (the NB NLL). Measured: that config constructs fine and
-        `choose_loss` hands back `FamilyLoss`. ⇒ The arm would train the thing it was built to
-        replace and come home as a clean null — the **C-324** inert-knob signature, and the
-        single most expensive failure available to this programme.
+        **2. The parameter is inert elsewhere.** `loss_reg_y_max` beside any other body is read by
+        nothing — an arm that reads as changed and is not (**C-324**).
 
-        **2. The parameter is inert.** `loss_reg_y_max` with any other `loss_reg` is read by
-        nothing. An operator who sets it and mistypes `loss_reg` gets a silent magnitude arm.
-        The field's own note already invokes the W-22 trap for *declaring* it; this closes the
-        other half.
-
-        ⚠️ A listwise loss needs the **point** branch (`n_params = 1`): a family emits
-        `n_params` reg channels per target, so its `reg_latent` is more than one channel and
-        there is no single score to rank. Use a legacy `output_distribution` such as
-        `'standard'`.
-
-        Mirrors `reject_ignored_body_nll_denominator` and `reject_inert_clamp`, which this
-        repository added for the same signature.
+        Until #633 a third case was refused here: the ranking loss beside a distribution, which
+        trained the distribution's likelihood instead. A `body` value cannot express that pair.
         """
-        if self.loss_reg == "listwise_level":
-            # ⚠️ From `registry`, not the package: `family_n_params` is not in
-            # `views_hydranet.distributions.__all__`. Both are torch-free, which is what keeps
-            # config validation torch-free (A-S2 / CRP), the same reason
-            # `validate_output_distribution` imports `family_names` locally.
-            from views_hydranet.distributions.registry import family_n_params, family_names
-
-            # Mirror the head's OWN sizing rule, which is the authority
-            # (`HydraBNrecurrentUnet_06_LSTM4.py`): a family emits `n_params` channels per
-            # target, every other head emits `output_channels`. Gating on the derived CHANNEL
-            # COUNT rather than on a hand-listed set of names is deliberate: the first version of
-            # this guard tested "is not a registered family" and let a multi-channel legacy head
-            # validate. (That head, the quantile head, was removed on 2026-11-16, ADR-079 §4.)
-            if self.output_distribution in family_names():
-                reg_channels = family_n_params(self.output_distribution)
-                err_msg = (
-                    f"loss_reg='listwise_level' with output_distribution="
-                    f"'{self.output_distribution}' is a SILENT DISCARD: choose_loss resolves the "
-                    "distribution family first and never consults loss_reg, so this arm would "
-                    "train the family NLL while its config reads as a ranking arm (C-324). The "
-                    f"family also emits {reg_channels} reg channels per target, so there is no "
-                    "single score to rank. Use a legacy point head, e.g. "
-                    "output_distribution='standard'."
-                )
-            else:
-                reg_channels = self.output_channels
-                err_msg = (
-                    f"loss_reg='listwise_level' needs ONE reg channel per target and "
-                    f"a legacy head emits output_channels={reg_channels} per target "
-                    f"(output_distribution='{self.output_distribution}'). A listwise loss ranks "
-                    "a single score per cell; with more than one channel there is no score to "
-                    "rank. Use a point head with output_channels=1, e.g. "
-                    "output_distribution='standard'."
-                )
-            if reg_channels != 1:
-                logger.error(err_msg)
-                raise ValueError(err_msg)
-        if self.loss_reg_y_max is not None and self.loss_reg != "listwise_level":
+        if self.body_loss == "listwise_level" and self.output_channels != 1:
             err_msg = (
-                f"loss_reg_y_max={self.loss_reg_y_max} is set but loss_reg='{self.loss_reg}' "
-                "does not read it — the only consumer is 'listwise_level'. An inert parameter "
-                "reads as an arm that changed a variable when it changed nothing (C-324). "
-                "Remove loss_reg_y_max, or set loss_reg='listwise_level'."
+                f"body='{self.body}' needs ONE regression channel per target, but "
+                f"output_channels={self.output_channels}. A listwise loss ranks a single score "
+                "per cell; with more than one channel there is no score to rank."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        # The sibling field `loss_reg_listwise_transform` needed the same check while it had a
-        # second value. Since #629 it accepts only its default, 'exp', so nothing can be set on
-        # purpose beside another loss.
+        if self.loss_reg_y_max is not None and self.body_loss != "listwise_level":
+            err_msg = (
+                f"loss_reg_y_max={self.loss_reg_y_max} is set but body='{self.body}' does not "
+                "read it — the only consumer is 'listwise_softplus_point'. An inert parameter "
+                "reads as an arm that changed a variable when it changed nothing (C-324). "
+                "Remove loss_reg_y_max, or set body='listwise_softplus_point'."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -1272,12 +1182,13 @@ class HydraNetConfig(BaseModel):
         head with `pushforward_weight > 0` would therefore train with NO pushforward at all and
         report a clean run, leaving the experiment's premise silently invalid. Mirrors
         `reject_unwired_rollout_horizon`, which exists for exactly this failure mode."""
-        if self.pushforward_weight > 0.0 and resolve_family(self.output_distribution) is None:
+        if self.pushforward_weight > 0.0 and resolve_family(self.body_distribution) is None:
             err_msg = (
-                f"pushforward_weight={self.pushforward_weight} but output_distribution="
-                f"'{self.output_distribution}' does not resolve to a distribution family, so the "
+                f"pushforward_weight={self.pushforward_weight} but body='{self.body}' has no "
+                "distribution family, so the "
                 "pushforward term is never computed — the run would look clean and train nothing "
-                "extra. Use a family head (e.g. 'nb'), or set pushforward_weight=0.0 (#289)."
+                "extra. Use a distribution body (e.g. 'nll_softplus_nb'), or set "
+                "pushforward_weight=0.0 (#289)."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
@@ -1513,15 +1424,15 @@ class HydraNetConfig(BaseModel):
         # regression targets — fail loud at config load. (`family_names()` is torch-free.)
         from views_hydranet.distributions import family_names
 
-        if self.output_distribution in family_names():
+        if self.body_distribution in family_names():
             log1p_cols = set(self.transformations.get("log1p", []))
             non_log1p = [t for t in self.regression_targets if t not in log1p_cols]
             if non_log1p:
                 err_msg = (
-                    f"output_distribution='{self.output_distribution}' is a count distribution "
+                    f"body='{self.body}' is a count distribution "
                     f"family that recovers raw counts via the log1p inverse, but regression "
                     f"target(s) {non_log1p} are not log1p-transformed (C-198). Use log1p, or "
-                    f"select a legacy output_distribution."
+                    f"select a point body."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
@@ -1536,18 +1447,16 @@ class HydraNetConfig(BaseModel):
         # loss would recover wrong counts, assign wrong levels and train on the wrong ranking,
         # with no error. Not merged with the family check: the two fire for different reasons
         # and name different settings.
-        from views_hydranet.distributions import family_names
 
-        # Under a distribution family `loss_reg` is not what trains, so there is nothing to check.
-        if self.loss_reg == "listwise_level" and self.output_distribution not in family_names():
+        if self.body_loss == "listwise_level":
             log1p_cols = set(self.transformations.get("log1p", []))
             non_log1p = [t for t in self.regression_targets if t not in log1p_cols]
             if non_log1p:
                 err_msg = (
-                    f"loss_reg='listwise_level' recovers raw counts from the target via the "
+                    f"body='listwise_softplus_point' recovers raw counts from the target via the "
                     f"log1p inverse to form its rating levels, but regression target(s) "
                     f"{non_log1p} are not log1p-transformed. Use log1p for them, or another "
-                    f"loss_reg."
+                    f"body."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
@@ -1562,11 +1471,11 @@ class HydraNetConfig(BaseModel):
         if self.n_head_samples > 1:
             from views_hydranet.distributions import family_names
 
-            if self.output_distribution not in family_names():
+            if self.body_distribution not in family_names():
                 err_msg = (
                     f"n_head_samples={self.n_head_samples} (>1) requires a sampleable "
-                    f"family (output_distribution in {sorted(family_names())}), but "
-                    f"output_distribution='{self.output_distribution}' is a legacy head with no "
+                    f"distribution body, but "
+                    f"body='{self.body}' is a point body with no "
                     "per-cell sampler. Use n_head_samples=1 with this head, or select a "
                     "distribution family."
                 )
@@ -1587,8 +1496,8 @@ class HydraNetConfig(BaseModel):
            ADR-073's surface narrow STRUCTURALLY — measured 2026-10-21, nb 2 / truncated_nb 2 /
            mixture_nb 5, so ``nb <-> truncated_nb`` is the only admissible pair today and
            it cannot widen by accident;
-        3. ⛔ it must DIFFER from ``output_distribution``. An equal value reads as an intervention
-           and is none — C-324's inert-knob signature, the same reason
+        3. ⛔ it must DIFFER from the trained body's distribution. An equal value reads as an
+           intervention and is none — C-324's inert-knob signature, the same reason
            ``reject_inert_struct_penalty`` exists.
 
         Torch-free: reads the registry's mirrors, never instantiating a family (CRP).
@@ -1605,20 +1514,20 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        if self.emit_distribution == self.output_distribution:
+        if self.emit_distribution == self.body_distribution:
             err_msg = (
                 f"emit_distribution={self.emit_distribution!r} equals "
-                f"output_distribution={self.output_distribution!r}, so it changes nothing. Remove "
+                f"the distribution of body={self.body!r}, so it changes nothing. Remove "
                 "it rather than leaving a setting that reads as an intervention and is not "
                 "(C-324); None already means 'emit as trained'."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        trained_n = FAMILY_N_PARAMS.get(self.output_distribution)
+        trained_n = FAMILY_N_PARAMS.get(self.body_distribution)
         if trained_n is None:
             err_msg = (
                 f"emit_distribution={self.emit_distribution!r} needs a registered family to be "
-                f"trained on; output_distribution={self.output_distribution!r} is not one, so "
+                f"trained on; body={self.body!r} has none, so "
                 "there is no parameter layout to match."
             )
             logger.error(err_msg)
@@ -1627,8 +1536,8 @@ class HydraNetConfig(BaseModel):
         if emit_n != trained_n:
             err_msg = (
                 f"emit_distribution={self.emit_distribution!r} emits {emit_n} parameters per cell "
-                f"but the head was trained as output_distribution="
-                f"{self.output_distribution!r}, which emits {trained_n}. The channels mean what "
+                f"but the head was trained as body={self.body!r}, which emits {trained_n}. "
+                "The channels mean what "
                 "the trained family says they mean, so they cannot be read by a family with a "
                 "different layout (ADR-073)."
             )
@@ -1648,14 +1557,14 @@ class HydraNetConfig(BaseModel):
         # question about the family being DRAWN FROM. The two are equal unless `emit_distribution`
         # is set, so this is byte-identical for every configuration that does not set it — which a
         # test asserts rather than assumes, because every roster model depends on it.
-        emitted = self.emit_distribution or self.output_distribution
+        emitted = self.emit_distribution or self.body_distribution
         # Names the family a message is about, and says which role it plays whenever the two differ
-        # — a message blaming `output_distribution` for a rule applied to the emitted family sends
+        # — a message blaming `body` for a rule applied to the emitted family sends
         # the reader to the wrong line — the C-242 lesson already learned inside this validator.
         emitted_desc = (
             f"emit_distribution='{emitted}'"
             if self.emit_distribution is not None
-            else f"output_distribution='{emitted}'"
+            else f"body='{self.body}'"
         )
         is_family = emitted in family_names()
         # (1) No registered family makes its own zeros (the only one that did, zinb, was deleted
@@ -1707,14 +1616,14 @@ class HydraNetConfig(BaseModel):
         if self.body_supervision == "active":
             from views_hydranet.body.bodies import body_class_for
 
-            body_class = body_class_for(self.output_distribution, self.loss_reg)
+            body_class = body_class_for(self.body_distribution, self.body_loss)
             if body_class is not None and body_class.requires_all_cells:
                 err_msg = (
-                    f"body_supervision='active' supervises the point body, but loss_reg="
-                    f"'{self.loss_reg}' gives the {body_class.__name__}, which trains on every "
+                    f"body_supervision='active' supervises the point body, but body="
+                    f"'{self.body}' gives the {body_class.__name__}, which trains on every "
                     f"cell (requires_all_cells) — the window would be silently ignored. Use "
                     f"body_supervision='all' with this loss, or the mean squared error body "
-                    f"(loss_reg='mse') with a supervision window."
+                    f"(body='mse_softplus_point') with a supervision window."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
@@ -1763,11 +1672,11 @@ class HydraNetConfig(BaseModel):
         if self.rollout_feedback == "sample":
             from views_hydranet.distributions import family_names
 
-            if self.output_distribution not in family_names():
+            if self.body_distribution not in family_names():
                 err_msg = (
                     "rollout_feedback='sample' feeds back a random draw from the body, which "
-                    f"needs a distribution family; output_distribution="
-                    f"{self.output_distribution!r} cannot draw samples. Set rollout_feedback to "
+                    f"needs a distribution family; body="
+                    f"{self.body!r} cannot draw samples. Set rollout_feedback to "
                     "'mean', or leave it unset (it then resolves to 'mean' for this body)."
                 )
                 logger.error(err_msg)
@@ -1806,7 +1715,7 @@ class HydraNetConfig(BaseModel):
         if self.ss_epsilon_max > 0:
             from views_hydranet.distributions import family_names
 
-            is_family = self.output_distribution in family_names()
+            is_family = self.body_distribution in family_names()
             # inference auto-resolves rollout_feedback None -> 'sample' for a family head,
             # else 'mean' (hydranet_inference.py:100-101). Mirror that to compare like-for-like.
             resolved_rf = self.rollout_feedback or ("sample" if is_family else "mean")

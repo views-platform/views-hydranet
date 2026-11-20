@@ -39,7 +39,7 @@ CORE_GENOME = [
     "output_channels",
     "total_hidden_channels",
     "dropout_rate",
-    "loss_reg",
+    "body",
     "loss_class",
 ]
 
@@ -91,13 +91,13 @@ class ReproducibilityGate:
 
         Checks:
         1. All core genome parameters are present and non-None
-        2. The loss_reg and loss_class values are registered
+        2. The body (ADR-081) and loss_class values are declared
         3. All loss-specific parameters are present and non-None
 
         Raises ValueError with a clear message listing missing parameters.
         Must be called before lock_entropy() and training_loop().
         """
-        from views_hydranet.utils.config_initializer import check_loss_reg
+        from views_hydranet.body.vocabulary import body_name
         from views_hydranet.utils.utils import LOSS_CLASS_REGISTRY, LOSS_REG_REGISTRY
 
         # 1. Core genome audit
@@ -114,26 +114,28 @@ class ReproducibilityGate:
                 f"Parameters set to None (implicit defaults forbidden): {none_core}"
             )
 
-        # 2. Loss regression genome
-        loss_reg = config["loss_reg"]
+        # 2. Regression body genome (ADR-081): a point body's loss parameters; a distribution body
+        # trains on its likelihood and has none here.
         try:
-            check_loss_reg(loss_reg)
+            named = body_name(config)
         except ValueError as exc:
             raise ValueError(f"REPRODUCIBILITY CONTRACT VIOLATED: {exc}") from exc
-
-        loss_reg_params = LOSS_REG_REGISTRY[loss_reg]["params"]
+        body = named.value
+        loss_reg_params = (
+            LOSS_REG_REGISTRY[named.loss_name]["params"] if named.loss_name is not None else []
+        )
         missing_reg = [k for k in loss_reg_params if k not in config]
         if missing_reg:
             raise ValueError(
                 f"REPRODUCIBILITY CONTRACT VIOLATED: "
-                f"Loss '{loss_reg}' requires missing parameters: {missing_reg}"
+                f"Body '{body}' requires missing parameters: {missing_reg}"
             )
 
         none_reg = [k for k in loss_reg_params if config.get(k) is None]
         if none_reg:
             raise ValueError(
                 f"REPRODUCIBILITY CONTRACT VIOLATED: "
-                f"Loss '{loss_reg}' parameters set to None: {none_reg}"
+                f"Body '{body}' parameters set to None: {none_reg}"
             )
 
         # 3. Loss classification genome
@@ -155,5 +157,5 @@ class ReproducibilityGate:
 
         logger.info(
             f"Genome audit passed: {len(CORE_GENOME)} core + "
-            f"{len(loss_reg_params)} loss_reg + {len(loss_cls_params)} loss_class params verified"
+            f"{len(loss_reg_params)} body + {len(loss_cls_params)} loss_class params verified"
         )

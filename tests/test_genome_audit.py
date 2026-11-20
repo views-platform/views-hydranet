@@ -45,7 +45,7 @@ def test_valid_config_passes_audit():
         "output_channels": 1,
         "total_hidden_channels": 8,
         "dropout_rate": 0.1,
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "loss_class": "bce",
     }
 
@@ -77,7 +77,7 @@ def test_missing_core_param_raises():
         "output_channels": 1,
         "total_hidden_channels": 8,
         "dropout_rate": 0.1,
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "loss_class": "bce",
     }
 
@@ -109,7 +109,7 @@ def test_missing_loss_specific_param_raises():
         "output_channels": 1,
         "total_hidden_channels": 8,
         "dropout_rate": 0.1,
-        "loss_reg": "listwise_level",
+        "body": "listwise_softplus_point",
         # loss_reg_y_max deliberately missing
         "loss_class": "bce",
     }
@@ -119,10 +119,10 @@ def test_missing_loss_specific_param_raises():
 
 
 # ---------------------------------------------------------------------------
-# RED TEST 5: Unknown loss name raises
+# RED TEST 5: Unknown body raises
 # ---------------------------------------------------------------------------
-def test_unknown_loss_name_raises():
-    """Config with unregistered loss_reg value must raise."""
+def test_unknown_body_raises():
+    """Config with an undeclared body (ADR-081) must raise."""
     from views_hydranet.infrastructure.reproducibility_gate import (
         ReproducibilityGate,
     )
@@ -142,11 +142,11 @@ def test_unknown_loss_name_raises():
         "output_channels": 1,
         "total_hidden_channels": 8,
         "dropout_rate": 0.1,
-        "loss_reg": "nonexistent_loss",
+        "body": "nonexistent_body",
         "loss_class": "bce",
     }
 
-    with pytest.raises(ValueError, match="nonexistent_loss"):
+    with pytest.raises(ValueError, match="nonexistent_body"):
         ReproducibilityGate.audit_manifest(config)
 
 
@@ -174,7 +174,7 @@ def test_none_value_in_required_param_raises():
         "output_channels": 1,
         "total_hidden_channels": 8,
         "dropout_rate": 0.1,
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "loss_class": "bce",
     }
 
@@ -206,9 +206,61 @@ def test_mse_needs_no_extra_params():
         "output_channels": 1,
         "total_hidden_channels": 8,
         "dropout_rate": 0.1,
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "loss_class": "bce",
     }
 
     # Should not raise
     ReproducibilityGate.audit_manifest(config)
+
+
+def test_an_old_body_setting_is_refused_by_the_audit():
+    """#633 (ADR-081): a config written in the old spelling is refused here too (code review)."""
+    from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
+
+    config = {
+        "np_seed": 42,
+        "torch_seed": 42,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0,
+        "total_lessons": 10,
+        "windows_per_lesson": 3,
+        "window_dim": 8,
+        "steps": [1, 2, 3],
+        "time_steps": 3,
+        "clip_grad_norm": True,
+        "input_channels": 3,
+        "output_channels": 1,
+        "total_hidden_channels": 8,
+        "dropout_rate": 0.1,
+        "body": "mse_softplus_point",
+        "loss_reg": "mse",
+        "loss_class": "bce",
+    }
+    with pytest.raises(ValueError, match="REPRODUCIBILITY CONTRACT VIOLATED.*loss_reg"):
+        ReproducibilityGate.audit_manifest(config)
+
+
+def test_a_missing_body_is_reported_as_a_missing_core_parameter():
+    """#633 guard audit: `body` is part of the genome, so its absence is named as such."""
+    from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
+
+    config = {
+        "np_seed": 42,
+        "torch_seed": 42,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0,
+        "total_lessons": 10,
+        "windows_per_lesson": 3,
+        "window_dim": 8,
+        "steps": [1, 2, 3],
+        "time_steps": 3,
+        "clip_grad_norm": True,
+        "input_channels": 3,
+        "output_channels": 1,
+        "total_hidden_channels": 8,
+        "dropout_rate": 0.1,
+        "loss_class": "bce",
+    }
+    with pytest.raises(ValueError, match=r"Missing core parameters: \['body'\]"):
+        ReproducibilityGate.audit_manifest(config)

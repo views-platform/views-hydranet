@@ -1,7 +1,8 @@
 """Regression guards — round-2 head/mask falsify findings (2026-06-26), now fixed.
 
-C-179: reg_activation must be persisted in the artifact sidecar (else reload silently uses the
+C-179: the activation must be recoverable from the artifact sidecar (else reload silently uses the
        current default activation — wrong forward, no error; softplus/relu share weight shapes).
+       Since #633 the sidecar's `body` names it.
 C-180: a positives body mask must NOT be a silent no-op under a latent loss — fail loud. Originally
        a warn-once in training_engine; ADR-065 (Epic #158) promoted it to a fail-loud config
        validator (validate_body_mask_latent), so this now guards the stronger contract.
@@ -19,22 +20,13 @@ torch = pytest.importorskip("torch")
 ROOT = Path(__file__).resolve().parents[1] / "views_hydranet"
 
 
-# ── C-179: reg_activation round-trips the artifact sidecar ──
-def test_reg_activation_persisted_in_sidecar():
-    """train_model must persist the resolved reg-head activation in the .config.json snapshot,
-    so a reload uses the trained activation even if the output_distribution-keyed default
-    changes (ADR-079 Rule 1, formerly ADR-063 / C-178)."""
-    src = (ROOT / "train" / "train_model.py").read_text()
-    assert 'config_snapshot["reg_activation"]' in src, (
-        "train_model no longer persists reg_activation in the sidecar — a model trained with one "
-        "activation will silently reload with the current default (C-179)."
-    )
-
-
+# ── C-179: the activation round-trips the artifact sidecar ──
+# Since #633 (ADR-081) the sidecar records `body`, whose name states the activation; that the
+# sidecar records it is tested in tests/train/test_sidecar_records_the_loss.py.
 def test_reg_activation_respected_on_reload():
-    """Behavioural: a sidecar's reg_activation decides the reloaded head (the reload side of the
-    round-trip). Since #632 only softplus is implemented: softplus reloads to a softplus head,
-    and a sidecar that says relu is refused rather than reloaded as softplus."""
+    """Behavioural: the reloaded head applies the activation the body names, and a record saved
+    before #633 that says relu is refused rather than reloaded as softplus (#632)."""
+    from views_hydranet.utils.model_artifact_fetcher import body_record_from_old_sidecar
     from views_hydranet.utils.utils import choose_model
 
     sidecar = {
@@ -45,13 +37,12 @@ def test_reg_activation_respected_on_reload():
         "dropout_rate": 0.0,
         "weight_init": "xavier_norm",
         "h_init": "abs_rand_exp-100",
-        "output_distribution": "standard",
-        "reg_activation": "softplus",
     }
-    m = choose_model(sidecar, torch.device("cpu"))
+    m = choose_model({**sidecar, "body": "mse_softplus_point"}, torch.device("cpu"))
     assert m._reg_activation.__name__ == "softplus"
-    with pytest.raises(ValueError, match="reg_activation='relu' is not implemented"):
-        choose_model({**sidecar, "reg_activation": "relu"}, torch.device("cpu"))
+    old = {**sidecar, "output_distribution": "standard", "reg_activation": "relu"}
+    with pytest.raises(ValueError, match="Only softplus is implemented"):
+        body_record_from_old_sidecar(old, "old.pt")
 
 
 # ── C-180: a positives body mask under a latent loss fails loud (not a silent no-op) ──
@@ -65,7 +56,7 @@ def test_pos_mask_under_latent_loss_fails_loud(valid_config_dict):
     cfg = {
         **valid_config_dict,
         "body_supervision": "active",
-        "loss_reg": "listwise_level",
+        "body": "listwise_softplus_point",
         "loss_reg_y_max": 100.0,
     }
     with _pytest.raises(ValueError, match="trains on every cell"):

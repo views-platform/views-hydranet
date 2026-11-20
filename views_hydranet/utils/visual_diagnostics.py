@@ -780,7 +780,7 @@ class VisualDiagnostics:
         def _generate_plot(is_log: bool):
             fig, axes = plt.subplots(3, 1, figsize=(10, 12))
 
-            l_reg = self.config.get("loss_reg", "Unknown")
+            l_reg = self.config.get("body", "Unknown")
             l_cls = self.config.get("loss_class", "Unknown")
 
             titles = [

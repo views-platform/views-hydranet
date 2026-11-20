@@ -39,7 +39,7 @@ def test_it_reports_the_interpreter_that_will_actually_train():
 
 
 def test_a_declared_field_passes():
-    assert missing_required(["output_distribution", "dropout_rate"]) == []
+    assert missing_required(["body", "dropout_rate"]) == []
 
 
 def test_an_undeclared_field_is_reported():
@@ -65,8 +65,8 @@ def test_an_unknown_key_is_flagged():
 
 def test_load_config_keys_reads_a_roster_style_config(tmp_path):
     p = tmp_path / "config_hyperparameters.py"
-    p.write_text("def get_hp_config():\n    return {'output_distribution': 'nb', 'steps': 36}\n")
-    assert load_config_keys(p) == {"output_distribution", "steps"}
+    p.write_text("def get_hp_config():\n    return {'body': 'nll_softplus_nb', 'steps': 36}\n")
+    assert load_config_keys(p) == {"body", "steps"}
 
 
 def test_load_config_keys_refuses_a_file_with_no_get_hp_config(tmp_path):
@@ -96,7 +96,7 @@ _MODEL_NAME = Path(__file__).resolve().parent.parent.name
 
 def get_hp_config():
     return {
-        'output_distribution': 'nb',
+        "body": "nll_softplus_nb",
         'trajectory_log_path': str(Path('/workspace/deliver') / _MODEL_NAME / 'trajectory.csv'),
     }
 """
@@ -114,7 +114,7 @@ def test_load_config_keys_reads_a_config_that_derives_its_name_from_dunder_file(
     model.mkdir(parents=True)
     p = model / "config_hyperparameters.py"
     p.write_text(_CONFIG_THAT_READS_DUNDER_FILE)
-    assert load_config_keys(p) == {"output_distribution", "trajectory_log_path"}
+    assert load_config_keys(p) == {"body", "trajectory_log_path"}
 
 
 def test_the_dunder_file_a_config_reads_is_its_own_path(tmp_path):
@@ -133,9 +133,9 @@ def test_the_dunder_file_a_config_reads_is_its_own_path(tmp_path):
         "if _MODEL_NAME != 'heavy_freighter':\n"
         "    raise AssertionError('__file__ was not this config: got ' + _MODEL_NAME)\n"
         "def get_hp_config():\n"
-        "    return {'output_distribution': 'nb'}\n"
+        "    return {'body': 'nll_softplus_nb'}\n"
     )
-    assert load_config_keys(p) == {"output_distribution"}
+    assert load_config_keys(p) == {"body"}
 
 
 def test_the_namespace_sets_dunder_name_explicitly(tmp_path):
@@ -152,9 +152,9 @@ def test_the_namespace_sets_dunder_name_explicitly(tmp_path):
         "if __name__ != '__views_hydranet_config__':\n"
         "    raise AssertionError('the pre-flight did not name its namespace: ' + __name__)\n"
         "def get_hp_config():\n"
-        "    return {'output_distribution': 'nb'}\n"
+        "    return {'body': 'nll_softplus_nb'}\n"
     )
-    assert load_config_keys(p) == {"output_distribution"}
+    assert load_config_keys(p) == {"body"}
 
 
 def test_a_configs_main_guard_does_not_run(tmp_path):
@@ -164,11 +164,11 @@ def test_a_configs_main_guard_does_not_run(tmp_path):
     p.write_text(
         "ran = False\n"
         "def get_hp_config():\n"
-        "    return {'output_distribution': 'nb'}\n"
+        "    return {'body': 'nll_softplus_nb'}\n"
         "if __name__ == '__main__':\n"
         "    raise AssertionError('the pre-flight executed this config as a script')\n"
     )
-    assert load_config_keys(p) == {"output_distribution"}
+    assert load_config_keys(p) == {"body"}
 
 
 def test_a_config_reading_dunder_file_PASSES_the_preflight(tmp_path, capsys):
@@ -185,8 +185,8 @@ def test_a_config_reading_dunder_file_PASSES_the_preflight(tmp_path, capsys):
 
 def test_a_clean_config_PASSES_the_preflight(tmp_path, capsys):
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb", "dropout_rate": 0.15}))
-    assert main(["--config", str(p), "--require", "output_distribution"]) == 0
+    p.write_text(json.dumps({"body": "nll_softplus_nb", "dropout_rate": 0.15}))
+    assert main(["--config", str(p), "--require", "body"]) == 0
     assert "PRE-FLIGHT PASSED" in capsys.readouterr().out
 
 
@@ -194,7 +194,7 @@ def test_an_undeclared_key_FAILS_the_preflight(tmp_path, capsys):
     """⭐⭐ THE ONE THAT MATTERS. A guard that cannot fail converts an unchecked run into a run
     someone believes was checked — strictly worse than no guard at all."""
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb", "a_key_from_the_future": 1.23}))
+    p.write_text(json.dumps({"body": "nll_softplus_nb", "a_key_from_the_future": 1.23}))
     assert main(["--config", str(p)]) == 1
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
@@ -210,7 +210,7 @@ def test_a_missing_required_field_FAILS_the_preflight(tmp_path, capsys):
     invocation is now refused outright. See `test_the_preflight_REFUSES_to_run_without_a_config`.
     """
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb"}))
+    p.write_text(json.dumps({"body": "nll_softplus_nb"}))
     assert main(["--config", str(p), "--require", "a_field_from_a_future_release"]) == 1
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
@@ -221,7 +221,7 @@ def test_it_says_what_it_does_NOT_prove(tmp_path, capsys):
     """C-324: a declared field can still be inert. The pass message must not imply otherwise, or
     the next person reads a green pre-flight as proof the knob is wired."""
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb"}))
+    p.write_text(json.dumps({"body": "nll_softplus_nb"}))
     main(["--config", str(p)])
     assert "does NOT prove" in capsys.readouterr().out
 
@@ -282,7 +282,7 @@ def test_a_required_field_SET_TO_ITS_DEFAULT_fails_the_preflight(tmp_path, capsy
     thing, so the words that prevent that are part of the contract and are pinned like one.
     """
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb", "trajectory_log_path": None}))
+    p.write_text(json.dumps({"body": "nll_softplus_nb", "trajectory_log_path": None}))
     assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 1
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
@@ -301,7 +301,7 @@ def test_a_required_field_the_config_DOES_NOT_SET_fails_the_preflight(tmp_path, 
     believable null this module exists to stop, reached from the other side.
     """
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb"}))
+    p.write_text(json.dumps({"body": "nll_softplus_nb"}))
     assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 1
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
@@ -326,7 +326,7 @@ def test_a_NUMERIC_default_fails_the_preflight_through_a_real_json_sidecar(tmp_p
     sidecar is what a pod actually has.
     """
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb", "struct_penalty_weight": 0.0}))
+    p.write_text(json.dumps({"body": "nll_softplus_nb", "struct_penalty_weight": 0.0}))
     assert main(["--config", str(p), "--require", "struct_penalty_weight"]) == 1
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
@@ -337,7 +337,7 @@ def test_a_NUMERIC_default_fails_the_preflight_through_a_real_json_sidecar(tmp_p
 
 def test_a_required_field_the_config_sets_passes_the_preflight(tmp_path, capsys):
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb", "trajectory_log_path": "/w/t.csv"}))
+    p.write_text(json.dumps({"body": "nll_softplus_nb", "trajectory_log_path": "/w/t.csv"}))
     assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 0
     out = capsys.readouterr().out
     assert "all declared by the installed schema" in out
@@ -379,7 +379,7 @@ def test_a_degenerate_config_is_REFUSED_rather_than_passing_empty(tmp_path):
     the worst available failure mode. A top-level string was worse than useless: it yielded one
     "key" per character and sent the operator after phantom schema drift.
     """
-    for payload in ({}, [], "", "output_distribution", 3):
+    for payload in ({}, [], "", "body", 3):
         p = tmp_path / "c.json"
         p.write_text(json.dumps(payload))
         with pytest.raises(ValueError, match="non-empty config mapping"):
@@ -431,7 +431,7 @@ def test_a_config_with_an_unimportable_suffix_is_REFUSED_by_name(tmp_path):
     """
     for name in ("cfg.txt", "cfg.yaml", "cfg"):
         p = tmp_path / name
-        p.write_text("def get_hp_config():\n    return {'output_distribution': 'nb'}\n")
+        p.write_text("def get_hp_config():\n    return {'body': 'nll_softplus_nb'}\n")
         with pytest.raises(ValueError, match="cannot be imported as a Python module"):
             load_config(p)
 
@@ -451,15 +451,15 @@ def test_a_config_is_registered_in_sys_modules_so_a_dataclass_works(tmp_path):
         "class Spec:\n"
         "    n: int = 1\n"
         "def get_hp_config():\n"
-        "    return {'output_distribution': 'nb', 'steps': Spec().n}\n"
+        "    return {'body': 'nll_softplus_nb', 'steps': Spec().n}\n"
     )
-    assert load_config_keys(p) == {"output_distribution", "steps"}
+    assert load_config_keys(p) == {"body", "steps"}
 
 
 def test_a_config_is_not_left_behind_in_sys_modules(tmp_path):
     """It is a gate, not an import: the module must not outlive the check."""
     p = tmp_path / "config_hyperparameters.py"
-    p.write_text("def get_hp_config():\n    return {'output_distribution': 'nb'}\n")
+    p.write_text("def get_hp_config():\n    return {'body': 'nll_softplus_nb'}\n")
     load_config_keys(p)
     assert CONFIG_MODULE_NAME not in sys.modules
 
@@ -480,11 +480,11 @@ def test_a_utf8_config_loads_under_a_non_utf8_locale(tmp_path, monkeypatch):
     p.write_bytes(
         "\ufeff# ⛔ a comment with a non-ASCII marker\n"
         "def get_hp_config():\n"
-        "    return {'output_distribution': 'nb'}\n".encode()
+        "    return {'body': 'nll_softplus_nb'}\n".encode()
     )
     monkeypatch.setenv("LC_ALL", "C")
     monkeypatch.setenv("LANG", "C")
-    assert load_config_keys(p) == {"output_distribution"}
+    assert load_config_keys(p) == {"body"}
 
 
 def test_a_repeated_require_flag_keeps_EVERY_field(tmp_path, capsys):
@@ -495,7 +495,7 @@ def test_a_repeated_require_flag_keeps_EVERY_field(tmp_path, capsys):
     passed. Both spellings must now work.
     """
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"output_distribution": "nb"}))
+    p.write_text(json.dumps({"body": "nll_softplus_nb"}))
     rc = main(
         [
             "--config",
@@ -503,7 +503,7 @@ def test_a_repeated_require_flag_keeps_EVERY_field(tmp_path, capsys):
             "--require",
             "a_field_from_a_future_release",
             "--require",
-            "output_distribution",
+            "body",
         ]
     )
     out = capsys.readouterr().out

@@ -26,10 +26,9 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     # Every model build passes here: training, and the reload of a saved model from its sidecar.
     # A body the package does not know stops here; otherwise the head would fall back to one
     # channel and a saved model would fail obscurely or forecast wrong numbers (issue #628).
-    from views_hydranet.utils.config_initializer import check_output_distribution
+    from views_hydranet.body.vocabulary import body_name
 
-    distribution = config.get("output_distribution", "standard")
-    check_output_distribution(distribution)
+    distribution = body_name(config).distribution
     return model_cls(
         config["input_channels"],
         config["total_hidden_channels"],
@@ -38,9 +37,9 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
         output_distribution=distribution,
         n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
         static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
-        # Only softplus is implemented (ADR-079 Rule 1, #632); None gives softplus, and the model
-        # refuses anything else. A saved ReLU model is refused before this, by the reload.
-        reg_activation=config.get("reg_activation"),
+        # Only softplus is implemented (ADR-079 Rule 1, #632): every body applies it. A saved ReLU
+        # model is refused before this, by the reload.
+        reg_activation=None,
     ).to(device)
 
 
@@ -56,7 +55,7 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
     # here — its value depends on the relative order of the 1,024-cell patch-month, not on any
     # cell alone. Level-indexed (Zhu & Klabjan 2020 Eq. 2) on dyadic rating levels
     # r = ceil(log2(1+y)); `loss_reg_y_max` declares the level set a priori (C-423).
-    # ⛔ Nothing has been trained with it. Reachable only by naming it in `loss_reg`.
+    # ⛔ Nothing has been trained with it. Reachable only through body='listwise_softplus_point'.
     "listwise_level": {
         "cls": ListwiseLevelLoss,
         # Required parameters only. `loss_reg_listwise_transform` has a default and is read with
@@ -106,17 +105,13 @@ def choose_loss(
     adding an entry to the appropriate registry — no modification of
     this function (OCP).
     """
-    # ADR-067 strangler-fig: if output_distribution names a registered distribution family
-    # (nb, truncated_nb, mixture_nb), the reg loss is the family NLL (FamilyLoss over family.nll)
-    # — loss_reg is irrelevant for a family. resolve_family returns None for every legacy value,
-    # so those keep their loss_reg path below (byte-identical). A single shared instance (the
-    # parameters are head-emitted).
+    # ADR-081 (#633): `body` names the regression body. A distribution body trains on the
+    # family's likelihood (FamilyLoss over family.nll); a point body trains on the registry loss
+    # its value names. A single shared instance (the parameters are head-emitted).
+    from views_hydranet.body.vocabulary import body_name
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
-    from views_hydranet.utils.config_initializer import (
-        check_loss_reg,
-        validate_body_nll_denominator_pair,
-    )
+    from views_hydranet.utils.config_initializer import validate_body_nll_denominator_pair
 
     # body_nll_denominator is read with NO fallback default — the schema owns it (P7 convention).
     # `.get()` with no second argument yields None for a caller that bypassed `HydraNetConfig`
@@ -126,7 +121,8 @@ def choose_loss(
     # clamp for pydantic-bypassing drivers. Without this, a dict setting 'all_cells' on `nb` was
     # neither rejected nor forwarded: silently ignored, which is the exact failure the validator
     # exists to prevent. Found by /code-review on PR #398.
-    _dist = config.get("output_distribution", "standard")
+    _body = body_name(config)
+    _dist = _body.distribution
     _den = config.get("body_nll_denominator")
     validate_body_nll_denominator_pair(_den, _dist, config.get("body_supervision", "all"))
     _family = (
@@ -135,16 +131,9 @@ def choose_loss(
         else resolve_family(_dist)
     )
     if _family is not None:
-        # The family's likelihood trains and `loss_reg` is not read. A raw dict that still names a
-        # loss is checked all the same, so a removed one is refused here too.
-        if config.get("loss_reg") is not None:
-            check_loss_reg(config["loss_reg"])
         criterion_reg = FamilyLoss(_family).to(device)
     else:
-        # Membership is checked first, so a KeyError raised inside a factory (a missing parameter
-        # such as `loss_reg_y_max`) is not reported as an unknown loss.
-        check_loss_reg(config.get("loss_reg"))
-        criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
+        criterion_reg = LOSS_REG_REGISTRY[_body.loss_name]["factory"](config, device)
     _pw = config.get("loss_class_pos_weight")
     if config["loss_class"] == "weighted_bce" and isinstance(_pw, (list, tuple)):
         # per-target gate: one WeightedBCEWithLogitsLoss per classification target (sb/ns/os), each
