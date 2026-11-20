@@ -27,10 +27,11 @@ def _read_section6(cic_name: str) -> str:
 class TestGreenHydraNetConfigSection6:
     """HydraNetConfig CIC must document all field_validators."""
 
-    def test_documents_loss_reg_validator(self):
+    def test_documents_body_validator(self):
         s6 = _read_section6("HydraNetConfig")
-        assert "loss_reg" in s6.lower(), (
-            "CIC drift: HydraNetConfig Section 6 missing loss_reg validator (added in C-05)"
+        assert "undeclared or missing body" in s6.lower(), (
+            "CIC drift: HydraNetConfig Section 6 missing the body validator (ADR-081, #633; it "
+            "replaced the loss_reg validator of C-05)"
         )
 
     def test_documents_loss_class_validator(self):

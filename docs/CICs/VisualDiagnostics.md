@@ -47,7 +47,7 @@ It implements the **Null Object pattern**: when `diagnostic_visualizations: Fals
 ---
 
 ## 4. Inputs and Assumptions
-- **Constructor config keys consumed:** `diagnostic_visualizations`, `spatial_cols`, `time_col`, `height`, `width`, `row_offset`, `col_offset`, `regression_metrics`, `classification_metrics`, `loss_reg`, `loss_class`, `model_time_stamp` (optional).
+- **Constructor config keys consumed:** `diagnostic_visualizations`, `spatial_cols`, `time_col`, `height`, `width`, `row_offset`, `col_offset`, `regression_metrics`, `classification_metrics`, `body` (ADR-081, #633; was `loss_reg`), `loss_class`, `model_time_stamp` (optional).
 - **VolumeHandler inputs:** Assumes data is in `[T, H, W, C]` logical order (axis permutation is applied internally via `get_axis_idx`).
 - **Array inputs:** `biopsy_autoregressive` and `biopsy_training_performance` accept lists of `[H, W, C]` numpy arrays (one per time step).
 - **Dossier inputs:** `biopsy_feature_dossier` consumes the dict returned by `TrainingForensics.get_dossier()`. Keys: `bias_instant`, `bias_running`, `y_bar`, `y_hat_bar`, plus metric names (e.g. `mse`, `ap`).
