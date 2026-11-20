@@ -13,6 +13,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from tests._body_for import body_for  # noqa: E402
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import (  # noqa: E402
     HydraBNUNet06_LSTM4,
 )
@@ -59,6 +60,7 @@ def _run(output_distribution: str, criterion_reg) -> _SpyForensics:
         idx,
         torch.device("cpu"),
         forensics=spy,
+        body=body_for(criterion_reg, output_distribution),
     )
     return spy
 

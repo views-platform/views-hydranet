@@ -9,6 +9,8 @@ gap (exposure bias). Bengio et al. 2015.
 import pytest
 import torch
 
+from tests._body_for import body_for
+
 # ---------------------------------------------------------------------------
 # Phase 1: ScheduledSamplingMixer unit tests (pure Python, no model)
 # ---------------------------------------------------------------------------
@@ -389,8 +391,8 @@ class TestGreenProcessSequenceIntegration:
         train_tensor = torch.rand(B, T, C, H, W).to(device)
         h = model.init_hTtime(hidden_channels=model.base, H=H, W=W).to(device)
 
-        # A latent loss (needs_latent=True), so the loss reads `reg_latent` as tobit did here
-        # before #631. Targets are log1p of counts below expm1(1) < 2, so y_max=10 covers them.
+        # The ranking body, which reads `reg_latent` (the output from before the activation).
+        # Targets are log1p of counts below expm1(1) < 2, so y_max=10 covers them.
         criterion_reg = ListwiseLevelLoss(y_max=10.0).to(device)
         criterion_class = FocalLoss(alpha=0.75, gamma=1.5).to(device)
         is_reg = torch.Tensor([True, True, True, False, False, False])
@@ -406,6 +408,7 @@ class TestGreenProcessSequenceIntegration:
             idx,
             device,
             ss_epsilon=ss_epsilon,
+            body=body_for(criterion_reg),
         )
 
     def test_epsilon_zero_produces_finite_loss(self):
@@ -423,8 +426,9 @@ class TestGreenProcessSequenceIntegration:
         assert result["total"].isfinite()
         assert result["total"] > 0
 
-    def _min_input_seen_by_the_loss(self, needs_latent):
-        """Run one sequence with a spy loss and return the smallest value it was handed."""
+    def _min_input_seen_by_the_loss(self, body_class):
+        """Run one sequence with a spy loss inside ``body_class``; return the smallest value the
+        loss was handed."""
         import torch.nn as nn
 
         from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
@@ -434,7 +438,6 @@ class TestGreenProcessSequenceIntegration:
         class Spy(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.needs_latent = needs_latent
                 self.seen = []
 
             def forward(self, input, target):
@@ -462,16 +465,21 @@ class TestGreenProcessSequenceIntegration:
             idx,
             torch.device("cpu"),
             ss_epsilon=0.5,
+            body=body_class(spy),
         )
         assert spy.seen, "the regression loss was never called"
         return min(spy.seen)
 
-    def test_a_latent_loss_is_handed_the_output_from_before_the_activation(self):
-        """Guard audit of PR #645: the tests above pass whether or not the latent path is taken.
-        This one cannot. The head applies softplus (#632; ReLU before), so only the output from
-        BEFORE it (`reg_latent`) can be negative."""
-        assert self._min_input_seen_by_the_loss(needs_latent=True) < 0
-        assert self._min_input_seen_by_the_loss(needs_latent=False) >= 0
+    def test_the_ranking_body_hands_its_loss_the_output_from_before_the_activation(self):
+        """Guard audit of PR #645: the tests above pass whichever output the loss reads. This one
+        cannot. The head applies softplus (#632; ReLU before), so only the output from BEFORE it
+        (`reg_latent`) can be negative. Until #629 the older route chose by the loss's
+        `needs_latent`; now the body decides: the ranking body reads the raw score, the
+        mean-squared-error body the activated output."""
+        from views_hydranet.body.bodies import MeanSquaredErrorBody, RankingBody
+
+        assert self._min_input_seen_by_the_loss(RankingBody) < 0
+        assert self._min_input_seen_by_the_loss(MeanSquaredErrorBody) >= 0
 
     def test_gradient_flows_with_sampling(self):
         from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
@@ -494,8 +502,8 @@ class TestGreenProcessSequenceIntegration:
         train_tensor = torch.rand(B, T, C, H, W).to(device)
         h = model.init_hTtime(hidden_channels=model.base, H=H, W=W).to(device)
 
-        # A latent loss (needs_latent=True), so the loss reads `reg_latent` as tobit did here
-        # before #631. Targets are log1p of counts below expm1(1) < 2, so y_max=10 covers them.
+        # The ranking body, which reads `reg_latent` (the output from before the activation).
+        # Targets are log1p of counts below expm1(1) < 2, so y_max=10 covers them.
         criterion_reg = ListwiseLevelLoss(y_max=10.0).to(device)
         criterion_class = FocalLoss(alpha=0.75, gamma=1.5).to(device)
         is_reg = torch.Tensor([True, True, True, False, False, False])
@@ -511,6 +519,7 @@ class TestGreenProcessSequenceIntegration:
             idx,
             device,
             ss_epsilon=0.5,
+            body=body_for(criterion_reg),
         )
         result["total"].backward()
 

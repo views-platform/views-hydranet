@@ -24,6 +24,7 @@ from views_hydranet.body.bodies import (  # noqa: E402
     RankingBody,
     build_body,
 )
+from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
 from views_hydranet.utils.utils import choose_loss, choose_model  # noqa: E402
 
@@ -230,13 +231,35 @@ def test_a_body_refuses_a_model_that_returns_no_output_from_before_the_activatio
         )
 
 
-# ─────────────────────────────── everything else gets no body ───────────────────────────────
+# ───────────────────────────── everything else is refused (#629) ─────────────────────────────
 
 
-def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
-    """A different body by ADR-079 §2; no config uses it, so it keeps the older path."""
+@pytest.mark.parametrize(
+    "overrides,criterion",
+    [
+        ({"output_distribution": "nb", "loss_reg": "mse"}, nn.MSELoss()),
+        ({"output_distribution": "standard", "loss_reg": "mse"}, nn.L1Loss()),
+        ({"output_distribution": "standard", "loss_reg": "listwise_level"}, nn.MSELoss()),
+        ({"output_distribution": "standard", "loss_reg": "mse"}, None),
+        # A real FamilyLoss, so only the removed distribution's name can make it raise (guard
+        # audit of #629: with an MSELoss here it raised on the criterion and never tested this).
+        ({"output_distribution": "zinb", "loss_reg": "mse"}, FamilyLoss(resolve_family("nb"))),
+    ],
+    ids=["family_with_mse", "mse_with_l1", "ranking_with_mse", "no_criterion", "removed_body"],
+)
+def test_a_loss_built_for_another_config_gets_an_error_not_a_missing_body(overrides, criterion):
+    """`build_body` returned ``None`` here until #629, and training then took the older path."""
+    cfg = {**BASE, **overrides}
+    with pytest.raises(ValueError, match="No body for output_distribution="):
+        build_body(cfg, criterion)
+
+
+def test_the_softplus_version_of_the_ranking_loss_is_refused_before_a_body_is_built():
+    """A different body by ADR-079 §2, removed on 2026-11-20 (#629): it used to get no body and
+    train on the older path; now the loss factory refuses it."""
     cfg = {**BASE, **LIVE["ranking"], "loss_reg_listwise_transform": "softplus"}
-    assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
+    with pytest.raises(ValueError, match="archive/listwise-softplus-2026-11-20"):
+        choose_loss(cfg, CPU)
 
 
 # ──────────────────────────────────── the edges ────────────────────────────────────

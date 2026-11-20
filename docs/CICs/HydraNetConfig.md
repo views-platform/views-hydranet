@@ -92,7 +92,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 ---
 - **Ranking loss on a target that is not log1p-transformed (ADR-079 §5):** Raises `ValidationError` naming the targets. `loss_reg='listwise_level'` undoes log1p inside the loss; with another transform it would rank wrong counts with no error.
 - **Sampled rollout feedback for a body that cannot sample (ADR-079 §5):** Raises `ValidationError` when `rollout_feedback='sample'` and `output_distribution` is not a registered distribution family. The message says to set `'mean'` or leave it unset.
-- **Unknown or unread ranking transform:** Raises `ValidationError` when `loss_reg_listwise_transform` is not one of `listwise_level_loss.TRANSFORMS`, or is set to a non-default value beside a `loss_reg` that does not read it. ⚠️ `'softplus'` is accepted with `loss_reg='listwise_level'`, but the loss module documents that it cannot pin the score's scale on its own; no live config uses it.
+- **Unimplemented ranking transform:** Raises `ValidationError` when `loss_reg_listwise_transform` is not in `listwise_level_loss.TRANSFORMS`, which since issue #629 (2026-11-20) is `("exp",)` alone: "loss_reg_listwise_transform=... is not implemented. Only ['exp'] is implemented at present". `'softplus'` was removed (owner's decision) and its message names the tag `archive/listwise-softplus-2026-11-20`. The check is `check_transform`, shared with the loss. (The refusal of a non-default value beside another loss went with it: nothing but the default can be set.)
 
 ## 7. Boundaries and Interactions
 

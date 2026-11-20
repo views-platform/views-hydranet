@@ -23,6 +23,7 @@ import pytest
 torch = pytest.importorskip("torch")
 import torch.nn as nn  # noqa: E402
 
+from tests._body_for import body_for, family_loss_and_body  # noqa: E402
 from views_hydranet.architectures.registry import get_architecture  # noqa: E402
 from views_hydranet.distributions import get_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
@@ -74,7 +75,7 @@ def _run(pf_weight=0.0, detach_state=False, seed=0, tensor=None, **kw):
         x,
         model,
         h,
-        criterion_reg=FamilyLoss(fam),
+        **family_loss_and_body("nb", fam),
         criterion_class=nn.BCEWithLogitsLoss(),
         multitaskloss_instance=_MTL(),
         idx=idx,
@@ -190,6 +191,7 @@ def test_the_second_step_consumes_the_models_own_field_not_ground_truth():
             m,
             hh,
             criterion_reg=crit,
+            body=body_for(crit, "nb"),
             criterion_class=nn.BCEWithLogitsLoss(),
             multitaskloss_instance=_MTL(),
             idx=idx,
@@ -325,7 +327,7 @@ def test_the_extra_forward_does_not_touch_batchnorm_running_statistics():
             x,
             model,
             h,
-            criterion_reg=FamilyLoss(fam),
+            **family_loss_and_body("nb", fam),
             criterion_class=nn.BCEWithLogitsLoss(),
             multitaskloss_instance=_MTL(),
             idx=idx,
@@ -356,7 +358,7 @@ def test_the_pushforward_is_skipped_when_gradients_are_off():
     """
     x, model, h, idx, fam = _fixture(seed=13)
     kwargs = dict(
-        criterion_reg=FamilyLoss(fam),
+        **family_loss_and_body("nb", fam),
         criterion_class=nn.BCEWithLogitsLoss(),
         multitaskloss_instance=_MTL(),
         idx=idx,
@@ -442,6 +444,7 @@ def test_the_fed_field_gets_its_statics_from_t_plus_one_not_t():
             m,
             hh,
             criterion_reg=crit,
+            body=body_for(crit, "nb"),
             criterion_class=nn.BCEWithLogitsLoss(),
             multitaskloss_instance=_MTL(),
             idx=idx,
@@ -504,7 +507,7 @@ def test_the_pushforward_term_honours_target_weights():
             x,
             model,
             h,
-            criterion_reg=FamilyLoss(fam),
+            **family_loss_and_body("nb", fam),
             idx=idx,
             family=fam,
             target_weights=weights,
@@ -523,3 +526,39 @@ def test_the_pushforward_term_honours_target_weights():
         f"({pf_contrib_flat:.6f} vs {pf_contrib_tilted:.6f}) — the auxiliary objective is "
         "weighting the targets differently from the primary one (C-87)."
     )
+
+
+def test_the_pushforward_refuses_a_second_step_without_raw_outputs():
+    """The pushforward step's loss is the body's, and the body reads the raw outputs
+    (`reg_latent`). A model that returns None there (it does outside training mode) must stop the
+    step with a named error, not fail later inside the body or train on something else.
+
+    Only the second forward call (the pushforward one) loses its raw outputs here, so the refusal
+    of the main step cannot be what fires.
+    """
+    x, model, h, idx, fam = _fixture(seed=5)
+    original_forward = model.forward
+    calls = []
+
+    def forward_losing_raw_on_the_second_call(*args, **kwargs):
+        out = original_forward(*args, **kwargs)
+        calls.append(1)
+        return out._replace(reg_latent=None) if len(calls) == 2 else out
+
+    model.forward = forward_losing_raw_on_the_second_call
+    with pytest.raises(RuntimeError, match="pushforward loss of a body reads"):
+        _process_sequence(
+            x,
+            model,
+            h,
+            **family_loss_and_body("nb", fam),
+            criterion_class=nn.BCEWithLogitsLoss(),
+            multitaskloss_instance=_MTL(),
+            idx=idx,
+            device=torch.device("cpu"),
+            family=fam,
+            ss_feedback="sample",
+            forecast_composition="soft_gate",
+            pushforward_weight=1.0,
+        )
+    assert len(calls) == 2, f"expected the refusal at the second forward call, got {len(calls)}"

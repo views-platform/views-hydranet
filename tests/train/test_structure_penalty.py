@@ -275,3 +275,89 @@ def test_the_family_mean_fix_is_a_NO_OP_for_nb():
 
     got = _structure_penalty(get_family("nb"), _nb_params(mu), gate, truth)
     assert torch.allclose(got, expected, atol=1e-6)
+
+
+def test_the_training_step_hands_the_penalty_the_activated_parameters(monkeypatch):
+    """The penalty composes the family's mean from ACTIVATED parameters. Inside the training step
+    it must receive the body's activated values for each target, not the model's raw outputs:
+    the raw mu channel can be negative, and the mean composed from it is meaningless.
+
+    Checked on the training step itself: `_structure_penalty` is wrapped to record what it is
+    handed, and the model's forward to record its raw outputs.
+    """
+    import torch.nn as nn
+
+    from tests._body_for import family_loss_and_body
+    from views_hydranet.architectures.registry import get_architecture
+    from views_hydranet.distributions import get_family
+    from views_hydranet.train import training_engine
+    from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
+
+    class _Sum(nn.Module):
+        def forward(self, losses):
+            return losses.sum()
+
+    feats = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+    cls = ["by_sb_best", "by_ns_best", "by_os_best"]
+    idx = _SequenceIndices(
+        feats + cls,
+        {
+            "features": feats,
+            "regression_targets": feats,
+            "classification_targets": cls,
+            "static_channels": [],
+        },
+    )
+    torch.manual_seed(0)
+    model = (
+        get_architecture("HydraBNUNet06_LSTM4")(len(feats), 32, 1, 0.0, output_distribution="nb")
+        .float()
+        .train()
+    )
+    h = model.init_hTtime(model.base, 8, 8).float()
+    x = (torch.rand(1, 3, 6, 8, 8) < 0.2).float() * torch.rand(1, 3, 6, 8, 8) * 3
+    family = get_family("nb")
+    pair = family_loss_and_body("nb", family)
+
+    raw_outputs = []
+    original_forward = model.forward
+
+    def recording_forward(*args, **kwargs):
+        out = original_forward(*args, **kwargs)
+        raw_outputs.append(out.reg_latent.detach().clone())
+        return out
+
+    model.forward = recording_forward
+    handed = []
+    real_penalty = training_engine._structure_penalty
+
+    def recording_penalty(fam, pred_j, gate, truth):
+        handed.append(pred_j.detach().clone())
+        return real_penalty(fam, pred_j, gate, truth)
+
+    monkeypatch.setattr(training_engine, "_structure_penalty", recording_penalty)
+    _process_sequence(
+        x,
+        model,
+        h,
+        **pair,
+        criterion_class=nn.BCEWithLogitsLoss(),
+        multitaskloss_instance=_Sum(),
+        idx=idx,
+        device=torch.device("cpu"),
+        family=family,
+        ss_feedback="mean",
+        forecast_composition="soft_gate",
+        struct_penalty_weight=0.5,
+    )
+
+    npar = pair["criterion_reg"].n_params
+    assert len(handed) == len(feats) * len(raw_outputs) > 0
+    for step, raw in enumerate(raw_outputs):
+        activated = pair["body"].read(raw).activated
+        for j in range(len(feats)):
+            got = handed[step * len(feats) + j]
+            want = activated[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)
+            raw_j = raw[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)
+            assert torch.equal(got, want), f"step {step}, target {j}: not the activated values"
+            assert not torch.allclose(got, raw_j), f"step {step}, target {j}: raw == activated"

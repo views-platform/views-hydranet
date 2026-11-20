@@ -30,6 +30,7 @@ sys.path.insert(0, str(_HYD / "scripts"))
 
 from diagnose_io_gain import load_model  # noqa: E402
 from potency_check import PotencyError, assert_control_fires, assert_potent  # noqa: E402
+from views_hydranet.body.bodies import MeanSquaredErrorBody  # noqa: E402
 from views_hydranet.manager.hydranet_manager import HydranetManager  # noqa: E402
 from views_hydranet.train.training_engine import (  # noqa: E402
     _noisable_channels,
@@ -70,7 +71,10 @@ def _loss(model, x, idx, cfg, dropout, seed=11):
         train_tensor=x,
         model=model,
         h=model.init_hTtime(hidden_channels=model.base, H=x.shape[-2], W=x.shape[-1]).to(x.device),
-        criterion_reg=torch.nn.MSELoss(),
+        criterion_reg=(mse := torch.nn.MSELoss()),
+        # The training step needs a body since views-hydranet #629 (2026-11-20). `load_model`
+        # (diagnose_io_gain) admits only a 'standard' head, so this is the mean-squared-error body.
+        body=MeanSquaredErrorBody(mse),
         criterion_class=torch.nn.BCEWithLogitsLoss(),
         multitaskloss_instance=lambda losses: losses.sum(),
         idx=idx,

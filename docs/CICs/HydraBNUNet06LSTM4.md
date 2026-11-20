@@ -37,8 +37,8 @@ steps are chained.
 - Does **not** own the loss. The train-only `reg_latent` field holds the regression heads' outputs
   from before the activation. A body object (ADR-079, `views_hydranet/body/bodies.py`) reads it
   and applies the activation itself, and the training step refuses a body whose activation
-  differs from this class's own. The ranking loss on the older training path reads it too
-  (`needs_latent`). The class emits it, it does not consume it. (Until 2026-11-18 the `tobit`
+  differs from this class's own; since issue #629 that is the only reader (the older training
+  path is deleted). The class emits it, it does not consume it. (Until 2026-11-18 the `tobit`
   loss of ADR-054/055 read it as well; deleted, issue #631.)
 - Does **not** validate config semantics. `choose_model` (`utils/utils.py:30`) reads the config dict
   and passes primitives in; this class validates no config value itself.

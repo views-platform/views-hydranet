@@ -36,7 +36,6 @@ _W_EPS = (
 class MixtureNBFamily(DistributionFamily):
     """Per-cell 2-component NB mixture: params ``[..., 5]`` = ``(w, mu1, theta1, mu2, theta2)``."""
 
-    needs_latent = False
     # No structural zero spike: it is composed with an EXTERNAL gate, exactly like ``nb``.
 
     @property

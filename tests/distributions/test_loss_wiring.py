@@ -14,6 +14,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from tests._body_for import body_for  # noqa: E402
 from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
 
@@ -26,7 +27,6 @@ def test_family_loss_forward_equals_family_nll():
     params = fam.activate(torch.randn(4, 5, 2))
     target = torch.log1p(torch.tensor([0.0, 1.0, 5.0, 20.0]).view(4, 1).expand(4, 5))
     assert torch.equal(loss(params, target), fam.nll(params, target))
-    assert loss.needs_latent is False
     assert loss.n_params == 2
 
 
@@ -96,7 +96,15 @@ def _family_step(output_distribution):
     criterion_class = FocalLoss(alpha=0.75, gamma=1.5)
     mt = MultiTaskLoss(torch.Tensor([True, True, True, False, False, False]), reduction="sum")
     result = _process_sequence(
-        train_tensor, model, h, criterion_reg, criterion_class, mt, idx, torch.device("cpu")
+        train_tensor,
+        model,
+        h,
+        criterion_reg,
+        criterion_class,
+        mt,
+        idx,
+        torch.device("cpu"),
+        body=body_for(criterion_reg, output_distribution),
     )
     return model, result
 

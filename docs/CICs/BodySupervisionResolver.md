@@ -39,8 +39,9 @@ pure function it maps to. (Renamed 2026-07-28 from the retired `body_mask.py`.)
   (`pos_cells`); `active,≥T−1,≥T−1` ≡ the old active-anywhere broadcast (`pos_timelines`);
   `all` ≡ the old all-cell foundation (`none`). Pinned in `tests/test_body_supervision.py` and end-
   to-end (masked loss value) in `tests/test_body_supervision_contract.py`.
-- **Point-body only.** Applies under a non-latent loss (`not use_latent`); a latent likelihood owns
-  its own zero handling, so `active` there is a silent no-op and is REJECTED loud at config validation.
+- **Point-body only.** Applies to a body that does not require all cells (since #629 the training
+  step reads `body.requires_all_cells`; before, `not use_latent`). The ranking body requires all
+  cells, so `active` there would be a silent no-op and is REJECTED loud at config validation.
 
 ## 4. Failure modes
 

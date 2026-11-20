@@ -61,7 +61,6 @@ _MODERATE_P0 = 0.95
 class TruncatedNBFamily(DistributionFamily):
     """Per-cell zero-truncated NB body: params ``[..., 2]`` = ``(mu, theta)`` in natural space."""
 
-    needs_latent = False
     # The body produces NO zeros; an EXTERNAL gate (soft_gate) owns occurrence.
 
     @property

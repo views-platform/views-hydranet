@@ -51,52 +51,24 @@ loss will actually see** (``C-351``: population + transform + estimator):
 256×. Both are real measurements of different populations.
 
 ``needs_latent = True``: the score lives on the whole real line and must reach the loss
-PRE-activation — under ``transform='exp'`` because the objective is then scale-free, and under
-``transform='softplus'`` because the loss applies the activation itself. This also makes
+PRE-activation, because the objective is scale-free. This also makes
 ``validate_body_supervision_latent`` (``C-193``) refuse ``body_supervision='active'`` for it, which
 is correct — the zero block must be present.
 
-⭐⭐ **THE NORMALISING TRANSFORMATION ``T``, and why it is not cosmetic.**
-``Bai2023_RegressionCompatibleListwise`` (CIKM '23) Definition 1 generalises the softmax above to
-any non-decreasing ``T : R -> R+``, and Prop. 2 locates the global minimum at::
+**The normalising transformation ``T``.** ``Bai2023_RegressionCompatibleListwise`` (CIKM '23)
+Definition 1 generalises the softmax above to any non-decreasing ``T : R -> R+``. This loss
+implements only ``T = exp``, Zhu's own form, which reads ``log T(s) == s`` and is therefore the
+identity: the shipped objective, bit for bit. ``T = exp`` is translation-invariant: it pins score
+*differences* only.
 
-    T(s_i) / SUM_j T(s_j)   ->   E[y_i | x_i] / SUM_j E[y_j | x_j]
-
-⇒ **``T`` has to be the map the pointwise objective calibrates the score through**, or the two
-objectives have different minima and fight. Their Prop. 1 is the special case here: ``T = exp``
-reduces to ``SoftmaxCE``, which is **translation-invariant** — it pins score *differences* only, so
-the scale is free to drift indefinitely in continuous training (their §1, citing Yan et al.).
-
-For this repo the pointwise objective is the negative-binomial NLL, whose mean map is
-**softplus** (``distributions/negative_binomial.py:42``: *"softplus both channels -> strictly
-positive (mu, theta)"*). ⇒ ``transform='softplus'`` is the regression-compatible choice and
-``transform='exp'`` is the incompatible one.
-
-⛔ **``'exp'`` is the default and is bit-for-bit the shipped behaviour**, because
-``log exp(s) == s`` and this loss reads ``log T(s)``: the exp branch is the identity and touches
-nothing. Changing the default would alter a published objective silently.
-
-⚠️ **What this does NOT claim.** Bai's Prop. 2 is stated for ``ListCE``, whose steps are indexed by
-*document* and weighted by ``y_i``. Zhu's objective indexes steps by *level* and weights them by
-``2^r - 1``. The two coincide in the transformation's role — ``T`` is what maps the score onto the
-scale the normaliser compares — but the alignment is **not proven for the level-indexed form**. It
-is an open avenue to test, not a theorem we inherit.
-
-⛔⛔ **``'softplus'`` IS NOT USABLE ALONE, and that is measured, not argued.**
-``log softplus(s) -> s`` as ``s -> -inf``, so in the deep negative tail this objective *becomes*
-the ``'exp'`` objective and regains translation invariance. Measured 2026-11-12 on six cells,
-same truth, a uniform ``+1`` shift::
-
-    scores ~  0   transform='exp'       |dL| = 0.000e+00      (exactly)
-    scores ~  0   transform='softplus'  |dL| = 4.561e+00
-    scores ~ -20  transform='softplus'  |dL| = 3.079e-07      and L agrees with 'exp' to 7 decimals
-
-⇒ A pure ``'softplus'`` listwise arm has a **degenerate descent direction**: drive every score
-toward ``-inf`` and the loss relaxes into its scale-free limit. The transformation is meaningful
-only in a mixture with a pointwise term that pins the level — ``(1-a)*NB_NLL + a*ListCE(softplus)``
-— which is Bai's own construction (their Def. 2) and not an embellishment of it. Guarded by
-``test_softplus_recovers_exp_in_the_deep_tail_so_it_cannot_pin_the_scale_alone`` in
-``tests/test_listwise_level_loss.py``.
+⚠️ **The softplus version was removed on 2026-11-20** (owner's decision, views-hydranet issue
+#629). It was the form Bai's Prop. 2 calls compatible with a negative-binomial pointwise
+objective, but a measurement recorded here on 2026-11-12 showed it cannot pin the scale alone: in
+the deep negative tail ``log softplus(s) -> s`` and it becomes the exponential version again
+(``|dL|`` under a +1 shift was 4.561 near 0 and 3.1e-7 near -20). It was meaningful only mixed
+with a pointwise term, and nothing built that mixture or used it. Its code is under the git tag
+``archive/listwise-softplus-2026-11-20``, for comparison only: a new version is built from scratch
+as a new body (ADR-079 §2), not restored.
 """
 
 from __future__ import annotations
@@ -119,13 +91,31 @@ _MAX_LEVEL_INT64 = 62
 
 
 #: The normalising transformations ``T`` of ``Bai2023_RegressionCompatibleListwise`` Definition 1
-#: that this loss implements. ``'exp'`` is Zhu's own softmax form; ``'softplus'`` is the one
-#: compatible with a negative-binomial pointwise objective. See the module docstring.
-TRANSFORMS = ("exp", "softplus")
-#: ⛔ Below this score ``log(log(1 + e^s))`` and ``s`` differ by less than ``e^s / 2`` = 5e-14,
-#: while evaluating the log directly underflows to ``-inf`` near ``s = -745`` and poisons the
-#: gradient with ``nan``. The linear branch is exact to float64 here, not an approximation.
-_LOG_SOFTPLUS_LINEAR_BELOW = -30.0
+#: that this loss implements: ``'exp'``, Zhu's own softmax form, alone. A second version would be
+#: a second body (ADR-079 §2). See the module docstring.
+TRANSFORMS = ("exp",)
+#: Where the softplus version, removed on 2026-11-20 (issue #629), is kept for comparison only.
+REMOVED_TRANSFORM_TAG = "archive/listwise-softplus-2026-11-20"
+
+
+def check_transform(name: object) -> None:
+    """Raise ``ValueError`` unless ``name`` is an implemented transformation.
+
+    The one check, used by the loss and by the config schema.
+    """
+    if name in TRANSFORMS:
+        return
+    err_msg = (
+        f"loss_reg_listwise_transform={name!r} is not implemented. Only {list(TRANSFORMS)} is "
+        "implemented at present (views-hydranet issue #629)."
+    )
+    if name == "softplus":
+        err_msg += (
+            " 'softplus' was removed on 2026-11-20 and is kept under the git tag "
+            f"{REMOVED_TRANSFORM_TAG}, for comparison only."
+        )
+    logger.error(err_msg)
+    raise ValueError(err_msg)
 
 
 def log_transform(score: torch.Tensor, transform: str) -> torch.Tensor:
@@ -135,16 +125,8 @@ def log_transform(score: torch.Tensor, transform: str) -> torch.Tensor:
     in log space and nothing is ever exponentiated. ⭐ ``log exp(s) == s``, so ``'exp'`` returns
     its input unchanged and the shipped objective is reproduced exactly, not approximately.
     """
-    if transform == "exp":
-        return score
-    if transform != "softplus":
-        err_msg = f"transform={transform!r} is not one of {TRANSFORMS}."
-        logger.error(err_msg)
-        raise ValueError(err_msg)
-    # The clamp guards only the DISCARDED branch of the where: for scores above the cut it is
-    # inert, and below it the linear branch is selected, so the clamp never shapes a gradient.
-    guarded = torch.nn.functional.softplus(torch.clamp(score, min=_LOG_SOFTPLUS_LINEAR_BELOW))
-    return torch.where(score < _LOG_SOFTPLUS_LINEAR_BELOW, score, torch.log(guarded))
+    check_transform(transform)
+    return score
 
 
 def dyadic_levels(y: torch.Tensor, level_max: int) -> torch.Tensor:
@@ -198,23 +180,16 @@ class ListwiseLevelLoss(nn.Module):
         ``R = {0, 1, ..., ceil(log2(1 + y_max))}`` once and for all folds, and with it the fixed
         normaliser ``|R| - 1``.
     transform : str
-        The normalising transformation ``T``, one of :data:`TRANSFORMS`. ``'exp'`` (the default)
-        is Zhu's softmax form and is translation-invariant; ``'softplus'`` is the form compatible
-        with a negative-binomial pointwise objective. See the module docstring.
+        The normalising transformation ``T``, one of :data:`TRANSFORMS`: only ``'exp'``, Zhu's
+        softmax form, which is translation-invariant. The softplus version was removed on
+        2026-11-20 (issue #629). See the module docstring.
     """
 
     needs_latent = True
 
     def __init__(self, y_max: float, transform: str = "exp") -> None:
         super().__init__()
-        if transform not in TRANSFORMS:
-            err_msg = (
-                f"transform={transform!r} is not one of {TRANSFORMS}. 'exp' is Zhu's own softmax "
-                "form; 'softplus' is the one that shares a minimum with a negative-binomial "
-                "pointwise objective (Bai 2023 Prop. 2)."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        check_transform(transform)
         self.transform = transform
         if not math.isfinite(y_max) or y_max < 1:
             err_msg = (
@@ -238,9 +213,8 @@ class ListwiseLevelLoss(nn.Module):
         """-> the 0-dim listwise loss over every cell of ``input``.
 
         Args:
-            input: the pre-activation **score** field, any shape. Under ``transform='exp'`` only
-                its order is read, so the objective is scale-free; under ``'softplus'`` the
-                score's scale is read through ``log softplus``. ⛔ Never interpreted as a count.
+            input: the pre-activation **score** field, any shape. Only its order is read, so the
+                objective is scale-free. ⛔ Never interpreted as a count.
             target: log1p-space ground truth, same number of elements; recovered to raw counts
                 internally and graded dyadically.
 

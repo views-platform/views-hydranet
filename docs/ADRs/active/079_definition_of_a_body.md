@@ -191,6 +191,11 @@ head's activation, which is softplus in both cases and is applied to the score t
 The exponential version and the softplus version are different objectives (item 3), so they are
 two bodies.
 
+*Decided by Simon on 2026-11-20 (issue #629):* the softplus version is removed. No config used
+it, and the ranking loss's own notes record a measurement that it cannot fix the scale of the
+score on its own. The setting `loss_reg_listwise_transform` stays and accepts only the
+exponential version (`'exp'`), so a second version can be added later as a new body.
+
 Example of the same body. The ranking loss needs an upper bound on the counts, called `y_max`,
 taken from the data. Two setups that differ only in `y_max` are the same body.
 
@@ -474,6 +479,9 @@ decisions. The items are independent of each other.
   untouched. The model's layers and its choice of activation are unchanged. The older path through
   the training loop remains, for the unused bodies; it can only be removed by removing those
   bodies. The softplus version of the ranking loss has no object, because no config uses it.
+  (*Since 2026-11-20, issue #629:* the older path is deleted. Every config the schema accepts has
+  a body, and the training step requires one. The softplus version of the ranking loss was removed
+  with it.)
 - **The two options that were considered:**
   Option A: every loss receives the outputs from before the activation, and a loss that needs the
   activated values is given an argument that tells it to apply softplus.
@@ -486,7 +494,9 @@ decisions. The items are independent of each other.
 - **The switch from section 1** (`needs_latent` in the code). For the five bodies in use its second
   job, "must be trained on all cells", is now a fact stated by the body object. The switch itself
   remains on the older path, for the unused bodies (since 2026-11-17: for the unused losses;
-  the unused bodies are deleted).
+  the unused bodies are deleted). (*Since 2026-11-20, issue #629:* the training step no longer
+  reads it; the body object states the fact. The config check that refuses
+  `body_supervision='active'` with the ranking loss still reads it.)
 - **The check that was missing is added** (condition 5 in section 5). A ranking-loss config whose
   target is not transformed with log1p is now refused when the config is built.
 - **Ten configs ask for something their body cannot do, today.** The five mean-squared-error
@@ -500,7 +510,8 @@ decisions. The items are independent of each other.
   ranking loss reads. That is also for the models repository to resolve.)
 - **The five ranking configs do not choose a version of the ranking loss.** They get the code's
   default, the exponential version. By this document the exponential and the softplus versions are two
-  bodies, so the body of those five models is picked by a default.
+  bodies, so the body of those five models is picked by a default. (*Since 2026-11-20, issue #629:*
+  only the exponential version exists, so the default picks nothing.)
 - **The quantile head was removed from the code on 2026-11-16.** Its module and its test file are
   deleted, its branches are removed from the head, the loss factory, the training loop, the model
   saving and the forecast code, and the config setting `n_quantiles` is gone. The config now has

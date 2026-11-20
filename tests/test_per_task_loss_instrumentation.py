@@ -22,9 +22,10 @@ from views_hydranet.train.training_engine import _process_sequence, _SequenceInd
 class _TinyNet(torch.nn.Module):
     """Two 1x1 convs over a 2-channel feature map -> 3 body params-pairs + 3 gate logits."""
 
-    def __init__(self, n_reg: int, n_cls: int, n_params: int):
+    def __init__(self, n_reg: int, n_cls: int, n_params: int, body=None):
         super().__init__()
         self.base = 2
+        self.body = body
         self.reg_head = torch.nn.Conv2d(2, n_reg * n_params, 1)
         self.cls_head = torch.nn.Conv2d(2, n_cls, 1)
 
@@ -35,12 +36,18 @@ class _TinyNet(torch.nn.Module):
         from types import SimpleNamespace
 
         feat = h + x[:, :2]
-        return SimpleNamespace(reg=self.reg_head(feat), cls=self.cls_head(feat), h_next=feat)
+        raw = self.reg_head(feat)
+        # The activated parameters, as the real head emits them, and the raw ones, which the
+        # distribution body reads (#629). Until #629 this stub emitted raw parameters as `reg`.
+        return SimpleNamespace(
+            reg=self.body.activate(raw), cls=self.cls_head(feat), h_next=feat, reg_latent=raw
+        )
 
 
 @pytest.fixture
 def rig():
     torch.manual_seed(0)
+    from views_hydranet.body.bodies import DistributionBody
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
     from views_hydranet.utils.mtloss import MultiTaskLoss
@@ -56,7 +63,9 @@ def rig():
     }
     idx = _SequenceIndices(feature_names, config)
     fam = resolve_family("nb")
-    model = _TinyNet(len(reg_names), len(cls_names), fam.n_params)
+    crit_reg = FamilyLoss(fam)
+    body = DistributionBody("nb", crit_reg.family)
+    model = _TinyNet(len(reg_names), len(cls_names), fam.n_params, body=body)
     mtl = MultiTaskLoss(
         torch.tensor([True] * len(reg_names) + [False] * len(cls_names)), reduction="sum"
     )
@@ -69,7 +78,8 @@ def rig():
         tt=tt,
         model=model,
         idx=idx,
-        crit_reg=FamilyLoss(fam),
+        crit_reg=crit_reg,
+        body=body,
         crit_cls=WeightedBCEWithLogitsLoss(pos_weight=2.0),
         mtl=mtl,
         names=[f"body/{n}" for n in reg_names] + [f"gate/{n}" for n in cls_names],
@@ -88,6 +98,7 @@ def _run(rig):
         rig["idx"],
         torch.device("cpu"),
         family=resolve_nb(),
+        body=rig["body"],
     )
 
 

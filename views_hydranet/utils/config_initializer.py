@@ -306,10 +306,10 @@ class HydraNetConfig(BaseModel):
     # the field fails the schema instead of riding on extra="allow" (the W-22 trap).
     loss_reg_y_max: float | None = Field(default=None, ge=1.0)
     # Ranking body (loss_reg='listwise_level'): the normalising transformation T of the listwise
-    # objective (Bai 2023 Def. 1). 'exp' is Zhu's softmax form, translation-invariant; 'softplus'
-    # shares a global minimum with the negative-binomial mean map (Bai 2023 Prop. 2).
-    # ⛔ The default must stay 'exp': it is byte-identical to the shipped objective, so no existing
-    # config changes behaviour. listwise_level_loss.TRANSFORMS is the authority on the set.
+    # objective (Bai 2023 Def. 1). Only 'exp', Zhu's softmax form, is implemented; the softplus
+    # version was removed on 2026-11-20 (issue #629) and is refused with the tag that keeps it.
+    # The setting stays so a second version can be added as a new body (ADR-079 §2).
+    # listwise_level_loss.TRANSFORMS is the authority on the set.
     loss_reg_listwise_transform: str = Field(default="exp")
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
@@ -878,14 +878,9 @@ class HydraNetConfig(BaseModel):
     def validate_loss_reg_listwise_transform(cls, v: str) -> str:
         # Imported inside the validator so the schema module keeps no import-time dependency on
         # a loss module, and so the accepted set is declared in exactly one place.
-        from views_hydranet.utils.listwise_level_loss import TRANSFORMS
+        from views_hydranet.utils.listwise_level_loss import check_transform
 
-        if v not in TRANSFORMS:
-            err_msg = (
-                f"loss_reg_listwise_transform='{v}' is not valid. Expected one of {TRANSFORMS}."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        check_transform(v)
         return v
 
     @field_validator("reg_activation")
@@ -1213,16 +1208,9 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        # The same signature for the sibling field. 'exp' is the default, so only a value someone
-        # wrote on purpose is refused.
-        if self.loss_reg_listwise_transform != "exp" and self.loss_reg != "listwise_level":
-            err_msg = (
-                f"loss_reg_listwise_transform='{self.loss_reg_listwise_transform}' is set but "
-                f"loss_reg='{self.loss_reg}' does not read it — the only consumer is "
-                "'listwise_level' (C-324). Remove it, or set loss_reg='listwise_level'."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        # The sibling field `loss_reg_listwise_transform` needed the same check while it had a
+        # second value. Since #629 it accepts only its default, 'exp', so nothing can be set on
+        # purpose beside another loss.
         return self
 
     @model_validator(mode="after")
@@ -1683,7 +1671,8 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_body_supervision_latent(self) -> "HydraNetConfig":
         # C-193 (ADR-008/065): a supervision window on the POINT body is a silent no-op under a
-        # latent loss — the training loop only masks `if not use_latent` (needs_latent=False).
+        # latent loss — the training step never masks a body that requires all cells (the ranking
+        # body, `RankingBody.requires_all_cells`).
         # Requesting body_supervision='active' there is meaningless, so RAISE (not ignore). Single
         # authority for "is this loss latent?" is the loss class's `needs_latent` flag in
         # LOSS_REG_REGISTRY — NOT a hardcoded name list. Today the only latent loss is
