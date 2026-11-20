@@ -496,7 +496,9 @@ decisions. The items are independent of each other.
   remains on the older path, for the unused bodies (since 2026-11-17: for the unused losses;
   the unused bodies are deleted). (*Since 2026-11-20, issue #629:* the training step no longer
   reads it; the body object states the fact. The config check that refuses
-  `body_supervision='active'` with the ranking loss still reads it.)
+  `body_supervision='active'` with the ranking loss still reads it.) (*Since 2026-11-20, issue
+  #630:* the switch is deleted. That config check asks the body class the config names
+  (`body_class_for` in `views_hydranet/body/bodies.py`) whether it requires all cells.)
 - **The check that was missing is added** (condition 5 in section 5). A ranking-loss config whose
   target is not transformed with log1p is now refused when the config is built.
 - **Ten configs ask for something their body cannot do, today.** The five mean-squared-error

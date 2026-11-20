@@ -22,10 +22,12 @@ from views_hydranet.body.bodies import (  # noqa: E402
     DistributionBody,
     MeanSquaredErrorBody,
     RankingBody,
+    body_class_for,
     build_body,
 )
 from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
+from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss  # noqa: E402
 from views_hydranet.utils.utils import choose_loss, choose_model  # noqa: E402
 
 CPU = torch.device("cpu")
@@ -73,7 +75,9 @@ def _setup(name, seed=7, batch=2, hw=8):
 
 def _old_loss(criterion, out, target, j, mask=None):
     """What `_process_sequence` computes for target j today (`training_engine.py:915-947`)."""
-    use_latent = getattr(criterion, "needs_latent", False) is True
+    # The older route read the raw outputs for the ranking loss only (its `needs_latent` flag,
+    # removed in #630).
+    use_latent = isinstance(criterion, ListwiseLevelLoss)
     source = out.reg_latent if use_latent else out.reg
     if isinstance(criterion, FamilyLoss):
         n = criterion.n_params
@@ -338,3 +342,33 @@ def test_a_body_on_a_model_built_for_another_activation_is_refused_at_the_first_
     off._reg_activation = lambda z: 1.01 * torch.nn.functional.softplus(z)
     with pytest.raises(RuntimeError, match="was not built for this body"):
         step(off)
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("mse", MeanSquaredErrorBody),
+        ("ranking", RankingBody),
+        ("nb", DistributionBody),
+        ("truncated_nb", DistributionBody),
+        ("mixture_nb", DistributionBody),
+    ],
+)
+def test_each_config_in_use_names_its_body_class(name, expected):
+    cfg = LIVE[name]
+    assert body_class_for(cfg["output_distribution"], cfg["loss_reg"]) is expected
+
+
+@pytest.mark.parametrize(
+    "distribution,loss_name",
+    [("zinb", None), ("standard", None), ("standard", "huber"), ("hurdle_nb", "mse")],
+)
+def test_a_config_that_names_no_body_in_use_gets_none(distribution, loss_name):
+    assert body_class_for(distribution, loss_name) is None
+
+
+def test_only_the_ranking_body_trains_on_every_cell():
+    """The fact the supervision-window check reads (#630)."""
+    assert RankingBody.requires_all_cells is True
+    assert MeanSquaredErrorBody.requires_all_cells is False
+    assert DistributionBody.requires_all_cells is False

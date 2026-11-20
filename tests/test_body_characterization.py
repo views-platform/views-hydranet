@@ -35,6 +35,7 @@ import torch.nn.functional as F  # noqa: E402
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import (  # noqa: E402
     HydraBNUNet06_LSTM4,
 )
+from views_hydranet.body.bodies import RankingBody, body_class_for  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
 from views_hydranet.distributions.mixture_negative_binomial import (  # noqa: E402
     MixtureNBFamily,
@@ -86,7 +87,9 @@ def test_listwise_standard_builds_the_listwise_loss_with_its_declared_level_set(
     # The constructor-visible parameters: the transform T and the level set derived from y_max.
     assert reg.transform == "exp"
     assert reg.level_max == 14  # ceil(10000).bit_length()
-    assert reg.needs_latent is True
+    # The ranking body trains on every cell (#630: stated by the body, no longer a loss flag).
+    assert body_class_for("standard", "listwise_level") is RankingBody
+    assert RankingBody.requires_all_cells is True
 
 
 @pytest.mark.parametrize(
