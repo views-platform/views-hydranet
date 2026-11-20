@@ -852,7 +852,8 @@ class _SpyListwiseLevelLoss(ListwiseLevelLoss):
 
 
 def _run_sequence(*, constant_target: float | None = None, seed: int = 0):
-    """One real ``_process_sequence`` pass with the listwise loss as ``criterion_reg``."""
+    """One real ``_process_sequence`` pass with the listwise loss inside the ranking body."""
+    from views_hydranet.body.bodies import RankingBody
     from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
 
     torch.manual_seed(seed)
@@ -872,6 +873,7 @@ def _run_sequence(*, constant_target: float | None = None, seed: int = 0):
         idx=idx,
         device=torch.device("cpu"),
         event_threshold=0.0,
+        body=RankingBody(crit),
     )
     return res, crit, model
 
@@ -883,7 +885,8 @@ def test_the_dispatcher_needs_no_fourth_branch_the_score_rides_the_point_path():
     `training_engine.py:916-923` — the one thing `ADR-067`'s seam exists to avoid. It does not:
     the legacy `else` branch already slices **one channel per target** and hands the criterion
     `[B, H, W]`, which IS the `n_params = 1` score. ⇒ **The dispatcher is not widened**, and
-    nothing in `ADR-067`'s registry is touched.
+    nothing in `ADR-067`'s registry is touched. (*Since #629* the ranking body does the slicing;
+    the criterion still receives `[B, H, W]`.)
     """
     res, crit, _ = _run_sequence()
     assert crit.seen_shapes, "the criterion was never called — the loss is not wired at all"
@@ -895,13 +898,13 @@ def test_the_dispatcher_needs_no_fourth_branch_the_score_rides_the_point_path():
 
 
 def test_the_score_reaches_the_criterion_before_the_activation_on_the_real_path():
-    """⛔ `needs_latent = True` must actually route `reg_latent`. The stub's `reg` is
-    `relu(latent)`, so if the dispatcher handed over the ACTIVATED field the criterion would never
-    see a negative score — and a score clamped at 0 is the `tie@0` defect of `02 §5`, which is the
-    whole reason B is being tried."""
+    """⛔ The ranking body must hand the criterion `reg_latent` (until #629 the loss's
+    `needs_latent` routed it). The stub's `reg` is `softplus(latent)`, so if the ACTIVATED field
+    were handed over the criterion would never see a negative score — and a ReLU-clamped score is
+    the `tie@0` defect of `02 §5`, which is the whole reason B is being tried."""
     _, crit, _ = _run_sequence()
     assert crit.saw_a_negative_score, (
-        "every score the criterion saw was >= 0, so it is being fed the ReLU-activated field "
+        "every score the criterion saw was >= 0, so it is being fed the activated field "
         "instead of reg_latent — half the ordering information is clamped into a tie block"
     )
 

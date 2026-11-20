@@ -18,6 +18,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from tests._body_for import mse_and_body  # noqa: E402
 from views_hydranet.train.training_engine import (  # noqa: E402
     _apply_input_noise,
     _noisable_channels,
@@ -142,8 +143,14 @@ class _Model(torch.nn.Module):
 
     def forward(self, x, hidden):
         o = self.conv(x[:, :1])
+        raw = o[:, : self.n_reg]
+        # As the real head in training mode: softplus on the output, and the output from before
+        # it, which the body route reads (#629).
         return types.SimpleNamespace(
-            reg=o[:, : self.n_reg], cls=o[:, self.n_reg :], reg_latent=None, h_next=hidden
+            reg=torch.nn.functional.softplus(raw),
+            cls=o[:, self.n_reg :],
+            reg_latent=raw,
+            h_next=hidden,
         )
 
 
@@ -155,7 +162,7 @@ def _run(dropout, monkeypatch=None, **kw):
         train_tensor=torch.rand(1, _T, len(_FEATS), _H, _W),
         model=model,
         h=torch.zeros(1, 1, 1, 1),
-        criterion_reg=torch.nn.MSELoss(),
+        **mse_and_body(),
         criterion_class=lambda pred, targ: (pred * 0.0).sum(),
         multitaskloss_instance=lambda losses: losses.sum(),
         idx=idx,

@@ -45,11 +45,14 @@ torch = pytest.importorskip("torch")
 
 import torch.nn as nn  # noqa: E402
 
+from views_hydranet.body.bodies import build_body  # noqa: E402
 from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices  # noqa: E402
 from views_hydranet.utils.utils import choose_loss, choose_model  # noqa: E402
 
 GOLDEN = Path(__file__).parent / "golden" / "body_golden.json"
+#: Every parameter's gradient per case, recorded from the older route before #629 deleted it.
+GOLDEN_GRAD_ALL = Path(__file__).parent / "golden" / "body_grad_all_golden.json"
 CPU = torch.device("cpu")
 
 REG = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
@@ -109,8 +112,8 @@ CASES = {
 }
 
 
-#: The one body whose full gradient is compared with a tolerance between the two paths, not bit
-#: for bit. Pinned by an assertion in the one-process test.
+#: The one body whose full gradient is compared with a tolerance against the older route's
+#: recording, not bit for bit. Pinned by an assertion in the full-gradient test.
 _GRAD_ALL_TOLERANT = {"mixture_nb"}
 
 #: Tolerance on a machine other than the one the golden was recorded on; see `_same`.
@@ -154,20 +157,7 @@ def _digest(t: torch.Tensor) -> dict:
     }
 
 
-def _body_kwarg(cfg: dict, criterion_reg) -> dict:
-    """Pass the body the way `train()` does, once the body module exists (S2/S3 of #616)."""
-    try:
-        from views_hydranet.body.bodies import build_body
-    except ImportError:
-        return {}
-    import inspect
-
-    if "body" not in inspect.signature(_process_sequence).parameters:
-        return {}
-    return {"body": build_body(cfg, criterion_reg)}
-
-
-def _run(case: str, *, use_body: bool = True) -> dict:
+def _run(case: str) -> dict:
     body_name, kwargs = CASES[case]
     cfg = {**BASE, **BODIES[body_name]}
     torch.manual_seed(1234)
@@ -196,7 +186,7 @@ def _run(case: str, *, use_body: bool = True) -> dict:
         idx=idx,
         device=CPU,
         family=resolve_family(cfg["output_distribution"]),
-        **(_body_kwarg(cfg, criterion_reg) if use_body else {}),
+        body=build_body(cfg, criterion_reg),
         **kwargs,
     )
     out["total"].backward()
@@ -207,7 +197,7 @@ def _run(case: str, *, use_body: bool = True) -> dict:
         "grad_reg_head1": _digest(model.dec_conv4_head1_reg.weight.grad),
         "grad_reg_head3": _digest(model.dec_conv4_head3_reg.weight.grad),
         "grad_first_conv": _digest(next(model.parameters()).grad),
-        # Every parameter's gradient. Not in the golden file; read by the one-process test.
+        # Every parameter's gradient. In its own golden file, recorded from the older route.
         "grad_all": _digest(
             torch.cat([p.grad.reshape(-1) for p in model.parameters() if p.grad is not None])
         ),
@@ -251,33 +241,30 @@ def test_one_training_step_reproduces_the_golden(case):
         )
 
 
-@pytest.mark.parametrize("body_name", list(BODIES))
-def test_every_live_body_gets_an_object_so_the_golden_runs_the_new_path(body_name):
-    """Without this the cases above could fall back to the older path and prove nothing."""
-    cfg = {**BASE, **BODIES[body_name]}
-    kwarg = _body_kwarg(cfg, choose_loss(cfg, CPU)[0])
-    assert "body" in kwarg, "`_process_sequence` has no `body` argument"
-    assert kwarg["body"] is not None, f"{body_name} got no body object"
-
-
 @pytest.mark.parametrize("case", list(CASES))
-def test_the_body_path_equals_the_older_path_in_one_process(case):
-    """The same claim as the golden, without the golden: both paths, one process, any CPU."""
-    with_body, without = _run(case, use_body=True), _run(case, use_body=False)
-    assert "grad_all" in with_body, "the comparison of every parameter's gradient was removed"
+def test_every_gradient_matches_the_older_path_as_recorded(case):
+    """Every parameter's gradient against the older route's, as recorded before #629 deleted it.
+
+    Until #629 this ran both routes in one process. The older route is gone, so its numbers were
+    recorded on 2026-11-20 at the commit before the deletion, after checking there that the body
+    route reproduced them (bit for bit; the mixture body within the tolerance below).
+    """
+    golden = json.loads(GOLDEN_GRAD_ALL.read_text())
+    assert set(golden["cases"]) == set(CASES), "the full-gradient golden lost a case"
     assert _GRAD_ALL_TOLERANT == {"mixture_nb"}, (
         "widening the exception is a decision, not an edit"
     )
-    for key in with_body:
-        if key == "grad_all" and CASES[case][0] in _GRAD_ALL_TOLERANT:
-            # The one measured exception (code review, 2026-11-16): on this 8 x 8 grid the
-            # mixture body's three head-bias gradients differ by up to 3e-8 between the paths.
-            assert _same(with_body[key], without[key], exact=False), f"{case}: {key} is far off"
-            continue
-        assert with_body[key]["sha256"] == without[key]["sha256"], (
-            f"{case}: {key} differs between the body path and the older path "
-            f"(sums {with_body[key]['sum']!r} vs {without[key]['sum']!r})"
-        )
+    exact = golden["recorded_on"] == _fingerprint()
+    got, want = _run(case)["grad_all"], golden["cases"][case]
+    if CASES[case][0] in _GRAD_ALL_TOLERANT:
+        # The one measured exception (code review, 2026-11-16): on this 8 x 8 grid the mixture
+        # body's three head-bias gradients differ by up to 3e-8 between the two routes.
+        exact = False
+    assert _same(got, want, exact=exact), (
+        f"{case}: a parameter's gradient differs from the older route's recording "
+        f"({'bit-for-bit' if exact else 'tolerance 1e-4'}); sums {got['sum']!r} vs "
+        f"{want['sum']!r}"
+    )
 
 
 def test_the_ranking_body_is_trained_on_all_cells_even_under_active_supervision(monkeypatch):

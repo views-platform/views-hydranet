@@ -1,9 +1,12 @@
-"""S3 (#619, epic #616): the real training loop, with a body and without, ends at the same weights.
+"""S3 (#619, epic #616): the real training loop with a body ends at the older route's weights.
 
 `tests/test_body_golden.py` pins one `_process_sequence` call. This file goes one level up: the
-real `make()` and `training_loop()`, optimizer steps included, for each body in use. The loop is
-run twice from the same seed — once as written, once with `build_body` forced to return ``None``
-so the older path runs — and every parameter must be `torch.equal` afterwards.
+real `make()` and `training_loop()`, optimizer steps included, for each body in use. Until #629 the
+loop ran twice from the same seed, once with `build_body` forced to return ``None`` so the older
+route ran, and every parameter had to be `torch.equal`. The older route is gone (#629): its final
+weights were recorded on 2026-11-20 at the commit before the deletion, after checking there that
+the body route reproduced them bit for bit, in `tests/golden/body_loop_golden.json`. Exact on the
+machine that recorded them, within the golden's tolerance elsewhere (see `test_body_golden._same`).
 
 🟥 Red by the ADR-005 taxonomy: this is the claim "training is unchanged" at the level a run
 actually executes.
@@ -15,9 +18,13 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+import json  # noqa: E402
+from pathlib import Path  # noqa: E402
+
 import numpy as np  # noqa: E402
 
 import views_hydranet.train.training_engine as engine  # noqa: E402
+from tests.test_body_golden import _digest, _fingerprint, _same  # noqa: E402
 from tests.train.conftest import loop_config  # noqa: E402
 from views_hydranet.body.bodies import (  # noqa: E402
     DistributionBody,
@@ -26,6 +33,8 @@ from views_hydranet.body.bodies import (  # noqa: E402
 )
 from views_hydranet.train.training_engine import make, training_loop  # noqa: E402
 from views_hydranet.utils.volume_handler import VolumeHandler  # noqa: E402
+
+GOLDEN_LOOP = Path(__file__).parents[1] / "golden" / "body_loop_golden.json"
 
 LIVE = {
     "mse": ({"output_distribution": "standard", "loss_reg": "mse"}, MeanSquaredErrorBody),
@@ -59,7 +68,7 @@ def _varied_handler(cfg):
     )
 
 
-def _train(name, monkeypatch, *, use_body: bool):
+def _train(name, monkeypatch):
     overrides, _ = LIVE[name]
     # weight_decay=0: with decay the head moves even when no loss trains it, and the last
     # assertion of the test would pass for that reason (code review, 2026-11-16).
@@ -70,7 +79,7 @@ def _train(name, monkeypatch, *, use_body: bool):
     real = engine.build_body
 
     def spy(config, criterion_reg):
-        body = real(config, criterion_reg) if use_body else None
+        body = real(config, criterion_reg)
         seen.append(body)
         return body
 
@@ -98,20 +107,25 @@ def _train(name, monkeypatch, *, use_body: bool):
 
 
 @pytest.mark.parametrize("name", list(LIVE))
-def test_the_loop_reaches_the_same_weights_with_and_without_the_body(name, monkeypatch):
-    with_body, seen, initial = _train(name, monkeypatch, use_body=True)
+def test_the_loop_reaches_the_older_routes_recorded_weights(name, monkeypatch):
+    with_body, seen, initial = _train(name, monkeypatch)
     assert seen, "`train()` never asked for a body"
     assert all(type(b) is LIVE[name][1] for b in seen), (
         f"{name}: expected {LIVE[name][1].__name__} on every step, got "
         f"{sorted({type(b).__name__ for b in seen})}"
     )
-    without, seen_old, _ = _train(name, monkeypatch, use_body=False)
-    assert seen_old and all(b is None for b in seen_old)
-
-    for (key, a), (_, b) in zip(
-        with_body.state_dict().items(), without.state_dict().items(), strict=True
-    ):
-        assert torch.equal(a, b), f"{name}: `{key}` differs between the body path and the older"
+    golden = json.loads(GOLDEN_LOOP.read_text())
+    assert set(golden["cases"]) == set(LIVE), "the loop golden lost a body"
+    flat = torch.cat(
+        [v.detach().to(torch.float32).reshape(-1) for v in with_body.state_dict().values()]
+    )
+    exact = golden["recorded_on"] == _fingerprint()
+    got, want = _digest(flat), golden["cases"][name]
+    assert _same(got, want, exact=exact), (
+        f"{name}: the weights after the loop differ from the older route's recording "
+        f"({'bit-for-bit' if exact else 'tolerance 1e-4'}); sums {got['sum']!r} vs "
+        f"{want['sum']!r}"
+    )
 
     # The equality above would hold trivially if nothing trained.
     head = "dec_conv4_head1_reg.weight"

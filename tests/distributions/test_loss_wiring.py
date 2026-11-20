@@ -14,6 +14,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from tests._body_for import body_for  # noqa: E402
 from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
 
@@ -96,7 +97,15 @@ def _family_step(output_distribution):
     criterion_class = FocalLoss(alpha=0.75, gamma=1.5)
     mt = MultiTaskLoss(torch.Tensor([True, True, True, False, False, False]), reduction="sum")
     result = _process_sequence(
-        train_tensor, model, h, criterion_reg, criterion_class, mt, idx, torch.device("cpu")
+        train_tensor,
+        model,
+        h,
+        criterion_reg,
+        criterion_class,
+        mt,
+        idx,
+        torch.device("cpu"),
+        body=body_for(criterion_reg, output_distribution),
     )
     return model, result
 

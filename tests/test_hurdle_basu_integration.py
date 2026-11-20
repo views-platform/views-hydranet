@@ -9,7 +9,9 @@ correct, bounded, finite losses with gradient flow.
 import pytest
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+from tests._body_for import body_for
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 
 
@@ -46,6 +48,7 @@ class TestRedHurdleParamValidation:
             SumReducer(),
             idx,
             torch.device("cpu"),
+            body=body_for(nn.MSELoss()),
             body_supervision="active",
             qs99_weight=None,
             qs99_tau=None,
@@ -138,6 +141,7 @@ class TestGreenTargetWeights:
             SumReducer(),
             idx,
             torch.device("cpu"),
+            body=body_for(nn.MSELoss()),
             body_supervision="active",
         )
 
@@ -150,6 +154,7 @@ class TestGreenTargetWeights:
             SumReducer(),
             idx,
             torch.device("cpu"),
+            body=body_for(nn.MSELoss()),
             body_supervision="active",
             target_weights={"feat": 5.0},
         )
@@ -181,7 +186,8 @@ class TestGreenTargetWeights:
             def forward(self, x, h):
                 out = self.conv(x)
                 cls = out[:, :0, :, :]
-                return ModelOutput(reg=out, cls=cls, h_next=h)
+                # As the real head; the body route reads the raw output (#629).
+                return ModelOutput(reg=F.softplus(out), cls=cls, h_next=h, reg_latent=out)
 
             def init_hTtime(self, hidden_channels, H, W):
                 return torch.zeros(1, hidden_channels, H, W)
@@ -203,6 +209,7 @@ class TestGreenTargetWeights:
             SumReducer(),
             idx,
             torch.device("cpu"),
+            body=body_for(nn.MSELoss()),
             body_supervision="active",
             target_weights={"a": 1.0, "b": 1.0},
         )
@@ -216,6 +223,7 @@ class TestGreenTargetWeights:
             SumReducer(),
             idx,
             torch.device("cpu"),
+            body=body_for(nn.MSELoss()),
             body_supervision="active",
             target_weights={"a": 1.0, "b": 5.0},
         )
@@ -353,7 +361,8 @@ def make_tiny_model():
 
         def forward(self, x, h):
             out = self.conv(x)
-            return ModelOutput(reg=out, cls=out, h_next=h)
+            # As the real head: softplus on the output, the raw output for the body route (#629).
+            return ModelOutput(reg=F.softplus(out), cls=out, h_next=h, reg_latent=out)
 
         def init_hTtime(self, hidden_channels, H, W):
             return torch.zeros(1, hidden_channels, H, W)

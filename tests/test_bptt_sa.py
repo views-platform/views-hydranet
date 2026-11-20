@@ -27,6 +27,9 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from tests._body_for import mse_and_body  # noqa: E402
+from views_hydranet.body.bodies import DistributionBody  # noqa: E402
+from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
 from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices  # noqa: E402
 
 _H, _W, _T = 2, 2, 4
@@ -49,8 +52,11 @@ class _LinearModel(torch.nn.Module):
 
     def forward(self, x, hidden):  # noqa: ANN001 - stub
         out = self.conv(x[:, :1])
-        reg, cls = out[:, : self.n_reg], out[:, self.n_reg :]
-        return types.SimpleNamespace(reg=reg, cls=cls, reg_latent=reg, h_next=hidden)
+        raw, cls = out[:, : self.n_reg], out[:, self.n_reg :]
+        # As the real head: softplus on the output, and the output from before it, which the
+        # body route reads (#629).
+        reg = torch.nn.functional.softplus(raw)
+        return types.SimpleNamespace(reg=reg, cls=cls, reg_latent=raw, h_next=hidden)
 
 
 def _run(*, ss_epsilon: float, backprop: bool, seed: int = 0):
@@ -63,7 +69,7 @@ def _run(*, ss_epsilon: float, backprop: bool, seed: int = 0):
         train_tensor=tensor,
         model=model,
         h=torch.zeros(1, 1, 1, 1),
-        criterion_reg=torch.nn.MSELoss(),
+        **mse_and_body(),
         criterion_class=lambda pred, targ: (pred * 0.0).sum(),
         multitaskloss_instance=lambda losses: losses.sum(),
         idx=idx,
@@ -117,7 +123,7 @@ def test_off_detaches_the_fed_prediction_and_on_does_not():
             train_tensor=torch.rand(1, _T, len(_FEATURE_NAMES), _H, _W),
             model=model,
             h=torch.zeros(1, 1, 1, 1),
-            criterion_reg=torch.nn.MSELoss(),
+            **mse_and_body(),
             criterion_class=lambda pred, targ: (pred * 0.0).sum(),
             multitaskloss_instance=lambda losses: losses.sum(),
             idx=idx,
@@ -189,7 +195,7 @@ def test_at_epsilon_zero_the_model_never_receives_a_prediction_as_input():
         train_tensor=tensor,
         model=model,
         h=torch.zeros(1, 1, 1, 1),
-        criterion_reg=torch.nn.MSELoss(),
+        **mse_and_body(),
         criterion_class=lambda pred, targ: (pred * 0.0).sum(),
         multitaskloss_instance=lambda losses: losses.sum(),
         idx=idx,
@@ -236,7 +242,7 @@ def test_at_epsilon_zero_the_feedback_machinery_does_not_run_at_all():
         train_tensor=torch.rand(1, _T, len(_FEATURE_NAMES), _H, _W),
         model=model,
         h=torch.zeros(1, 1, 1, 1),
-        criterion_reg=torch.nn.MSELoss(),
+        **mse_and_body(),
         criterion_class=lambda pred, targ: (pred * 0.0).sum(),
         multitaskloss_instance=lambda losses: losses.sum(),
         idx=idx,
@@ -528,16 +534,20 @@ class _FamilyModel(torch.nn.Module):
             ],
             dim=1,
         )
-        latent = act[:, ::npar]  # n_reg channels, still differentiable
+        # The raw parameters, which the distribution body reads and activates itself (#629).
         return types.SimpleNamespace(
-            reg=act, cls=o[:, n * npar :], reg_latent=latent, h_next=hidden
+            reg=act, cls=o[:, n * npar :], reg_latent=o[:, : n * npar], h_next=hidden
         )
 
 
-class _LatentMSE(torch.nn.MSELoss):
-    """Routes the loss to reg_latent so `reg` may carry n_params channels."""
+def _nb_loss_and_body(fam) -> dict:
+    """The negative-binomial likelihood and its body, as `train()` builds them for `nb` (#629).
 
-    needs_latent = True
+    Until #629 these tests trained a mean-squared error on the activated mean through the older
+    route's `needs_latent` switch (`_LatentMSE`); the older route is gone.
+    """
+    criterion = FamilyLoss(fam)
+    return {"criterion_reg": criterion, "body": DistributionBody("nb", criterion.family)}
 
 
 def _run_family(
@@ -558,7 +568,7 @@ def _run_family(
         train_tensor=torch.rand(1, _T, len(_FEATURE_NAMES), _H, _W),
         model=model,
         h=torch.zeros(1, 1, 1, 1),
-        criterion_reg=_LatentMSE(),
+        **_nb_loss_and_body(fam),
         criterion_class=lambda pred, targ: (pred * 0.0).sum(),
         multitaskloss_instance=lambda losses: losses.sum(),
         idx=idx,
@@ -611,7 +621,7 @@ def test_INTEGRATION_the_forward_loss_is_unchanged_on_a_family_head():
             train_tensor=torch.rand(1, _T, len(_FEATURE_NAMES), _H, _W),
             model=model,
             h=torch.zeros(1, 1, 1, 1),
-            criterion_reg=_LatentMSE(),
+            **_nb_loss_and_body(fam),
             criterion_class=lambda pred, targ: (pred * 0.0).sum(),
             multitaskloss_instance=lambda losses_: losses_.sum(),
             idx=idx,
@@ -676,7 +686,7 @@ def test_straight_through_is_NOT_applied_to_mean_feedback():
             train_tensor=torch.rand(1, _T, len(_FEATURE_NAMES), _H, _W),
             model=model,
             h=torch.zeros(1, 1, 1, 1),
-            criterion_reg=_LatentMSE(),
+            **_nb_loss_and_body(fam),
             criterion_class=lambda pred, targ: (pred * 0.0).sum(),
             multitaskloss_instance=lambda losses_: losses_.sum(),
             idx=idx,

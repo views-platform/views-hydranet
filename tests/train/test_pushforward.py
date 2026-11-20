@@ -23,6 +23,7 @@ import pytest
 torch = pytest.importorskip("torch")
 import torch.nn as nn  # noqa: E402
 
+from tests._body_for import body_for, family_loss_and_body  # noqa: E402
 from views_hydranet.architectures.registry import get_architecture  # noqa: E402
 from views_hydranet.distributions import get_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
@@ -74,7 +75,7 @@ def _run(pf_weight=0.0, detach_state=False, seed=0, tensor=None, **kw):
         x,
         model,
         h,
-        criterion_reg=FamilyLoss(fam),
+        **family_loss_and_body("nb", fam),
         criterion_class=nn.BCEWithLogitsLoss(),
         multitaskloss_instance=_MTL(),
         idx=idx,
@@ -190,6 +191,7 @@ def test_the_second_step_consumes_the_models_own_field_not_ground_truth():
             m,
             hh,
             criterion_reg=crit,
+            body=body_for(crit, "nb"),
             criterion_class=nn.BCEWithLogitsLoss(),
             multitaskloss_instance=_MTL(),
             idx=idx,
@@ -325,7 +327,7 @@ def test_the_extra_forward_does_not_touch_batchnorm_running_statistics():
             x,
             model,
             h,
-            criterion_reg=FamilyLoss(fam),
+            **family_loss_and_body("nb", fam),
             criterion_class=nn.BCEWithLogitsLoss(),
             multitaskloss_instance=_MTL(),
             idx=idx,
@@ -356,7 +358,7 @@ def test_the_pushforward_is_skipped_when_gradients_are_off():
     """
     x, model, h, idx, fam = _fixture(seed=13)
     kwargs = dict(
-        criterion_reg=FamilyLoss(fam),
+        **family_loss_and_body("nb", fam),
         criterion_class=nn.BCEWithLogitsLoss(),
         multitaskloss_instance=_MTL(),
         idx=idx,
@@ -442,6 +444,7 @@ def test_the_fed_field_gets_its_statics_from_t_plus_one_not_t():
             m,
             hh,
             criterion_reg=crit,
+            body=body_for(crit, "nb"),
             criterion_class=nn.BCEWithLogitsLoss(),
             multitaskloss_instance=_MTL(),
             idx=idx,
@@ -504,7 +507,7 @@ def test_the_pushforward_term_honours_target_weights():
             x,
             model,
             h,
-            criterion_reg=FamilyLoss(fam),
+            **family_loss_and_body("nb", fam),
             idx=idx,
             family=fam,
             target_weights=weights,

@@ -13,6 +13,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from tests._body_for import body_for  # noqa: E402
 from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
 
@@ -47,6 +48,7 @@ def _run(output_distribution, **kwargs):
         mt,
         idx,
         torch.device("cpu"),
+        body=body_for(criterion_reg, output_distribution),
         **kwargs,
     )
     return model, result
