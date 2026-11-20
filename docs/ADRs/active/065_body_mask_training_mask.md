@@ -1,7 +1,7 @@
 # ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
 
 **Status:** Active (promoted from Proposed 2026-08-14 — the body_supervision resolver is shipped; see `docs/CICs/BodySupervisionResolver.md`)
-**Amended 2026-11-18 (issue #631):** the `lognormal_nll`, `tobit`, `mae`, `huber`, `shrinkage`, `pareto` and `count_mean` losses are deleted; no config used them. Where this ADR names them below, it is history. The one latent loss that remains is `listwise_level`, and the rule that a latent loss refuses a supervision window still holds for it. The distribution families are not latent in this sense (`needs_latent=False`); a supervision window is accepted for them.
+**Amended 2026-11-18 (issue #631):** the `lognormal_nll`, `tobit`, `mae`, `huber`, `shrinkage`, `pareto` and `count_mean` losses are deleted; no config used them. Where this ADR names them below, it is history. The one latent loss that remains is `listwise_level`, and the rule that a latent loss refuses a supervision window still holds for it. The distribution families are not latent in this sense; a supervision window is accepted for them. (*Since 2026-11-20, issue #629:* the families' `needs_latent` flag is removed; the training step asks the body object whether it requires all cells.)
 **Date:** 2026-07-18
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers
@@ -216,8 +216,9 @@ The clean-break retirement of the three keywords is gated on a **byte-identical 
 ### A5. Scope guards (do not let this masquerade)
 - **Point-body only.** (*Since 2026-11-20, issue #629:* the training step reads this from the body
   object's `requires_all_cells`; `use_latent` and the older route are deleted. The config check
-  is unchanged.) Still `not use_latent`; NB/ZINB are `needs_latent=False`, so `active` applies to them
-  (the C-193 latent no-op RAISE is retained for a latent loss + `active`). Latent-truncation losses unchanged.
+  is unchanged.) Until #629: still `not use_latent`; NB/ZINB are `needs_latent=False`, so `active`
+  applies to them (the C-193 latent no-op RAISE is retained for a latent loss + `active`).
+  Latent-truncation losses unchanged.
 - **NOT a tail fix.** This lever changes *where the body is supervised*, not whether the family can *reach* the
   ξ≈0.8 surge. The `tail_scorecard` will still show `q90≈0` on the top magnitude bin for every radius — expected,
   and the evidence that this axis and the heavy-tail axis (C-149/C-224) are orthogonal. Success = bulk-magnitude

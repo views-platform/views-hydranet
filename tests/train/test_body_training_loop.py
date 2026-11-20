@@ -5,8 +5,14 @@ real `make()` and `training_loop()`, optimizer steps included, for each body in 
 loop ran twice from the same seed, once with `build_body` forced to return ``None`` so the older
 route ran, and every parameter had to be `torch.equal`. The older route is gone (#629): its final
 weights were recorded on 2026-11-20 at the commit before the deletion, after checking there that
-the body route reproduced them bit for bit, in `tests/golden/body_loop_golden.json`. Exact on the
-machine that recorded them, within the golden's tolerance elsewhere (see `test_body_golden._same`).
+the body route reproduced them bit for bit, in `tests/golden/body_loop_golden.json`.
+
+⚠️ The comparison is exact, and only possible, on the machine that recorded them. Measured on the
+CI runner (PR #659, 2026-11-20): after the loop the weight sums differ from the recording by 0.2%
+to 0.5% for every body, because Adam turns float32 rounding differences between CPUs into
+different steps. No tolerance separates that from a real change. Elsewhere the test says so with a
+warning and checks only that the right body trained the model. The one-step references in
+`tests/test_body_golden.py` do carry across machines within their 1e-4 tolerance.
 
 🟥 Red by the ADR-005 taxonomy: this is the claim "training is unchanged" at the level a run
 actually executes.
@@ -19,6 +25,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 import json  # noqa: E402
+import warnings  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -119,16 +126,36 @@ def test_the_loop_reaches_the_older_routes_recorded_weights(name, monkeypatch):
     flat = torch.cat(
         [v.detach().to(torch.float32).reshape(-1) for v in with_body.state_dict().values()]
     )
-    exact = golden["recorded_on"] == _fingerprint()
     got, want = _digest(flat), golden["cases"][name]
-    assert _same(got, want, exact=exact), (
-        f"{name}: the weights after the loop differ from the older route's recording "
-        f"({'bit-for-bit' if exact else 'tolerance 1e-4'}); sums {got['sum']!r} vs "
-        f"{want['sum']!r}"
-    )
+    assert torch.isfinite(flat).all(), f"{name}: the weights after the loop are not finite"
+    if golden["recorded_on"] == _fingerprint():
+        assert _same(got, want, exact=True), (
+            f"{name}: the weights after the loop differ bit-for-bit from the older route's "
+            f"recording; sums {got['sum']!r} vs {want['sum']!r}"
+        )
+    else:
+        warnings.warn(
+            f"{name}: the loop's recorded weights come from another machine "
+            f"({golden['recorded_on']}); they are not comparable here (see the module "
+            "docstring), so only the body and the training were checked.",
+            stacklevel=1,
+        )
 
     # The equality above would hold trivially if nothing trained.
     head = "dec_conv4_head1_reg.weight"
     assert not torch.equal(with_body.state_dict()[head], initial[head]), (
         f"{name}: the regression head did not move, so equal weights prove nothing"
     )
+
+
+def test_the_training_step_has_no_default_body():
+    """Since #629 there is one route through the training step: the body. `body` must be a
+    required keyword argument, so a caller that forgets it gets a TypeError at the call, not a
+    body guessed from the loss object."""
+    import inspect
+
+    from views_hydranet.train.training_engine import _process_sequence
+
+    parameter = inspect.signature(_process_sequence).parameters["body"]
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is inspect.Parameter.empty

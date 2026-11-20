@@ -1291,7 +1291,8 @@ def train(
         input_noise_dropout=_input_noise,
         input_noise_segment=config["time_steps"] if _input_noise is not None else None,
         input_noise_channels=_noisable_channels(config) if _input_noise is not None else None,
-        # ADR-079 / epic #616: one object for the body, or None for an unused body.
+        # ADR-079 / epic #616: the body object; required since #629 (`build_body` raises if the
+        # loss was built for another config).
         body=build_body(config, ctx.criterion_reg),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]

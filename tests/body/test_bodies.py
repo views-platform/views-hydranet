@@ -24,6 +24,7 @@ from views_hydranet.body.bodies import (  # noqa: E402
     RankingBody,
     build_body,
 )
+from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
 from views_hydranet.utils.utils import choose_loss, choose_model  # noqa: E402
 
@@ -240,7 +241,9 @@ def test_a_body_refuses_a_model_that_returns_no_output_from_before_the_activatio
         ({"output_distribution": "standard", "loss_reg": "mse"}, nn.L1Loss()),
         ({"output_distribution": "standard", "loss_reg": "listwise_level"}, nn.MSELoss()),
         ({"output_distribution": "standard", "loss_reg": "mse"}, None),
-        ({"output_distribution": "zinb", "loss_reg": "mse"}, nn.MSELoss()),
+        # A real FamilyLoss, so only the removed distribution's name can make it raise (guard
+        # audit of #629: with an MSELoss here it raised on the criterion and never tested this).
+        ({"output_distribution": "zinb", "loss_reg": "mse"}, FamilyLoss(resolve_family("nb"))),
     ],
     ids=["family_with_mse", "mse_with_l1", "ranking_with_mse", "no_criterion", "removed_body"],
 )
