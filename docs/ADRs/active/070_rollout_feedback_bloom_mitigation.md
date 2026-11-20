@@ -1,6 +1,7 @@
 # ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
 
 **Status:** Active
+**Amended 2026-11-20 (issue #634):** `teacher_forced` is removed. The owner decided there will be no more teacher forcing. The config schema and the forecast code refuse it, and name the git tag `archive/teacher-forced-2026-11-20` that holds the last code (for comparison only; rebuild from scratch, never restore). The accepted values are `None` (auto), `mean` and `sample`. Where this ADR names `teacher_forced` below, it is history.
 **Amended 2026-11-17 (issue #628):** the `zinb` family is deleted. The decision here stands for the families that remain; the `zinb` measurements below are history.
 **Date:** 2026-07-27 (accepted 2026-07-27)
 **Deciders:** Simon Polichinel von der Maase
