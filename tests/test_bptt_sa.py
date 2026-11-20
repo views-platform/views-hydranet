@@ -731,7 +731,7 @@ def test_C259_makes_the_mean_plus_sampling_configuration_unreachable(valid_confi
     raw = dict(valid_config_dict)
     raw.update(
         run_type="calibration",
-        output_distribution="nb",
+        body="nll_softplus_nb",
         # `nb` has no zero mechanism, so ADR-069 requires it to declare a gate composition.
         forecast_composition="soft_gate",
         # BOTH are needed: scheduled sampling is ACTIVE only when a schedule is set AND

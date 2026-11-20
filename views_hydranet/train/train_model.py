@@ -98,48 +98,32 @@ def train_model_artifact(
         # which seed produced which artifact). Provenance only; reload does not consume these.
         config_snapshot["torch_seed"] = config.get("torch_seed")
         config_snapshot["np_seed"] = config.get("np_seed")
-        # Persist which body the head was built for; reload builds the head from it.
-        config_snapshot["output_distribution"] = config.get("output_distribution", "standard")
-        # C-179: persist the RESOLVED reg-head activation (the function actually used). Softplus
-        # and ReLU share weight shapes, so a mismatch would load silently and forecast wrong; the
-        # reload refuses a standard head that does not record softplus (ADR-079 Rule 1, #632).
-        # A distribution family (ADR-067) installs its OWN activation
-        # (a closure keyed off output_distribution) whose name is not a valid reg_activation string
-        # on reload — persist None; output_distribution reconstructs it. Registry-driven
-        # (resolve_family), so new families need no edit here.
-        from views_hydranet.distributions import resolve_family
+        # ADR-081 (#633): persist the body; reload builds the head from it. A record written before
+        # #633 states the three old settings instead and is read by `model_artifact_fetcher`.
+        from views_hydranet.body.vocabulary import body_name
 
-        _od = config_snapshot["output_distribution"]
-        if resolve_family(_od) is not None:
-            config_snapshot["reg_activation"] = None
-            # C-206: K (n_head_samples) changes the sampled D×K cube at inference (A-S8), so it
-            # must ride in the manifest — else two runs with different K share a snapshot and
-            # silently defeat reproducibility. Only captured for families (legacy K=1 is unused ⇒
-            # manifest byte-identical, preserving the A-S5 #172 AC).
-            config_snapshot["n_head_samples"] = config.get("n_head_samples", 1)
-        else:
-            config_snapshot["reg_activation"] = model._reg_activation.__name__
+        named = body_name(config)
+        config_snapshot["body"] = named.value
         criterion_reg = criterion[0]
-        # ADR-079 / #620: record which loss trained the model. Two models that differ only in
-        # their loss (mean squared error against the ranking loss, both `standard`) otherwise have
-        # identical sidecars. Written only when `loss_reg` is what trained: under a distribution
-        # family the likelihood trains and `loss_reg` is not read, so repeating it here would
-        # record a loss the model was not trained with; `output_distribution` already names it.
-        # Provenance only; reload does not consume these keys.
-        if resolve_family(_od) is None:
-            _loss_reg = config.get("loss_reg")
-            config_snapshot["loss_reg"] = _loss_reg
-            # Every parameter that loss requires, from the registry, so that two models trained
-            # with different values of one do not write the same sidecar.
-            for _param in LOSS_REG_REGISTRY.get(_loss_reg, {}).get("params", []):
+        if not named.has_distribution:
+            # ADR-079 / #620: every parameter the point body's loss requires, from the registry,
+            # so that two models trained with different values of one do not write the same
+            # sidecar. Provenance only; reload does not consume these keys.
+            for _param in LOSS_REG_REGISTRY[named.loss_name]["params"]:
                 config_snapshot[_param] = config.get(_param)
             if isinstance(criterion_reg, ListwiseLevelLoss):
                 # Read off the criterion, not the config: the ranking loss's own function has a
                 # default, and the sidecar must say what was used, not what was written.
                 config_snapshot["loss_reg_listwise_transform"] = criterion_reg.transform
-        elif config.get("body_nll_denominator") is not None:
-            # The truncated NB's likelihood is normalised differently per value of this setting.
-            config_snapshot["body_nll_denominator"] = config.get("body_nll_denominator")
+        else:
+            # C-206: K (n_head_samples) changes the sampled D×K cube at inference (A-S8), so it
+            # must ride in the manifest — else two runs with different K share a snapshot and
+            # silently defeat reproducibility.
+            config_snapshot["n_head_samples"] = config.get("n_head_samples", 1)
+            if config.get("body_nll_denominator") is not None:
+                # The truncated NB's likelihood is normalised differently per value of this
+                # setting.
+                config_snapshot["body_nll_denominator"] = config.get("body_nll_denominator")
         artifact_path.with_suffix(".pt.config.json").write_text(
             json.dumps(config_snapshot, indent=2)
         )

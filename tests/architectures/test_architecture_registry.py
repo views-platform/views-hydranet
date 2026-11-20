@@ -97,7 +97,7 @@ def test_choose_model_routes_through_the_registry(valid_config_dict):
     """`choose_model` must consult the registry, so an unknown name fails the same way."""
     from views_hydranet.utils.utils import choose_model
 
-    cfg = {**valid_config_dict, "model": INCUMBENT, "output_distribution": "nb"}
+    cfg = {**valid_config_dict, "model": INCUMBENT, "body": "nll_softplus_nb"}
     model = choose_model(cfg, torch.device("cpu"))
     assert isinstance(model, HydraBNUNet06_LSTM4)
 
@@ -117,7 +117,7 @@ def test_choose_model_builds_every_registered_architecture(valid_config_dict, na
     """
     from views_hydranet.utils.utils import choose_model
 
-    cfg = {**valid_config_dict, "model": name, "output_distribution": "nb"}
+    cfg = {**valid_config_dict, "model": name, "body": "nll_softplus_nb"}
     model = choose_model(cfg, torch.device("cpu"))
     assert type(model) is get_architecture(name), f"choose_model built the wrong class for {name}"
 

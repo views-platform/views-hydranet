@@ -19,24 +19,6 @@ import pytest
 torch = pytest.importorskip("torch")
 
 
-def _build(output_distribution, reg_activation=None):
-    from views_hydranet.utils.utils import choose_model
-
-    cfg = {
-        "model": "HydraBNUNet06_LSTM4",
-        "input_channels": 3,
-        "output_channels": 1,
-        "total_hidden_channels": 32,
-        "dropout_rate": 0.0,
-        "weight_init": "xavier_norm",
-        "h_init": "abs_rand_exp-100",
-        "output_distribution": output_distribution,
-    }
-    if reg_activation is not None:
-        cfg["reg_activation"] = reg_activation
-    return choose_model(cfg, torch.device("cpu"))
-
-
 def test_relu_body_can_emit_identically_zero_with_zero_gradient():
     """Characterizes the dead-ReLU trap directly: a strongly-negative pre-activation yields
     out=0 AND grad=0, so the loss cannot recover it. Documents why no body loss helped ns/os."""

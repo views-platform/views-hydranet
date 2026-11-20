@@ -27,8 +27,8 @@ decorator, chosen at the v1 `/expert-code-review` for fail-loud discovery and or
   is imported only when its factory fires. This keeps `config_initializer → registry → base`
   torch-free (CRP).
 - Does **not** own the config-boundary validation. It exposes `family_names()` as the single source of
-  truth for valid family names; the `output_distribution` field validator (A-S5) consumes that set and
-  owns the `family_names ∩ legacy-names = ∅` disjointness guard (C-197). The registry does not know
+  truth for valid family names; `config_initializer` consumes that set and owns the
+  `family_names ∩ legacy-names = ∅` disjointness guard (C-197). The registry does not know
   the legacy names.
 - Does **not** decide legacy-vs-family behaviour. `resolve_family` returns `None` for a non-family
   name; the **caller** falls through to the existing code path (the strangler-fig branch).
@@ -57,7 +57,7 @@ decorator, chosen at the v1 `/expert-code-review` for fail-loud discovery and or
 
 ## 4. Inputs and Assumptions
 
-- `name` is a plain string — typically `config["output_distribution"]`. The registry makes no
+- `name` is a plain string — typically `body_name(config).distribution` (ADR-081, #633). The registry makes no
   assumption that it is valid; unknown → `get_family` raises / `resolve_family` returns `None`.
 - Registry mutation (adding an entry) happens at module scope in this file, or in a test via a
   snapshot/restore fixture — never mutated by production code at runtime.
@@ -110,9 +110,9 @@ from views_hydranet.distributions import resolve_family, family_names
 
 valid = family_names()                     # frozenset of registered names, torch-free (config uses this)
 
-fam = resolve_family(config["output_distribution"])
+fam = resolve_family(body_name(config).distribution)
 if fam is None:
-    ...                                    # existing code path (legacy output_distribution value)
+    ...                                    # point body ('standard')
 else:
     ...                                    # delegate to the family (new count families)
 ```
@@ -134,7 +134,7 @@ DISTRIBUTION_REGISTRY = {
   config relies on.
 - Reintroducing a decorator / import-side-effect registration — desyncs `family_names()` from actual
   registration order and defeats the fail-loud, one-place-to-add design.
-- Registering a family name that collides with a legacy `output_distribution` value before the A-S5
+- Registering a family name that collides with a legacy distribution value (`standard`) before the A-S5
   disjointness guard exists.
 
 ---

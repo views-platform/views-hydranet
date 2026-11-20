@@ -183,7 +183,8 @@ def _sharpness(pred_dir, target, truth_idx, umap, readout, scales=(1, 3, 5, 11))
 
 
 def _config_tag(pred_dir):
-    """Auto-read loss_reg/output_distribution from the sidecar so the run is never mis-stated."""
+    """Auto-read the body from the sidecar so the run is never mis-stated. A sidecar saved before
+    #633 states the three old settings instead of `body`; both are shown."""
     spec = importlib.util.spec_from_file_location(
         "sharpness_scorecard",
         os.path.join(os.path.dirname(__file__), "sharpness_scorecard.py"),
@@ -191,7 +192,7 @@ def _config_tag(pred_dir):
     sc = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(sc)
     cfg = sc.read_config_block(pred_dir, None)
-    keys = ["loss_reg", "loss_class", "output_distribution", "reg_activation"]
+    keys = ["body", "loss_reg", "loss_class", "output_distribution", "reg_activation"]
     return " · ".join(f"{k}={cfg.get(k)}" for k in keys if k in cfg) or "(sidecar not found)"
 
 

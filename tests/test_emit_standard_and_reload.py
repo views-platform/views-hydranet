@@ -36,7 +36,7 @@ def test_reload_threads_output_distribution_via_choose_model():
         "total_hidden_channels": 32,
         "output_channels": 1,
         "dropout_rate": 0.0,
-        "output_distribution": "nb",
+        "body": "nll_softplus_nb",
     }
     m = choose_model(cfg, torch.device("cpu"))
     assert m.output_distribution == "nb"

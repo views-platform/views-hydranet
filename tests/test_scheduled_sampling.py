@@ -148,7 +148,7 @@ class TestGreenConfigAcceptance:
             "scheduler": "plateau",
             "warmup_steps": 5,
             "clip_grad_norm": True,
-            "loss_reg": "mse",
+            "body": "mse_softplus_point",
             "loss_class": "bce",
             "total_lessons": 10,
             "n_posterior_samples": 5,
@@ -223,7 +223,7 @@ class TestSSExposureParityValidation:
 
     def _ss_base(self, **overrides):
         base = TestGreenConfigAcceptance()._base_config(
-            output_distribution="nb",
+            body="nll_softplus_nb",
             forecast_composition="soft_gate",
             ss_schedule="linear",
             ss_warmup_lessons=5,
@@ -294,7 +294,7 @@ class TestRedConfigValidation:
             "scheduler": "plateau",
             "warmup_steps": 5,
             "clip_grad_norm": True,
-            "loss_reg": "mse",
+            "body": "mse_softplus_point",
             "loss_class": "bce",
             "total_lessons": 10,
             "n_posterior_samples": 5,
@@ -563,7 +563,7 @@ class TestGreenBackwardCompat:
                 "scheduler": "plateau",
                 "warmup_steps": 5,
                 "clip_grad_norm": True,
-                "loss_reg": "mse",
+                "body": "mse_softplus_point",
                 "loss_class": "bce",
                 "total_lessons": 10,
                 "n_posterior_samples": 5,

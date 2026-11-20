@@ -36,7 +36,7 @@ class TestGreenOptimizationGate:
             "regression_targets": ["f1"],
             "classification_targets": ["by_f1"],
             # `train()` builds the mean-squared-error body from this and the real MSELoss below.
-            "loss_reg": "mse",
+            "body": "mse_softplus_point",
             "regression_metrics": ["mse"],
             "classification_metrics": ["ap"],
             "time_col": "t",
@@ -198,7 +198,7 @@ class TestGreenOptimizationGate:
             "max_ratio": 0.9,
             "run_type": "train",
             "scheduler": "none",
-            "loss_reg": "mse",
+            "body": "mse_softplus_point",
             "loss_class": "focal",
             "loss_class_alpha": 0.25,
             "loss_class_gamma": 2.0,

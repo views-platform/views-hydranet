@@ -46,6 +46,7 @@ torch = pytest.importorskip("torch")
 import torch.nn as nn  # noqa: E402
 
 from views_hydranet.body.bodies import build_body  # noqa: E402
+from views_hydranet.body.vocabulary import body_name  # noqa: E402
 from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices  # noqa: E402
 from views_hydranet.utils.utils import choose_loss, choose_model  # noqa: E402
@@ -72,20 +73,18 @@ BASE = {
     "loss_class": "weighted_bce",  # what every live config uses (logits in)
     "loss_class_gamma": 1.5,
     "loss_class_alpha": 0.75,
-    "reg_activation": "softplus",
 }
 
 #: The five live bodies, by the config values that select them today (ADR-079 §2).
 BODIES = {
-    "mse": {"output_distribution": "standard", "loss_reg": "mse"},
+    "mse": {"body": "mse_softplus_point"},
     "ranking": {
-        "output_distribution": "standard",
-        "loss_reg": "listwise_level",
+        "body": "listwise_softplus_point",
         "loss_reg_y_max": 10000.0,
     },
-    "nb": {"output_distribution": "nb", "loss_reg": "mse"},
-    "truncated_nb": {"output_distribution": "truncated_nb", "loss_reg": "mse"},
-    "mixture_nb": {"output_distribution": "mixture_nb", "loss_reg": "mse"},
+    "nb": {"body": "nll_softplus_nb"},
+    "truncated_nb": {"body": "nll_softplus_truncated_nb"},
+    "mixture_nb": {"body": "nll_softplus_mixture_nb"},
 }
 
 #: case name -> (body, extra keyword arguments for `_process_sequence`)
@@ -158,8 +157,8 @@ def _digest(t: torch.Tensor) -> dict:
 
 
 def _run(case: str) -> dict:
-    body_name, kwargs = CASES[case]
-    cfg = {**BASE, **BODIES[body_name]}
+    case_body, kwargs = CASES[case]
+    cfg = {**BASE, **BODIES[case_body]}
     torch.manual_seed(1234)
     model = choose_model(cfg, CPU).float()
     model.train()
@@ -185,7 +184,7 @@ def _run(case: str) -> dict:
         multitaskloss_instance=_Sum(),
         idx=idx,
         device=CPU,
-        family=resolve_family(cfg["output_distribution"]),
+        family=resolve_family(body_name(cfg).distribution),
         body=build_body(cfg, criterion_reg),
         **kwargs,
     )

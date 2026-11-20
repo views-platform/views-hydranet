@@ -35,11 +35,20 @@ class TestGreen:
         config = HydraNetConfig(**valid_config_dict)
         assert config.run_type == "validation"
 
-    @pytest.mark.parametrize("dist", ["standard"])
-    def test_green_valid_output_distributions_accepted(self, valid_config_dict, dist):
-        """All supported output_distribution values pass the validator ."""
-        cfg = _make_config(valid_config_dict, output_distribution=dist)
-        assert HydraNetConfig(**cfg).output_distribution == dist
+    @pytest.mark.parametrize(
+        "body,extra",
+        [
+            ("mse_softplus_point", {}),
+            ("listwise_softplus_point", {"loss_reg_y_max": 262143.0}),
+            ("nll_softplus_nb", {"forecast_composition": "soft_gate"}),
+            ("nll_softplus_truncated_nb", {"forecast_composition": "soft_gate"}),
+            ("nll_softplus_mixture_nb", {"forecast_composition": "soft_gate"}),
+        ],
+    )
+    def test_green_every_declared_body_accepted(self, valid_config_dict, body, extra):
+        """All five ADR-081 values pass the validator (#633)."""
+        cfg = _make_config(valid_config_dict, body=body, **extra)
+        assert HydraNetConfig(**cfg).body == body
 
     def test_green_mse_needs_no_loss_params(self, valid_config_dict):
         """mse/bce require no loss-specific params — absence is fine."""
@@ -50,7 +59,7 @@ class TestGreen:
         ]:
             cfg.pop(key, None)
         config = HydraNetConfig(**cfg)
-        assert config.loss_reg == "mse"
+        assert config.body == "mse_softplus_point"
 
     @pytest.mark.parametrize(
         "alias,expected",
@@ -192,17 +201,17 @@ class TestRed:
         cfg = dict(valid_config_dict)
         del cfg["sampling_strategy"]
         del cfg["evaluation_mode"]
-        del cfg["loss_reg"]
+        del cfg["body"]
         with pytest.raises(ValidationError) as exc_info:
             HydraNetConfig(**cfg)
         error_text = str(exc_info.value)
         assert "sampling_strategy" in error_text
         assert "evaluation_mode" in error_text
-        assert "loss_reg" in error_text
+        assert "'body' is required" in error_text
 
     def test_red_missing_loss_reg_param_raises(self, valid_config_dict):
         """listwise_level without loss_reg_y_max → ValidationError naming the param."""
-        cfg = _make_config(valid_config_dict, loss_reg="listwise_level")
+        cfg = _make_config(valid_config_dict, body="listwise_softplus_point")
         cfg.pop("loss_reg_y_max", None)
         with pytest.raises(ValidationError, match="loss_reg_y_max"):
             HydraNetConfig(**cfg)
@@ -265,25 +274,3 @@ class TestRed:
         cfg = _make_config(valid_config_dict, ss_feedback="bogus")
         with pytest.raises(ValidationError, match="ss_feedback must be 'mean' or 'sample'"):
             HydraNetConfig(**cfg)
-
-    @pytest.mark.parametrize("value", ["relu", "gelu", "leaky_relu", "Softplus", ""])
-    def test_red_unimplemented_reg_activation_rejected(self, valid_config_dict, value):
-        """#632: only softplus is implemented; relu (accepted until 2026-11-20) is refused too."""
-        cfg = _make_config(valid_config_dict, reg_activation=value)
-        with pytest.raises(ValidationError) as excinfo:
-            HydraNetConfig(**cfg)
-        assert (
-            f"reg_activation={value!r} is not implemented. Only ['softplus'] is implemented at "
-            "present (ADR-079 Rule 1, views-hydranet issue #632)."
-        ) in str(excinfo.value)
-
-    @pytest.mark.parametrize("given", ["softplus", None, "missing"])
-    def test_green_reg_activation_is_softplus_when_stated_null_or_left_out(
-        self, valid_config_dict, given
-    ):
-        """#632: left out or null, the setting is softplus (it meant ReLU until 2026-11-20)."""
-        cfg = _make_config(valid_config_dict)
-        cfg.pop("reg_activation", None)
-        if given != "missing":
-            cfg["reg_activation"] = given
-        assert HydraNetConfig(**cfg).reg_activation == "softplus"

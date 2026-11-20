@@ -51,6 +51,40 @@ def refuse_a_saved_relu_head(
     raise ValueError(err_msg)
 
 
+def body_record_from_old_sidecar(arch_config: dict, artifact_name: str) -> dict:
+    """A sidecar written before #633 (ADR-081), restated with `body` so `choose_model` can read it.
+
+    Old records state ``output_distribution``, ``reg_activation`` and, since #620 on a point head,
+    ``loss_reg``. A distribution record maps to its ``nll_softplus_<distribution>`` value. A
+    ``standard`` record maps to the point value its ``loss_reg`` names; a record too old to name
+    its loss maps to ``mse_softplus_point``, because both point values build the same one-channel
+    softplus head and rebuilding a head needs only the head; the same holds for a point record
+    naming a loss that no longer exists. The log says so. A ReLU head, a removed distribution or
+    an unknown one is refused (#632, #628). A record that states `body` is
+    returned unchanged.
+    """
+    from views_hydranet.body.vocabulary import OLD_BODY_SETTINGS, body_value_for_old_spelling
+
+    if "body" in arch_config:
+        return arch_config
+    distribution = arch_config.get("output_distribution", "standard")
+    refuse_a_saved_relu_head(distribution, arch_config.get("reg_activation"), artifact_name)
+    loss_reg = arch_config.get("loss_reg")
+    value = body_value_for_old_spelling(loss_reg, distribution)
+    if value is None:
+        # Only a `standard` record without a known loss reaches here: an unknown or removed
+        # distribution was refused above.
+        value = "mse_softplus_point"
+        logger.info(
+            f"Retriever: {artifact_name} was saved before #633 and records no loss for its point "
+            f"head (loss_reg={loss_reg!r}). Its head is rebuilt as {value!r}; both point bodies "
+            "build the same one-channel softplus head, so the weights load the same."
+        )
+    restated = {k: v for k, v in arch_config.items() if k not in OLD_BODY_SETTINGS}
+    restated["body"] = value
+    return restated
+
+
 class ModelArtifactFetcher:
     """
     Component responsible for retrieving trained HydraNet artifacts from disk.
@@ -142,11 +176,8 @@ class ModelArtifactFetcher:
         logger.debug(f"Retriever: Loading artifact from {path_model_artifact}")
         config_sidecar = path_model_artifact.with_suffix(".pt.config.json")
         if config_sidecar.exists():
-            arch_config = json.loads(config_sidecar.read_text())
-            refuse_a_saved_relu_head(
-                arch_config.get("output_distribution", "standard"),
-                arch_config.get("reg_activation"),
-                path_model_artifact.name,
+            arch_config = body_record_from_old_sidecar(
+                json.loads(config_sidecar.read_text()), path_model_artifact.name
             )
             factory = self._model_factory or self._default_model_factory()
             model = factory(arch_config, torch.device("cpu"))

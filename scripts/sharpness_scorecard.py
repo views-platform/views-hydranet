@@ -210,7 +210,9 @@ def main():
     truth_max = {t: float(pd.read_parquet(raw).reset_index()[t].max()) for t in args.targets}
 
     lines = ["# Sharpness scorecard", "", f"pred_dir: `{args.pred_dir}`", ""]
+    # `body` since #633; a sidecar saved before it states the three old settings instead.
     keys = [
+        "body",
         "loss_reg",
         "loss_class",
         "output_distribution",

@@ -49,8 +49,9 @@ def _save_with_sidecar(tmp_path, sidecar: dict) -> None:
     A ReLU model cannot be built any more; its weights have the same shapes as a softplus one,
     which is exactly why a ReLU sidecar must be refused rather than trusted.
     """
-    body = sidecar.get("output_distribution", "standard")
-    model = choose_model({**ARCH, "output_distribution": body}, CPU)
+    distribution = sidecar.get("output_distribution", "standard")
+    body = "mse_softplus_point" if distribution == "standard" else f"nll_softplus_{distribution}"
+    model = choose_model({**ARCH, "body": body}, CPU)
     torch.save(model.state_dict(), tmp_path / NAME)
     (tmp_path / NAME).with_suffix(".pt.config.json").write_text(json.dumps(sidecar))
 
@@ -140,7 +141,7 @@ def _pickle(tmp_path, model: nn.Module) -> None:
 
 def test_a_pickled_relu_model_is_refused(tmp_path):
     """A model pickled before 2026-11-20 carries `F.relu`; that is reproduced here directly."""
-    model = choose_model(dict(ARCH), CPU)
+    model = choose_model({**ARCH, "body": "mse_softplus_point"}, CPU)
     model._reg_activation = F.relu
     _pickle(tmp_path, model)
     with pytest.raises(ValueError, match=r"reg_activation='relu'.*Only softplus is implemented"):
@@ -165,7 +166,7 @@ def test_a_pickled_model_without_a_head_activation_is_refused(tmp_path):
 
 
 def test_a_pickled_softplus_model_loads(tmp_path):
-    _pickle(tmp_path, choose_model({**ARCH, "reg_activation": "softplus"}, CPU))
+    _pickle(tmp_path, choose_model({**ARCH, "body": "mse_softplus_point"}, CPU))
     model, _ = _fetcher(tmp_path).fetch_model_artifact()
     assert model._reg_activation is F.softplus
 

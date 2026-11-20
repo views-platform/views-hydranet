@@ -66,7 +66,7 @@ CFG = {
     "scheduler": "none",
     "warmup_steps": 1,
     "clip_grad_norm": True,
-    "loss_reg": "mse",
+    "body": "mse_softplus_point",
     "loss_class": "bce",
     "loss_class_gamma": 1,
     "loss_class_alpha": 1,

@@ -5,6 +5,10 @@ the sidecar. Before this check the head silently fell back to one ReLU channel: 
 either failed with a size mismatch that did not name the cause, or loaded and forecast wrong
 numbers. `choose_model` is the one place training and reload both pass.
 
+Since #633 (ADR-081) a config names its body with `body`. A removed body can no longer be written
+in a config; it can still arrive in a model record saved before #633, which the reload restates
+(`body_record_from_old_sidecar`) and refuses there.
+
 🟫 Beige by the ADR-005 taxonomy: an input that must be refused.
 """
 
@@ -14,12 +18,12 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from views_hydranet.distributions import family_names  # noqa: E402
+from views_hydranet.body.vocabulary import BODY_NAMES  # noqa: E402
 from views_hydranet.utils.config_initializer import (  # noqa: E402
-    LEGACY_OUTPUT_DISTRIBUTIONS,
     REMOVED_BODY_SETTINGS,
     REMOVED_OUTPUT_DISTRIBUTIONS,
 )
+from views_hydranet.utils.model_artifact_fetcher import body_record_from_old_sidecar  # noqa: E402
 from views_hydranet.utils.utils import choose_model  # noqa: E402
 
 CPU = torch.device("cpu")
@@ -32,30 +36,20 @@ BASE = {
 }
 
 
-@pytest.mark.parametrize("name", ["not_a_body", "quantile", "ZINB", ""])
+@pytest.mark.parametrize("name", ["not_a_body", "nb", "nll_softplus_zinb", "ZINB", ""])
 def test_an_unknown_body_is_refused_and_named(name):
     with pytest.raises(ValueError) as excinfo:
-        choose_model({**BASE, "output_distribution": name}, CPU)
+        choose_model({**BASE, "body": name}, CPU)
     assert repr(name) in str(excinfo.value), "the message must name the value it refused"
 
 
 @pytest.mark.parametrize("name", REMOVED_OUTPUT_DISTRIBUTIONS)
-def test_a_removed_body_is_refused_with_the_way_back(name):
+def test_a_saved_record_with_a_removed_body_is_refused_with_the_way_back(name):
     with pytest.raises(ValueError) as excinfo:
-        choose_model({**BASE, "output_distribution": name}, CPU)
+        body_record_from_old_sidecar({**BASE, "output_distribution": name}, "old.pt")
     message = str(excinfo.value)
     assert repr(name) in message
     assert "archive/unused-bodies-2026-11-17" in message, "the message must say where it is"
-
-
-@pytest.mark.parametrize("name", REMOVED_OUTPUT_DISTRIBUTIONS)
-def test_the_config_schema_refuses_a_removed_body_with_the_same_message(valid_config_dict, name):
-    from pydantic import ValidationError
-
-    from views_hydranet.utils.config_initializer import HydraNetConfig
-
-    with pytest.raises(ValidationError, match="archive/unused-bodies-2026-11-17"):
-        HydraNetConfig(**{**valid_config_dict, "output_distribution": name})
 
 
 @pytest.mark.parametrize("setting", REMOVED_BODY_SETTINGS)
@@ -84,36 +78,26 @@ def test_a_model_loaded_without_choose_model_is_refused_by_the_forecast_code():
 
 
 def test_an_unknown_activation_is_refused_by_the_head():
-    """The schema refuses it; a model built directly must not silently get ReLU."""
+    """A model built directly, not through `choose_model`, must not silently get ReLU."""
+    from views_hydranet.architectures.registry import get_architecture
+
     with pytest.raises(ValueError, match="reg_activation"):
-        choose_model({**BASE, "reg_activation": "softpuls"}, CPU)
+        get_architecture(BASE["model"])(3, 32, 1, 0.0, reg_activation="softpuls")
 
 
-@pytest.mark.parametrize("name", [*LEGACY_OUTPUT_DISTRIBUTIONS, *sorted(family_names())])
-def test_every_body_the_config_schema_accepts_still_builds(name):
+@pytest.mark.parametrize("value", list(BODY_NAMES))
+def test_every_declared_body_builds(value):
     """The refusal must not ban anything the schema allows: one list, read in both places."""
-    model = choose_model({**BASE, "output_distribution": name}, CPU)
-    assert model.output_distribution == name
+    model = choose_model({**BASE, "body": value}, CPU)
+    assert model.output_distribution == BODY_NAMES[value].distribution
 
 
-def test_a_config_without_the_key_builds_a_standard_head():
-    assert choose_model(dict(BASE), CPU).output_distribution == "standard"
+def test_a_config_without_a_body_is_refused():
+    with pytest.raises(ValueError, match="'body' is required"):
+        choose_model(dict(BASE), CPU)
 
 
-def test_the_sidecar_reload_refuses_an_unknown_body_before_touching_the_weights(tmp_path):
-    """The reload path: the sidecar names the body, and the refusal comes from `choose_model`."""
-    import json
-
-    from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
-
-    weights = tmp_path / "calibration_model_20260101_000000.pt"
-    torch.save({}, weights)
-    weights.with_suffix(".pt.config.json").write_text(
-        json.dumps({**BASE, "output_distribution": "not_a_body"})
-    )
-    fetcher = ModelArtifactFetcher.__new__(ModelArtifactFetcher)
-    fetcher._model_factory = None
+def test_the_sidecar_reload_refuses_an_unknown_body_before_touching_the_weights():
+    """The reload path: an old record naming an unknown distribution is refused by name."""
     with pytest.raises(ValueError, match="is not a body this package has"):
-        fetcher._default_model_factory()(
-            json.loads(weights.with_suffix(".pt.config.json").read_text()), CPU
-        )
+        body_record_from_old_sidecar({**BASE, "output_distribution": "not_a_body"}, "old.pt")

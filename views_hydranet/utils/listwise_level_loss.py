@@ -8,7 +8,7 @@ is a pre-registered falsifier, not an assumption:
 ``reports/2026-11-10_ranking_head_dossier/02_design`` §4.3, in the units of ``rho_event``.
 
 Phase 1 of ``04_roadmap``: the loss and only the loss. Nothing is trained by it yet, and it is
-reachable only by naming it in ``loss_reg`` — which no config does.
+reachable only through ``body='listwise_softplus_point'`` (ADR-081, #633).
 
 The objective, transcribed from ``~/brain/9_library/papers/Zhu2020_ListwiseUniqueRatings.pdf``
 (library ``Zhu2020_ListwiseUniqueRatings``, claims ``C-4769``–``C-4772``). ``R`` is the rating
