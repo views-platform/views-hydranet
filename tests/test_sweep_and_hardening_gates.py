@@ -69,8 +69,8 @@ def test_manager_sweep_skip_save_logic(tmp_path):
     mpm = MagicMock()
     mpm.artifacts = tmp_path
 
-    # Mock dependencies to reach the save logic. The model mock needs a real _reg_activation
-    # because the sidecar now persists model._reg_activation.__name__ (C-179).
+    # Mock dependencies to reach the save logic. The sidecar no longer reads _reg_activation (since
+    # #633 it records `body`); the real function is kept so the mock looks like a model.
     mock_model = MagicMock()
     mock_model._reg_activation = torch.nn.functional.softplus  # the only one since #632
     with (

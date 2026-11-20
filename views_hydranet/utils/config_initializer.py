@@ -299,12 +299,12 @@ class HydraNetConfig(BaseModel):
     qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
     # Per-target regression loss weights (C-87): None = uniform.
     target_weights: Dict[str, float] | None = Field(default=None)
-    # Ranking body (loss_reg='listwise_level'): the grid's truth MAXIMUM in raw counts, which
+    # Ranking body (body='listwise_softplus_point'): the grid's truth MAXIMUM in raw counts, which
     # declares the dyadic level set 0..ceil(log2(1+y_max)) and the fixed 1/(|R|-1) normaliser.
     # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
     # the field fails the schema instead of riding on extra="allow" (the W-22 trap).
     loss_reg_y_max: float | None = Field(default=None, ge=1.0)
-    # Ranking body (loss_reg='listwise_level'): the normalising transformation T of the listwise
+    # Ranking body (body='listwise_softplus_point'): the normalising transformation T of the listwise
     # objective (Bai 2023 Def. 1). Only 'exp', Zhu's softmax form, is implemented; the softplus
     # version was removed on 2026-11-20 (issue #629) and is refused with the tag that keeps it.
     # The setting stays so a second version can be added as a new body (ADR-079 §2).
@@ -331,7 +331,7 @@ class HydraNetConfig(BaseModel):
     body_nll_denominator: str = Field(default="positives")
     # ADR-073: the family the model is EMITTED from, when it differs from the one it was TRAINED
     # on. None (default) = emit as trained, byte-identical to every existing config. The use it
-    # exists for is `output_distribution='nb'` + `emit_distribution='truncated_nb'`: the gate then
+    # exists for is `body='nll_softplus_nb'` + `emit_distribution='truncated_nb'`: the gate then
     # owns occurrence and the body owns only magnitude, which measured -5.94% composed CRPS and an
     # emitted positive fraction of 0.0037 against an observed 0.0034, with NOTHING retrained
     # (reports/2026-10-21_emit_time_split_prereg.md).

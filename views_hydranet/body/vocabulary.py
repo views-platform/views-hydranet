@@ -99,9 +99,16 @@ def refuse_old_body_settings(config: dict) -> None:
         f"the regression body (ADR-081, views-hydranet issue #633). Declared bodies: "
         f"{list(BODY_NAMES)}."
     )
+    loss_reg = config.get("loss_reg")
     replacement = body_value_for_old_spelling(
-        config.get("loss_reg"), config.get("output_distribution", "standard")
+        loss_reg, config.get("output_distribution", "standard")
     )
+    # A distribution beside a loss other than 'mse' trained the likelihood and threw the named loss
+    # away (the ranking loss beside 'nb' was refused for that until #633). Suggesting the
+    # distribution's body would repeat the swap, so no value is suggested (code review of #633).
+    if replacement is not None and BODY_NAMES[replacement].has_distribution:
+        if loss_reg not in (None, "mse"):
+            replacement = None
     if replacement is not None and "body" not in config:
         err_msg += f" These settings trained body={replacement!r}; write that and delete them."
     logger.error(err_msg)

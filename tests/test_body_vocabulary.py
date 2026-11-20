@@ -104,3 +104,12 @@ def test_an_old_combination_with_no_body_maps_to_none(loss_reg, distribution):
 def test_check_body_accepts_every_declared_value():
     for value in EXPECTED:
         check_body(value)
+
+
+@pytest.mark.parametrize("distribution", ["nb", "truncated_nb", "mixture_nb"])
+def test_a_ranking_loss_beside_a_distribution_gets_no_suggested_value(distribution):
+    """That pair trained the likelihood and threw the ranking loss away; suggesting the
+    distribution's body would repeat the swap (code review of #633)."""
+    with pytest.raises(ValueError) as excinfo:
+        body_name({"loss_reg": "listwise_level", "output_distribution": distribution})
+    assert "trained body=" not in str(excinfo.value)

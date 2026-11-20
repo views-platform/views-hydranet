@@ -58,8 +58,9 @@ def body_record_from_old_sidecar(arch_config: dict, artifact_name: str) -> dict:
     ``loss_reg``. A distribution record maps to its ``nll_softplus_<distribution>`` value. A
     ``standard`` record maps to the point value its ``loss_reg`` names; a record too old to name
     its loss maps to ``mse_softplus_point``, because both point values build the same one-channel
-    softplus head and rebuilding a head needs only the head. The log says so. A ReLU head, a
-    removed body or an unknown one is refused (#632, #628). A record that states `body` is
+    softplus head and rebuilding a head needs only the head; the same holds for a point record
+    naming a loss that no longer exists. The log says so. A ReLU head, a removed distribution or
+    an unknown one is refused (#632, #628). A record that states `body` is
     returned unchanged.
     """
     from views_hydranet.body.vocabulary import OLD_BODY_SETTINGS, body_value_for_old_spelling
