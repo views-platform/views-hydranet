@@ -40,7 +40,6 @@ def test_minimal_concrete_subclass_satisfies_interface():
 
     fam = _Toy()
     assert fam.n_params == 1
-    assert fam.needs_latent is False
     x = torch.randn(2, 3, 1)
     assert fam.activate(x).shape == x.shape
     assert fam.sample(x, 5).shape == (2, 3, 5)

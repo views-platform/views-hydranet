@@ -27,7 +27,6 @@ def test_family_loss_forward_equals_family_nll():
     params = fam.activate(torch.randn(4, 5, 2))
     target = torch.log1p(torch.tensor([0.0, 1.0, 5.0, 20.0]).view(4, 1).expand(4, 5))
     assert torch.equal(loss(params, target), fam.nll(params, target))
-    assert loss.needs_latent is False
     assert loss.n_params == 2
 
 

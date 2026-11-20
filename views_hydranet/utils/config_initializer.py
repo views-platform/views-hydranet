@@ -1671,7 +1671,8 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_body_supervision_latent(self) -> "HydraNetConfig":
         # C-193 (ADR-008/065): a supervision window on the POINT body is a silent no-op under a
-        # latent loss — the training loop only masks `if not use_latent` (needs_latent=False).
+        # latent loss — the training step never masks a body that requires all cells (the ranking
+        # body, `RankingBody.requires_all_cells`).
         # Requesting body_supervision='active' there is meaningless, so RAISE (not ignore). Single
         # authority for "is this loss latent?" is the loss class's `needs_latent` flag in
         # LOSS_REG_REGISTRY — NOT a hardcoded name list. Today the only latent loss is

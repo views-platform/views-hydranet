@@ -27,8 +27,6 @@ from views_hydranet.utils.count_target_bridge import to_raw_counts
 class NegativeBinomialFamily(DistributionFamily):
     """Per-cell NB: params ``[..., 2]`` = ``(mu, theta)`` in natural space."""
 
-    needs_latent = False
-
     @property
     def n_params(self) -> int:
         return 2

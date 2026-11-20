@@ -24,7 +24,6 @@ def test_registered_under_nb():
 def test_shape_and_attrs():
     fam = _family()
     assert fam.n_params == 2
-    assert fam.needs_latent is False
     raw = torch.randn(2, 3, 4, 2)  # [..., n_params]
     params = fam.activate(raw)
     assert params.shape == raw.shape
