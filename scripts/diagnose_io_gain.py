@@ -25,6 +25,7 @@ from pathlib import Path
 
 import torch
 
+from views_hydranet.utils.model_artifact_fetcher import refuse_a_saved_relu_head
 from views_hydranet.utils.rollout_diagnostics import (
     DATA_LOG_MAX,
     free_running_attractor,
@@ -43,6 +44,12 @@ def load_model(artifact: Path, device):
             f"{artifact.name}: output_distribution={cfg.get('output_distribution')!r}; this "
             "probe only supports a 'standard' head."
         )
+    # This script loads weights itself, not through ModelArtifactFetcher, so it applies the same
+    # refusal: a standard model that records no activation or ReLU was trained with ReLU, and
+    # would load into a softplus head and be measured as the wrong function (#632).
+    refuse_a_saved_relu_head(
+        cfg.get("output_distribution", "standard"), cfg.get("reg_activation"), artifact.name
+    )
     model = choose_model(cfg, device)
     state = torch.load(artifact, map_location=device, weights_only=True)
     model.load_state_dict(state)

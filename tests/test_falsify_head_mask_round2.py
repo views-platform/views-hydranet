@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1] / "views_hydranet"
 def test_reg_activation_persisted_in_sidecar():
     """train_model must persist the resolved reg-head activation in the .config.json snapshot,
     so a reload uses the trained activation even if the output_distribution-keyed default
-    changes (ADR-063 / C-178)."""
+    changes (ADR-079 Rule 1, formerly ADR-063 / C-178)."""
     src = (ROOT / "train" / "train_model.py").read_text()
     assert 'config_snapshot["reg_activation"]' in src, (
         "train_model no longer persists reg_activation in the sidecar — a model trained with one "
@@ -32,8 +32,9 @@ def test_reg_activation_persisted_in_sidecar():
 
 
 def test_reg_activation_respected_on_reload():
-    """Behavioural: a sidecar that carries reg_activation='relu' reloads to a relu head
-    (the reload side of the round-trip)."""
+    """Behavioural: a sidecar's reg_activation decides the reloaded head (the reload side of the
+    round-trip). Since #632 only softplus is implemented: softplus reloads to a softplus head,
+    and a sidecar that says relu is refused rather than reloaded as softplus."""
     from views_hydranet.utils.utils import choose_model
 
     sidecar = {
@@ -45,10 +46,12 @@ def test_reg_activation_respected_on_reload():
         "weight_init": "xavier_norm",
         "h_init": "abs_rand_exp-100",
         "output_distribution": "standard",
-        "reg_activation": "relu",
+        "reg_activation": "softplus",
     }
     m = choose_model(sidecar, torch.device("cpu"))
-    assert m._reg_activation.__name__ == "relu"
+    assert m._reg_activation.__name__ == "softplus"
+    with pytest.raises(ValueError, match="reg_activation='relu' is not implemented"):
+        choose_model({**sidecar, "reg_activation": "relu"}, torch.device("cpu"))
 
 
 # ── C-180: a positives body mask under a latent loss fails loud (not a silent no-op) ──

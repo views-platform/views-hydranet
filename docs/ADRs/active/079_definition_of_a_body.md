@@ -10,7 +10,7 @@ reopening the decision. The working notes behind this ADR are kept in
 **Informed:** views-hydranet contributors; views-models roster owners
 
 **Related:** ADR-080 (the definition of a gate) · ADR-081 (one config field names the body — not to be
-implemented until this ADR is done) · ADR-063 (regression-head activation) · ADR-067 (distribution families) ·
+implemented until this ADR is done) · ADR-063 (regression-head activation, archived; superseded by Rule 1) · ADR-067 (distribution families) ·
 ADR-069 (`forecast_composition`) · ADR-070 (`rollout_feedback`) · ADR-073 (`emit_distribution`)
 
 ---
@@ -206,8 +206,15 @@ which gets a sigmoid.** "Output of the body" means every channel of every regres
 rule is about the body only. It says nothing about the gate or about the layers inside the
 network. For now there is no clear use case for an output of the body that needs anything other
 than these two activations. The activation is written into the code. It is not a default that a
-config can change, and there is no config setting for it. Softplus is needed wherever a number
-must be positive: a count, a mean, a dispersion.
+config can change. Softplus is needed wherever a number must be positive: a count, a mean, a
+dispersion.
+
+*Amended by Simon on 2026-11-20 (issue #632).* The config setting `reg_activation` stays, so that
+a second activation can be added later without a new setting. It accepts only the activations
+the code implements, and today that is softplus alone: any other value is refused with a message
+saying only softplus is implemented. A config that leaves it out gets softplus. The setting
+chooses the activation of a one-output body (mean squared error, ranking); a count distribution
+keeps its own activation within this rule, and the setting must still say softplus.
 
 | body | channels | activation |
 |---|---|---|
@@ -338,7 +345,8 @@ transform cannot be chosen by the body alone.
 
 **Earlier records this document changes.**
 
-- **ADR-063 (the activation of the regression head).** Two parts of it no longer apply: that the
+- **ADR-063 (the activation of the regression head).** Archived as superseded on 2026-11-20
+  (issue #632); its reasoning against ReLU is kept there and cited above. Two parts of it no longer apply: that the
   mean-squared-error body uses ReLU unless a config says otherwise, and that a config setting can
   override the activation. Two parts still apply (the first only until 2026-11-17, when the
   hurdle bodies were deleted): that hurdle bodies use softplus, and its
@@ -375,13 +383,20 @@ This section lists what improves, what it costs, and what this document rules ou
   affected: a count distribution already applies its own activation, and the ranking loss already
   reads the outputs from before the activation.
 - The code does not follow this definition yet. Until it does, the code behaves as ADR-063 and the
-  three config settings describe.
+  three config settings describe. (Rule 1 is followed in the code since issue #632, 2026-11-20:
+  a `standard` head always applies softplus, `reg_activation` accepts only softplus, and a saved
+  model trained with ReLU is refused on reload.)
 - No model has been trained with the two building rules in place.
 
 ### Explicitly refused
 
 - **Setting the parts of a body separately.**
 - **A configurable activation.** No config setting, no default, no ReLU and no leaky ReLU.
+
+  **Amended by Simon on 2026-11-20 (issue #632):** the setting `reg_activation` is kept, but it
+  is not a free choice. It accepts only implemented activations, today softplus alone, and its
+  default is softplus. ReLU and leaky ReLU stay refused. Adding a second activation is a new
+  decision, recorded here, with its own experiment.
 - **The quantile head.** The code contains a further kind of regression head that no config uses:
   one that outputs a set of quantiles of the count. It is to be deleted and not kept. It differs
   too much from the other heads to be worth its cost, and a quantile head is not a promising

@@ -91,6 +91,11 @@ def _inference_regime_bn_input_variance(cfg, model, criterion, optimizer, schedu
     # that switches dropout off would switch it off in this leg too, the two regimes would agree
     # with each other, and the test would pass on exactly the defect it exists to catch.
     model.train = lambda mode=True: model  # type: ignore[method-assign]
+    # The model's OWN flag (not its BatchNorm or dropout layers, which the hook below sets) is what
+    # the real `train()` would have set. It only decides whether the forward also returns the
+    # outputs from before the activation, which the softplus body route reads (#632); it does
+    # not touch what BatchNorm sees.
+    model.training = True
 
     def _impose_inference_regime(_m, _inp):
         for sub in model.modules():

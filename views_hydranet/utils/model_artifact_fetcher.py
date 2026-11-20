@@ -15,6 +15,42 @@ import torch
 logger = logging.getLogger(__name__)
 
 
+def _activation_name(activation: object) -> str | None:
+    """The name a sidecar would record for an unpickled model's head activation."""
+    return getattr(activation, "__name__", None)
+
+
+def refuse_a_saved_relu_head(
+    output_distribution: str, reg_activation: str | None, artifact_name: str
+) -> None:
+    """Refuse a saved model whose regression head was trained with ReLU (ADR-079 Rule 1, #632).
+
+    A `standard` head now always applies softplus. Softplus and ReLU have the same weights, so a
+    ReLU model would load without an error and forecast different numbers (C-179). A `standard`
+    model saved without the setting was trained with ReLU, the default before 2026-11-20. A
+    distribution body brings its own activation and is not checked here.
+    """
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.utils.config_initializer import check_output_distribution
+
+    # A removed or unknown body is refused first, with its own message (issue #628).
+    check_output_distribution(output_distribution)
+    if resolve_family(output_distribution) is not None:
+        return
+    if reg_activation == "softplus":
+        return
+    stated = "no activation" if reg_activation is None else f"reg_activation={reg_activation!r}"
+    err_msg = (
+        f"Retriever: {artifact_name} records {stated} for its regression head, which means it was "
+        "trained with ReLU (with no activation recorded, ReLU was the default before "
+        "2026-11-20). Only softplus is implemented now (ADR-079 Rule 1, issue #632). Loading it "
+        "would apply softplus to weights trained under ReLU and forecast wrong numbers without "
+        "an error. Retrain the model."
+    )
+    logger.error(err_msg)
+    raise ValueError(err_msg)
+
+
 class ModelArtifactFetcher:
     """
     Component responsible for retrieving trained HydraNet artifacts from disk.
@@ -107,6 +143,11 @@ class ModelArtifactFetcher:
         config_sidecar = path_model_artifact.with_suffix(".pt.config.json")
         if config_sidecar.exists():
             arch_config = json.loads(config_sidecar.read_text())
+            refuse_a_saved_relu_head(
+                arch_config.get("output_distribution", "standard"),
+                arch_config.get("reg_activation"),
+                path_model_artifact.name,
+            )
             factory = self._model_factory or self._default_model_factory()
             model = factory(arch_config, torch.device("cpu"))
             state_dict = torch.load(path_model_artifact, map_location="cpu", weights_only=True)
@@ -119,6 +160,11 @@ class ModelArtifactFetcher:
                 f"Re-save with current code to migrate to state_dict format."
             )
             model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
+            refuse_a_saved_relu_head(
+                getattr(model, "output_distribution", "standard"),
+                _activation_name(getattr(model, "_reg_activation", None)),
+                path_model_artifact.name,
+            )
         model.to(self.device)
 
         # 6. The Handshake: Register the exact model used in the config

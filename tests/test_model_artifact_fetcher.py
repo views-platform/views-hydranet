@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 
@@ -13,6 +14,9 @@ class DummyModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.param = nn.Parameter(torch.ones(1))
+        # A pickled model must show a softplus regression head, or the reload refuses it as
+        # ReLU (#632 S2, tested in test_saved_relu_model_is_refused_on_reload.py).
+        self._reg_activation = F.softplus
 
 
 @pytest.fixture
@@ -275,6 +279,8 @@ class TestGreenStateDictSerialization:
                     "total_hidden_channels": 1,
                     "output_channels": 1,
                     "dropout_rate": 0.0,
+                    # Otherwise refused as a ReLU head (#632 S2).
+                    "reg_activation": "softplus",
                 }
             )
         )
@@ -338,6 +344,8 @@ class TestGreenStateDictSerialization:
                     "total_hidden_channels": 1,
                     "output_channels": 1,
                     "dropout_rate": 0.0,
+                    # Otherwise refused as a ReLU head (#632 S2).
+                    "reg_activation": "softplus",
                 }
             )
         )

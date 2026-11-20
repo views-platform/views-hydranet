@@ -468,7 +468,7 @@ class TestGreenProcessSequenceIntegration:
 
     def test_a_latent_loss_is_handed_the_output_from_before_the_activation(self):
         """Guard audit of PR #645: the tests above pass whether or not the latent path is taken.
-        This one cannot. With no `reg_activation` the head applies ReLU, so only the output from
+        This one cannot. The head applies softplus (#632; ReLU before), so only the output from
         BEFORE it (`reg_latent`) can be negative."""
         assert self._min_input_seen_by_the_loss(needs_latent=True) < 0
         assert self._min_input_seen_by_the_loss(needs_latent=False) >= 0

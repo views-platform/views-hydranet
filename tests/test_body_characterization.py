@@ -165,19 +165,26 @@ def test_an_explicit_softplus_wins_for_every_legacy_distribution(distribution):
 
 
 @pytest.mark.parametrize("distribution", ["nb", "truncated_nb", "mixture_nb"])
-def test_a_family_owns_its_activation_and_ignores_the_field(distribution):
-    """The field is not consulted at all when a family is named — the family supplies the map."""
-    model = _head(distribution, reg_activation="relu")
+def test_a_family_owns_its_activation_although_the_field_says_softplus(distribution):
+    """The family supplies the map; the field's softplus does not replace it."""
+    model = _head(distribution, reg_activation="softplus")
     assert model._reg_activation is not F.relu
     assert model._reg_activation is not F.softplus
     assert model._family is not None
 
 
-def test_standard_without_an_activation_trains_relu():
-    """⛔ ADR-081 §2's "case to watch", and the reason S5 must REFUSE this combination.
+@pytest.mark.parametrize("distribution", ["nb", "truncated_nb", "mixture_nb"])
+def test_a_family_with_the_field_set_to_relu_is_refused(distribution):
+    """#632: the field accepts only implemented activations, beside a family too."""
+    with pytest.raises(ValueError, match="is not implemented"):
+        _head(distribution, reg_activation="relu")
 
-    `(mse, standard, unset)` is not `mse_softplus_point`: it trains relu. All ten live `standard`
-    configs set `reg_activation='softplus'` (checked 2026-11-14), so no live model is affected —
-    but a rename keyed on two fields would have renamed this one into something untrue.
+
+def test_standard_without_an_activation_trains_softplus():
+    """ADR-081 §2's "case to watch", closed by #632.
+
+    `(mse, standard, unset)` trained ReLU until 2026-11-20. It now trains softplus, the same as
+    `mse_softplus_point`, so a rename keyed on two fields no longer renames it into something
+    untrue.
     """
-    assert _head("standard")._reg_activation is F.relu
+    assert _head("standard")._reg_activation is F.softplus

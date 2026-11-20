@@ -819,9 +819,9 @@ _SEQ_CONFIG = {
 class _ScoreModel(torch.nn.Module):
     """A trainable stub emitting ONE score channel per regression target, as a ranking head does.
 
-    ⭐ ``reg`` is deliberately ``relu(latent)`` — the ``output_distribution='standard'`` activation
-    — so ``reg`` and ``reg_latent`` DIFFER wherever the score is negative. That difference is what
-    makes the ``needs_latent`` assertion below able to fail.
+    ⭐ ``reg`` is deliberately ``softplus(latent)`` — the ``output_distribution='standard'``
+    activation since #632 (it was ReLU before) — so ``reg`` and ``reg_latent`` DIFFER at every
+    cell. That difference is what makes the ``needs_latent`` assertion below able to fail.
     """
 
     def __init__(self, n_reg: int, n_cls: int) -> None:
@@ -833,7 +833,7 @@ class _ScoreModel(torch.nn.Module):
         out = self.conv(x[:, :1])
         latent, cls = out[:, : self.n_reg], out[:, self.n_reg :]
         return types.SimpleNamespace(
-            reg=torch.relu(latent), cls=cls, reg_latent=latent, h_next=hidden
+            reg=torch.nn.functional.softplus(latent), cls=cls, reg_latent=latent, h_next=hidden
         )
 
 
@@ -1001,6 +1001,11 @@ def test_the_pre_existing_registry_entries_are_untouched():
 
 def test_relu_destroys_the_score_ordering_and_softplus_preserves_it_exactly():
     """⛔⛔ The seam's one real hazard, found in phase 2 and measured rather than reasoned.
+
+    *Since #632 (2026-11-20)* a `standard` head always applies softplus and `reg_activation`
+    accepts nothing else, so the hazard below can no longer be configured. The measurement stays:
+    it is the reason ReLU must not come back for a ranking head. The paragraphs below describe the
+    code before #632.
 
     The loss reads `reg_latent`, so training is safe under any activation. **Emission is not.**
     `output_distribution='standard'` resolves the head's activation to **ReLU**
