@@ -214,7 +214,9 @@ The clean-break retirement of the three keywords is gated on a **byte-identical 
   cessation_lag>0` is a first-class, expressible setting.
 
 ### A5. Scope guards (do not let this masquerade)
-- **Point-body only.** Still `not use_latent`; NB/ZINB are `needs_latent=False`, so `active` applies to them
+- **Point-body only.** (*Since 2026-11-20, issue #629:* the training step reads this from the body
+  object's `requires_all_cells`; `use_latent` and the older route are deleted. The config check
+  is unchanged.) Still `not use_latent`; NB/ZINB are `needs_latent=False`, so `active` applies to them
   (the C-193 latent no-op RAISE is retained for a latent loss + `active`). Latent-truncation losses unchanged.
 - **NOT a tail fix.** This lever changes *where the body is supervised*, not whether the family can *reach* the
   ξ≈0.8 surge. The `tail_scorecard` will still show `q90≈0` on the top magnitude bin for every radius — expected,
