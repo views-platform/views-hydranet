@@ -63,8 +63,9 @@ def _cfg(*, statics=False):
     return cfg
 
 
-def _tensor(*, statics=False, n_months=9, h=6, w=6):
-    """A volume in log1p space. Dynamic varies per month; the static is time-CONSTANT."""
+def _tensor(*, statics=False, varying_statics=False, n_months=9, h=6, w=6):
+    """A volume in log1p space. Dynamic varies per month; the static is time-CONSTANT unless
+    ``varying_statics``, which makes the month a static channel came from visible."""
     n_ch = 2 if statics else 1
     vol = torch.zeros(1, n_months, n_ch, h, w)
     for m in range(n_months):
@@ -72,33 +73,55 @@ def _tensor(*, statics=False, n_months=9, h=6, w=6):
         vol[0, m, 0, (m + 1) % h, (m * 3) % w] = torch.log1p(torch.tensor(float(m + 5)))
     if statics:
         vol[0, :, 1] = 0.5  # geometry-constant across time, as ADR-060 I3 requires
+        if varying_statics:
+            for m in range(n_months):
+                vol[0, m, 1] = 0.5 + 0.1 * m
     return vol
 
 
-def _run(*, feedback_transform=None, rollout_feedback="mean", statics=False, origin=3):
-    cfg = _cfg(statics=statics)
+def _run(
+    *,
+    feedback_transform=None,
+    rollout_feedback="mean",
+    statics=False,
+    varying_statics=False,
+    origin=3,
+    **cfg_extra,
+):
+    statics = statics or varying_statics
+    cfg = {**_cfg(statics=statics), **cfg_extra}
     cfg["rollout_feedback"] = rollout_feedback
     model = _RecordingModel()
     inf = HydraNetInference(model, cfg, device="cpu", feedback_transform=feedback_transform)
     names = ["feat", "stat"] if statics else ["feat"]
-    mags, _ = inf.predict(_tensor(statics=statics), origin, 0, names)
+    vol = _tensor(statics=statics, varying_statics=varying_statics)
+    mags, _ = inf.predict(vol, origin, 0, names)
     return model.seen, mags, inf
 
 
 # ------------------------------------------------------------------ F1
 
 
-def _real_months(*, statics=False, n_steps=8):
+def _real_months(*, statics=False, varying_statics=False, n_steps=8):
     """Month ``k`` of the input volume for each step ``k``: what a real field fed back is."""
-    vol = _tensor(statics=statics)
+    vol = _tensor(statics=statics or varying_statics, varying_statics=varying_statics)
     return [vol[:, k] for k in range(n_steps)]
 
 
-@pytest.mark.parametrize("statics", [False, True])
-def test_F1_use_real_feeds_exactly_the_real_month(statics):
-    """The self-test the whole programme rests on. A wrong month here poisons every arm."""
-    viaxform, _, _ = _run(rollout_feedback="mean", feedback_transform="use_real", statics=statics)
-    oracle = _real_months(statics=statics)
+@pytest.mark.parametrize(
+    "statics,varying", [(False, False), (True, False), (True, True)], ids=["none", "const", "vary"]
+)
+def test_F1_use_real_feeds_exactly_the_real_month(statics, varying):
+    """The self-test the whole programme rests on. A wrong month here poisons every arm. With
+    statics that change over time it also checks that ``use_real`` takes the statics of month
+    ``k``, not of the origin."""
+    viaxform, _, _ = _run(
+        rollout_feedback="mean",
+        feedback_transform="use_real",
+        statics=statics,
+        varying_statics=varying,
+    )
+    oracle = _real_months(statics=statics, varying_statics=varying)
     assert len(oracle) == len(viaxform)
     for step, (a, b) in enumerate(zip(oracle, viaxform)):
         assert torch.equal(a, b), f"step {step}: use_real fed a different field than month {step}"
@@ -262,3 +285,34 @@ def test_length_scale_none_is_unaffected_by_the_guard():
 def test_splice_arms_are_accepted_under_the_feedback_modes_they_are_defined_for(arm):
     seen, _, _ = _run(feedback_transform=arm, rollout_feedback="mean")
     assert seen, "the arm did not run"
+
+
+# ------------------------------------------------- the free-running feedback itself
+
+
+def test_the_feedback_takes_its_statics_from_the_origin_month():
+    """ADR-060 I3: the fed-back field gets the static channels of the origin month. With statics
+    that change over time a different month would be visible."""
+    origin = 3
+    seen, _, _ = _run(varying_statics=True, origin=origin)
+    vol = _tensor(statics=True, varying_statics=True)
+    free = seen[origin + 1 :]
+    assert free, "no free-running step was recorded"
+    for k, fed in enumerate(free, start=origin + 1):
+        assert torch.equal(fed[:, 1], vol[:, origin, 1]), (
+            f"step {k}: statics are not the origin month's"
+        )
+
+
+def test_the_rollout_applies_the_feedback_clamp():
+    """`_clamp_feedback` is unit-tested in test_feedback_clamp.py; this checks the rollout calls
+    it. The recording model echoes its input, so without the clamp the fed field would exceed the
+    ceiling on some free-running step."""
+    ceiling = 0.5
+    unclamped, _, _ = _run()
+    assert max(float(s[:, :1].max()) for s in unclamped[4:]) > ceiling, (
+        "the test volume never exceeds the ceiling, so this test could not fail"
+    )
+    clamped, _, _ = _run(feedback_clamp_log1p=[ceiling])
+    for k, fed in enumerate(clamped[4:], start=4):
+        assert float(fed[:, :1].max()) <= ceiling, f"step {k}: fed value above the clamp"
