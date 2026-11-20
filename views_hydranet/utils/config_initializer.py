@@ -304,10 +304,10 @@ class HydraNetConfig(BaseModel):
     # ⛔ Declared here, not read via config.get, so a roster setting it against a package without
     # the field fails the schema instead of riding on extra="allow" (the W-22 trap).
     loss_reg_y_max: float | None = Field(default=None, ge=1.0)
-    # Ranking body (body='listwise_softplus_point'): the normalising transformation T of the listwise
-    # objective (Bai 2023 Def. 1). Only 'exp', Zhu's softmax form, is implemented; the softplus
-    # version was removed on 2026-11-20 (issue #629) and is refused with the tag that keeps it.
-    # The setting stays so a second version can be added as a new body (ADR-079 §2).
+    # Ranking body (body='listwise_softplus_point'): the normalising transformation T of the
+    # listwise objective (Bai 2023 Def. 1). Only 'exp', Zhu's softmax form, is implemented; the
+    # softplus version was removed on 2026-11-20 (issue #629) and is refused with the tag that
+    # keeps it. The setting stays so a second version can be added as a new body (ADR-079 §2).
     # listwise_level_loss.TRANSFORMS is the authority on the set.
     loss_reg_listwise_transform: str = Field(default="exp")
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
