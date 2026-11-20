@@ -417,11 +417,10 @@ def _family_config(composition):
 
     cfg = dict(TINY_CONFIG)
     cfg["classification_targets"] = FEATURES
-    cfg["output_distribution"] = "nb"
+    cfg["body"] = "nll_softplus_nb"
     cfg["forecast_composition"] = composition
     if composition == "threshold_gate":
         cfg["gate_threshold"] = 0.5
-    cfg["loss_reg"] = "mse"
     cfg["loss_class"] = "weighted_bce"
     cfg["loss_class_pos_weight"] = 2.0
     return cfg

@@ -39,7 +39,7 @@ IDENTITY_COLS = ["c_id", "row", "col"]
 def toy_config():
     return {
         # The loss the context below builds; `train()` builds its body from it (#629).
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "features": INPUT_FEATURES,
         "regression_targets": REG_TARGETS,
         "classification_targets": CLS_TARGETS,

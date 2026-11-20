@@ -23,14 +23,14 @@ def _cfg(valid_config_dict, **overrides):
 
 # ── the three valid arms + inert legacy default ──────────────────────────────────────────────
 def test_nb_soft_gate_ok(valid_config_dict):
-    cfg = _cfg(valid_config_dict, output_distribution="nb", forecast_composition="soft_gate")
+    cfg = _cfg(valid_config_dict, body="nll_softplus_nb", forecast_composition="soft_gate")
     assert HydraNetConfig(**cfg).forecast_composition == "soft_gate"
 
 
 def test_nb_threshold_gate_ok(valid_config_dict):
     cfg = _cfg(
         valid_config_dict,
-        output_distribution="nb",
+        body="nll_softplus_nb",
         forecast_composition="threshold_gate",
         gate_threshold=0.5,
     )
@@ -49,14 +49,14 @@ def test_default_is_self_zeroed_and_legacy_inert(valid_config_dict):
 # ── the intentional breaking change: nb must DECLARE a gate composition ────────────────────────
 def test_nb_without_composition_raises(valid_config_dict):
     # nb defaults to self_zeroed -> RAISE. nb has no self-zeroing; it must declare soft/threshold.
-    cfg = _cfg(valid_config_dict, output_distribution="nb")  # no forecast_composition => default
+    cfg = _cfg(valid_config_dict, body="nll_softplus_nb")  # no forecast_composition => default
     with pytest.raises(ValidationError, match="forecast_composition|self.zeroed|gate"):
         HydraNetConfig(**cfg)
 
 
 # ── threshold τ rules ─────────────────────────────────────────────────────────────────────────
 def test_threshold_gate_requires_gate_threshold(valid_config_dict):
-    cfg = _cfg(valid_config_dict, output_distribution="nb", forecast_composition="threshold_gate")
+    cfg = _cfg(valid_config_dict, body="nll_softplus_nb", forecast_composition="threshold_gate")
     with pytest.raises(ValidationError, match="gate_threshold"):
         HydraNetConfig(**cfg)
 
@@ -65,7 +65,7 @@ def test_threshold_gate_requires_gate_threshold(valid_config_dict):
 def test_gate_threshold_out_of_open_unit_interval_raises(valid_config_dict, bad_tau):
     cfg = _cfg(
         valid_config_dict,
-        output_distribution="nb",
+        body="nll_softplus_nb",
         forecast_composition="threshold_gate",
         gate_threshold=bad_tau,
     )
@@ -76,17 +76,15 @@ def test_gate_threshold_out_of_open_unit_interval_raises(valid_config_dict, bad_
 @pytest.mark.parametrize("comp", ["soft_gate", "self_zeroed"])
 def test_gate_threshold_set_without_threshold_gate_raises(valid_config_dict, comp):
     # gate_threshold is only meaningful for threshold_gate; elsewhere it is a silent no-op -> RAISE
-    od = "nb" if comp == "soft_gate" else "standard"
-    cfg = _cfg(
-        valid_config_dict, output_distribution=od, forecast_composition=comp, gate_threshold=0.5
-    )
+    body = "nll_softplus_nb" if comp == "soft_gate" else "mse_softplus_point"
+    cfg = _cfg(valid_config_dict, body=body, forecast_composition=comp, gate_threshold=0.5)
     with pytest.raises(ValidationError, match="gate_threshold|threshold_gate"):
         HydraNetConfig(**cfg)
 
 
 # ── unknown value + legacy-head misuse ────────────────────────────────────────────────────────
 def test_unknown_forecast_composition_rejected(valid_config_dict):
-    cfg = _cfg(valid_config_dict, output_distribution="nb", forecast_composition="not_a_thing")
+    cfg = _cfg(valid_config_dict, body="nll_softplus_nb", forecast_composition="not_a_thing")
     with pytest.raises(ValidationError, match="forecast_composition.*not valid|not_a_thing"):
         HydraNetConfig(**cfg)
 
@@ -96,7 +94,7 @@ def test_legacy_head_with_gate_composition_raises(valid_config_dict, comp):
     # composition applies only to the families; a gate on a legacy head is meaningless
     cfg = _cfg(
         valid_config_dict,
-        output_distribution="standard",
+        body="mse_softplus_point",
         forecast_composition=comp,
         gate_threshold=0.5 if comp == "threshold_gate" else None,
     )

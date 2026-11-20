@@ -1,8 +1,8 @@
 """A-S7 (#174): loss + training-engine wiring for the distribution families (ADR-067).
 
-`choose_loss` builds a `FamilyLoss` adapter over `family.nll` when `output_distribution` is a
+`choose_loss` builds a `FamilyLoss` adapter over `family.nll` when the `body` names a
 registered family; the training-engine per-target reg loop slices `family.n_params` channels/target
-(fixing C-207) and calls it. Legacy `output_distribution` values keep their `loss_reg` path
+(fixing C-207) and calls it. A point `body` keeps its registry loss
 (byte-identical). A config guard requires a family's targets to be log1p-transformed (C-198).
 """
 
@@ -41,7 +41,7 @@ def test_family_loss_mixture_nb_n_params():
 def test_choose_loss_routes_family(valid_config_dict, fam_name, npar):
     from views_hydranet.utils.utils import choose_loss
 
-    cfg = {**valid_config_dict, "output_distribution": fam_name}
+    cfg = {**valid_config_dict, "body": f"nll_softplus_{fam_name}"}
     criterion_reg, _, _ = choose_loss(cfg, torch.device("cpu"))
     assert isinstance(criterion_reg, FamilyLoss)
     assert criterion_reg.n_params == npar
@@ -50,7 +50,7 @@ def test_choose_loss_routes_family(valid_config_dict, fam_name, npar):
 def test_choose_loss_legacy_is_not_a_family_loss(valid_config_dict):
     from views_hydranet.utils.utils import choose_loss
 
-    cfg = {**valid_config_dict, "output_distribution": "standard", "loss_reg": "mse"}
+    cfg = {**valid_config_dict, "body": "mse_softplus_point"}
     criterion_reg, _, _ = choose_loss(cfg, torch.device("cpu"))
     assert not isinstance(criterion_reg, FamilyLoss)
 
@@ -132,8 +132,8 @@ def test_c198_family_requires_log1p_targets(valid_config_dict):
 
     # nb with the fixture's (log1p) target transforms is accepted.
     # ADR-069/#183: nb must declare a gate composition (else the composition validator raises).
-    nb_ok = {**valid_config_dict, "output_distribution": "nb", "forecast_composition": "soft_gate"}
-    assert HydraNetConfig(**nb_ok).output_distribution == "nb"
+    nb_ok = {**valid_config_dict, "body": "nll_softplus_nb", "forecast_composition": "soft_gate"}
+    assert HydraNetConfig(**nb_ok).body_distribution == "nb"
     # move one regression target out of log1p -> the C-198 guard fails loud
     t0 = valid_config_dict["regression_targets"][0]
     tf = copy.deepcopy(valid_config_dict["transformations"])
@@ -141,7 +141,7 @@ def test_c198_family_requires_log1p_targets(valid_config_dict):
     tf.setdefault("identity", []).append(t0)
     bad = {
         **valid_config_dict,
-        "output_distribution": "nb",
+        "body": "nll_softplus_nb",
         "forecast_composition": "soft_gate",
         "transformations": tf,
     }

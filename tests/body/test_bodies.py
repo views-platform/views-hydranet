@@ -25,6 +25,7 @@ from views_hydranet.body.bodies import (  # noqa: E402
     body_class_for,
     build_body,
 )
+from views_hydranet.body.vocabulary import BODY_NAMES  # noqa: E402
 from views_hydranet.distributions import resolve_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
 from views_hydranet.utils.listwise_level_loss import ListwiseLevelLoss  # noqa: E402
@@ -44,19 +45,17 @@ BASE = {
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "static_channels": [],
     "loss_class": "weighted_bce",
-    "reg_activation": "softplus",
 }
 
 LIVE = {
-    "mse": {"output_distribution": "standard", "loss_reg": "mse"},
+    "mse": {"body": "mse_softplus_point"},
     "ranking": {
-        "output_distribution": "standard",
-        "loss_reg": "listwise_level",
+        "body": "listwise_softplus_point",
         "loss_reg_y_max": 10000.0,
     },
-    "nb": {"output_distribution": "nb", "loss_reg": "mse"},
-    "truncated_nb": {"output_distribution": "truncated_nb", "loss_reg": "mse"},
-    "mixture_nb": {"output_distribution": "mixture_nb", "loss_reg": "mse"},
+    "nb": {"body": "nll_softplus_nb"},
+    "truncated_nb": {"body": "nll_softplus_truncated_nb"},
+    "mixture_nb": {"body": "nll_softplus_mixture_nb"},
 }
 
 
@@ -190,18 +189,6 @@ def test_the_distribution_body_wraps_the_losss_own_family_instance():
     assert build_body(cfg, criterion).family is criterion.family
 
 
-@pytest.mark.parametrize("activation", [None, "missing"])
-def test_standard_mse_without_the_setting_gets_the_mse_body(activation):
-    """#632: a `standard` head always applies softplus, so the body no longer asks the setting.
-
-    Before #632 these configs trained a ReLU head and got no body.
-    """
-    cfg = {**BASE, **LIVE["mse"], "reg_activation": activation}
-    if activation == "missing":
-        del cfg["reg_activation"]
-    assert isinstance(build_body(cfg, choose_loss(cfg, CPU)[0]), MeanSquaredErrorBody)
-
-
 def test_a_body_refuses_a_model_that_returns_no_output_from_before_the_activation():
     """The body route reads `reg_latent`; a model in eval mode returns None there.
 
@@ -241,20 +228,18 @@ def test_a_body_refuses_a_model_that_returns_no_output_from_before_the_activatio
 @pytest.mark.parametrize(
     "overrides,criterion",
     [
-        ({"output_distribution": "nb", "loss_reg": "mse"}, nn.MSELoss()),
-        ({"output_distribution": "standard", "loss_reg": "mse"}, nn.L1Loss()),
-        ({"output_distribution": "standard", "loss_reg": "listwise_level"}, nn.MSELoss()),
-        ({"output_distribution": "standard", "loss_reg": "mse"}, None),
-        # A real FamilyLoss, so only the removed distribution's name can make it raise (guard
-        # audit of #629: with an MSELoss here it raised on the criterion and never tested this).
-        ({"output_distribution": "zinb", "loss_reg": "mse"}, FamilyLoss(resolve_family("nb"))),
+        ({"body": "nll_softplus_nb"}, nn.MSELoss()),
+        ({"body": "mse_softplus_point"}, nn.L1Loss()),
+        ({"body": "listwise_softplus_point"}, nn.MSELoss()),
+        ({"body": "mse_softplus_point"}, None),
+        ({"body": "mse_softplus_point"}, FamilyLoss(resolve_family("nb"))),
     ],
-    ids=["family_with_mse", "mse_with_l1", "ranking_with_mse", "no_criterion", "removed_body"],
+    ids=["family_with_mse", "mse_with_l1", "ranking_with_mse", "no_criterion", "mse_with_family"],
 )
 def test_a_loss_built_for_another_config_gets_an_error_not_a_missing_body(overrides, criterion):
     """`build_body` returned ``None`` here until #629, and training then took the older path."""
     cfg = {**BASE, **overrides}
-    with pytest.raises(ValueError, match="No body for output_distribution="):
+    with pytest.raises(ValueError, match="No body for body="):
         build_body(cfg, criterion)
 
 
@@ -355,8 +340,8 @@ def test_a_body_on_a_model_built_for_another_activation_is_refused_at_the_first_
     ],
 )
 def test_each_config_in_use_names_its_body_class(name, expected):
-    cfg = LIVE[name]
-    assert body_class_for(cfg["output_distribution"], cfg["loss_reg"]) is expected
+    named = BODY_NAMES[LIVE[name]["body"]]
+    assert body_class_for(named.distribution, named.loss_name) is expected
 
 
 @pytest.mark.parametrize(

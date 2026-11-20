@@ -121,7 +121,7 @@ def loop_config(**overrides):
         "max_ratio": 0.9,
         "run_type": "train",
         "scheduler": "none",
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "loss_class": "focal",
         "loss_class_alpha": 0.25,
         "loss_class_gamma": 2.0,

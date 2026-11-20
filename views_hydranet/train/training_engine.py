@@ -24,6 +24,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from views_hydranet.body.bodies import Body, build_body
+from views_hydranet.body.vocabulary import body_name
 from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.base import DistributionFamily
 from views_hydranet.distributions.family_loss import FamilyLoss
@@ -1272,7 +1273,7 @@ def train(
         cessation_lag=config.get("cessation_lag", 0),
         event_threshold=event_threshold_from_config(config),
         # EXP-4 (GTF): family + composition drive the scheduled-sampling feedback (only when ε>0).
-        family=resolve_family(config.get("output_distribution", "standard")),
+        family=resolve_family(body_name(config).distribution),
         ss_feedback=config.get("ss_feedback", "mean"),
         forecast_composition=config.get("forecast_composition", "self_zeroed"),
         gate_threshold=config.get("gate_threshold"),
@@ -1339,7 +1340,7 @@ def train(
                         # and gate (else y_hat_cls * y_hat_reg mis-broadcasts and the forensic plot
                         # is skipped). Mirrors _emit_magnitude's family branch. Legacy = unchanged.
                         _yh_reg = t1_pred
-                        _fam = resolve_family(config.get("output_distribution", "standard"))
+                        _fam = resolve_family(body_name(config).distribution)
                         if _fam is not None:
                             _yh_reg = _family_target_log1p_mean(t1_pred, _fam)  # [B, n_reg, H, W]
                         acc_yh_reg.append(_yh_reg[0].permute(1, 2, 0).cpu().numpy())

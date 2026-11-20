@@ -124,7 +124,7 @@ def test_config_default_is_positives(valid_config_dict):
 def test_config_accepts_all_cells_on_truncated_nb(valid_config_dict):
     cfg = _cfg(
         valid_config_dict,
-        output_distribution="truncated_nb",
+        body="nll_softplus_truncated_nb",
         forecast_composition="soft_gate",
         body_nll_denominator="all_cells",
     )
@@ -137,7 +137,7 @@ def test_config_rejects_an_unknown_denominator(valid_config_dict, bad):
 
     Matching on `"body_nll_denominator"` alone was satisfied by a DIFFERENT validator: with the
     field validator deleted, the pair validator raises
-    `"body_nll_denominator='dense' requires output_distribution='truncated_nb'"` — the substring
+    `"body_nll_denominator='dense' requires body='nll_softplus_truncated_nb'"` — the substring
     still matched, so all four parametrisations passed on an unrelated rule and deleting the
     value lock left the suite green (independent guard audit, PR #398). The arm config is pinned
     to `truncated_nb` here so the pair rule cannot fire and steal the assertion.
@@ -145,7 +145,7 @@ def test_config_rejects_an_unknown_denominator(valid_config_dict, bad):
     with pytest.raises(ValueError, match="is not valid. Expected one of"):
         _cfg(
             valid_config_dict,
-            output_distribution="truncated_nb",
+            body="nll_softplus_truncated_nb",
             forecast_composition="soft_gate",
             body_supervision="all",
             body_nll_denominator=bad,
@@ -155,10 +155,10 @@ def test_config_rejects_an_unknown_denominator(valid_config_dict, bad):
 @pytest.mark.parametrize("dist", ["nb", "mixture_nb"])
 def test_config_rejects_all_cells_where_it_would_be_inert(valid_config_dict, dist):
     """C-324: every other family already reduces over all cells, so the flag changes nothing."""
-    with pytest.raises(ValueError, match="requires output_distribution='truncated_nb'"):
+    with pytest.raises(ValueError, match="requires body='nll_softplus_truncated_nb'"):
         _cfg(
             valid_config_dict,
-            output_distribution=dist,
+            body=f"nll_softplus_{dist}",
             forecast_composition="soft_gate",
             body_nll_denominator="all_cells",
         )
@@ -173,7 +173,7 @@ def test_positives_is_accepted_on_every_family_because_it_is_the_default(valid_c
     ):
         cfg = _cfg(
             valid_config_dict,
-            output_distribution=dist,
+            body=f"nll_softplus_{dist}",
             forecast_composition=comp,
             body_nll_denominator="positives",
         )
@@ -193,7 +193,7 @@ def test_config_rejects_all_cells_with_active_body_supervision(valid_config_dict
     with pytest.raises(ValueError, match="requires body_supervision='all'"):
         _cfg(
             valid_config_dict,
-            output_distribution="truncated_nb",
+            body="nll_softplus_truncated_nb",
             forecast_composition="soft_gate",
             body_supervision="active",
             body_nll_denominator="all_cells",
@@ -203,7 +203,7 @@ def test_config_rejects_all_cells_with_active_body_supervision(valid_config_dict
 def test_config_accepts_all_cells_with_all_body_supervision(valid_config_dict):
     cfg = _cfg(
         valid_config_dict,
-        output_distribution="truncated_nb",
+        body="nll_softplus_truncated_nb",
         forecast_composition="soft_gate",
         body_supervision="all",
         body_nll_denominator="all_cells",
@@ -216,7 +216,7 @@ def test_positives_is_unaffected_by_body_supervision(valid_config_dict):
     for sup in ("all", "active"):
         cfg = _cfg(
             valid_config_dict,
-            output_distribution="truncated_nb",
+            body="nll_softplus_truncated_nb",
             forecast_composition="soft_gate",
             body_supervision=sup,
             body_nll_denominator="positives",
@@ -253,8 +253,8 @@ def test_choose_loss_rejects_the_inert_pair_for_a_raw_dict_caller(valid_config_d
     from views_hydranet.utils.utils import choose_loss
 
     cfg = dict(valid_config_dict)
-    cfg.update(output_distribution="nb", body_nll_denominator="all_cells")
-    with pytest.raises(ValueError, match="requires output_distribution='truncated_nb'"):
+    cfg.update(body="nll_softplus_nb", body_nll_denominator="all_cells")
+    with pytest.raises(ValueError, match="requires body='nll_softplus_truncated_nb'"):
         choose_loss(cfg, torch.device("cpu"))
 
 
@@ -265,7 +265,7 @@ def test_choose_loss_forwards_the_denominator_for_a_raw_dict_caller(valid_config
 
     cfg = dict(valid_config_dict)
     cfg.update(
-        output_distribution="truncated_nb",
+        body="nll_softplus_truncated_nb",
         forecast_composition="soft_gate",
         body_nll_denominator="all_cells",
     )
@@ -280,7 +280,7 @@ def test_choose_loss_tolerates_a_dict_with_no_denominator_key(valid_config_dict)
     from views_hydranet.utils.utils import choose_loss
 
     cfg = dict(valid_config_dict)
-    cfg.update(output_distribution="truncated_nb", forecast_composition="soft_gate")
+    cfg.update(body="nll_softplus_truncated_nb", forecast_composition="soft_gate")
     cfg.pop("body_nll_denominator", None)
     crit_reg, _, _ = choose_loss(cfg, torch.device("cpu"))
     assert crit_reg.family.body_nll_denominator == "positives"
@@ -299,7 +299,7 @@ def test_choose_loss_rejects_the_inert_SUPERVISION_pair_for_a_raw_dict_caller(va
 
     cfg = dict(valid_config_dict)
     cfg.update(
-        output_distribution="truncated_nb",
+        body="nll_softplus_truncated_nb",
         forecast_composition="soft_gate",
         body_supervision="active",
         body_nll_denominator="all_cells",

@@ -183,7 +183,7 @@ def _make_config(**overrides):
         "total_hidden_channels": 8,
         "dropout_rate": 0.0,
         "weight_init": "xavier_uni",
-        "loss_reg": "mse",
+        "body": "mse_softplus_point",
         "loss_class": "bce",
         "learning_rate": 1e-3,
         "weight_decay": 0.0,

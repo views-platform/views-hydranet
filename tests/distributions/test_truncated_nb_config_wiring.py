@@ -45,11 +45,11 @@ def test_config_accepts_truncated_nb_with_soft_gate(valid_config_dict):
 
     cfg = {
         **valid_config_dict,
-        "output_distribution": "truncated_nb",
+        "body": "nll_softplus_truncated_nb",
         "forecast_composition": "soft_gate",
     }
     resolved = HydraNetConfig(**cfg)
-    assert resolved.output_distribution == "truncated_nb"
+    assert resolved.body_distribution == "truncated_nb"
     assert resolved.forecast_composition == "soft_gate"
 
 
@@ -63,7 +63,7 @@ def test_config_rejects_truncated_nb_with_self_zeroed(valid_config_dict):
 
     cfg = {
         **valid_config_dict,
-        "output_distribution": "truncated_nb",
+        "body": "nll_softplus_truncated_nb",
         "forecast_composition": "self_zeroed",
     }
     with pytest.raises(ValueError, match="not self-zeroed|self_zeroed"):
@@ -86,18 +86,18 @@ def test_head_reg_width_matches_n_params():
     assert out.cls.shape[1] == 3, "classification / AR-feedback width must be unchanged"
 
 
-# ── loss: choose_loss must route to the family NLL, not to loss_reg ──
+# ── loss: choose_loss must route to the family NLL ──
 
 
 def test_choose_loss_routes_to_truncated_family(valid_config_dict):
-    """`loss_reg='mse'` is present and valid but MUST be ignored for a family head.
+    """A distribution body trains on its likelihood (ADR-081).
 
     If this regressed, the run would silently optimise MSE on (mu, theta) channels — trainable,
     plausible-looking, and wrong.
     """
     from views_hydranet.utils.utils import choose_loss
 
-    cfg = {**valid_config_dict, "output_distribution": "truncated_nb", "loss_reg": "mse"}
+    cfg = {**valid_config_dict, "body": "nll_softplus_truncated_nb"}
     criterion_reg, _, _ = choose_loss(cfg, torch.device("cpu"))
     assert isinstance(criterion_reg, FamilyLoss)
     assert isinstance(criterion_reg.family, TruncatedNBFamily)

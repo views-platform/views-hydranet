@@ -274,10 +274,11 @@ class DistributionBody(Body):
 
 
 def body_class_for(distribution: str, loss_name: str | None) -> type[Body] | None:
-    """The body class a config names, or None if it names none of the five in use.
+    """The body class for what a `body` value fixes (ADR-081), or None if it is none of the five.
 
-    The one place that maps config values to a body. `build_body` uses it, and so does the config
-    check that refuses a supervision window on a body that trains on all cells (#630).
+    The one place that maps a body's distribution and loss to its class. `build_body` uses it, and
+    so does the config check that refuses a supervision window on a body that trains on all
+    cells (#630).
     """
     if distribution in _LIVE_DISTRIBUTIONS:
         return DistributionBody
@@ -297,8 +298,10 @@ def build_body(config: dict, criterion_reg) -> Body:
     ``criterion_reg`` is what `choose_loss` returned for the same config. The schema refuses every
     other combination, so the error means the loss was built for a different config (#629).
     """
-    distribution = config.get("output_distribution", "standard")
-    loss_name = config.get("loss_reg")
+    from views_hydranet.body.vocabulary import body_name
+
+    named = body_name(config)
+    distribution, loss_name = named.distribution, named.loss_name
     body_class = body_class_for(distribution, loss_name)
     if body_class is DistributionBody and isinstance(criterion_reg, FamilyLoss):
         return DistributionBody(distribution, criterion_reg.family)
@@ -311,10 +314,8 @@ def build_body(config: dict, criterion_reg) -> Body:
     ):
         return RankingBody(criterion_reg)
     err_msg = (
-        f"No body for output_distribution={distribution!r}, loss_reg={loss_name!r} with the "
-        f"loss {type(criterion_reg).__name__}. The bodies are mean squared error and ranking on "
-        f"'standard', and {sorted(_LIVE_DISTRIBUTIONS)} (ADR-079). The config schema refuses "
-        "every other combination, so the loss was probably built for a different config."
+        f"No body for body={named.value!r} with the loss {type(criterion_reg).__name__}. The "
+        "loss was probably built for a different config (ADR-079, ADR-081)."
     )
     logger.error(err_msg)
     raise ValueError(err_msg)
