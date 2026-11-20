@@ -68,7 +68,6 @@ Architectural decisions specific to the HydraNet system.
 - **[060](active/060_static_exogenous_input_channels.md)**: ADR-060: Static & Architectural Input Channels
 - **[061](active/061_coordinate_channels.md)**: ADR-061: Coordinate Channels for Spatial Grounding (CoordConv)
 - **[062](active/062_channel_role_accessors_and_volumehandler_decomposition.md)**: ADR-062: Channel-Role Accessors + VolumeHandler Decomposition
-- **[063](active/063_regression_head_output_activation.md)**: ADR-063: Regression-head output activation — softplus for hurdle bodies, ReLU for standard
 - **[064](active/064_classification_head_output_activation.md)**: ADR-064: Classification-head output activation — raw logits + sigmoid-via-BCE-with-logits
 - **[065](active/065_body_mask_training_mask.md)**: ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
 - **[067](active/067_distribution_family_subsystem.md)**: ADR-067: A distribution-family subsystem + per-cell sampleable NB/ZINB heads
@@ -114,6 +113,7 @@ Architectural decisions specific to the HydraNet system.
 - **[050](archive/050_hurdle_loss_architecture.md)**: Hurdle-Decomposed Loss Architecture for Zero-Inflated Conflict Data
 - **[054](archive/054_tobit_censored_regression_loss.md)**: ADR-054: Tobit Censored-Normal Likelihood as Regression Loss
 - **[055](archive/055_learnable_per_target_tobit_sigma.md)**: ADR-055: Learnable Per-Target Tobit Sigma
+- **[063](archive/063_regression_head_output_activation.md)**: ADR-063: Regression-head output activation — softplus for hurdle bodies, ReLU for standard
 - **[066](archive/066_output_distribution_decomposition.md)**: ADR-066: Rename `output_distribution` to a readable `body` setting (and finally make ZINB nameable)
 - **[071](archive/071_violet_visitor_datafactory_provider.md)**: ADR-071: violet_visitor's data provider is views-datafactory (`africa_me_legacy`)
 - **[076](archive/076_MOVED_provider_migration_parity_bar.md)**: ADR-076: Moved — the provider-migration parity bar is pipeline-core's

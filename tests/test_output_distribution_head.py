@@ -1,6 +1,6 @@
 """Tests for the #100 output_distribution head flag.
 
-Default "standard" => ReLU (byte-identical to pre-#100).
+Default "standard" => softplus (ReLU until #632, 2026-11-20).
 Parity is verified against the captured pre-activation latent (reg_latent, training-only).
 """
 
@@ -30,17 +30,17 @@ def _fwd(m, seed=11):
     return m(x, h)
 
 
-def test_default_is_standard_relu():
+def test_default_is_standard_softplus():
     m = _build(None)
     assert m.output_distribution == "standard"
-    assert m._reg_activation is F.relu
+    assert m._reg_activation is F.softplus
     out = _fwd(m)
-    assert torch.allclose(out.reg, F.relu(out.reg_latent))
-    assert (out.reg >= 0).all()
+    assert torch.allclose(out.reg, F.softplus(out.reg_latent))
+    assert (out.reg > 0).all()
 
 
 def test_explicit_standard_equals_default():
-    assert _build("standard")._reg_activation is _build(None)._reg_activation is F.relu
+    assert _build("standard")._reg_activation is _build(None)._reg_activation is F.softplus
 
 
 def test_config_field_default_is_standard():

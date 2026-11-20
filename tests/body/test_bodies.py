@@ -185,13 +185,52 @@ def test_the_distribution_body_wraps_the_losss_own_family_instance():
     assert build_body(cfg, criterion).family is criterion.family
 
 
-# ─────────────────────────────── everything else gets no body ───────────────────────────────
+@pytest.mark.parametrize("activation", [None, "missing"])
+def test_standard_mse_without_the_setting_gets_the_mse_body(activation):
+    """#632: a `standard` head always applies softplus, so the body no longer asks the setting.
 
-
-@pytest.mark.parametrize("activation", [None, "relu"])
-def test_standard_mse_without_softplus_gets_no_body(activation):
+    Before #632 these configs trained a ReLU head and got no body.
+    """
     cfg = {**BASE, **LIVE["mse"], "reg_activation": activation}
-    assert build_body(cfg, choose_loss(cfg, CPU)[0]) is None
+    if activation == "missing":
+        del cfg["reg_activation"]
+    assert isinstance(build_body(cfg, choose_loss(cfg, CPU)[0]), MeanSquaredErrorBody)
+
+
+def test_a_body_refuses_a_model_that_returns_no_output_from_before_the_activation():
+    """The body route reads `reg_latent`; a model in eval mode returns None there.
+
+    Found untested by the guard audit of #632, which sent every standard mse config to a body.
+    """
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
+
+    cfg = {**BASE, **LIVE["mse"]}
+    torch.manual_seed(3)
+    model = choose_model(cfg, CPU).float()
+    model.eval()
+    criterion_reg, criterion_class, _ = choose_loss(cfg, CPU)
+
+    class _Sum(nn.Module):
+        def forward(self, losses):
+            return losses.sum()
+
+    with pytest.raises(RuntimeError, match="reg_latent` is None here"):
+        _process_sequence(
+            torch.rand(1, 3, 6, 8, 8),
+            model,
+            model.init_hTtime(model.base, 8, 8).float(),
+            criterion_reg=criterion_reg,
+            criterion_class=criterion_class,
+            multitaskloss_instance=_Sum(),
+            idx=_SequenceIndices(REG + BASE["classification_targets"], cfg),
+            device=CPU,
+            family=resolve_family("standard"),
+            body=build_body(cfg, criterion_reg),
+        )
+
+
+# ─────────────────────────────── everything else gets no body ───────────────────────────────
 
 
 def test_the_softplus_version_of_the_ranking_loss_gets_no_body():
@@ -231,11 +270,13 @@ def test_a_body_on_a_model_built_for_another_activation_is_refused_at_the_first_
     from views_hydranet.distributions import resolve_family
     from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
 
-    relu_cfg = {**BASE, **LIVE["mse"], "reg_activation": None}
-    torch.manual_seed(3)
-    model = choose_model(relu_cfg, CPU).float()
-    model.train()
+    # A ReLU model cannot be built any more (#632); one pickled before then carries `F.relu`,
+    # and that is reproduced here directly.
     softplus_cfg = {**BASE, **LIVE["mse"]}
+    torch.manual_seed(3)
+    model = choose_model(softplus_cfg, CPU).float()
+    model._reg_activation = torch.nn.functional.relu
+    model.train()
     criterion_reg, criterion_class, _ = choose_loss(softplus_cfg, CPU)
     x = torch.rand(1, 3, 6, 8, 8)
     h = model.init_hTtime(model.base, 8, 8).float()

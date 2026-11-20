@@ -74,6 +74,28 @@ def check_output_distribution(name: str) -> None:
     raise ValueError(err_msg)
 
 
+#: The activations a `standard` regression head can apply (ADR-079 Rule 1, amended 2026-11-20,
+#: issue #632). The setting `reg_activation` stays so that a second activation can be added here
+#: later; today softplus is the only one. ReLU was removed: its heads died on rare targets (C-178).
+IMPLEMENTED_REG_ACTIVATIONS: tuple[str, ...] = ("softplus",)
+
+
+def check_reg_activation(name: object) -> None:
+    """Raise ``ValueError`` unless ``name`` is an implemented regression-head activation.
+
+    The one check, used by the config schema and by the model (every model build, including the
+    reload of a saved model). Torch-free.
+    """
+    if name in IMPLEMENTED_REG_ACTIVATIONS:
+        return
+    err_msg = (
+        f"reg_activation={name!r} is not implemented. Only {list(IMPLEMENTED_REG_ACTIVATIONS)} "
+        "is implemented at present (ADR-079 Rule 1, views-hydranet issue #632)."
+    )
+    logger.error(err_msg)
+    raise ValueError(err_msg)
+
+
 # Removed on 2026-11-18 (views-hydranet issue #631): regression losses no config used, and the
 # settings only they read. Each name is added here by the commit that deletes it. Kept under the
 # git tag below for comparison only: a loss wanted again is rebuilt from scratch, not restored.
@@ -292,13 +314,15 @@ class HydraNetConfig(BaseModel):
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
-    # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
+    # Regression-head output distribution/activation (#100). "standard" (softplus) or a family/head
     # name (nb, truncated_nb, mixture_nb) —
     # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
-    # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
-    # 'relu'; else 'softplus'/'relu'. A family ignores it and uses its own activation.
-    reg_activation: str | None = Field(default=None)
+    # The activation of a `standard` regression head (ADR-079 Rule 1, amended 2026-11-20, #632).
+    # Only the values in IMPLEMENTED_REG_ACTIVATIONS are accepted, today "softplus" alone; an
+    # explicit None (not stated) becomes "softplus". A family keeps its own activation, and the
+    # setting beside it must still be softplus. Until 2026-11-20 the default was ReLU.
+    reg_activation: str | None = Field(default="softplus")
     # ADR-069 (Epic #183): how gate + body compose into the emitted forecast. Default "self_zeroed"
     # is inert for legacy heads; it forces every family config to declare a gate
     # composition explicitly (soft_gate / threshold_gate). Consumed at emit time (S4).
@@ -866,11 +890,9 @@ class HydraNetConfig(BaseModel):
 
     @field_validator("reg_activation")
     @classmethod
-    def validate_reg_activation(cls, v: str | None) -> str | None:
-        if v is not None and v not in ("softplus", "relu"):
-            err_msg = f"reg_activation='{v}' is not valid. Expected 'softplus', 'relu', or None."
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+    def validate_reg_activation(cls, v: str | None) -> str:
+        v = "softplus" if v is None else v
+        check_reg_activation(v)
         return v
 
     @field_validator("total_hidden_channels")

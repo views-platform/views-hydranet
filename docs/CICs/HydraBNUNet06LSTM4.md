@@ -3,8 +3,8 @@
 **Status:** Active
 **Owner:** HydraNet maintainers
 **Last reviewed:** 2026-08-14
-**Related ADRs:** ADR-067 (distribution-family subsystem), ADR-063/064 (regression/classification
-head output activation), ADR-060/061 (static exogenous / coordinate input channels), ADR-057
+**Related ADRs:** ADR-067 (distribution-family subsystem), ADR-079 Rule 1 / ADR-064
+(regression/classification head output activation; ADR-079 Rule 1 superseded ADR-063 on 2026-11-20), ADR-060/061 (static exogenous / coordinate input channels), ADR-057
 (variational dropout for AR stability), ADR-056 (scheduled sampling), ADR-030 (dynamic slicing handshake)
 
 ---
@@ -51,7 +51,9 @@ steps are chained.
 **Public API.**
 
 - `__init__(input_channels, total_hidden_channels, output_channels, dropout_rate,
-  output_distribution="standard", n_static_channels=0, static_top_skip=True, reg_activation=None)`. `total_hidden_channels` MUST be divisible by 8 (docstring line 82;
+  output_distribution="standard", n_static_channels=0, static_top_skip=True, reg_activation="softplus")`. `reg_activation` accepts only the values in
+  `config_initializer.IMPLEMENTED_REG_ACTIVATIONS` (today `("softplus",)`); `None` means not stated
+  and gives softplus; anything else raises `ValueError` (issue #632). `total_hidden_channels` MUST be divisible by 8 (docstring line 82;
   consumed at line 157 `num_lstm_state_layers = total/(4*2)` and line 520 `split_h = h.shape[1]/8`).
 - `forward(x, h) -> ModelOutput(reg, cls, h_next, reg_latent)` (lines 502-685). Single timestep.
   `reg` `[B, n_reg, H, W]` post-activation, `cls` `[B, n_cls, H, W]` logits, `h_next`
@@ -78,9 +80,12 @@ steps are chained.
 - Static top-skip re-injection (ADR-060/061) is byte-neutral when `n_static_channels=0` or
   `static_top_skip=False`: `coords` is `None` (line 517) and the head skip concat is skipped (line
   563), leaving pre-ADR-061 behavior identical.
-- `output_distribution="standard"` reproduces pre-#100 behavior byte-for-byte: `resolve_family`
-  returns `None` (line 99), reg activation falls to `F.relu` (line 114), reg heads keep width
-  `output_channels` (line 141).
+- A `"standard"` head always applies softplus (ADR-079 Rule 1, issue #632, 2026-11-20; it applied
+  ReLU before when `reg_activation` was unset). `resolve_family` returns `None` and the reg heads
+  keep width `output_channels`. A distribution family applies its own activation; the setting
+  beside it must still be softplus. A saved model trained with ReLU is refused on reload by
+  `ModelArtifactFetcher` (see that CIC), because its weights would load into a softplus head
+  without an error.
 
 ---
 
@@ -193,7 +198,8 @@ for _ in range(n_posterior):
   per-site `ModuleDict` of exactly 15 DISTINCT `LockedDropout` instances (lines ~185-194), locked
   masks independent across sites, per-step default (unlocked) behavior, reset-between-samples
   changes output, and that the 15 instances add no state-dict keys (artifact-compat).
-- **Green (head selection / activation):** `tests/test_reg_activation.py`,
+- **Green (head selection / activation):** `tests/test_reg_activation.py` (softplus only, the
+  exact refusal), `tests/test_saved_relu_model_is_refused_on_reload.py`,
   `tests/test_output_distribution_head.py`,
   `tests/test_falsify_reg_head_dead_relu.py` (C-178 softplus-not-dead-ReLU),
   `tests/test_onset_bias_init.py` (informed init).

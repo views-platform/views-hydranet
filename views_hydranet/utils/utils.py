@@ -24,7 +24,7 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     # argument table. get_architecture raises on an unknown name, naming what is registered.
     model_cls = get_architecture(config["model"])
     # Every model build passes here: training, and the reload of a saved model from its sidecar.
-    # A body the package does not know stops here; otherwise the head would fall back to one ReLU
+    # A body the package does not know stops here; otherwise the head would fall back to one
     # channel and a saved model would fail obscurely or forecast wrong numbers (issue #628).
     from views_hydranet.utils.config_initializer import check_output_distribution
 
@@ -38,7 +38,9 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
         output_distribution=distribution,
         n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
         static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
-        reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
+        # Only softplus is implemented (ADR-079 Rule 1, #632); None gives softplus, and the model
+        # refuses anything else. A saved ReLU model is refused before this, by the reload.
+        reg_activation=config.get("reg_activation"),
     ).to(device)
 
 

@@ -72,7 +72,7 @@ def test_manager_sweep_skip_save_logic(tmp_path):
     # Mock dependencies to reach the save logic. The model mock needs a real _reg_activation
     # because the sidecar now persists model._reg_activation.__name__ (C-179).
     mock_model = MagicMock()
-    mock_model._reg_activation = torch.relu
+    mock_model._reg_activation = torch.nn.functional.softplus  # the only one since #632
     with (
         patch(
             "views_hydranet.train.train_model.make",

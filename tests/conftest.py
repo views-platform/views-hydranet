@@ -1,6 +1,7 @@
 import pytest
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 
@@ -46,10 +47,14 @@ class TinyModel(nn.Module):
 
     def forward(self, x, h):
         combined = torch.cat([x, h], dim=1)
+        raw = self.reg_head(combined)
+        # As the real head (ADR-079 Rule 1, #632): softplus on the regression output, and the
+        # output from before it in training mode, which the body route reads.
         return ModelOutput(
-            reg=self.reg_head(combined),
+            reg=F.softplus(raw),
             cls=self.cls_head(combined),
             h_next=self.h_update(combined),
+            reg_latent=raw if self.training else None,
         )
 
     def init_hTtime(self, hidden_channels, H, W):

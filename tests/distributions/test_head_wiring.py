@@ -67,12 +67,13 @@ def test_nb_activation_is_family_activate():
 # ── legacy heads byte-identical (family branch is skipped for None) ──
 
 
-def test_standard_head_unchanged_relu_width_3():
+def test_standard_head_softplus_width_3():
+    """#632: the standard head applies softplus (it applied ReLU before)."""
     m = _build("standard")
-    assert m._reg_activation is F.relu
+    assert m._reg_activation is F.softplus
     out = _fwd(m)
     assert out.reg.shape[1] == 3  # reg_out_ch == output_channels == 1, ×3 targets
-    assert torch.allclose(out.reg, F.relu(out.reg_latent))
+    assert torch.allclose(out.reg, F.softplus(out.reg_latent))
 
 
 # ── informed init: the family's initial_raw_bias seeds the reg conv biases ──
