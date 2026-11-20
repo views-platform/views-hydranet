@@ -60,8 +60,9 @@ contract that registry returns.
   (C-199): each family reads the priors it needs (`nb`: `theta`) with
   defaults, so the A-S6 head can seed emission channels **family-agnostically** away from a saturated
   dead-zone (C-203 — promoted here from an NB-only method to the ABC).
-- `needs_latent: bool = False` (class attr) — reuses the repo's existing latent-vs-point dispatch
-  convention (`training_engine`, `config_initializer`).
+- (`needs_latent`, a class flag, was removed on 2026-11-20, issue #629: only the deleted older
+  route through the training loop read it. The distribution body hands the family its activated
+  parameters.)
 
 Guarantee: the ABC cannot be instantiated (all seven members are `@abstractmethod`); a subclass
 missing any member fails loud at instantiation, never silently. No family produces its own zeros:
@@ -176,7 +177,7 @@ if fam is not None:
 
 - Stable: the seven-member interface and the natural-space / config-inverse parameterization contract.
 - Expected to change: a family needing a shared latent (e.g. a mixture over a learned component) would
-  set `needs_latent = True` and consume `reg_latent`; a new count core beyond NB (e.g. a bulk+GPD
+  need its own body object (ADR-079) reading `reg_latent`; a new count core beyond NB (e.g. a bulk+GPD
   tail) would compose a new core alongside `NBCore`, not subclass a family.
 
 ---

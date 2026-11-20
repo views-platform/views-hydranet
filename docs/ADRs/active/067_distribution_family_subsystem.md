@@ -74,7 +74,9 @@ routed through it — leaving all existing body kinds untouched.
   methods: `n_params` (how many numbers the head emits per cell), `activate` (turn those raw numbers
   into valid parameters), `nll` (the training loss), `sample` (draw outcomes), `mean` (the expected
   value), `prob_positive` (`P(Y>0)`, used for gate scoring — see §5), and `initial_raw_bias`
-  (per-family informed-init biases the head applies — C-199/C-203); plus the `needs_latent` flag.
+  (per-family informed-init biases the head applies — C-199/C-203); plus the `needs_latent` flag
+  (*removed 2026-11-20, issue #629*: only the deleted older route through the training loop read
+  it).
   *Why the wider head is safe:* the head emits `n_params` channels per target, but only the single `mean`
   is fed back into the autoregressive rollout — so the rollout width (and the autoregression invariant) is
   unchanged.
