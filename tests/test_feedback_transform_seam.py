@@ -3,10 +3,11 @@
 These are falsifiers F1-F3 of `reports/2026-08-16_feedback_realism_dossier/05_analysis_plan.md`,
 implemented as tests rather than as run-time checks so they run on every commit:
 
-* **F1** — ``feedback_transform='use_real'`` must feed **byte-identically** what
-  ``rollout_feedback='teacher_forced'`` feeds. If it does not, the transform is reading the wrong
-  month or the wrong channels, and every arm built on it is confidently wrong while looking
-  healthy.
+* **F1** — ``feedback_transform='use_real'`` must feed **byte-identically** month ``k`` of the
+  input volume at step ``k``. If it does not, the transform is reading the wrong month or the
+  wrong channels, and every arm built on it is confidently wrong while looking healthy. (Until
+  2026-11-20 the reference was ``rollout_feedback='teacher_forced'``, removed in #634; it was
+  checked to feed exactly month ``k`` at step ``k`` before removal.)
 * **F2** — no transform may touch the **static** channels. They are geometry-constant
   (ADR-060 I3); perturbing them would confound every axis with "the map moved".
 * **F3** — ``feedback_transform=None`` must be byte-identical to ``'identity'``, i.e. the seam
@@ -87,21 +88,25 @@ def _run(*, feedback_transform=None, rollout_feedback="mean", statics=False, ori
 # ------------------------------------------------------------------ F1
 
 
+def _real_months(*, statics=False, n_steps=8):
+    """Month ``k`` of the input volume for each step ``k``: what a real field fed back is."""
+    vol = _tensor(statics=statics)
+    return [vol[:, k] for k in range(n_steps)]
+
+
 @pytest.mark.parametrize("statics", [False, True])
-def test_F1_use_real_feeds_exactly_what_teacher_forced_feeds(statics):
+def test_F1_use_real_feeds_exactly_the_real_month(statics):
     """The self-test the whole programme rests on. A wrong month here poisons every arm."""
-    oracle, _, _ = _run(rollout_feedback="teacher_forced", statics=statics)
     viaxform, _, _ = _run(rollout_feedback="mean", feedback_transform="use_real", statics=statics)
+    oracle = _real_months(statics=statics)
     assert len(oracle) == len(viaxform)
     for step, (a, b) in enumerate(zip(oracle, viaxform)):
-        assert torch.equal(a, b), (
-            f"step {step}: use_real fed a different field than teacher_forced"
-        )
+        assert torch.equal(a, b), f"step {step}: use_real fed a different field than month {step}"
 
 
 def test_F1_fails_when_the_month_is_off_by_one():
     """The guard must be able to fail — `wrong_month:1` is a deliberate one-month error."""
-    oracle, _, _ = _run(rollout_feedback="teacher_forced")
+    oracle = _real_months()
     shifted, _, _ = _run(rollout_feedback="mean", feedback_transform="wrong_month:1")
     assert any(not torch.equal(a, b) for a, b in zip(oracle, shifted)), (
         "an off-by-one month produced identical inputs — F1 cannot detect a month error"
@@ -168,7 +173,7 @@ def test_thin_at_p_one_feeds_an_empty_field():
 
 def test_shuffle_months_feeds_real_fields_in_a_different_order():
     """Every field stays real and geo-located; only the temporal order moves."""
-    oracle, _, _ = _run(rollout_feedback="teacher_forced")
+    oracle = _real_months()
     shuffled, _, _ = _run(feedback_transform="shuffle_months")
     free = slice(4, None)
     oracle_set = {tuple(f.flatten().tolist()) for f in oracle[free]}
@@ -219,7 +224,6 @@ def _corr_run(*, length_scale, rollout_feedback="sample", composition="soft_gate
     "rollout_feedback,composition",
     [
         ("mean", "soft_gate"),
-        ("teacher_forced", "soft_gate"),
         ("sample", "self_zeroed"),
         ("sample", "threshold_gate"),
     ],
@@ -250,23 +254,6 @@ def test_length_scale_none_is_unaffected_by_the_guard():
     for comp in ("self_zeroed", "soft_gate", "threshold_gate"):
         inf = _corr_run(length_scale=None, rollout_feedback="mean", composition=comp)
         assert inf._feedback_length_scale is None
-
-
-@pytest.mark.parametrize(
-    "arm", ["occurrence_real_magnitude_model", "occurrence_model_magnitude_real"]
-)
-def test_a_splice_arm_under_teacher_forced_raises_rather_than_splicing_real_with_real(arm):
-    """E4 reads the model's field out of ``t0_autoreg``, which is assembled AFTER both
-    ``rollout_feedback`` branches. Under 'teacher_forced' that tensor is the real field, so the
-    splice would combine real with real and report a decomposition of "occurrence vs magnitude" in
-    which the model never participated — while running, scoring and looking entirely healthy.
-
-    Verified against the shipped run: the E4 arms fed model magnitudes (mean 6.15 on active cells
-    against the real field's 13.07) and model occurrence (560 active against the real 72), so this
-    never fired in the results — but nothing in the harness would have said so.
-    """
-    with pytest.raises(ValueError, match="splice real with real"):
-        _run(feedback_transform=arm, rollout_feedback="teacher_forced")
 
 
 @pytest.mark.parametrize(

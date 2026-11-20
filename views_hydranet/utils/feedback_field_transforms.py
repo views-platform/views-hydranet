@@ -3,9 +3,9 @@
 **Measuring `the feedback realism gap`, not fixing it.** The glossary defines that gap as: the
 model's emitted field is not distributed like real conflict history, so feeding it back moves
 the model off its training input distribution and the error compounds. We have only ever
-sampled the two endpoints — ``rollout_feedback='teacher_forced'`` (a real field: gate AP
-0.30 -> 0.27 at h36) and fully generated (0.30 -> 0.01). These transforms populate the space
-between, so the damage can be decomposed as::
+sampled the two endpoints — a real field fed back (``rollout_feedback='teacher_forced'``, removed
+2026-11-20, #634: gate AP 0.30 -> 0.27 at h36) and fully generated (0.30 -> 0.01). These
+transforms populate the space between, so the damage can be decomposed as::
 
     skill loss = sum_i [ drift in statistic i ] x [ skill's sensitivity to statistic i ]
 
@@ -80,7 +80,7 @@ __all__ = [
 # rather than being an anonymous callable.
 FEEDBACK_TRANSFORMS: dict[str, bool] = {
     "identity": False,  # E1 observer: the model's own field, unchanged
-    "use_real": False,  # F1 self-test: must byte-reproduce rollout_feedback='teacher_forced'
+    "use_real": False,  # F1 self-test: must feed exactly month t of the input
     "wrong_month": True,  # E3: a REAL field from another month - realistic, uninformative
     "occurrence_real_magnitude_model": False,  # E4
     "occurrence_model_magnitude_real": False,  # E4

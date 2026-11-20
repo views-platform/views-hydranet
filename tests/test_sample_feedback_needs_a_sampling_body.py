@@ -47,7 +47,7 @@ def test_sampled_feedback_is_refused_for_every_body_that_is_not_a_family(
         HydraNetConfig(**cfg)
 
 
-@pytest.mark.parametrize("feedback", [None, "mean", "teacher_forced"])
+@pytest.mark.parametrize("feedback", [None, "mean"])
 def test_the_other_feedback_settings_are_still_accepted_for_that_body(valid_config_dict, feedback):
     cfg = HydraNetConfig(**_standard(valid_config_dict, rollout_feedback=feedback))
     assert cfg.rollout_feedback == feedback
@@ -70,3 +70,9 @@ def test_sampled_feedback_is_still_accepted_for_a_distribution_body(
 
 # The forecast-time refusal in `HydraNetInference.__init__` stays, for a caller that bypasses the
 # schema with a raw dict. It is tested in tests/distributions/test_rollout_feedback.py.
+
+
+def test_the_removed_teacher_forcing_is_refused_by_the_schema(valid_config_dict):
+    """Removed on 2026-11-20 (#634); the error names the archive tag."""
+    with pytest.raises(ValidationError, match="archive/teacher-forced-2026-11-20"):
+        HydraNetConfig(**_standard(valid_config_dict, rollout_feedback="teacher_forced"))

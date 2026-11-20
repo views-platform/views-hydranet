@@ -96,6 +96,35 @@ def check_reg_activation(name: object) -> None:
     raise ValueError(err_msg)
 
 
+# The values `rollout_feedback` accepts once resolved (None, the default, resolves to one of them
+# at forecast time). 'teacher_forced' fed the real month instead of the forecast; it was removed on
+# 2026-11-20 (issue #634), when the owner decided there will be no more teacher forcing. Kept
+# under the tag below for comparison only: rebuild it from scratch, never restore it.
+ROLLOUT_FEEDBACKS: tuple[str, ...] = ("mean", "sample")
+REMOVED_TEACHER_FORCING_TAG = "archive/teacher-forced-2026-11-20"
+
+
+def check_rollout_feedback(value: object) -> None:
+    """Raise ``ValueError`` unless ``value`` is None (resolved later) or in ROLLOUT_FEEDBACKS.
+
+    The one check, used by the config schema and by the forecast code. Torch-free.
+    """
+    if value is None or value in ROLLOUT_FEEDBACKS:
+        return
+    err_msg = (
+        f"rollout_feedback={value!r} is not accepted. Use None (auto), "
+        f"{', '.join(repr(v) for v in ROLLOUT_FEEDBACKS)}."
+    )
+    if value == "teacher_forced":
+        err_msg += (
+            " 'teacher_forced' was removed on 2026-11-20 (views-hydranet issue #634): there is no"
+            f" teacher forcing. The last code is under the git tag {REMOVED_TEACHER_FORCING_TAG},"
+            " for comparison only."
+        )
+    logger.error(err_msg)
+    raise ValueError(err_msg)
+
+
 # Removed on 2026-11-18 (views-hydranet issue #631): regression losses no config used, and the
 # settings only they read. Each name is added here by the commit that deletes it. Kept under the
 # git tag below for comparison only: a loss wanted again is rebuilt from scratch, not restored.
@@ -375,8 +404,8 @@ class HydraNetConfig(BaseModel):
     # H-SAMPLE (EXP-2/ADR-070): the autoregressive FEEDBACK copy. None (default) = AUTO: resolve
     # 'sample' for a registered family head, 'mean' for a legacy head (HydraNetInference). 'sample'
     # feeds a seeded composition-aware family draw (C-113 bloom mitigation, T=0-neutral); 'mean'
-    # feeds the emit-mean E[y] (historical); 'teacher_forced' feeds the REAL month-t input (EXP-3
-    # oracle, diagnostic only). Only the fed-back copy changes; the scored cube is unchanged.
+    # feeds the emit-mean E[y] (historical). Only the fed-back copy changes; the scored cube is
+    # unchanged. 'teacher_forced' was removed on 2026-11-20 (#634); see check_rollout_feedback.
     rollout_feedback: str | None = Field(default=None)
 
     # 11. Scheduled Sampling (ADR-056): close train/inference gap.
@@ -1725,13 +1754,7 @@ class HydraNetConfig(BaseModel):
             logger.error(err_msg)
             raise ValueError(err_msg)
         # ADR-070: rollout_feedback None = AUTO (resolved to sample/mean at inference by family).
-        if self.rollout_feedback not in (None, "mean", "sample", "teacher_forced"):
-            err_msg = (
-                "rollout_feedback must be None (auto), 'mean', 'sample', or 'teacher_forced'; "
-                f"got {self.rollout_feedback!r}."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        check_rollout_feedback(self.rollout_feedback)
         # ADR-079 §5 condition 3 (#623). 'sample' feeds a random draw from the body back in during
         # a multi-month forecast, so it needs a body that can draw samples: a registered
         # distribution family. `HydraNetInference.__init__` already refuses this pair, but only
