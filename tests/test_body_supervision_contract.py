@@ -20,6 +20,7 @@ import types
 import pytest
 import torch
 
+from tests._body_for import body_for  # noqa: E402
 from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
 
 _H, _W, _T = 1, 3, 3
@@ -41,9 +42,12 @@ class _ZeroModel(torch.nn.Module):
 
     def forward(self, x: torch.Tensor, hidden):  # noqa: ANN001 - stub
         b = x.shape[0]
-        reg = torch.zeros(b, self.n_reg, self.h, self.w)
+        # A prediction of exactly 0 after the head's softplus: softplus(-1e4) underflows to 0.0 in
+        # float32. The body route (#629) reads the raw output and checks it against `reg`.
+        raw = torch.full((b, self.n_reg, self.h, self.w), -1e4)
+        reg = torch.nn.functional.softplus(raw)
         cls = torch.zeros(b, self.n_cls, self.h, self.w)
-        return types.SimpleNamespace(reg=reg, cls=cls, reg_latent=reg, h_next=hidden)
+        return types.SimpleNamespace(reg=reg, cls=cls, reg_latent=raw, h_next=hidden)
 
 
 def _reg_loss(body_supervision: str, onset_lead: int = 0, cessation_lag: int = 0) -> float:
@@ -55,7 +59,7 @@ def _reg_loss(body_supervision: str, onset_lead: int = 0, cessation_lag: int = 0
         train_tensor=tensor,
         model=_ZeroModel(idx.n_reg, idx.n_cls, _H, _W),
         h=torch.zeros(1, 1, 1, 1),
-        criterion_reg=torch.nn.MSELoss(),
+        criterion_reg=(mse := torch.nn.MSELoss()),
         criterion_class=lambda pred, targ: (pred * 0.0).sum(),
         multitaskloss_instance=lambda losses: losses.sum(),
         idx=idx,
@@ -64,6 +68,7 @@ def _reg_loss(body_supervision: str, onset_lead: int = 0, cessation_lag: int = 0
         onset_lead=onset_lead,
         cessation_lag=cessation_lag,
         event_threshold=0.0,
+        body=body_for(mse),
     )
     return float(result["reg"])
 

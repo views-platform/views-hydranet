@@ -35,6 +35,8 @@ class TestGreenOptimizationGate:
             "features": ["f1", "by_f1"],
             "regression_targets": ["f1"],
             "classification_targets": ["by_f1"],
+            # `train()` builds the mean-squared-error body from this and the real MSELoss below.
+            "loss_reg": "mse",
             "regression_metrics": ["mse"],
             "classification_metrics": ["ap"],
             "time_col": "t",
@@ -68,14 +70,19 @@ class TestGreenOptimizationGate:
                 "Identity column 't' must be stripped before the model sees the tensor."
             )
             pred = torch.ones((1, 1, 1, 1), requires_grad=True)
-            return ModelOutput(reg=pred, cls=pred, h_next=h)
+            # The body route (#629) reads the output from before the activation, as the real
+            # head returns it in training mode, and checks it against `reg` at the first step.
+            return ModelOutput(
+                reg=torch.nn.functional.softplus(pred), cls=pred, h_next=h, reg_latent=pred
+            )
 
         model.forward = mock_forward
 
         optimizer = MagicMock()
         scheduler = MagicMock()
         criterion = (
-            MagicMock(return_value=torch.tensor(0.1, requires_grad=True)),
+            # A real loss: the body wraps it (#629). A mock returned a constant 0.1 here.
+            torch.nn.MSELoss(),
             MagicMock(return_value=torch.tensor(0.1, requires_grad=True)),
             MagicMock(return_value=torch.tensor(0.2, requires_grad=True)),
         )

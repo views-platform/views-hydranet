@@ -639,7 +639,8 @@ def _process_sequence(
     input_noise_dropout: float | None = None,
     input_noise_segment: int | None = None,
     input_noise_channels: list[int] | None = None,
-    body: Body | None = None,
+    *,
+    body: Body,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -649,11 +650,11 @@ def _process_sequence(
     No optimizer, no diagnostics, no data augmentation — just forward + loss.
 
     ``body`` (ADR-079, epic #616) is the object for one of the five bodies in use, as built by
-    ``build_body``. When given, the regression loss is ``body.loss`` on the heads' outputs from
-    BEFORE the activation (``output.reg_latent``), and the body says whether it must be trained
-    on all cells. When ``None`` — an unused body, or a caller passing a bare criterion — the
-    older path below runs unchanged. Everything that reads the ACTIVATED output (feedback,
-    penalties, forensics, QS99) is the same on both paths.
+    ``build_body``; it is required (the older route without a body was deleted by #629). The
+    regression loss is ``body.loss`` on the heads' outputs from BEFORE the activation
+    (``output.reg_latent``), and the body says whether it must be trained on all cells. Everything
+    that reads the ACTIVATED output (feedback, penalties, forensics, QS99) reads the body's one
+    activation of it.
 
     Returns dict with keys: total, reg, cls, h, per_task, task_names, per_step_losses.
     ``per_task`` is the summed 6-vector the balancer combines (body then gate, in
@@ -667,19 +668,12 @@ def _process_sequence(
     step_cls: list[float] = []
     step_total: list[float] = []
 
-    # A latent loss (the ranking loss) reads the pre-activation output — resolve once
-    use_latent = getattr(criterion_reg, "needs_latent", False) is True
-
     # Point-body supervision window (ADR-065 + amend. 2026-07-28): resolve the validated
     # body_supervision config to a concrete cell-timestep set ONCE, here — no `if mode ==` ladder
-    # in the loss loop. It applies only to a POINT body: a latent loss owns its own zero handling
-    # (validated by validate_body_supervision_latent), so it is a no-op there and we keep the
-    # all-cell path (byte-identical for `all`+latent). `event_threshold` from derivation (C-195).
-    if body is not None:
-        # The body states the fact directly; `use_latent` is not consulted for it.
-        apply_body_mask = body_supervision == "active" and not body.requires_all_cells
-    else:
-        apply_body_mask = body_supervision == "active" and not use_latent
+    # in the loss loop. A body that must be trained on all cells (the ranking body) is never
+    # masked; the config also refuses that pair (validate_body_supervision_latent).
+    # `event_threshold` from derivation (C-195).
+    apply_body_mask = body_supervision == "active" and not body.requires_all_cells
     body_mask_full: torch.Tensor | None = (
         resolve_body_supervision(onset_lead, cessation_lag, event_threshold)(
             train_tensor[:, 1:, idx.reg, :, :]
@@ -757,35 +751,33 @@ def _process_sequence(
         t0_input = _attach_static_channels(dyn_input, t0, idx)
 
         output = model(t0_input, h)
-        t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
-        body_step = None
-        if body is not None:
-            if output.reg_latent is None:
-                err_msg = (
-                    "a body reads the heads' outputs from before the activation, which the model "
-                    "returns only in training mode; `output.reg_latent` is None here."
-                )
-                logger.error(err_msg)
-                raise RuntimeError(err_msg)
-            # ADR-079 rule 2: the body receives the raw outputs and applies the activation
-            # itself, once. Every consumer below (loss, feedback, penalties, forensics) reads
-            # this one activation, so the gradient reaches the head through a single node, as it
-            # did when the model's own activation was read. The values are bit-identical to
-            # `output.reg` (tests/body/test_bodies.py).
-            body_step = body.read(output.reg_latent)
-            if i == 0 and not torch.allclose(
-                body_step.activated, output.reg, rtol=1e-4, atol=1e-6, equal_nan=True
-            ):
-                # A model built from one config and a body built from another (a ReLU head with a
-                # softplus body, say) would otherwise train on values the model never reports.
-                err_msg = (
-                    f"{type(body).__name__} activates the heads' outputs differently from the "
-                    "model itself: the model was not built for this body. Training would use "
-                    "values the model does not report at forecast time."
-                )
-                logger.error(err_msg)
-                raise RuntimeError(err_msg)
-            t1_pred = body_step.activated
+        t1_pred_class, h = output.cls, output.h_next
+        if output.reg_latent is None:
+            err_msg = (
+                "a body reads the heads' outputs from before the activation, which the model "
+                "returns only in training mode; `output.reg_latent` is None here."
+            )
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
+        # ADR-079 rule 2: the body receives the raw outputs and applies the activation itself,
+        # once. Every consumer below (loss, feedback, penalties, forensics) reads this one
+        # activation, so the gradient reaches the head through a single node, as it did when the
+        # model's own activation was read. The values are bit-identical to `output.reg`
+        # (tests/body/test_bodies.py).
+        body_step = body.read(output.reg_latent)
+        if i == 0 and not torch.allclose(
+            body_step.activated, output.reg, rtol=1e-4, atol=1e-6, equal_nan=True
+        ):
+            # A model built from one config and a body built from another (a ReLU head with a
+            # softplus body, say) would otherwise train on values the model never reports.
+            err_msg = (
+                f"{type(body).__name__} activates the heads' outputs differently from the "
+                "model itself: the model was not built for this body. Training would use "
+                "values the model does not report at forecast time."
+            )
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
+        t1_pred = body_step.activated
         # EXP-4 (GTF): only compute the fed-back copy when scheduled sampling is active (ε>0), so
         # ε=0 stays byte-identical (branch never runs). A family emits n_params channels/target, so
         # the raw `t1_pred` is shape-mismatched to the n_reg dynamic inputs — collapse it to the
@@ -824,9 +816,9 @@ def _process_sequence(
             else:
                 fed = t1_pred
             if ss_backprop_through_feedback and family is not None:
-                # Only when the wire is connected AND only on a family head. On the legacy point
-                # path `fed = t1_pred` (above) and `t1_pred_for_loss = t1_pred` when `use_latent`
-                # is False, so `fed` IS the regression loss's input. `register_hook` on a non-leaf
+                # Only when the wire is connected AND only on a family head. On the point path
+                # `fed = t1_pred` (above), the activation the body's loss also reads, so `fed` IS
+                # the regression loss's input. `register_hook` on a non-leaf
                 # fires once on the gradient accumulated from ALL consumers, so the clip would
                 # rescale the primary supervised gradient and `fed_grad_max` would report
                 # reg + gate + qs99 + feedback rather than the handoff it is named for. The helper
@@ -841,8 +833,6 @@ def _process_sequence(
                 # rather than trust it.
                 _attach_feedback_grad_clip(fed, ss_feedback_grad_clip, ss_feedback_grad_sink)
             prev_pred = fed if ss_backprop_through_feedback else fed.detach()
-
-        t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
         # step_idx=i tags the within-window timestep so the dossier can split t=0 / early / late
@@ -886,15 +876,15 @@ def _process_sequence(
         qs99_loss = torch.tensor(0.0, device=device)
         struct_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
-            # ADR-067 (C-207): a distribution family emits n_params channels per target; slice this
-            # target's n_params and move them to the last dim ([B,H,W,n_params]) for family.nll.
-            # Every other head keeps one channel per target. Registry-first via FamilyLoss, so
-            # legacy dispatch is untouched.
+            # This target's activated prediction, read by the QS99 term and the structure penalty
+            # below (the loss itself is the body's). ADR-067 (C-207): a distribution family emits
+            # n_params channels per target, moved to the last dim ([B,H,W,n_params]); every other
+            # head keeps one channel per target.
             if isinstance(criterion_reg, FamilyLoss):
                 npar = criterion_reg.n_params
-                pred_j = t1_pred_for_loss[:, j * npar : (j + 1) * npar, :, :].permute(0, 2, 3, 1)
+                pred_j = t1_pred[:, j * npar : (j + 1) * npar, :, :].permute(0, 2, 3, 1)
             else:
-                pred_j = t1_pred_for_loss[:, j, :, :]
+                pred_j = t1_pred[:, j, :, :]
             target_j = y_reg[:, j, :, :]
 
             # C-87: per-target loss weight (1.0 if not configured)
@@ -907,19 +897,7 @@ def _process_sequence(
                 # = per-step positives; `pos_timelines` = the full timeline of ever-active cells
                 # (the decay signal, dossier 15). Resolved once above; here we only index it.
                 mask = body_mask_full[:, i, j]
-                if body_step is not None:
-                    losses_list.append(tw * body_step.loss(target_j, j, mask=mask))
-                elif isinstance(criterion_reg, FamilyLoss):
-                    # C-199: pass the mask as a broadcast weight into family.nll instead of
-                    # boolean-indexing pred_j[mask] — numerically identical for a 0/1 mask, but a
-                    # graph-connected 0 on an all-zero-active batch (not a detached tensor(0.0)).
-                    losses_list.append(
-                        tw * criterion_reg(pred_j, target_j, weight=mask.to(pred_j.dtype))
-                    )
-                elif mask.any():
-                    losses_list.append(tw * criterion_reg(pred_j[mask], target_j[mask]))
-                else:
-                    losses_list.append(torch.tensor(0.0, device=device))
+                losses_list.append(tw * body_step.loss(target_j, j, mask=mask))
 
                 # C-48: QS99 regularizer (distribution-free pinball on mu). Undefined over a family
                 # param vector [.,n_params] (F-1) → skip for FamilyLoss.
@@ -939,10 +917,8 @@ def _process_sequence(
                         (qs99_tau - 1.0) * error,
                     )
                     qs99_loss = qs99_loss + tw * pinball.mean()
-            elif body_step is not None:
-                losses_list.append(tw * body_step.loss(target_j, j))
             else:
-                losses_list.append(tw * criterion_reg(pred_j, target_j))
+                losses_list.append(tw * body_step.loss(target_j, j))
 
             # The structure penalty (2026-10-21 prereg). Accumulated on the full grid, scaled by
             # struct_penalty_weight at the reduction site, byte-identical no-op at 0. Needs a
@@ -1066,32 +1042,19 @@ def _process_sequence(
             pf_terms = []
             pf_step = None
             for j, name in enumerate(idx.reg_names):
-                # `family is not None` guarantees FamilyLoss, which always exposes n_params.
-                # Indexed rather than getattr-with-default: a default of 1 would silently
-                # mis-slice a multi-channel head instead of failing.
-                npar = criterion_reg.n_params
                 # C-87 parity with the main reg loop: the same per-target weight, or the auxiliary
                 # term silently re-weights the targets relative to the primary objective.
                 tw_pf = 1.0 if target_weights is None else target_weights[name]
-                if body is not None:
-                    if pf_out.reg_latent is None:
-                        err_msg = (
-                            "the pushforward loss of a body reads `pf_out.reg_latent`, which the "
-                            "model returns only in training mode; it is None here."
-                        )
-                        logger.error(err_msg)
-                        raise RuntimeError(err_msg)
-                    if pf_step is None:
-                        pf_step = body.read(pf_out.reg_latent)
-                    pf_terms.append(tw_pf * pf_step.loss(y2_reg[:, j], j))
-                else:
-                    pf_terms.append(
-                        tw_pf
-                        * criterion_reg(
-                            pf_out.reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
-                            y2_reg[:, j],
-                        )
+                if pf_out.reg_latent is None:
+                    err_msg = (
+                        "the pushforward loss of a body reads `pf_out.reg_latent`, which the "
+                        "model returns only in training mode; it is None here."
                     )
+                    logger.error(err_msg)
+                    raise RuntimeError(err_msg)
+                if pf_step is None:
+                    pf_step = body.read(pf_out.reg_latent)
+                pf_terms.append(tw_pf * pf_step.loss(y2_reg[:, j], j))
             pf_loss = torch.stack(pf_terms).sum()
 
         losses = torch.stack(losses_list)
@@ -1328,7 +1291,8 @@ def train(
         input_noise_dropout=_input_noise,
         input_noise_segment=config["time_steps"] if _input_noise is not None else None,
         input_noise_channels=_noisable_channels(config) if _input_noise is not None else None,
-        # ADR-079 / epic #616: one object for the body, or None for an unused body.
+        # ADR-079 / epic #616: the body object; required since #629 (`build_body` raises if the
+        # loss was built for another config).
         body=build_body(config, ctx.criterion_reg),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]

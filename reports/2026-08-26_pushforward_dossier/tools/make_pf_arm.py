@@ -457,6 +457,7 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
 
     from views_hydranet.architectures.registry import get_architecture
     from views_hydranet.distributions import get_family
+    from views_hydranet.body.bodies import DistributionBody
     from views_hydranet.distributions.family_loss import FamilyLoss
     from views_hydranet.train.training_engine import _SequenceIndices, _process_sequence
 
@@ -496,6 +497,8 @@ def _verify(dest: Path, *, lessons: int, eps: float, seed: int, variant: str) ->
             model,
             h,
             criterion_reg=FamilyLoss(fam),
+            # The training step needs a body since views-hydranet #629 (2026-11-20).
+            body=DistributionBody(fam_name, fam),
             criterion_class=nn.BCEWithLogitsLoss(),
             multitaskloss_instance=_Sum(),
             idx=idx,

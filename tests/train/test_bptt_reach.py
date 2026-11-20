@@ -41,7 +41,7 @@ import pytest
 torch = pytest.importorskip("torch")
 import torch.nn as nn  # noqa: E402
 
-from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
+from tests._body_for import family_loss_and_body  # noqa: E402
 from views_hydranet.train.training_engine import _process_sequence  # noqa: E402
 
 from .conftest import SumLoss, make_sequence  # noqa: E402
@@ -59,7 +59,7 @@ def _recurrent_reach(T: int, hw: int = 12, seed: int = 3):
         x,
         model,
         h0,
-        criterion_reg=FamilyLoss(family),
+        **family_loss_and_body("nb", family),
         criterion_class=nn.BCEWithLogitsLoss(),
         multitaskloss_instance=SumLoss(),
         idx=idx,
@@ -132,7 +132,7 @@ def test_the_whole_sequence_is_one_graph_not_per_step_backwards():
         x,
         model,
         h0,
-        criterion_reg=FamilyLoss(family),
+        **family_loss_and_body("nb", family),
         criterion_class=nn.BCEWithLogitsLoss(),
         multitaskloss_instance=SumLoss(),
         idx=idx,

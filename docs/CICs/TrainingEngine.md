@@ -167,16 +167,16 @@ types (module docstring `training_engine.py:1`).
   (`training_engine.py:346-347`) and `model.init_hTtime(...)` (`:632`). Treats the architecture as
   opaque.
 - **Bodies (ADR-079, epic #616):** `train()` builds a body object with `build_body(config,
-  criterion_reg)` and passes it to `_process_sequence(body=...)`. With a body, the body reads
-  `output.reg_latent` (the heads' outputs from before the activation), activates it once per step
-  (`body.read`), and supplies the regression loss; every other consumer in the step reads that
-  same activated result. The body states whether it must be trained on all cells. `body=None` —
-  an unused body, or a caller passing a bare criterion — runs the older path unchanged, where
-  `needs_latent` on the criterion decides both things. Since issue #632 (2026-11-20) every
-  `standard` config with `mse` or the exponential ranking loss gets a body, whatever
-  `reg_activation` says, since only softplus is accepted. The older path now serves only the
-  softplus version of the ranking loss and callers passing a bare criterion. With a body, a model
-  that returns no `reg_latent` in training mode is refused at the first step (`RuntimeError`).
+  criterion_reg)` and passes it to `_process_sequence(body=...)`. `body` is a required
+  keyword-only argument: since issue #629 (2026-11-20) there is no route without one, and
+  `build_body` raises for a loss built for another config instead of returning `None`. The body
+  reads `output.reg_latent` (the heads' outputs from before the activation), activates it once
+  per step (`body.read`), and supplies the regression loss; every other consumer in the step
+  (feedback, QS99, the structure penalty, forensics) reads that same activated result. The body
+  states whether it must be trained on all cells. A model that returns no `reg_latent` in training
+  mode is refused at the first step (`RuntimeError`), as is a model whose own activation differs
+  from the body's. The references for "training is unchanged" are `tests/golden/` (one step, every
+  gradient, and the weights after the loop), the last two recorded from the deleted route.
 - **Losses:** consumes `choose_loss` (`:98`), per-target `FamilyLoss` dispatch
   (`:434-441`), the `MultiTaskLoss` balancer (`:516`), and `resolve_family` for the feedback /
   biopsy (`:688`, `:727`, `:743`).

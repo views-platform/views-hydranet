@@ -105,7 +105,6 @@ def test_the_family_rows_build_a_familyloss_over_that_family(
     # The parameters, not just the type: which family, and how many channels it consumes.
     assert type(reg.family) is family_cls
     assert reg.n_params == n_params
-    assert reg.needs_latent is False
 
 
 def test_the_rename_table_covers_every_live_combination():

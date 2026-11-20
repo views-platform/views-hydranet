@@ -10,8 +10,9 @@ cannot be paired wrongly.
 
 Deliberately small:
 
-* Only the five bodies in use have a class. `build_body` returns ``None`` for everything else, and
-  the caller then takes the older path. The unused bodies keep their code untouched.
+* Only the five bodies in use have a class, and since issue #629 they are the only bodies: every
+  config the schema accepts gets one, and `build_body` raises for anything else. The older path
+  through the training loop is gone.
 * A body is a plain object, never an ``nn.Module``. It adds nothing to a model's ``state_dict``,
   so every saved model still loads.
 * Each body wraps the criterion `choose_loss` already built. `y_max`, the ranking loss's own
@@ -272,28 +273,33 @@ class DistributionBody(Body):
         return self.family.nll(params, target, weight=mask.to(params.dtype))
 
 
-def build_body(config: dict, criterion_reg) -> Body | None:
-    """The body for this config, or ``None`` if it is not one of the five in use.
+def build_body(config: dict, criterion_reg) -> Body:
+    """The body for this config. Raises ``ValueError`` if it is not one of the five in use.
 
-    ``criterion_reg`` is what `choose_loss` returned for the same config. ``None`` means the
-    caller keeps the older path, which is how the unused bodies stay exactly as they were.
+    ``criterion_reg`` is what `choose_loss` returned for the same config. The schema refuses every
+    other combination, so the error means the loss was built for a different config (#629).
     """
     distribution = config.get("output_distribution", "standard")
+    loss_name = config.get("loss_reg")
     if distribution in _LIVE_DISTRIBUTIONS:
         if isinstance(criterion_reg, FamilyLoss):
             return DistributionBody(distribution, criterion_reg.family)
-        return None
     # A "standard" head always applies softplus (ADR-079 Rule 1, issue #632); the model refuses
     # any other activation, so the setting need not be read here.
-    if distribution != "standard":
-        return None
-    loss_name = config.get("loss_reg")
-    if loss_name == "mse" and type(criterion_reg) is nn.MSELoss:
-        return MeanSquaredErrorBody(criterion_reg)
-    if (
-        loss_name == "listwise_level"
-        and isinstance(criterion_reg, ListwiseLevelLoss)
-        and criterion_reg.transform == "exp"
-    ):
-        return RankingBody(criterion_reg)
-    return None
+    elif distribution == "standard":
+        if loss_name == "mse" and type(criterion_reg) is nn.MSELoss:
+            return MeanSquaredErrorBody(criterion_reg)
+        if (
+            loss_name == "listwise_level"
+            and isinstance(criterion_reg, ListwiseLevelLoss)
+            and criterion_reg.transform == "exp"
+        ):
+            return RankingBody(criterion_reg)
+    err_msg = (
+        f"No body for output_distribution={distribution!r}, loss_reg={loss_name!r} with the "
+        f"loss {type(criterion_reg).__name__}. The bodies are mean squared error and ranking on "
+        f"'standard', and {sorted(_LIVE_DISTRIBUTIONS)} (ADR-079). The config schema refuses "
+        "every other combination, so the loss was probably built for a different config."
+    )
+    logger.error(err_msg)
+    raise ValueError(err_msg)

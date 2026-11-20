@@ -2,9 +2,10 @@
 
 Lets the training-engine per-target reg loop treat a distribution family like any other reg
 criterion: ``forward(params, target)`` returns the family's mean NLL. ``n_params`` is exposed so
-the loop slices the right per-target channel count (fixing C-207); ``needs_latent = False`` routes
-the ACTIVATED head output (``out.reg``) to the loss — the family owns activation (A-S6), so no
-separate softplus is applied here (unlike the latent-consuming legacy NB losses).
+the loop slices the right per-target channel count (fixing C-207). It receives the ACTIVATED
+parameters: the distribution body (``views_hydranet.body.bodies``) activates the raw head output
+with the family's own activation (A-S6) and hands the result here. (Until #629 a
+``needs_latent = False`` flag routed this on an older path through the training loop.)
 """
 
 from __future__ import annotations
@@ -20,9 +21,6 @@ class FamilyLoss(nn.Module):
     Carries no learnable parameters — a family's ``theta``/``pi`` are head-emitted per cell, not
     loss-owned.
     """
-
-    #: The family consumes the activated head output, not the pre-activation latent.
-    needs_latent: bool = False
 
     def __init__(self, family: DistributionFamily):
         super().__init__()

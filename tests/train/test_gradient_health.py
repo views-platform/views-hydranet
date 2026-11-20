@@ -25,7 +25,7 @@ import pytest
 torch = pytest.importorskip("torch")
 import torch.nn as nn  # noqa: E402
 
-from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
+from tests._body_for import family_loss_and_body  # noqa: E402
 from views_hydranet.train.train_model import make, training_loop  # noqa: E402
 from views_hydranet.train.training_engine import _process_sequence  # noqa: E402
 
@@ -148,7 +148,7 @@ def test_every_parameter_receives_a_finite_non_zero_gradient():
         x,
         model,
         h,
-        criterion_reg=FamilyLoss(family),
+        **family_loss_and_body("nb", family),
         criterion_class=nn.BCEWithLogitsLoss(),
         multitaskloss_instance=SumLoss(),
         idx=idx,
@@ -187,7 +187,7 @@ def test_the_accumulated_gradient_is_finite_and_bounded():
         x,
         model,
         h,
-        criterion_reg=FamilyLoss(family),
+        **family_loss_and_body("nb", family),
         criterion_class=nn.BCEWithLogitsLoss(),
         multitaskloss_instance=SumLoss(),
         idx=idx,

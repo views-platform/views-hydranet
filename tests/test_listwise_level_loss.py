@@ -52,11 +52,10 @@ _Y_MAX = 681.0  # the grid's truth maximum on the S11 population => levels 0..10
 
 
 def _apply_t(s: float, transform: str) -> float:
-    """-> ``T(s)``, in plain Python. ``exp`` is Zhu's own form; ``softplus`` is Bai 2023 Def. 1
-    instantiated at this repo's negative-binomial mean map."""
-    if transform == "exp":
-        return math.exp(s)
-    return math.log1p(math.exp(s))
+    """-> ``T(s)``, in plain Python. Only ``exp``, Zhu's own form, is implemented (the softplus
+    version was removed on 2026-11-20, issue #629)."""
+    assert transform == "exp", transform
+    return math.exp(s)
 
 
 def _reference_loss(
@@ -528,11 +527,12 @@ def test_the_registry_entry_exists_and_declares_its_parameter():
     # ⛔ A raw dict that omits the transform must get the SHIPPED objective, never a KeyError:
     # pre-schema measurement drivers build these dicts by hand.
     assert crit.transform == "exp"
-    other = entry["factory"](
-        {"loss_reg_y_max": _Y_MAX, "loss_reg_listwise_transform": "softplus"},
-        torch.device("cpu"),
-    )
-    assert other.transform == "softplus"
+    # The softplus version was removed (#629): a raw dict naming it is refused, with the tag.
+    with pytest.raises(ValueError, match="archive/listwise-softplus-2026-11-20"):
+        entry["factory"](
+            {"loss_reg_y_max": _Y_MAX, "loss_reg_listwise_transform": "softplus"},
+            torch.device("cpu"),
+        )
 
 
 def test_the_score_reaches_the_loss_pre_activation():
@@ -852,7 +852,8 @@ class _SpyListwiseLevelLoss(ListwiseLevelLoss):
 
 
 def _run_sequence(*, constant_target: float | None = None, seed: int = 0):
-    """One real ``_process_sequence`` pass with the listwise loss as ``criterion_reg``."""
+    """One real ``_process_sequence`` pass with the listwise loss inside the ranking body."""
+    from views_hydranet.body.bodies import RankingBody
     from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
 
     torch.manual_seed(seed)
@@ -872,6 +873,7 @@ def _run_sequence(*, constant_target: float | None = None, seed: int = 0):
         idx=idx,
         device=torch.device("cpu"),
         event_threshold=0.0,
+        body=RankingBody(crit),
     )
     return res, crit, model
 
@@ -883,7 +885,8 @@ def test_the_dispatcher_needs_no_fourth_branch_the_score_rides_the_point_path():
     `training_engine.py:916-923` — the one thing `ADR-067`'s seam exists to avoid. It does not:
     the legacy `else` branch already slices **one channel per target** and hands the criterion
     `[B, H, W]`, which IS the `n_params = 1` score. ⇒ **The dispatcher is not widened**, and
-    nothing in `ADR-067`'s registry is touched.
+    nothing in `ADR-067`'s registry is touched. (*Since #629* the ranking body does the slicing;
+    the criterion still receives `[B, H, W]`.)
     """
     res, crit, _ = _run_sequence()
     assert crit.seen_shapes, "the criterion was never called — the loss is not wired at all"
@@ -895,13 +898,13 @@ def test_the_dispatcher_needs_no_fourth_branch_the_score_rides_the_point_path():
 
 
 def test_the_score_reaches_the_criterion_before_the_activation_on_the_real_path():
-    """⛔ `needs_latent = True` must actually route `reg_latent`. The stub's `reg` is
-    `relu(latent)`, so if the dispatcher handed over the ACTIVATED field the criterion would never
-    see a negative score — and a score clamped at 0 is the `tie@0` defect of `02 §5`, which is the
-    whole reason B is being tried."""
+    """⛔ The ranking body must hand the criterion `reg_latent` (until #629 the loss's
+    `needs_latent` routed it). The stub's `reg` is `softplus(latent)`, so if the ACTIVATED field
+    were handed over the criterion would never see a negative score — and a ReLU-clamped score is
+    the `tie@0` defect of `02 §5`, which is the whole reason B is being tried."""
     _, crit, _ = _run_sequence()
     assert crit.saw_a_negative_score, (
-        "every score the criterion saw was >= 0, so it is being fed the ReLU-activated field "
+        "every score the criterion saw was >= 0, so it is being fed the activated field "
         "instead of reg_latent — half the ordering information is clamped into a tie block"
     )
 
@@ -944,8 +947,8 @@ def test_the_objective_is_shift_invariant_under_exp_which_no_magnitude_loss_is()
     ⚠️ **Scoped to `transform='exp'` on 2026-11-12.** It is a property of that transformation, not
     of the objective: `Bai2023_RegressionCompatibleListwise` Prop. 1 shows `T = exp` reduces to
     `SoftmaxCE`, and translation invariance is exactly what makes it **incompatible** with a
-    pointwise regression objective (their §4.1). Under `transform='softplus'` it does not hold, by
-    design — see `test_softplus_is_not_shift_invariant_which_is_the_whole_point`.
+    pointwise regression objective (their §4.1). The softplus version, which did not have it, was
+    removed on 2026-11-20 (issue #629).
     """
     crit = ListwiseLevelLoss(y_max=_Y_MAX, transform="exp")
     score = torch.tensor([0.4, -0.7, 2.1, 0.0], dtype=torch.float64)
@@ -1082,75 +1085,10 @@ def test_the_exp_branch_is_the_identity_so_the_shipped_objective_cannot_move():
     )
 
 
-def test_the_softplus_branch_matches_an_independent_transcription():
-    """The new branch is checked against ``_reference_loss`` with ``T = log(1 + e^s)`` substituted
-    in plain Python — the spec, not the module's own arithmetic rearranged."""
-    got = _t_loss(_T_SCORES, "softplus")
-    assert got == pytest.approx(_reference_loss(_T_SCORES, _T_COUNTS, 10, "softplus"), rel=1e-12)
-    # ⛔ The refusing half: the two transformations do NOT agree here, so the check above is
-    # discriminating and not satisfied by any T whatsoever.
-    assert got != pytest.approx(_reference_loss(_T_SCORES, _T_COUNTS, 10, "exp"), rel=1e-6)
-
-
-def test_softplus_is_not_shift_invariant_which_is_the_whole_point():
-    """⭐⭐ The property the transformation exists to break.
-
-    ``Bai2023`` §4.1: a translation-invariant listwise term pins score *differences* only, so its
-    minimum is a whole family of scores and the pointwise objective's minimum is a single point —
-    the two pull apart. Measured here on 2026-11-12, same scores, same truth, one shift of +1:
-
-    ===============  =================
-    transform        \\|Δloss\\| at +1
-    ===============  =================
-    ``exp``          **0.000e+00** (exactly, not approximately)
-    ``softplus``     **4.561e+00**
-    ===============  =================
-
-    ⇒ ``softplus`` reads the score's level, which is the precondition for sharing a minimum with
-    the negative-binomial NLL. ⚠️ Sharing a minimum is **not** demonstrated by this test; only the
-    precondition is. The alignment itself is unproven for the level-indexed form.
-    """
-    base = _t_loss(_T_SCORES, "softplus")
-    shifted = _t_loss([s + 1.0 for s in _T_SCORES], "softplus")
-    assert abs(shifted - base) > 1.0, (
-        "softplus left the loss unchanged under a uniform shift, so it is still reading only the "
-        "score's ORDER and the regression-compatibility argument does not apply to it"
-    )
-    # ⛔ The refusing half: on the very same input, exp is invariant to the bit. A test that could
-    # not tell the two apart would pass for either implementation.
-    assert _t_loss([s + 1.0 for s in _T_SCORES], "exp") == _t_loss(_T_SCORES, "exp")
-
-
-def test_softplus_recovers_exp_in_the_deep_tail_so_it_cannot_pin_the_scale_alone():
-    """⛔⛔ The design constraint this measurement discovered, recorded so it is not rediscovered.
-
-    ``log softplus(s) -> s`` as ``s -> -inf``, so **the softplus objective becomes the exp
-    objective in the deep negative tail** and regains translation invariance there. Measured at
-    scores near −20, which is above the implementation's linear cut-over so the real
-    ``log(softplus(·))`` path is the one running:
-
-    * loss ``9.785997105874`` against ``exp``'s ``9.785996926709`` — equal to 7 decimals
-    * ``\\|Δloss\\|`` under a +1 shift: ``3.079e-07``, against ``4.561e+00`` at ordinary scores
-
-    ⇒ **``ListCE(softplus)`` on its own has a degenerate descent direction**: push every score
-    toward ``-inf`` and the objective relaxes into its translation-invariant limit. It is therefore
-    only meaningful **mixed with a pointwise term** that pins the level — which is exactly Bai's
-    construction, and the reason the ranking arm is ``(1-α)·NB NLL + α·ListCE(softplus)`` rather
-    than the listwise term alone.
-    """
-    tail = [s - 20.0 for s in _T_SCORES]
-    base = _t_loss(tail, "softplus")
-    assert abs(_t_loss([s + 1.0 for s in tail], "softplus") - base) < 1e-5
-    assert base == pytest.approx(_t_loss(tail, "exp"), rel=1e-6)
-
-
-def test_the_deep_tail_carries_a_finite_gradient_under_both_transformations():
-    """``log(log(1 + e^s))`` underflows to ``-inf`` near ``s = -745`` and would put ``nan`` in the
-    gradient. The implementation's linear branch is selected far above that, so the gradient stays
-    finite; measured ``max|g| = 7.040`` under both transformations at ``s ≈ -60``, identical
-    because the linear branch IS the exp branch."""
-    # -800 is below the underflow the docstring names; -60 alone never reaches it, and removing
-    # the linear branch left this test green (guard audit, 2026-11-16).
+def test_the_deep_tail_carries_a_finite_gradient():
+    """Scores near -60 and -800 (below where ``e^s`` underflows in float64) keep a finite,
+    non-zero gradient: the objective is computed in log space and never exponentiates a score.
+    Measured ``max|g| = 7.040`` at ``s ≈ -60``."""
     for transform in TRANSFORMS:
         for offset in (60.0, 800.0):
             crit = ListwiseLevelLoss(y_max=_Y_MAX, transform=transform)
@@ -1177,28 +1115,25 @@ def test_an_unknown_transform_is_refused_at_the_loss_and_at_the_schema(valid_con
         HydraNetConfig(**cfg)
 
 
-def test_the_schema_defaults_the_transform_to_the_shipped_objective(valid_config_dict):
-    """⛔ No existing config changes behaviour. A default of ``'softplus'`` would silently retrain
-    every future ranking arm against a different objective than the one phase 1 published."""
-    assert HydraNetConfig(**valid_config_dict).loss_reg_listwise_transform == "exp"
-    assert set(TRANSFORMS) == {"exp", "softplus"}
-
-
-@pytest.mark.parametrize("other_loss", sorted(set(LOSS_REG_REGISTRY) - {"listwise_level"}))
-def test_the_transform_is_refused_beside_a_loss_that_does_not_read_it(
-    valid_config_dict, other_loss
-):
-    """The same inert-setting signature as `loss_reg_y_max` beside another loss (C-324).
-
-    Every other loss, not only the fixture's: narrowing the refusal to `mse` left a single-case
-    version of this test green (guard audit, 2026-11-16).
-    """
+def test_the_removed_softplus_version_is_refused_with_its_tag_at_both_doors(valid_config_dict):
+    """#629: the softplus version was removed on 2026-11-20. Both doors give the same message."""
+    expected = (
+        "loss_reg_listwise_transform='softplus' is not implemented. Only ['exp'] is implemented "
+        "at present (views-hydranet issue #629). 'softplus' was removed on 2026-11-20 and is "
+        "kept under the git tag archive/listwise-softplus-2026-11-20, for comparison only."
+    )
+    with pytest.raises(ValueError) as at_the_loss:
+        ListwiseLevelLoss(y_max=_Y_MAX, transform="softplus")
+    assert str(at_the_loss.value) == expected
     cfg = dict(valid_config_dict)
-    cfg["loss_reg"] = other_loss
-    for param in LOSS_REG_REGISTRY[other_loss]["params"]:
-        cfg[param] = _REQUIRED_PARAM_STUBS[param]
     cfg["loss_reg_listwise_transform"] = "softplus"
-    with pytest.raises(ValidationError, match="does not read it"):
+    with pytest.raises(ValidationError) as at_the_schema:
         HydraNetConfig(**cfg)
-    cfg["loss_reg_listwise_transform"] = "exp"
-    assert HydraNetConfig(**cfg).loss_reg_listwise_transform == "exp"
+    assert expected in str(at_the_schema.value)
+
+
+def test_the_schema_defaults_the_transform_to_the_shipped_objective(valid_config_dict):
+    """⛔ No existing config changes behaviour: the default is the shipped objective, and since
+    #629 it is the only one."""
+    assert HydraNetConfig(**valid_config_dict).loss_reg_listwise_transform == "exp"
+    assert TRANSFORMS == ("exp",)

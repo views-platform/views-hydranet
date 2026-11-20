@@ -8,7 +8,9 @@ C-48: QS99 tail regularizer (distribution-free pinball)
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+from tests._body_for import body_for
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 
 
@@ -43,6 +45,7 @@ def test_hurdle_masking_reduces_loss_contributors():
         SumReducer(),
         idx,
         torch.device("cpu"),
+        body=body_for(torch.nn.MSELoss()),
         body_supervision="active",
     )
 
@@ -81,6 +84,7 @@ def test_hurdle_none_processes_all_pixels():
         SumReducer(),
         idx,
         torch.device("cpu"),
+        body=body_for(torch.nn.MSELoss()),
     )
 
     # Without hurdle, predictions on zero targets still produce non-zero MSE
@@ -118,6 +122,7 @@ def test_qs99_regularizer_adds_to_loss():
         SumReducer(),
         idx,
         torch.device("cpu"),
+        body=body_for(torch.nn.MSELoss()),
         body_supervision="active",
         qs99_weight=0.0,
     )
@@ -132,6 +137,7 @@ def test_qs99_regularizer_adds_to_loss():
         SumReducer(),
         idx,
         torch.device("cpu"),
+        body=body_for(torch.nn.MSELoss()),
         body_supervision="active",
         qs99_weight=0.1,
         qs99_tau=0.99,
@@ -167,6 +173,7 @@ def test_qs99_disabled_when_no_hurdle():
         SumReducer(),
         idx,
         torch.device("cpu"),
+        body=body_for(torch.nn.MSELoss()),
         qs99_weight=0.0,
     )
 
@@ -179,6 +186,7 @@ def test_qs99_disabled_when_no_hurdle():
         SumReducer(),
         idx,
         torch.device("cpu"),
+        body=body_for(torch.nn.MSELoss()),
         qs99_weight=0.1,
     )
 
@@ -222,6 +230,7 @@ def test_hurdle_masking_mixed_data():
         SumReducer(),
         idx,
         torch.device("cpu"),
+        body=body_for(torch.nn.MSELoss()),
     )
 
     result_hurdle = _process_sequence(
@@ -233,6 +242,7 @@ def test_hurdle_masking_mixed_data():
         SumReducer(),
         idx,
         torch.device("cpu"),
+        body=body_for(torch.nn.MSELoss()),
         body_supervision="active",
     )
 
@@ -265,7 +275,8 @@ def make_tiny_model():
 
         def forward(self, x, h):
             out = self.conv(x)
-            return ModelOutput(reg=out, cls=out, h_next=h)
+            # As the real head: softplus on the output, the raw output for the body route (#629).
+            return ModelOutput(reg=F.softplus(out), cls=out, h_next=h, reg_latent=out)
 
         def init_hTtime(self, hidden_channels, H, W):
             return torch.zeros(1, hidden_channels, H, W)

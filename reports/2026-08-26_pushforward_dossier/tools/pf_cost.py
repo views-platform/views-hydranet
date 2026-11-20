@@ -24,6 +24,7 @@ import torch.nn as nn
 
 from views_hydranet.architectures.registry import get_architecture
 from views_hydranet.distributions import get_family
+from views_hydranet.body.bodies import DistributionBody
 from views_hydranet.distributions.family_loss import FamilyLoss
 from views_hydranet.train.training_engine import _SequenceIndices, _process_sequence
 
@@ -70,6 +71,8 @@ def one(weight: float, *, hw: int, T: int, device: torch.device, detach: bool = 
     out = _process_sequence(
         x, model, h,
         criterion_reg=FamilyLoss(fam), criterion_class=nn.BCEWithLogitsLoss(),
+        # The training step needs a body since views-hydranet #629 (2026-11-20).
+        body=DistributionBody("nb", fam),
         multitaskloss_instance=_Sum(), idx=idx, device=device, family=fam,
         ss_feedback="sample", forecast_composition="soft_gate",
         pushforward_weight=weight, pushforward_detach_state=detach,

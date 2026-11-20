@@ -27,10 +27,6 @@ class DistributionFamily(ABC):
     on this ABC, never on a concrete family (DIP).
     """
 
-    #: Does the training loss consume the pre-activation latent (``reg_latent``) instead of the
-    #: activated reg head? Reuses the repo's existing ``needs_latent`` dispatch convention.
-    needs_latent: bool = False
-
     @property
     @abstractmethod
     def n_params(self) -> int:
