@@ -1,11 +1,47 @@
 # ADR-081: One Field Names the Body
 
-**Status:** Accepted — ⚠️ **PARKED 2026-11-15.** Renumbered from ADR-079 on that date. ADR-079 (the
-definition of a body) was accepted on 2026-11-16. Nothing in this ADR is to be implemented until it
-has been re-read against that definition.
+**Status:** Accepted — implemented 2026-11-20 (issue #633). Renumbered from ADR-079 on 2026-11-15
+and parked that day; re-read against ADR-079 (the definition of a body) and picked up again on
+2026-11-20 by the owner. See *Amendment 2026-11-20* below before reading the rest.
 **Date:** 2026-11-13 · accepted 2026-11-14
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** views-hydranet contributors; views-models roster owners
+
+---
+
+## Amendment 2026-11-20 (#633) — what changed before this ADR was implemented
+
+*What this section gives you: the facts that moved between acceptance and implementation, and the
+two decisions the owner took when picking it up. Where the text below disagrees, this section
+wins.*
+
+**Facts that moved (each checked on `development` on 2026-11-20):**
+
+- The loss registry holds two losses, `mse` and `listwise_level` (issue #631). §4's "ten
+  registry losses with no row" no longer exist.
+- `reg_activation` accepts only softplus, beside a distribution too (issue #632). A `standard` head
+  with no activation set trains softplus. The relu cases in §2 and §5 can no longer be written.
+- `listwise_level` beside a distribution was already refused at config construction. The one
+  silent discard left was `loss_reg: 'mse'` beside a distribution — the 27 configs.
+- The characterization test §5 asks for exists: `tests/test_body_characterization.py`.
+
+**Decisions by the owner on 2026-11-20:**
+
+1. **The naming format stays in full,** `<loss>_<activation>_<emit>`, although the loss and
+   activation segments are redundant on the distribution rows today. The loss segment is a real
+   choice in principle (an NB head could be trained by another proper score); the activation
+   segment is fixed by the distribution. Kept for one shape across all five values.
+2. **The old spelling is refused, not translated.** A config that writes `loss_reg`,
+   `output_distribution` or `reg_activation` stops at config construction, and the error names
+   the `body` value to write instead. views-models is told in an issue there; it is not this
+   repository's to edit.
+
+**Saved models (§4, §5 invariant 2).** A training record written before this change has no
+`body`. Its head is rebuilt from the distribution it recorded: a distribution record maps to its
+`nll_softplus_<distribution>` value. A `standard` record maps to the point value its recorded
+`loss_reg` names; a record too old to name its loss is rebuilt as a point head, which is the same
+one-channel softplus head for both point values, and the reload says so in its log. Rebuilding a
+head needs only the head; which loss trained it is provenance, not architecture.
 
 ---
 
@@ -167,15 +203,9 @@ The last three rows do not mention an activation because those configs never use
 distribution is named, the model takes the activation from the distribution and ignores the
 `reg_activation` field, so that field is simply deleted.
 
-Anything not in this list is refused when the config is built. The case to watch is a `standard`
-config with no activation set: it trains with relu, it has no name in the vocabulary, and so it
-stops with an error instead of being renamed into something untrue.
-
-*Out of date since 2026-11-20 (issue #632, ADR-079 Rule 1 as amended):* a `standard` config with
-no activation set now trains softplus, and `reg_activation` accepts only softplus, beside a
-distribution too (a distribution beside `'relu'` is refused, not ignored). This paragraph, the one
-before it and the relu rows below describe the code before that. Re-read them before this ADR is
-picked up again.
+Anything not in this list is refused when the config is built. *(Amended 2026-11-20: since issue
+#632 a `standard` head always trains softplus and `reg_activation` accepts only softplus, so the
+relu case this paragraph used to warn about cannot be written.)*
 
 *Both checked 2026-11-14. The relu default and the distribution override are in
 `HydraBNrecurrentUnet_06_LSTM4.py`, lines 119 to 127. All ten live `standard` configs set
@@ -503,11 +533,10 @@ before and after, so that a disagreement is a bug in the migration and not a new
 - **Green:** an unknown `body` value is rejected at `HydraNetConfig` construction, and the error
   lists every declared value. The listed set must be exactly the set that runs — a value that
   prints but does not train is the defect being prevented. Specified in #602.
-- **Green:** the three-field rename is exercised on every row of the rename table, and
-  `(mse, standard, unset)` and `(mse, standard, 'relu')` are both refused rather than renamed to
-  `mse_softplus_point`.
-- **Beige:** a saved sidecar in the old spelling loads through the rename table and yields the
-  same criterion as before.
+- **Green:** a config in the old spelling is refused, on every row of the rename table, and the
+  error names that row's new value (amended 2026-11-20: refused, not renamed).
+- **Beige:** a saved sidecar in the old spelling loads and rebuilds the same head (amended
+  2026-11-20: see the amendment at the top).
 
 **Failure mode that would trigger reconsideration.** If the declared set grows past roughly ten
 values, or if two rows are ever needed that differ only in one dimension with the others held
