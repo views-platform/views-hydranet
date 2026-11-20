@@ -1030,7 +1030,7 @@ def test_relu_destroys_the_score_ordering_and_softplus_preserves_it_exactly():
     config choice with **no validator behind it** — deliberately, and `/code-review` re-raised it
     on 2026-11-12. Three reasons it stays a choice: `C-411` already counts ~50 validators and 15
     `reject_*` guards in `HydraNetConfig`; the **readout** reads `--channel latent` too
-    (`reports/2026-11-10_ranking_head_dossier/tools/score_on_the_grid.py`), so neither training
+    (`score_on_the_grid.py` in the ranking dossier, deleted 2026-11-20, #634), so neither training
     nor measurement is affected, only emission; and a validator would refuse a legitimate arm that
     wants the score and never emits. The constraint is recorded here, as a measurement, and as a
     RED box in `03 §5`'s pre-flight checklist.

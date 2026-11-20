@@ -235,6 +235,13 @@ unrestricted global grid. Two populations, one metric name.
 
 #### ⭐⭐ The score dump is BUILT and PROVEN · 2026-11-10 · 54 s, CPU, no pod
 
+> **Deleted 2026-11-20 (issue #634):** the five teacher-forcing tools named in this document
+> (`score_on_the_grid.py`, `gate_alignment.py`, `embedding_on_the_grid.py`, `head_refit_ceiling.py`,
+> `rho_event_teacher_forced.py`) and their test. Simon decided there will be no more teacher
+> forcing. The last code is under git tag `archive/teacher-forced-2026-11-20` (860095f), for
+> comparison only: rebuild from scratch, never restore. The `results/` files they wrote stay as
+> history.
+
 `tools/score_on_the_grid.py` + `tools/gate_alignment.py`, with
 `results/score_grid_PROVE_GATE_v20261012.npz` and
 `results/gate_alignment_PROVE_GATE_v20261012.out`.
