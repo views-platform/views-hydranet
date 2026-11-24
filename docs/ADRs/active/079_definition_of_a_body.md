@@ -74,7 +74,9 @@ disagree, and when they disagree nothing reports it.
 
 Choosing a body is one decision. The code stores it as four separate pieces, in three different
 files: how many channels the head has, which activation it uses, which loss trains it, and how a
-forecast is computed from it. No single place holds all four.
+forecast is computed from it. No single place holds all four. Ousterhout calls this *information
+leakage*: one design decision written into several modules, so that changing it means changing
+all of them (§5.2; reference in §6).
 
 *Changed 2026-11-20 (issue #633, ADR-081): one setting, `body`, now names the body, and the three
 settings described below are refused. This section describes the code before that.*
@@ -114,6 +116,18 @@ This is what that produces today. Every item was read in the code and in the 37 
 `loss_reg` has 12 allowed values, `output_distribution` has 10 and `reg_activation` has 3. That
 allows 12 × 10 × 3 = 360 combinations. The 37 configs use 5 of them. (Counted on 2026-11-15, with
 the quantile head. Without it: 11 × 9 × 3 = 297.)
+
+*Added 2026-11-24, decided by Simon.* **Unused is not the same as wrong.** The 355 unused
+combinations are of two kinds, and they are treated differently:
+
+- **Wrong:** the parts do not fit. Example: squared error on a two-number NB head, where the loss
+  has no way to use both numbers. These are never added.
+- **Valid but untried:** the parts fit, and nobody has trained it here yet. Example: an NB head
+  trained by another proper scoring rule than its likelihood. These are added as a new `body`
+  value when an experiment needs one (ADR-081 §2). That is a small library change, made on
+  purpose, with an owner and a reason.
+
+So the list of bodies is strict, but it does not make unusual research impossible.
 
 ### Earlier fixes
 
@@ -223,6 +237,7 @@ the code implements, and today that is softplus alone: any other value is refuse
 saying only softplus is implemented. A config that leaves it out gets softplus. The setting
 chooses the activation of a one-output body (mean squared error, ranking); a count distribution
 keeps its own activation within this rule, and the setting must still say softplus.
+*Superseded on 2026-11-20 by issue #633 (ADR-081):* `reg_activation` is no longer a setting. A config that writes it is refused, and the activation is named inside the `body` value.
 
 | body | channels | activation |
 |---|---|---|
@@ -240,7 +255,7 @@ number into the same zero.
 **Rule 2. The loss always receives the body's outputs from before the activation.** A loss that
 needs the values after the activation applies the activation itself. The reason: the activation
 and the loss that depends on it are then written in one place, so the two cannot be combined
-wrongly. The gate is already built this way (ADR-064, the record on the gate's activation).
+wrongly. This is Ousterhout's "bring together if information is shared" (§9.1). The gate is already built this way (ADR-064, the record on the gate's activation).
 
 *Corrected 2026-11-16.* This rule first ended with the sentence "It also means the regression
 head returns its output once and not twice." That sentence was wrong and is removed. About
@@ -393,7 +408,8 @@ This section lists what improves, what it costs, and what this document rules ou
 - The code does not follow this definition yet. Until it does, the code behaves as ADR-063 and the
   three config settings describe. (Rule 1 is followed in the code since issue #632, 2026-11-20:
   a `standard` head always applies softplus, `reg_activation` accepts only softplus, and a saved
-  model trained with ReLU is refused on reload.)
+  model trained with ReLU is refused on reload. Since issue #633 the setting itself is gone; see
+  ADR-081.)
 - No model has been trained with the two building rules in place.
 
 ### Explicitly refused
@@ -405,6 +421,7 @@ This section lists what improves, what it costs, and what this document rules ou
   is not a free choice. It accepts only implemented activations, today softplus alone, and its
   default is softplus. ReLU and leaky ReLU stay refused. Adding a second activation is a new
   decision, recorded here, with its own experiment.
+  *Superseded on 2026-11-20 by issue #633 (ADR-081):* `reg_activation` is no longer a setting. A config that writes it is refused, and the activation is named inside the `body` value. A second activation is now a new `body` value.
 - **The quantile head.** The code contains a further kind of regression head that no config uses:
   one that outputs a set of quantiles of the count. It is to be deleted and not kept. It differs
   too much from the other heads to be worth its cost, and a quantile head is not a promising
@@ -525,3 +542,5 @@ decisions. The items are independent of each other.
   package say "ADR-079" where they mean the record that is now ADR-081.
 
 ---
+
+**Literature** (added 2026-11-23). J. Ousterhout, *A Philosophy of Software Design* (Yaknyam Press), chapter 4 "Modules Should Be Deep", chapter 5 "Information Hiding (and Leakage)", chapter 8 "Pull Complexity Downwards", chapter 9 "Better Together Or Better Apart?" (2018 copyright edition). Section numbers follow the owner's reading copy, `views_blueprints/reading/1_Ousterhout_deep_modules_hiding_split_or_join.pdf` (chapters 4, 5, 9), and the full book in the owner's library (chapter 8).

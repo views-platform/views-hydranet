@@ -30,7 +30,8 @@ wins.*
 1. **The naming format stays in full,** `<loss>_<activation>_<emit>`, although the loss and
    activation segments are redundant on the distribution rows today. The loss segment is a real
    choice in principle (an NB head could be trained by another proper score); the activation
-   segment is fixed by the distribution. Kept for one shape across all five values.
+   segment is fixed by the distribution. Kept for one shape across all five values. This is a
+   deliberate trade-off against Ousterhout's *overexposure* warning; §4 states it.
 2. **The old spelling is refused, not translated.** A config that writes `loss_reg`,
    `output_distribution` or `reg_activation` stops at config construction, and the error names
    the `body` value to write instead. views-models is told in an issue there; it is not this
@@ -172,6 +173,13 @@ losses with no row.
 | `nll_softplus_mixture_nb` | 5 | softplus | mixture-NB likelihood | mixture draws |
 
 **Adding a row is a deliberate act with an owner and a stated reason. It is not a config edit.**
+
+*Added 2026-11-24, decided by Simon.* A combination with no row is one of two kinds. If it is
+**wrong** (its parts do not fit, as in *"Why `listwise_softplus_nb` is not a row"* below), it never
+gets a row. If it is **valid but untried**, it gets a row when an experiment needs it. The list is
+therefore *valid and in use*, not *every valid combination*, and the difference is recorded so
+that a missing row is not read as a judgement that the combination is wrong (ADR-079,
+*"Only 5 of 360 combinations are used"*).
 
 ### Renaming the existing configs
 
@@ -371,6 +379,42 @@ keeps lying. And it makes the answer to *"what does this config train?"* depend 
 named — the reader must now know the rule **and** the loss taxonomy. The vocabulary version deletes
 the branch and the question.
 
+**In the literature (Ousterhout, added 2026-11-23; chapter 8 added 2026-11-24).** The reference
+is in §6.
+
+The main reason is chapter 8, *"Pull Complexity Downwards"*: *"it is more important for a module
+to have a simple interface than a simple implementation."* He warns that configuration parameters
+*"provide an easy excuse to avoid dealing with important issues and pass them on to someone
+else. In many cases, it's difficult or impossible for users or administrators to determine the
+right values for the parameters"* (§8.2). The three settings were that: which loss, activation and
+emit belong together is a fact about the mathematics of the head, which the library knows, and it
+was handed to every config to decide again. 27 of 37 configs got it wrong in the same way. That is
+the shape of the interface producing one error 27 times, not 27 careless researchers.
+
+His test (§8.2) is: *"will users (or higher-level modules) be able to determine a better value
+than we can determine here?"* For the body the answer is no, so the decision moved into the
+library. The same test keeps other settings where they are: which target to forecast, which time
+window, the learning rate. The researcher knows those better than the library can, and pulling
+them down would be the same mistake in the other direction (§8.3, *"Taking it too far"*).
+
+Removing the three settings also removes three of his red flags:
+
+- *Conjoined* settings (§9.8): `loss_reg`, `output_distribution` and `reg_activation` could not be
+  understood one at a time. What a config trained could only be read off all three together, plus
+  the order of the branches in `choose_loss`. His advice is to bring pieces together when they
+  share information and when joining them simplifies the interface (§9.1, §9.2). One `body` value
+  is that join.
+- A *false abstraction* (§4.3): an interface that looks simple but leaves out a detail that
+  matters. The 27 configs looked as if they stated their loss; the detail they left out was that
+  the loss was discarded.
+- *Information leakage* (§5.2): one design decision, which body is trained, was written into the
+  validator, `choose_loss`, the architecture, inference and the sidecar. Since #633 one function
+  reads it, `body_name` in `views_hydranet/body/vocabulary.py`, and the others ask it. The leak
+  also crossed repositories: views-models code that reads `output_distribution` itself (its
+  roster check and its rollout-feedback check, measured by the views-models session on
+  2026-11-22) has to change with this ADR, not only its configs. That is the cost of leakage that
+  Ousterhout describes, paid once.
+
 **Why a closed vocabulary rather than two free fields.** A reasonable objection is that loss and
 emit distribution are two separate ideas and should therefore be two separate fields, with
 something to check that the pair makes sense. The objection fails because **the two are not
@@ -462,6 +506,19 @@ what is refused outright.*
       there. ⇒ **This is the accepted price of the long spelling, not an open question.** The
       spelling is decided in §2 and the reason is the whole point of this ADR: a name that has to
       be looked up elsewhere is what produced the 27 lying configs.
+      ⚠️ **Ousterhout would not do this.** He calls it *overexposure* (§5.7): an interface that
+      makes every user see a choice almost nobody makes. Today `softplus` is the only activation,
+      and `nll` is the only loss for a distribution, so on the three distribution rows those two
+      segments carry nothing a user can change. His advice would be to drop them and let the
+      default be invisible. **We keep them on purpose:** one shape for all five values reads more
+      consistently than two shapes, and a second activation or a second loss for a distribution
+      (the loss segment is a real choice in principle, see the 2026-11-20 amendment) can be added
+      later as a new value without renaming the existing ones. Decided by the owner on
+      2026-11-20, recorded with this reference on 2026-11-23.
+- [ ] **Narrowing is a normal phase of the work, not an admission of failure.** As capability is
+      added, the options fan out; then the combinations that do not fit are ruled out, and the
+      options shrink; then they fan out again. Epic #627 (issues #628 to #633) is a shrinking
+      phase. (Simon's picture, recorded 2026-11-24.)
 - [ ] **The config is left asymmetrical** until the classification head receives the same
       treatment. Recorded, not fixed.
 - [ ] **Ten of the twelve registry losses have no declared row** — `count_mean`, `mae`, `huber`,
@@ -576,3 +633,4 @@ migration.
 narrowing — same class: a validator vocabulary wider than what executes). ADR-003 (declarations over
 inference), ADR-005 (testing), ADR-067 (the strangler fig this completes), ADR-069
 (`forecast_composition`), ADR-073 (emit need not equal train). Risk register: `C-324`.
+Literature: J. Ousterhout, *A Philosophy of Software Design* (Yaknyam Press), chapter 4 "Modules Should Be Deep", chapter 5 "Information Hiding (and Leakage)", chapter 8 "Pull Complexity Downwards", chapter 9 "Better Together Or Better Apart?" (2018 copyright edition). Section numbers follow the owner's reading copy, `views_blueprints/reading/1_Ousterhout_deep_modules_hiding_split_or_join.pdf` (chapters 4, 5, 9), and the full book in the owner's library (chapter 8).
